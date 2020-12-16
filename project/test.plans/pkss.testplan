@@ -1,0 +1,176 @@
+
+
+                 PKSS Functional Verification Test Plan
+                 ----------------------------------------
+
+                             September, 1996
+
+
+1.  Introduction
+
+    This document specifies a test plan for the Private Key Store
+    Server (PKSS) and client API's to be released in DCE 1.2.2.
+
+
+2.  Purpose
+
+    o  Verify that new asymmetric key pairs may be inserted into the
+       PKSS database using the PKSS management client API.
+
+    o  Verify that applications can use the DCE PKSS login client API to
+       obtain users' asymmetric key pairs from the PKSS.
+
+    o  Verify that passwords and/or asymmetric key pairs may be changed
+       using both the login client and management client API's.
+
+    o  Verify that asymmetric key pairs may be deleted using the
+       management client API.
+
+
+3. References
+
+    DCE RFC 68.2:   DCE 1.2.2 Public Key Login -- Functional Specification
+    DCE RFC 94.0:   A Private Key Storage Server for DCE
+
+
+4. Features to be tested
+
+    o  PKSS client API
+
+    o  PKSS management API
+
+    o  PKSS database (insert, retrieve, update, delete)
+
+    Note that as side-effects of these tests, PKSS client/server com-
+    munication (IDL), the ASN.1 translation classes (also used in the
+    certification API documented elsewhere), and all cryptographic
+    functions will also get considerable exercise.
+
+
+5. Approach
+
+   The PKSS is supplied with five functional tests that run under TET
+   and specifically exercise different portions of the API.  All tests
+   begin with a call to sec_pvtkey_pkss_open in order to obtain a handle
+   to use the API, and all tests end with a complementary call to
+   sec_pvtkey_pkss_close to detach from the API.  Most of the tests
+   demonstrate that once inserted, a PKSS client can retrieve a
+   record (that is, an asymmetric key pair) from the PKSS database.
+   Most of the tests also demonstrate that the same record may be
+   deleted.
+
+   o  Module test_pkss_1.cxx is primarily intended to demonstrate that
+      given an asymmetric key pair, the PKSS can store it, retrieve it,
+      and delete it.  It makes the following PKSS API calls:
+
+        sec_pvtkey_pkss_open
+        sec_pvtkey_pkss_store
+        sec_pvtkey_pkss_get
+        sec_pvtkey_pkss_delete
+        sec_pvtkey_pkss_close
+
+   o  Module test_pkss_2.cxx is primarily intended to demonstrate that
+      when requested by a PKSS client, the PKSS server can generate a
+      new asymmetric key pair on the client's behalf, retrieve it, and
+      delete it.  It makes the following PKSS API calls:
+
+        sec_pvtkey_pkss_open
+        sec_pvtkey_pkss_generate
+        sec_pvtkey_pkss_get
+        sec_pvtkey_pkss_delete
+        sec_pvtkey_pkss_close
+
+      Note that test_pkss_2.cxx differs from test_pkss_1.cxx only in who
+      generates the new asymmetric key pair.
+
+   o  Module test_pkss_3.cxx is primarily intended to demonstrate that,
+      after asking the PKSS server to generate a new asymmetric key pair
+      on the client's behalf, using the management API one can:  (1) Change
+      the asymmetric key pair by supplying a new one, and (2) change the
+      asymmetric key pair by requesting that the PKSS server generate one.
+      It also demonstrates that it can retrieve the latest version of the
+      asymmetric key pair and delete it.  It makes the following PKSS API
+      calls:
+
+        sec_pvtkey_pkss_open
+        sec_pvtkey_pkss_generate
+        sec_pvtkey_pkss_update (mgmt client version)
+        sec_pvtkey_pkss_update_generate (mgmt client version)
+        sec_pvtkey_pkss_get
+        sec_pvtkey_pkss_delete
+        sec_pvtkey_pkss_close
+
+   o  Module test_pkss_4.cxx is primarily intended to demonstrate that,
+      after asking the PKSS server to generate a new asymmetric key pair
+      on the client's behalf, using the login client API that client can:
+      (1) Change that client's asymmetric key pair by supplying a new one,
+      and (2) change that client's asymmetric key pair by requesting that
+      the PKSS server generate one.  It also demonstrates that it can re-
+      trieve the latest version of the asymmetric key pair and delete it.
+      It makes the following PKSS API calls:
+
+        sec_pvtkey_pkss_open
+        sec_pvtkey_pkss_generate
+        sec_pvtkey_pkss_update (login client version)
+        sec_pvtkey_pkss_update_generate (login client version)
+        sec_pvtkey_pkss_get
+        sec_pvtkey_pkss_delete
+        sec_pvtkey_pkss_close
+
+      Note that test_pkss_4.cxx differs from test_pkss_3.cxx only in who
+      initiates the asymmetric key pair change requests, either a PKSS
+      login client or a PKSS management client.
+
+   o  Module test_pkss_5a.cxx and test_pkss_5.cxx work in tandem to
+      demonstrate that a PKSS management client can insert a record
+      and a PKSS login client can retrieve the record and modify it
+      by supplying a new asymmetric key pair.
+
+      Module test_pkss_5a.cxx calls:
+
+        sec_pvtkey_pkss_open
+        sec_pvtkey_pkss_store
+        sec_pvtkey_pkss_close
+
+      Module test_pkss_5.cxx calls
+
+        sec_pvtkey_pkss_open
+        sec_pvtkey_pkss_get
+        sec_pvtkey_pkss_update (login client version)
+        sec_pvtkey_pkss_close
+
+
+6. Test Coverage
+
+   We computed approximately 4800+ lines of code was added for PKSS.
+   By inspection of the tests and the code we determined that we covered
+   about 85% of the code.
+
+   The tests exercise all of the RPC's.  We manually inspected (grep
+   through the files) to make sure that all calls are exercised.  All
+   normal paths are tested.
+
+   Some error paths are not explicitly tested because it just is not
+   cost/time effective. For example, we could not easily force errors
+   in the ASN.1 translation classes. If we get errors we return them
+   and branch to function rundown and exit.
+
+
+7. Hardware and Software Requirements
+
+    The tests will be developed and run on the DCE 1.2.2 reference
+    platform.
+
+
+8. Staffing and Schedule
+
+    Mark Heroux (marcoh@lkg.mts.dec.com)
+    Julie Catinella (juliecat@lkg.mts.dec.com)
+
+    Before PKSS submission, the tests as described above were run and
+    ran successfully to completion on the DCE 1.2.2 reference platform.
+    They were included in the initial drop of PKSS software on 8/29/96.
+
+
+
+

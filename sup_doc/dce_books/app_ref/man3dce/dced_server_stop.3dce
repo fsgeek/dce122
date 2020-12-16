@@ -1,0 +1,210 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: dced_server_stop.3dce,v $
+...\" Revision 1.1.4.1  1996/11/18  17:01:39  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  16:57:50  wardr]
+...\"
+...\" Revision 1.1.2.7  1995/05/31  17:06:36  buckler
+...\" 	1.1 edits.
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/05/30  23:05:08  buckler]
+...\" 
+...\" Revision 1.1.2.6  1994/10/20  03:06:37  jshirley
+...\" 	Final edits.
+...\" 	[1994/10/20  03:05:36  jshirley]
+...\" 
+...\" Revision 1.1.2.5  1994/10/18  16:18:24  jshirley
+...\" 	Updated for final.
+...\" 	[1994/10/18  16:11:42  jshirley]
+...\" 
+...\" Revision 1.1.2.4  1994/10/14  18:59:57  hileman
+...\" 	Added status codes.
+...\" 	[1994/10/14  18:59:41  hileman]
+...\" 
+...\" Revision 1.1.2.3  1994/06/13  17:03:01  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  16:47:14  devobj]
+...\" 
+...\" Revision 1.1.2.2  1994/06/01  14:00:32  jshirley
+...\" 	{def,CR9830,R1.1}
+...\" 	Incorporated first review comments.
+...\" 	[1994/06/01  13:59:55  jshirley]
+...\" 
+...\" Revision 1.1.2.1  1994/05/04  01:35:26  jshirley
+...\" 	Created file.
+...\" 	[1994/05/04  01:09:14  jshirley]
+...\" 
+...\" $EndLog$
+.TH dced_server_stop 3dce 
+...\".iX "\*Ldced_server_stop(\|)\*O"
+.SH "Name"
+\*Ldced_server_stop\*O - 
+Stops a DCE-configured server running on a specific host
+.SH "Synopsis"
+.sS
+\*L#include <dce/dced.h>
+.sp .4v
+\*Lvoid dced_server_stop(
+.nL
+	\*Ldced_binding_handle_t \*Vdced_bh\*L,
+.nL
+	\*Luuid_t *\*Vexec_uuid\*L,
+.nL
+	\*Lsrvrexec_stop_method_t \*Vmethod\*L,
+.nL
+	\*Lerror_status_t *\*Vstatus\*L);
+.sE
+.nL
+.ne 1.5i
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vdced_bh\*O"
+Specifies the \*Ldced\*O binding handle for the \*Lsrvrexec\*O service on a
+specific host.
+.LI "\*Vexec_uuid\*O"
+Specifies a UUID that \*Ldced\*O uses to identify the running server.
+If the value input is \*Ldced_g_uuid_all_servers\*O, 
+\*Ldced\*O attempts to stop all the DCE servers running on that host.
+.LI "\*Vmethod\*O"
+Specifies the method \*Ldced\*O uses to stop a server.
+A method is represented by one of the following values:
+.VL
+.LI "\*Lsrvrexec_stop_rpc\*O"
+Uses the \*Lrpc_mgmt_stop_server_listening(\|)\*O routine.
+This is the cleanest way to stop a server, because it waits for
+outstanding remote procedure calls to finish before making the server's
+\*Lrpc_server_listen(\|)\*O routine return.
+.LI "\*Lsrvrexec_stop_soft\*O"
+Uses a ``soft'' local host mechanism (such as the \*LTERM\*O signal in UNIX)
+.LI "\*Lsrvrexec_stop_hard\*O"
+Uses a ``hard'' local host mechanism (such as the \*LKILL\*O signal in UNIX)
+.LI "\*Lsrvrexec_stop_error\*O"
+Uses a mechanism that saves the program state (such as the \*LABORT\*O
+signal in UNIX)
+.LE
+.LE
+.SS "Output"
+.VL
+.LI "\*Vstatus\*O"
+Returns the status code from this routine.  This status code
+indicates whether the routine completed successfully or, if not, why not.
+.LE
+.nL
+.ne 1.5i
+.SH "Description"
+The \*Ldced_server_stop(\|)\*O routine stops DCE-configured servers
+on specific hosts.  When the server is completely stopped and no
+longer a running process, \*Ldced\*O deletes the associated
+execution data it maintained.
+.PP
+Administrators use the \*Ldcecp\*O operations \*Lserver create\*O and 
+\*Lserver start\*O to configure and start a server, and
+management applications use the associated \*Ldced_server_create(\|)\*O and
+\*Ldced_server_start(\|)\*O routines.
+.PP
+Prior to calling \*Ldced_server_stop(\|)\*O, the application must
+have established a valid \*Ldced\*O binding handle to the \*Lsrvrexec\*O
+service by calling either \*Ldced_binding_create(\|)\*O or 
+\*Ldced_binding_from_rpc_binding(\|)\*O.
+.nL
+.ne 1.5i
+.SH "Cautions"
+Using the value \*Ldced_g_uuid_all_servers\*O for the \*Vexec_uuid\*O
+parameter causes \*Ldced\*O to shutdown all servers \*Eincluding itself\*O.
+.nL
+.ne 1.5i
+.SH "Examples"
+The following example obtains \*Ldced\*O binding handles to the server
+configuration and execution services of \*Ldced\*O on the host \*Lpatrick\*O.
+The example then checks to see if the server is running by seeing if
+\*Ldced\*O has a UUID and entry for the executing server.
+However, the server may be in the process of starting up or stopping, 
+so the example also checks to be sure the instance UUID of the running
+server matches the UUID of the configuration for that server.  
+If there is a match, the server is running.
+Finally, the example stops the server by calling \*Ldced_server_stop(\|)\*O 
+with the \*Lsrvrexec_stop_rpc\*O parameter.
+.ps 11
+.vs 13
+.oS
+dced_binding_handle_t conf_bh, exec_bh;
+dced_string_t         server_name;
+void                  *data;
+server_t              *exec_ptr;
+uuid_t                srvrconf_id, srvrexec_id;
+error_status_t        status;
+ .
+ .
+ .
+dced_binding_create("srvrconf@hosts/patrick",
+                    dced_c_binding_syntax_default, 
+                    &conf_bh, 
+                    &status);
+.nL
+.ne 6
+dced_binding_create("srvrexec@hosts/patrick", 
+                    dced_c_binding_syntax_default, 
+                    &exec_bh, 
+                    &status);
+    /* is server running? */
+dced_inq_id(exec_bh, server_name, &srvrexec_id, &status);
+    /* also check to be sure server is not coming up or going down */
+dced_object_read(exec_bh, &srvrexec_id, &data, &status);
+exec_ptr = (server_t*)data;
+dced_inq_id(conf_bh, server_name, &srvrconf_id, &status);
+if(uuid_equal(&srvrconf_id, 
+              &exec_ptr->exec_data.tagged_union.running_data.instance,
+              &status) ) {
+    dced_server_stop(exec_bh, &srvrexec_id, srvrexec_stop_rpc, &status);
+}
+dced_objects_release(exec_bh, 1, data, &status);
+dced_binding_free(conf_bh, &status);
+dced_binding_free(exec_bh, &status);
+.oE
+.ps 12
+.vs 14
+.SH "Errors"
+.PP
+The following describes a partial list of errors that might be returned.
+Refer to the \*(Tg for complete descriptions of all error
+messages.
+.VL
+.LI "\*Lerror_status_ok\*O"
+.LI "\*Ldced_s_bad_binding\*O"
+.LI "\*Ldced_s_no_support\*O"
+.LI "\*Ldced_s_not_found\*O"
+.LI "\*Lrpc_s_binding_incomplete\*O"
+.LI "\*Lrpc_s_comm_failure\*O"
+.LI "\*Lrpc_s_invalid_binding\*O"
+.LI "\*Lrpc_s_mgmt_op_disallowed\*O"
+.LI "\*Lrpc_s_unknown_if\*O"
+.LI "\*Lrpc_s_wrong_kind_of_binding\*O"
+.LI "\*Lsec_acl_invalid_permission\*O"
+.LI "\*Luuid_s_bad_version\*O"
+.LE
+.nL
+.ne 1.5i
+.SH "Related Information"
+\*Ldcecp\*O Objects:
+\*Lserver(8dce)\*O.
+.PP
+.ad l
+Functions:
+\*Ldced_binding_create(3dce)\*O,
+\*Ldced_binding_from_rpc_binding(3dce)\*O,
+\*Ldced_server_create(3dce)\*O
+\*Ldced_server_start(3dce)\*O,
+\*Lrpc_mgmt_stop_server_listening(3rpc)\*O.
+.ad b
+.PP
+Books:
+\*(Dg.

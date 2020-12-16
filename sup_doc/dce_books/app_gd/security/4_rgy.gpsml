@@ -1,0 +1,573 @@
+...\"
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE in the
+...\" src directory for the full copyright text.
+...\"
+...\"
+...\" HISTORY 
+...\" $Log: 4_rgy.gpsml,v $
+...\" Revision 1.1.8.1  1996/03/27  14:03:54  wardr
+...\" 	{edit R1.2.1}
+...\" 	More Release Edits
+...\" 	[1996/03/27  14:03:27  wardr]
+...\"
+...\" Revision 1.1.6.8  1995/06/07  14:39:44  rcb
+...\" 	PRENTICE HALL reformat; final edits and changes
+...\" 	[1995/06/05  19:59:29  rcb]
+...\" 
+...\" 	PRENTICE HALL reformat
+...\" 	[1995/05/10  14:34:37  rcb]
+...\" 
+...\" 	incorporated 1.1 edits
+...\" 	[1995/05/10  14:16:01  rcb]
+...\" 
+...\" Revision 1.1.6.7  1994/05/17  17:14:05  jshirley
+...\" 	SGML conversion edits.
+...\" 	[1994/05/17  17:13:49  jshirley]
+...\" 
+...\" Revision 1.1.6.6  1994/04/27  22:03:28  grinham
+...\" 	Changes made:  Add summary of new routine
+...\" 	sec_rgy_pgo_get_by_eff_unix_num()
+...\" 	File name:     src/dce_books/app_gd/security/4_rgy.gpsml
+...\" 	Change Request Number:  10415
+...\" 	[1994/04/27  22:02:37  grinham]
+...\" 
+...\" Revision 1.1.6.5  1993/02/22  21:56:01  millette
+...\" 	Bug 7275: 1.0.2 review corrections
+...\" 	[1993/02/22  21:54:09  millette]
+...\" 
+...\" Revision 1.1.6.4  1993/01/28  18:46:06  cjd
+...\" 	Embedded copyright notice
+...\" 	[1993/01/28  18:07:02  cjd]
+...\" 
+...\" Revision 1.1.6.3  1992/12/11  22:31:38  millette
+...\" 	Bug 6401: Document missing APIs
+...\" 	[1992/12/11  22:29:40  millette]
+...\" 
+...\" Revision 1.1.6.2  1992/11/20  20:00:25  weir
+...\" 	Moved into 1.0.2doc tree
+...\" 	[1992/11/20  19:50:21  weir]
+...\" 
+...\" Revision 1.1.4.5  1992/11/11  23:52:47  buckler
+...\" 	Corrected index entries
+...\" 	[1992/11/11  22:58:06  buckler]
+...\" 
+...\" Revision 1.1.4.4  1992/10/10  15:50:20  casey
+...\" 	Index changes for PH
+...\" 	[1992/10/10  15:36:50  casey]
+...\" 
+...\" Revision 1.1.4.3  1992/10/09  15:17:45  lmk
+...\" 	Prentice-Hall edits only
+...\" 	[1992/10/09  15:14:30  lmk]
+...\" 
+...\" Revision 1.1.4.2  1992/09/11  21:04:44  lmk
+...\" 	Prentice-Hall edits only
+...\" 	[1992/09/11  20:59:31  lmk]
+...\" 
+...\" Revision 1.1.2.2  1992/05/07  14:57:34  millette
+...\" 	Bug 2769:  Miscellaneous editorial corrections.  Not marked
+...\" 	with change bars.
+...\" 	[1992/05/07  14:26:32  millette]
+...\" 
+...\" Revision 1.1  1992/01/29  16:08:26  damon
+...\" 	Initial revision
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc.  ALL RIGHTS RESERVED 
+.H 1 "The Registry API"
+.P
+.iX "API" "registry"
+.ix "registry" "API"
+This chapter describes the registry API. Like the other security APIs,
+this one provides a simpler binding mechanism than the standard RPC
+handle structure.  It includes facilities for creating and maintaining
+the registry database.  Applications that run in the default DCE registry
+environment (that is, those that assume the presence of the default
+registry tools and servers) have no reason to call this API.
+.H 2 "Binding to a Registry Site"
+.iX "registry"
+.P
+Although it is often convenient to speak of the registry database
+in a way that implies that it is a single physical database, the registry
+database is replicated in all but the very smallest cells.  Replication
+reduces network traffic and increases the availability of registry
+data to clients.  
+.P
+.ne 8
+A cell's registry database usually consists of an
+.iX "query site"
+.iX "update site"
+update site (also known as the \*Emaster\*O site), and a number of query
+sites (also known as read-only, or \*Eslave\*O sites).  Changes to data
+at the master site are propagated to its slaves by messages sent by
+the master.  Query sites can only satisfy requests for data (for example, \*Lsec_rgy_acct_lookup(\|)\*O, which returns account infor\%mation).  Requests
+for database changes (for example, \*Lsec_\%rgy_\%acct_\%passwd(\|)\*O,
+which changes the password for an account) must be directed to the
+master site; a query site that receives such a request returns an
+error.
+.P
+.iX "registry" "server"
+To submit requests to the registry server, a client must first select
+a site and bind to it.  The client may select a site by name, ask the
+DCE Directory Service to bind to the master site, 
+or select an arbitrary site.  
+In addition, a client may select a cell and bind to a registry site 
+in that cell.
+.P
+The registry API enables a client to communicate with the registry
+server via a specified authentication protocol, at a specified protection
+level, and using a specified authorization protocol.  For instance,
+a developer may decide that the protection level for communicating
+with an update site should be higher (that is, more secure) than that
+for a query site; that is, the developer may feel that, on the one hand, the
+relatively infrequent changes to registry data should be done in a
+highly secure manner and that, on the other hand, authentication overhead
+should be reduced for the more frequent requests for registry data.
+The registry API accommodates these varying needs.
+.P
+.iX "calls" "registry server"
+The following calls bind a client to a registry server in preparation
+for registry operations.  The argument list of these calls enables
+an application to specify the authentication protocol, the protection
+level, and the authorization protocol to be used:
+.ML
+.LI
+\*Lsec_rgy_site_bind(\|)\*O
+.P
+Binds to a specified
+site
+.LI
+\*Lsec_rgy_site_bind_update(\|)\*O
+.P
+Binds to the
+update site
+.LI
+\*Lsec_rgy_site_bind_query(\|)\*O
+.P
+Binds to any
+query site  
+.LI
+\*Lsec_rgy_cell_bind(\|)\*O
+.P
+Binds to any registry site in a specified cell 
+.LI
+.ne 4
+\*Lsec_rgy_site_binding_get_info(\|)\*O
+.P
+Extracts
+the registry site name and security information from the binding handle
+.LE
+.P
+The following calls are similar to the binding calls just described,
+except that an application cannot specify security information.  By
+default,  however, the following calls use DCE shared-secret authentication, the packet-integrity level of protection, and DCE authorization.
+.ML
+.LI
+\*Lsec_rgy_site_open(\|)\*O
+.P
+Binds to the specified
+site
+.LI
+\*Lsec_rgy_site_open_update(\|)\*O
+.P
+Binds to any
+update site
+.LI
+\*Lsec_rgy_site_open_query(\|)\*O
+.P
+Binds to any
+query site
+.LI
+\*Lsec_rgy_site_get(\|)\*O
+.P
+Gets the registry
+site name from the binding handle
+.LE
+.P
+The following calls provide miscellaneous binding management functionality:
+.ML
+.LI
+\*Lsec_rgy_site_close(\|)\*O
+.P
+Terminates binding
+to a registry site and frees resources associated with this binding  
+.LI
+\*Lsec_rgy_site_is_readonly(\|)\*O
+.P
+Tests whether
+a bound site is an update or query site
+.LE
+.H 2 "The Registry Database"
+.iX "registry"
+.P
+The registry database comprises three container objects:
+.ML
+.LI
+\*Lprincipal\*O
+.P
+Contains principal names; each
+name is associated with account information that is also specified
+here (for example, the name of the primary group)
+.LI
+\*Lgroup\*O
+.P
+Contains groups and the names of
+their member principals
+.LI
+\*Lorganization\*O
+.P
+Contains organizations and
+the names of their member principals
+.LE
+.P
+.iX "name" "domain"
+These three objects are referred to as \*Ename domains\*O, and each member
+of a domain is referred to as a \*EPGO item\*O.
+Principal items are contained in the principal
+domain,  groups in the group domain, and organizations in the organization
+domain.  A principal may have a name such as\*L /rd/writers/tom\*O,
+from which you might infer that \*Ltom\*O is a member of the group \*Lwriters\*O and the organization \*Lrd\*O.  However, this is not the
+case because the name\*L /rd/writers/tom\*O only indicates that \*Ltom\*O
+and the data corresponding to the account of this principal (if any)
+reside in \*L/rd/writers\*O in the principal domain.  There may
+also be a group named \*L/rd/writers\*O in the group domain, but
+the principal \*Ltom\*O is not a member unless he is explicitly
+named in the group \*L/rd/writers\*O in the group domain.
+.P
+Each PGO item consists of a print string name, a UUID, and a UNIX number
+(for compatibility with UNIX system security interfaces).  For various
+administrative reasons, it is frequently convenient to be able to
+refer to a PGO item by more than one name.  Consequently, some PGO
+items are aliases for other items.  An alias uses the same UUID and
+UNIX number as the PGO item to which it refers, but contains only
+a pointer to that item.
+.P
+The registry also contains the 
+\*L rgy\*O object, which describes registry properties and
+policies, and organization policies.
+.H 3 "Creating and Maintaining PGO Items"
+.P
+.iX "registry" "database calls and interfaces"
+.iX "calls" "registry database"
+.iX "interface" "registry database"
+The PGO items in the registry database are created and maintained
+with routines that are prefixed with \*Lsec_rgy_pgo_\*O.  The contents
+of a PGO item vary with the domain.  If the domain is \*Lgroup\*O
+or \*Lorganization\*O, the contents are the membership list of
+principal names.  If the domain is \*Lprincipal\*O, the contents
+are the data corresponding to the registry account using that name.
+.P
+The \*Lsec_rgy_pgo_\*V*\*L(\|)\*O interface contains the following calls
+for maintaining the PGO trees:
+.ML
+.LI
+\*Lsec_rgy_pgo_add(\|)\*O
+.P
+Adds a PGO item
+.LI
+\*Lsec_rgy_pgo_delete(\|)\*O
+.P
+Deletes a PGO item
+.LI
+\*Lsec_rgy_pgo_rename(\|)\*O
+.P
+Changes the name
+of a PGO item
+.LI
+\*Lsec_rgy_pgo_replace(\|)\*O
+.P
+Replaces information
+corresponding to the specified PGO item
+.LE
+.P
+The \*Lsec_rgy_pgo_\*V*\*L(\|)\*O interface contains the following calls for
+maintaining PGO membership lists:
+.ML
+.LI
+\*Lsec_rgy_pgo_add_member(\|)\*O
+.P
+Adds a member
+to a group or organization membership list
+.LI
+\*Lsec_rgy_pgo_delete_member(\|)\*O
+.P
+Deletes a
+member from a group or organization membership list
+.LI
+\*Lsec_rgy_pgo_get_members(\|)\*O
+.P
+Returns a list
+of members of a group or organization
+.LI
+\*Lsec_rgy_pgo_is_member(\|)\*O
+.P
+Tests whether
+a principal is a member of a specified group or organization
+.LE
+.P
+.ne 6
+The \*Lsec_rgy_pgo_\*V*\*L(\|)\*O interface contains
+the following calls for retrieving PGO item data:
+.ML
+.LI
+\*Lsec_rgy_pgo_get_by_id(\|)\*O
+.P
+Returns the PGO
+item with the specified UUID
+.LI
+\*Lsec_rgy_pgo_get_by_eff_unix_num(\|)\*O
+.P
+Returns the PGO item with the specified effective UNIX number
+.LI
+\*Lsec_rgy_pgo_get_by_name(\|)\*O
+.P
+Returns the
+PGO item with the specified name
+.LI
+\*Lsec_rgy_pgo_get_by_unix_num(\|)\*O
+.P
+Returns
+the PGO item with the specified UNIX number
+.LI
+\*Lsec_rgy_pgo_get_next(\|)\*O
+.P
+Returns the PGO
+item that follows the last PGO item returned
+.LE
+.P
+The \*Lsec_rgy_pgo_\*V*\*L(\|)\*O interface
+also contains routines that convert PGO item specifiers,
+as follows:
+.ML
+.LI
+\*Lsec_rgy_pgo_id_to_name(\|)\*O
+.LI
+\*Lsec_rgy_pgo_id_to_unix_num(\|)\*O
+.LI
+\*Lsec_rgy_pgo_name_to_id(\|)\*O
+.LI
+\*Lsec_rgy_pgo_unix_num_to_id(\|)\*O
+.LI
+\*Lsec_rgy_pgo_name_to_unix_num(\|)\*O
+.LI
+\*Lsec_rgy_pgo_unix_num_to_name(\|)\*O
+.LE
+.H 3 "Creating and Maintaining Accounts"
+.P
+.iX "registry" "database accounts"
+.iX "accounts, registry database"
+The \*Vlogin-name\*O field of an account contains a principal name,
+a primary group name, and an organization name.  The account may also
+contain a project list (also known as a  \*Econcurrent group set\*O) that
+specifies all the groups to which the principal corresponding to the
+account belongs, but the \*Vlogin-name\*O field itself specifies only one
+group name.
+.P
+.ne 6
+An account can be added to the registry database only when all of its
+constituent PGO items are established.  For instance, to create an
+account with the principal name \*Ltom\*O, the group name \*Lwriters\*O,
+and the organization name \*Lrd\*O, all three names must exist
+as individual PGO items in the database; and the \*Lwriters\*O
+group and the \*Lrd \*O organization must specify that \*Ltom\*O
+is a member.
+.P
+When an account is created with \*Lsec_rgy_acct_add(\|)\*O (and if
+a project list is enabled for the new account), the call scans the
+groups in the registry and creates a project list containing all the
+groups in which the principal name appears.  Subsequently, the project
+list may be modified with the \*Lsec_rgy_pgo_add_member(\|)\*O and \*Lsec_rgy_pgo_delete_member(\|)\*O calls.
+.P
+The following calls create and maintain accounts:
+.ML
+.LI
+\*Lsec_rgy_acct_add(\|)\*O
+.P
+Adds an account to
+an existing principal item
+.LI
+\*Lsec_rgy_acct_delete(\|)\*O
+.P
+Deletes an account,
+leaving the principal item
+.LI
+\*Lsec_rgy_acct_rename(\|)\*O
+.P
+Changes an account
+login name, perhaps moving the account to a different principal item
+.LE
+.P
+The following calls return the information in an account:
+.ML
+.LI
+\*Lsec_rgy_acct_get_projlist(\|)\*O
+.P
+Returns the
+project list for an account
+.LI
+\*Lsec_rgy_acct_lookup(\|)\*O
+.P
+Returns all the
+account data
+.LE
+.P
+The following calls modify the information in an account:
+.ML
+.LI
+\*Lsec_rgy_acct_passwd(\|)\*O
+.P
+Changes an account
+password
+.LI
+\*Lsec_rgy_acct_replace_all(\|)\*O
+.P
+Replaces all
+of an account's data
+.LI
+.ne 3
+\*Lsec_rgy_acct_admin_replace(\|)\*O
+.P
+Replaces
+only the administrative account data
+.LI
+\*Lsec_rgy_acct_user_replace(\|)\*O
+.P
+Replaces
+only the account data that is accessible to the user of the account
+.LE
+.H 3 "Registry Properties and Policies"
+.iX "registry"
+.P
+The following subsections outline some registry API parameters that affect the
+cell as a whole, and the routines that enable an application to retrieve
+and set values for them.
+.H 4 "Registry Properties"
+.P
+Several registry parameters and flags affect all accounts in the registry.
+These registry properties include the following:
+.ML
+.LI
+The version number of the registry software used to
+create and read the registry
+.LI
+The name and UUID of the cell associated with the
+registry, and whether the current registry site is an update site or
+a query site
+.LI
+Minimum and default lifetimes for certificates of
+identity issued to principals
+.LI
+Bounds on the UNIX numbers used for principals, and
+whether the UUIDs of principals also contain embedded UNIX numbers
+.LE
+.P
+The routines associated with this parameter set are
+.ML
+.LI
+\*Lsec_rgy_properties_get_info(\|)\*O
+.LI
+\*Lsec_rgy_properties_set_info(\|)\*O
+.LE
+.H 4 "The Registry Authentication Policy"
+.P
+Another set of parameters affecting all principals is the registry
+authentication policy.  This set only controls the maximum lifetime
+of certificates of identity, upon first issue and renewal.  Accounts
+also have authentication policies, and the policy in effect for any
+principal is the most restrictive combination of the registry policy
+and the policy for a principal's account.  The associated routines
+are
+.ML
+.LI
+\*Lsec_rgy_auth_plcy_get_info(\|)\*O
+.LI
+\*Lsec_rgy_auth_plcy_get_effective(\|)\*O
+.LI
+\*Lsec_rgy_auth_plcy_set_info(\|)\*O
+.LE
+.H 4 "Organization Policies"
+.P
+Another parameter set controls the set of accounts of principals that
+are members of an organization.  These parameters control the lifetime
+and length of passwords, as well as the set of characters from which
+passwords may be composed.  This parameter set also specifies the default
+lifespan of accounts associated with the organization.  The routines
+associated with this parameter set are
+.ML
+.LI
+\*Lsec_rgy_plcy_get_info(\|)\*O
+.LI
+\*Lsec_rgy_plcy_get_effective(\|)\*O
+.LI
+\*Lsec_rgy_plcy_set_info(\|)\*O
+.LE 
+.nL
+.ne 15
+.H 3 "Routines to Return UNIX Structures"
+.P
+The registry API provides calls to obtain registry entries in a 
+UNIX compatible structure.  These APIs return account and group entries 
+similar to the \*Lgetpwnam\*O, \*Lgetgrnam\*O, \*Lgetpwuid\*O, 
+and \*Lgetgrid\*O UNIX library routines.  
+These APIs, which can be called by the corresponding UNIX library 
+routines to ensure compatibility with UNIX programs, are
+.ML
+.LI
+\*Lsec_rgy_unix_getpwnam(\|)\*O
+.P
+Returns a UNIX compatible password entry for an 
+account specified by name
+.LI
+\*Lsec_rgy_unix_getgrnam(\|)\*O 
+.P
+Returns a UNIX compatible group entry for an account
+associated with a specified group name
+.LI
+\*Lsec_rgy_unix_getpwuid(\|)\*O 
+.P
+Returns a UNIX compatible
+password entry for an account specified by UNIX ID
+.LI
+\*Lsec_rgy_unix_getgrgid(\|)\*O
+.P
+Returns a UNIX compatible group entry for an account associated with 
+a specified group ID
+.LE
+.H 3 "Miscellaneous Registry Routines"
+.P
+The registry API includes a few miscellaneous routines, as follows:
+.ML
+.LI
+\*Lsec_rgy_login_get_info(\|)\*O
+.P
+Returns login
+information for the specified account.
+.LI
+\*Lsec_rgy_login_get_effective(\|)\*O
+.P
+Applies
+local overrides (if such data is available) to registry account information
+and returns information about which account information fields have
+been overridden 
+.LI
+.ne 7
+\*Lsec_rgy_wait_until_consistent(\|)\*O
+.P
+Blocks
+until all previous database updates have been propagated to all sites.
+This is useful for applications that first bind and write to an update
+site, and then bind to an arbitrary query site and depend upon 
+up-to-date information.
+.nS note
+The \*Lsec_rgy_wait_until_consistent(\|)\*O routine is not available 
+in DCE Release 1.0 Version 1.0.2.
+.nE
+.LI
+\*Lsec_rgy_cursor_reset(\|)\*O
+.P
+Resets the database
+cursor to return the first suitable entry
+.LE

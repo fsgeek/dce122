@@ -1,0 +1,505 @@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+...\" ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+...\" src directory for the full copyright text. 
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: 9.5_audit_api.gpsml,v $
+...\" Revision 1.1.6.1  1996/12/17  19:54:30  damon
+...\" 	Expanded OSF C O P Y R I G H T   N O T I C E
+...\" 	[1996/12/17  19:53:35  damon]
+...\"
+...\" Revision 1.1.4.1  1996/03/27  14:13:28  wardr
+...\" 	{edit R1.2.1}
+...\" 	More Release Edits
+...\" 	[1996/03/27  14:13:03  wardr]
+...\" 
+...\" Revision 1.1.2.1  1995/06/07  14:47:06  rcb
+...\" 	edited 1.1 version, PRENTICE HALL reformat
+...\" 	[1995/06/07  14:46:11  rcb]
+...\" 
+...\" 	PRENTICE HALL reformat
+...\" 	[1995/05/15  18:37:22  rcb]
+...\" 
+...\" 	incorporated 1.1 edits
+...\" 	[1995/05/15  18:25:23  rcb]
+...\" 
+...\" 	CREATED as separate chapter file from 9_audit.gpsml; were separate
+...\" 	chapters but in same file
+...\" 	[1995/03/30  15:16:52  rcb]
+...\" 
+...\" $EndLog$
+...\" 
+.H 1 "Using the Audit API Functions"
+.iX "audit" "APIs"
+.P
+This chapter describes the use of the 
+audit API functions to add audit capability to distributed applications
+and to write audit trail analysis and examination tools.
+.H 2 "Adding Audit Capability to Distributed Applications"
+.iX "audit" "APIs" "adding audit capability to distributed applications"
+To record audit events in an audit trail file,
+the DCE audit API functions must be called in the distributed
+application to perform the following:
+.AL 
+.LI
+Open the audit trail file during the startup of the application.
+.LI
+Initialize the audit records at each code point.
+.LI
+Add event information to the audit records at each code point.
+(This is optional.)
+.LI
+Commit the audit records at each code point.
+.LI
+Close the audit trail file when the application shuts down.
+.LE
+.P
+Note that steps 2, 3, and 4 are repeated in sequence at each code point
+in the distributed applcation.
+.P
+The use of the audit API functions in each of these steps  
+is illustrated with the 
+bank server example introduced in the previous chapter.
+.P
+Five code points are identified in the 
+bank server program: \*Lacct_open(\|)\*O, \*Lacct_close(\|)\*O, 
+\*Lacct_withdraw(\|)\*O, \*Lacct_deposit(\|)\*O, and 
+\*Lacct_transfer(\|)\*O.  Each code point has been assigned an
+event number and defined in the application server's header file as follows:
+.oS
+#define evt_vn_bank_server_acct_open		0x01000000
+#define evt_vn_bank_server_acct_close		0x01000001
+#define evt_vn_bank_server_acct_withdraw	0x01000002
+#define evt_vn_bank_server_acct_deposit		0x01000003
+#define evt_vn_bank_server_acct_transfer	0x01000004
+.oE
+.H 3 "Opening the Audit Trail"
+.iX "audit" "APIs" "opening an audit trail" 
+To open the audit trail file, the main routine of the 
+application server uses the \*Ldce_aud_open(\|)\*O function.
+.iX "audit" "APIs" "\*Ldce_aud_open(\|)\*O"
+With this function call, the audit trail file can be
+.ML
+.LI
+opened for reading or for writing.
+.LI
+directed to the default audit trail file or to a specific file.
+If \*Ldce_aud_open(\|)\*O is called without specifying an audit trail file,
+(by having NULL as the value of the \*Vdescription\*O parameter),
+a default audit trail file is used.  This is the \*Ecentral trail\*O
+file that is accessed by RPC calls to the audit daemon.
+.P
+If an audit trail file is specified in the 
+\*Ldce_aud_open(\|)\*O call, (through the \*Vdescription\*O parameter),
+that file is opened directly by the audit library, bypassing RPCs and the
+audit daemon.
+.LE
+.P
+In the bank server application, the function call is as follows:
+.oS
+dce_aud_open(aud_c_trl_open_write, &audit_file, 
+        evt_vn_bank_server_acct_open, 
+        5, &audit_trail, &status);
+.oE
+In this call, the audit trail file \*Laudit_file\*O is opened for
+writing.
+The third parameter (\*Levt_vn_bank_server_acct_open\*O)
+specifies the lowest event
+number used in the bank server application.  
+The fourth parameter (\*L5\*O) specifies the 
+number of events defined.
+.P
+.ne 2
+The call returns an audit-trail descriptor
+(\*Laudit_trail\*O) that will be used to append audit records to the 
+audit trail file.  
+.H 3 "Initializing the Audit Records"
+.iX "audit" "APIs" "initializing audit records"
+Audit records can be initialized by using the 
+\*Ldce_aud_start_\*V*\*L(\|)\*O functions.
+This function has five variations, and the use of each variation depends
+on the available information about the server.
+In general, if you have the RPC binding information about the server,
+use the \*Ldce_aud_start(\|)\*O function.  If not, use the other four variations
+of this function, depending on the available information.
+The five variations are as follows:
+.ML
+.LI
+\*Ldce_aud_start(\|)\*O
+.P
+For use by DCE RPC-based server applications.
+.iX "audit" "APIs" "\*Ldce_aud_start(\|)\*O"
+.LI
+\*Ldce_aud_start_with_server_binding(\|)\*O
+.P
+For use by DCE RPC-based client applications.
+.iX "audit" "APIs" "\*Ldce_aud_start_with_server_binding(\|)\*O"
+.LI
+\*Ldce_aud_start_with_pac(\|)\*O
+.P
+For use by applications that do not use 
+DCE RPC, but use the DCE authorization model.
+.iX "audit" "APIs" "\*Ldce_aud_start_with_server_pac(\|)\*O"
+.LI
+\*Ldce_aud_start_with_name(\|)\*O
+.P
+For use by applications that use neither DCE RPC nor the DCE authorization
+model.
+.iX "audit" "APIs" "\*Ldce_aud_start_with_name(\|)\*O"
+.LI
+\*Ldce_aud_start_with_uuid(\|)\*O
+.P
+For use by RPC-based applications that know their client's identity in UUID
+form.
+.iX "audit" "APIs" "\*Ldce_aud_start_with_uuid(\|)\*O"
+.LE
+.P
+The \*Ldce_aud_start_\*V*\*L(\|)\*O functions determine if a specified 
+event must be audited based on the subject identity and event outcome that were
+defined for that event by the filters.
+.P
+If the event specifics match the event filters (that is, the event has
+to be audited), these functions return a pointer to an audit record buffer.  
+If it is determined that the event does not need to be audited, a NULL
+pointer is returned, and the application can then discontinue any 
+auditing activity.
+If it cannot be determined whether the event needs to be audited 
+(because the event needs to be audited based on a specific
+outcome(s) but the outcome is
+not yet known) these functions return a non-NULL pointer.
+.P
+When an audit record is initialized, the identification of the audit subject
+(that is, the client of the distributed application) is recorded.
+.P
+You can use the \*Ldce_aud_start_\*V*\*L(\|)\*O functions to specify the amount
+of header information in the audit record. 
+.iX "audit" "APIs" "specifying amount of header information"
+You can specify any or a
+combination of the following:
+.ML
+.LI
+Information on all groups and addresses
+.LI
+Information on groups only
+.LI
+Information on addresses only.
+.LE
+.P
+Using these functions, you can bypass the filter altogether 
+and log the event to the audit trail file 
+or display it on the system console.
+This option is useful for applications whose events require
+unconditional audit actions.
+.P
+In our example, each of the bank server
+routines (\*Lacct_open(\|)\*O, \*Lacct_close(\|)\*O, 
+\*Lacct_withdraw(\|)\*O, \*Lacct_deposit(\|)\*O, \*Lacct_transfer(\|)\*O) 
+will make a \*Ldce_aud_start(\|)\*O function call.
+In the \*Lacct_transfer(\|)\*O routine, the function call is made as follows:
+.oS
+acct_transfer()
+
+dce_aud_start (evt_vn_bank_server_acct_transfer, 
+        h, aud_c_evt_all_info, 
+        aud_c_esl_cond_success, &ard, &status);
+.oE
+where \*Lh\*O points to the RPC binding of the client making the
+call.
+The \*Laud_c_evt_all_info\*O option
+means that all information about the client's groups and addresses 
+are included in the audit record header.
+The \*Laud_c_esl_cond_success\*O
+event outcome means that the event completed successfully.
+.H 3 "Adding Event-Specific Information"
+.iX "audit" "APIs" "adding event-specific information"
+If the \*Ldce_aud_start(\|)\*O function returns an audit record descriptor to the
+audit record buffer (meaning that the event needs to be audited),
+the \*Ldce_aud_put_ev_info(\|)\*O function call can be used to 
+add event-specific information to 
+the tail of the audit record.  
+.iX "audit" "APIs" "\*Ldce_aud_put_ev_info(\|)\*O"
+.P
+.ne 3
+You can opt not to use the \*Ldce_aud_put_ev_info(\|)\*O
+function if the information provided
+by the audit record header is 
+already sufficient for your auditing purposes.
+.P
+If you elect to use this function, it can be called
+one or more times, the order of which is preserved in the audit record.
+.P
+The \*Ldce_aud_put_ev_info(\|)\*O function has two parameters: 
+the \*Vard\*O parameter, which is the pointer to the audit record descriptor,
+and the \*Vinfo\*O parameter, which 
+is a \*Ldce_aud_ev_info_t\*O type data containing
+the event-specific information.  
+The programmer can specify the \*Ldce_aud_ev_info_t\*O data type 
+to include all the audit information that needs to be collected.
+For more information on the formats of the audit record, see the
+\*(Dr.
+.P
+In the \*Lacct_transfer(\|)\*O code point of the bank server example, 
+if you want to record 
+the account numbers of the parties involved in
+the transfer and the amount
+of each transaction, the data type declarations and the function calls
+can be made as follows:
+.iX "audit" "data type"            
+.oS
+dce_aud_ev_info_t info;
+
+/* account numbers and transfer amounts are all unsigned 
+   32-bit integers */
+info.format = aud_c_evt_info_ulong_int;
+
+info.data = acct_from;
+dce_aud_put_ev_info(ard, info, &status);
+info.data = acct_to;
+dce_aud_put_ev_info(ard, info, &status);
+info.data = amount;
+dce_aud_put_ev_info(ard, info, &status);
+.oE
+.H 3 "Committing an Audit Record"
+.iX "audit" "APIs" "committing an audit record"
+.P
+After the header and the optional tail information 
+has been included in the audit record,
+the  \*Ldce_aud_commit(\|)\*O function call is used to write the 
+audit record in the audit trail file.
+.iX "audit" "APIs" "\*Ldce_aud_commit(\|)\*O"
+This function uses the audit trail file previously opened by the
+\*Ldce_aud_open(\|)\*O function.
+.P
+.ne 6
+You can specify one of two options in the way the function writes the 
+audit record in the audit trail file:
+.ML
+.LI
+Return an error status if the storage or logging service is not available
+when an attempt is made to write the audit record.
+This option can be used if the application program can handle write failures
+in the stable storage.
+.LI
+If the storage or logging service is not available, keep on trying
+until the function is able to write to it.
+This option can be used if the audit record must be written to stable storage
+before the routine can proceed safely to another task.
+.LE
+.P
+In the bank server example, the function call can be made as follows:
+.iS
+dce_aud_commit(audit_trail, ard\*L, \*Voptions\*L, \*Vformat\*L, \*Voutcome\*L, &status);
+.iE
+The \*Laudit_trail\*O parameter is the
+trail descriptor returned in the \*Ldce_aud_open(\|)\*O call made earlier.
+The \*Lard\*O parameter is the audit record descriptor returned in the
+\*Ldce_aud_start(\|)\*O call (and used in the \*Ldce_aud_put_ev_info(\|)\*O
+function call).  
+The \*Vformat\*O parameter specifies a format version number of
+the event-specific information.  The initial version number should be zero, 
+and be incremented when the format changes.  For example, the data type used for
+account numbers might change from 32-bit integer to UUID.  The event outcome
+must be provided in this call, even if it has been provided in the
+\*Ldce_aud_start(\|)\*O call made earlier.  If the event outcome (except
+\*Laud_c_esl_cond_unknown\*O) is provided in both calls, the values must
+be the same.
+.H 3 "Closing an Audit Trail File"
+.iX "audit" "APIs" "closing an audit trail file"
+.P
+The audit trail file 
+must be closed using the \*Ldce_aud_close(\|)\*O function 
+when the application shuts down (because of 
+the \*Lrpc_\%mgmt_\%stop_\%server_\%listening(\|)\*O 
+function call or other exceptional conditions).
+.iX "audit" "APIs" "\*Ldce_aud_close(\|)\*O"
+For example, to close the trail,
+the bank server's main program can make the following function
+call: 
+.oS
+dce_aud_close(audit_trail, &status);
+.oE
+This function flushes buffered audit records to stable 
+storage and releases the memory allocated for the trail descriptor.
+.H 2 "Writing Audit Trail Analysis and Examination Tools"
+.iX "audit" "trail file" "writing analysis and examination tools"
+The audit APIs can be used to write audit trail analysis and examination 
+tools that selectively review the following:
+.ML
+.LI
+Events that are invoked by one or more subjects, for example, principals,
+groups, and cells
+.LI
+Events that have a specific outcome
+.LI
+Events that occurred during a specified time period
+.LI
+Events that have specific event IDs
+.LE
+.P
+In its most basic form, an
+audit trail analysis and examination tool must perform five functions:
+.ML
+.LI
+Open an audit trail file for reading
+.LI
+Read the audit records into a buffer
+.LI
+Transform the audit records into human-readable form
+.LI
+Discard the audit record
+.LI
+Close the audit trail file
+.LE
+.P
+These functions and the APIs that are used for each 
+are discussed in the following sections.
+.H 3 "Opening an Audit Trail File for Reading"
+.iX "audit" "APIs" "opening audit trail file for reading"
+To open the audit trail file for reading, use the \*Ldce_aud_open(\|)\*O
+function and specify \*Laud_c_trl_open_read\*O 
+as the value for the \*Vflags\*O parameter.
+.iX "audit" "APIs" "\*Ldce_aud_open(\|)\*O"
+In this case, the values for the \*Vfirst_evt_number\*O and \*Vnum_of_evts\*O
+does not affect the call.
+For example:
+.oS
+dce_aud_open(aud_c_trl_open_read, AUDIT_TRAIL_FILE,
+        0, 0, &out_trail, status);
+.oE
+.H 3 "Reading the Desired Audit Records into a Buffer
+.iX "audit" "APIs" "reading audit records into a buffer"
+After opening the audit trail file, you can use the \*Ldce_aud_next(\|)\*O
+function to retrieve audit records.
+Audit records are stored in the audit trail file in binary form.
+The \*Ldce_aud_next(\|)\*O function does not convert the file into
+readable form.
+You must use the \*Ldce_aud_print(\|)\*O function to translate the 
+audit record into readable form. 
+.iX "audit" "APIs" "\*Ldce_aud_next(\|)\*O"
+.P
+The \*Ldce_aud_next(\|)\*O function allows you to
+specify a criteria that will be used in 
+selecting the records that will be read from the file.
+This criteria is known as \*Epredicates\*O 
+and is expressed by setting the condition on the value 
+of certain attributes.
+.iX "audit" "record" "predicates"
+.iX "audit" "record" "criteria for selection"
+The condition is set by using any of the following operators:
+\*L=\*O (equal to), \*L>\*O (greater than), and \*L<\*O (less than).
+.P
+Predicates can be expressed in any of the following
+forms:
+.ML
+.LI
+\*Vattribute\*O=\*Vvalue\*O
+.LI
+\*Vattribute\*O>\*Vvalue\*O
+.LI
+\*Vattribute\*O<\*Vvalue\*O
+.LE
+.P
+The following list summarizes these attributes and their acceptable
+values:
+.VL
+.LI "\*LSERVER\*O"
+UUID of the principal that generated the record
+.LI "\*LEVENT\*O"
+Audit event number
+.LI "\*LOUTCOME\*O" 
+Event outcome of the record
+.LI "\*LSTATUS\*O"
+Authorization status of the application client
+.LI "\*LCLIENT\*O"
+UUID of the client principal
+.LI "\*LTIME\*O"
+Time when the record was generated. 
+.LI "\*LCELL\*O"
+The UUID of the application client's cell
+.LI "\*LGROUP\*O"
+The UUID of the application client's group or groups
+.LI "\*LADDR\*O"
+The address (binding handle) of the client
+.LI "\*LFORMAT\*O"
+The format version number of the audit event record
+.LE
+.P
+Details of these attributes, their values, and the allowable operators
+are discussed in the \*(Dr.
+.P
+.ne 4
+For example, to have the function retrieve audit records that pertain to
+the event number 0xC01000001 only, you can set the predicate to 
+the following:
+.oS
+EVENT=0xC01000001
+.oE
+.P
+If the predicate parameter is set to NULL (that is, no criteria),
+the next audit record is read.
+For example, to read the next audit record in a previously opened audit
+trail file, the following call is made:
+.oS
+dce_aud_next(out_trail, NULL, &out_ard, status);
+.oE
+You can specify multiple predicates, in which case the predicates
+are treated as a logical AND condition.
+.P
+The \*Ldce_aud_next(\|)\*O function
+returns a pointer to the record that was read.  This 
+pointer is used by the \*Ldce_aud_print(\|)\*O, \*Ldce_aud_get_ev_info(\|)\*O, 
+and \*Ldce_aud_get_header(\|)\*O functions in transforming the audit
+records into ASCII format.
+.H 3 "Transforming the Audit Record into Readable Text"
+.iX "audit" "APIs" "transforming audit records into text"
+After reading in the desired audit record 
+by using the \*Ldce_aud_next(\|)\*O
+function, these binary audit records must be transformed into
+human-readable form.
+.P
+You can use any of the following three functions to transform
+the audit record information to human readable form:
+.ML
+.LI
+\*Ldce_aud_print(\|)\*O
+.P
+Formats the entire audit record (header and tail) into ASCII format.
+.iX "audit" "APIs" "\*Ldce_aud_print(\|)\*O"
+.LI
+\*Ldce_aud_get_header(\|)\*O
+.P
+Obtains the header information of the audit record and formats it 
+into human readable form.
+.iX "audit" "APIs" "\*Ldce_aud_get_header(\|)\*O"
+.LI
+\*L\*Ldce_aud_get_ev_info(\|)\*O\*O
+.P
+Obtains the event-specific information in the tail of the audit record and
+formats it into human readable form.
+.iX "audit" "APIs" "\*Ldce_aud_get_ev_info(\|)\*O"
+.LE
+.P
+.ne 5
+The \*Ldce_aud_next(\|)\*O function returns the address of the audit record
+to these functions.
+These functions then allocate memory for the ASCII-format buffer
+(using \*Lmalloc(\|)\*O) and fills it with the ASCII representation of the 
+audit record.
+The user must explicitly release this memory (using \*Lfree(\|)\*O) when
+all audit record retrieving and transforming tasks have been accomplished.
+.H 3 "Discarding the Audit Record"
+.iX "audit" "APIs" "discarding an audit record"
+The \*Ldce_aud_discard(\|)\*O function frees the memory allocated to the
+binary version of the audit record, that is, the structure returned by
+the \*Ldce_aud_next(\|)\*O function.
+The \*Ldce_aud_discard(\|)\*O function does not free the structures allocated
+by \*Ldce_aud_print(\|)\*O, \*Ldce_aud_get_header(\|)\*O, or
+\*Ldce_aud_get_ev_info(\|)\*O.
+.iX "audit" "APIs" "\*Ldce_aud_discard(\|)\*O"
+.H 3 "Closing the Audit Trail File" 
+.iX "audit" "APIs" "closing an audit trail file"
+Finally, the audit trail file from which the audit records were read
+must be closed using the \*Ldce_aud_close(\|)\*O function.
+.iX "audit" "APIs" "\*Ldce_aud_close(\|)\*O"

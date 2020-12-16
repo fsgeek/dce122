@@ -1,0 +1,2113 @@
+<!--
+# @OSF_COPYRIGHT@
+# 
+# 
+# HISTORY
+# $Log: threads.sgm,v $
+# Revision 1.1.2.5  1996/11/25  18:19:03  carrig
+# 	{enh,R1.2.2}
+# 	VarListEntry, Figure, Table, Code Examples
+# 	[1996/11/25  18:18:21  carrig]
+#
+# Revision 1.1.2.4  1996/11/23  23:03:05  weir
+# 	Removed thinsp entities in parenthesized index entries
+# 	[1996/11/23  23:02:08  weir]
+# 
+# Revision 1.1.2.3  1996/11/21  18:06:59  weir
+# 	Shortened some source lines
+# 	[1996/11/21  18:06:08  weir]
+# 
+# Revision 1.1.2.2  1996/11/21  16:52:45  weir
+# 	Corrected entity declarations, etc.
+# 	[1996/11/21  16:51:56  weir]
+# 
+# Revision 1.1.2.1  1996/11/20  21:56:29  weir
+# 	Initial submission
+# 	[1996/11/20  21:55:22  weir]
+# 
+# $EndLog$
+-->
+<!-- Fragment document type declaration subset:
+ArborText, Inc., 1988-1993, v.4001
+<!DOCTYPE Book PUBLIC "-//Davenport//DTD DocBook V2.4//EN" [
+]>
+-->
+<!-- COPYRIGHT NOTICE-->
+<!-- Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.-->
+<!-- ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for-->
+<!-- the full copyright text.-->
+<!-- -->
+<!-- -->
+<!-- OLD HISTORY-->
+<!-- Revision 1.1.2.11  1995/06/27  17:04:33  buckler-->
+<!-- 	1.1 edits and Prentice Hall reformat-->
+<!-- 	[1995/06/27  17:02:56  buckler]-->
+<!---->
+<!-- 	More 1.1 edits.-->
+<!-- 	[1995/06/23  13:45:46  buckler]-->
+<!---->
+<!-- Revision 1.1.2.10  1995/06/19  20:14:02  rcb-->
+<!-- 	edited 1.1 version, PRENTICE HALL reformat-->
+<!-- 	[1995/06/19  20:10:25  rcb]-->
+<!-- -->
+<!-- Revision 1.1.2.9  1994/11/15  20:48:06  neilson-->
+<!-- 	Converted book title references to macro form.-->
+<!-- 	[1994/11/15  18:58:13  neilson]-->
+<!-- -->
+<!-- Revision 1.1.2.8  1994/11/15  16:22:49  weir-->
+<!-- 	Indexing added-->
+<!-- 	[1994/11/15  16:22:08  weir]-->
+<!-- -->
+<!-- Revision 1.1.2.7  1994/10/19  20:48:27  weir-->
+<!-- 	Review comments-->
+<!-- 	[1994/10/19  20:47:37  weir]-->
+<!-- -->
+<!-- Revision 1.1.2.6  1994/10/19  16:02:59  weir-->
+<!-- 	Review comments and edits-->
+<!-- 	[1994/10/19  16:02:16  weir]-->
+<!-- -->
+<!-- Revision 1.1.2.5  1994/10/11  14:05:55  weir-->
+<!-- 	Updates-->
+<!-- 	[1994/10/11  14:05:05  weir]-->
+<!-- -->
+<!-- Revision 1.1.2.4  1994/09/23  19:57:53  weir-->
+<!-- 	Updates for review-->
+<!-- 	[1994/09/23  19:57:06  weir]-->
+<!-- -->
+<!-- Revision 1.1.2.3  1994/08/17  20:56:33  weir-->
+<!-- 	First set of updates-->
+<!-- 	[1994/08/17  20:55:47  weir]-->
+<!-- -->
+<!-- Revision 1.1.2.2  1994/06/13  18:22:41  devobj-->
+<!-- 	cr10872 - fix copyright-->
+<!-- 	[1994/06/13  18:20:07  devobj]-->
+<!-- -->
+<!-- Revision 1.1.2.1  1994/03/11  23:05:17  rom-->
+<!-- 	{enh, 10129, R1.1}-->
+<!-- 	Initial split of App Dev Guide into three books and creation of-->
+<!-- 	Intro and Style Guide.-->
+<!-- 	[1994/03/11  23:01:59  rom]-->
+<!-- -->
+<!-- -->
+<!-- -->
+<!-- -->
+<!-- /********************************************************************/-->
+<!-- -->
+<!-- -->
+<!-- - -->
+<Chapter Id="ADGISG.THREAD.div.1">
+<Title>Threads</Title>
+<!-- - -->
+<Para>Threads as used specifically in DCE applications raise several obvious policy
+issues which may be summarized, roughly, as follows:
+</Para>
+<ItemizedList>
+<ListItem>
+<Para>When to use multiple threads
+</Para>
+</ListItem>
+<ListItem>
+<Para>How many threads to use
+</Para>
+</ListItem>
+<ListItem>
+<Para>What scheduling and priority attributes to apply
+</Para>
+</ListItem>
+</ItemizedList>
+<Para>These issues are covered in Section 2.1.
+</Para>
+<Para>Beyond these obvious policy questions, however, threads raise a tricky
+issue for a programming policy guide because it is not always clear where
+the line between mechanism and policy lies.  Multithreaded programming in
+general requires a number of practices that are likely to be unfamiliar and
+unintuitive to many programmers, and errors arising from failure to follow
+these practices can be obscure, infrequent, and difficult to reproduce.  One
+result is that an incorrect program can easily appear to be correct.
+</Para>
+<Para>A typical case is a program that performs the following sequence of steps:
+<IndexTerm Id="ADGISG.THREAD.indx.1">
+<Primary><Function>pthread_create()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.2">
+<Primary><Function>pthread_setprio()</Function></Primary>
+</IndexTerm></Para>
+<InformalExample>
+<Para><ProgramListing>pthread_create(&amp;thread . . .);
+pthread_setprio(thread . . .);
+</ProgramListing></Para>
+</InformalExample>
+<Para>From the point of view of a single thread, this may seem like a logical
+sequence of steps, yet it contains a fundamental error: the spawned thread
+may well have begun to execute, or even have terminated, by the time the
+call to <Function>pthread_setprio(&thinsp;)</Function> occurs.  The result is a program whose
+behavior is indeterminate, and which may fail unpredictably.  The correct
+procedure is to use a thread attributes object to set the thread's
+<IndexTerm Id="ADGISG.THREAD.indx.3">
+<Primary>threads</Primary>
+<Secondary>attributes object</Secondary>
+</IndexTerm>priority when it is created.
+</Para>
+<Para>Strictly speaking, this is really a programming <Replaceable>mechanism</Replaceable> issue,
+since the failure to follow the rule results in an incorrect program.
+However, errors of this type can be obscure: in fact, the resulting
+program might never fail due to this error.  There are many such error
+possibilities in a multithreaded program that can result in all kinds
+of deadlocks, race conditions, and data corruption.  Yet these errors
+can sometimes be so obscure as to be extremely difficult to analyze
+<Replaceable>a priori</Replaceable>, and failures may occur so rarely as to be virtually
+unreproducible.
+</Para>
+<Para>As a result, correct use of threads mechanisms requires following a set of
+general rules designed to avoid errors that may or may not occur in specific
+cases.  For example, locks must be taken and released in the same strict order.
+Rules like this are in not enforced by the thread programming mechanisms,
+and failure to follow them will not always result in program failures.  In
+fact, failure to obey these rules may not always be a programming error:
+depending on the program, it is certainly possible that there is no possible
+execution path where failure to follow a rule would result in an error
+(although this might be difficult to establish <Replaceable>a priori</Replaceable>).
+</Para>
+<Para>As a result, such rules have in some sense the flavor of policy
+recommendations: they are a set of disciplines for avoiding certain
+classes of problems which threads programmers can assume to exist, in
+general, even though they might not arise in specific cases.  Because of
+this, and because these rules may be unfamiliar to many programmers, it
+seems wise to repeat them in summary form in this policy guide.  Moreover,
+because DCE client and server applications are implicitly multithreaded,
+even when the application itself makes no thread related calls, it is also
+important to identify when application code must be thread safe.  These
+issues are covered in Section 2.2.
+</Para>
+<Para>The remaining sections of this chapter cover a variety of specific policy
+and usage issues relating to DCE threads.  Thread handles and thread-private
+data are discussed in Sections 2.3.1 and 2.3.2.
+</Para>
+<Para><?sml-need 3>Cancels and signals introduce
+a number of specific semantic issues that applications must be aware of when
+programming in a multithreaded environment.  These are covered in Sections
+2.3.3 and 2.3.4 respectively.  Finally, DCE introduces the concept of an RPC
+thread.  This is intended to extend the semantics of a local thread of
+execution across two address spaces in the course of an RPC.  However, the
+extension is not entirely transparent, and applications need to be aware of
+the semantic peculiarities of RPC threads.  These are covered in Section 2.4.
+<!-- - -->
+</Para>
+<Sect1 Id="ADGISG.THREAD.div.2">
+<Title>Thread Use Policy</Title>
+<!-- - -->
+<Para>Thread use policy questions arise in the following two ways:
+</Para>
+<ItemizedList>
+<IndexTerm Id="ADGISG.THREAD.indx.4">
+<Primary>multithreadedness</Primary>
+<Secondary>in servers</Secondary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.5">
+<Primary>multithreadedness</Primary>
+<Secondary>in clients</Secondary>
+</IndexTerm>
+<ListItem>
+<Para>Server manager code is multithreaded by default, and applications can
+specify the degree of multithreading.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Client code can be made multithreaded by making threads API calls.
+</Para>
+</ListItem>
+</ItemizedList>
+<!-- - -->
+<Sect2 Id="ADGISG.THREAD.div.3">
+<Title>Choosing to Thread</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.6">
+<Primary>multithreadedness</Primary>
+<Secondary>advantages and disadvantages of</Secondary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.7">
+<Primary>multithreadedness</Primary>
+<Secondary>and single processors</Secondary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.8">
+<Primary>multithreadedness</Primary>
+<Secondary>and multiprocessors</Secondary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.9">
+<Primary>DCE threads</Primary>
+<Secondary>user-space implementation</Secondary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.10">
+<Primary>multithreadedness</Primary>
+<Secondary>and blocking</Secondary>
+</IndexTerm>
+<Para>The choice of multithreading is really a question of specific application design,
+and only general guidelines can be supplied here.  Application programmers need to
+be aware that, depending on the threads implementation and the underlying hardware,
+concurrency may be more apparent than real for many applications.  If threads are
+being time-sliced on a single processor, nonblocking activites will not go any
+faster because they are multithreaded.  In fact, given the extra overhead of a
+given threads implementation, they may be slower.  Even on a multiprocessor, with
+the DCE user-space threads implementation, all threads in a single process contend
+for the same processor.
+</Para>
+<Para>On the other hand, if multiple threads are carrying out activities that may 
+block&mdash;and this includes making RPCs to remote hosts&mdash;then 
+multithreading will
+probably be beneficial.  For example, multiple concurrent RPCs to several hosts may
+allow a local client to achieve true parallelism.  Note however, that concurrent RPCs
+to a single server instance may not be any more efficient if the server itself
+cannot get any real benefit from multithreading of the manager code.
+</Para>
+<Para>RPC servers are multithreaded by default, since multithreading is an obvious way
+for servers to simultaneously handle multiple calls.
+<!-- Big question: do you really have a choice? that is, does requesting a-->
+<!--   nondefault 1 thread really get you just one manager thread, or is-->
+<!--   this just a hint?-->
+<IndexTerm Id="ADGISG.THREAD.indx.11">
+<Primary>threads</Primary>
+<Secondary>scheduling policies</Secondary>
+</IndexTerm>Even if the manager code and underlying implementation do not permit true parallelism,
+manager multithreading may at least allow a fairer distribution of processing time
+among competing clients.  For example, a client that makes a call that can complete in
+a short time may not have to wait for a client that is using a lot of processor time
+to complete.  For this to occur, threads must make use of one of the time-sliced
+scheduling policies (including the default policy).  On the other hand, if all calls
+make use of approximately similar resources, then multithreading may become simply
+an additional, possibly expensive, form of queueing unless the application or the
+environment permits real parallelism.
+</Para>
+<Para>In summary, the developer must consider the following questions in order to
+decide whether an application will benefit from multithreading:
+</Para>
+<ItemizedList>
+<IndexTerm Id="ADGISG.THREAD.indx.12">
+<Primary>multithreadedness</Primary>
+<Secondary>questions to consider when adding to applications</Secondary>
+</IndexTerm>
+<ListItem>
+<Para>Are the threaded operations likely to block, for example, because they make blocking
+I/O calls or RPCs? If so, then multithreading is likely to be beneficial in any
+implementation or hardware environment.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Can the underlying hardware and RPC implementation support threads on more than
+one processor within a single process? If not, then multithreading cannot achieve
+real parallelism for processor intensive operations.  The DCE user-space threads
+implementation restricts all threads of a single process to contend for a single
+processor and so cannot provide real parallelism for processor intensive operations.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Even if the answer to both of the first two questions is yes, will the use of
+a time-slicing thread scheduling policy permit fairer distribution of server resources
+among contending clients? If so, then server manager multithreading may be beneficial.
+</Para>
+</ListItem>
+</ItemizedList>
+<IndexTerm Id="ADGISG.THREAD.indx.13">
+<Primary>multithreadedness</Primary>
+<Secondary>complexity cost of</Secondary>
+</IndexTerm>
+<Para>Even if, according to these criteria, multithreading is likely to benefit an
+application, the programmer still needs to consider the cost, in terms of
+additional complexity, of writing multithreaded code.  In general, most server
+manager code will probably benefit from multithreading, which is provided by
+default by DCE.  Most server applications will therefore choose to be
+multithreaded
+<!-- [do you really have a choice?]-->
+and incur the extra costs of creating thread-safe code.  Whether client code
+will find the extra complexity of multithreading worthwhile really depends
+on a careful assessment of the listed criteria for each program design.  There
+is no way to predict what a ``typical'' client will do.
+<!-- - -->
+</Para>
+</Sect2>
+<Sect2 Id="ADGISG.THREAD.div.4">
+<Title>Specifying the Number of Threads</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.14">
+<Primary>threads</Primary>
+<Secondary>specifying the number of in server</Secondary>
+</IndexTerm>
+<Para>The RPC runtime allows server applications to specify the number of manager
+threads available to handle concurrent RPCs via the <Symbol Role="Variable">max_calls_exec</Symbol>
+<IndexTerm Id="ADGISG.THREAD.indx.15">
+<Primary>incoming RPCs</Primary>
+<Secondary>specifying maximum concurrency of</Secondary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.16">
+<Primary>buffer</Primary>
+<Secondary>incoming RPC call request</Secondary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.17">
+<Primary><Function>rpc_server_listen()</Function></Primary>
+</IndexTerm>parameter of the <Function>rpc_server_listen(&thinsp;)</Function> routine.  The runtime also allows
+applications to specify the number of unhandled calls that can be queued via the
+<Symbol Role="Variable">max_call_requests</Symbol> parameters of the 
+<Literal>rpc_server_use_</Literal><Symbol Role="Variable">*</Symbol>
+<Literal>protseq</Literal><Symbol Role="Variable">*</Symbol><Literal>(&thinsp;)</Literal> routines.
+In theory, these two values should be set in conjunction, but in practice, the
+interpretation of the <Symbol Role="Variable">max_calls_requests</Symbol> parameter is highly dependent on
+protocol and implementation.  
+</Para>
+<Para>For example, in a connection-oriented protocol based on Berkeley sockets, the
+socket backlog&mdash;the number of connections which may be queued on a socket
+pending acceptance&mdash;typically has a value of five.
+<!-- Therefore such a runtime-->
+<!-- can provide multiples of five queued connection requests by providing additional-->
+<!-- sockets.  However, this scheme is limited by the fact that only one socket can-->
+<!-- be created per endpoint.  Hence, an application that listens on a well-known-->
+<!-- endpoint is limited to five queued connections.-->
+</Para>
+<Para>Portable applications should therefore not rely on <Symbol Role="Variable">max_calls_requests</Symbol> as
+anything more than a hint to the runtime about the number of queued calls 
+desired.  Note well that the <Symbol Role="Variable">max_call_requests</Symbol> parameter <Replaceable>does not 
+set</Replaceable> the number of calls that can be handled concurrently.  That is strictly 
+a function of the number of call threads, as specified by 
+<Symbol Role="Variable">max_calls_exec</Symbol>.  The <Symbol Role="Variable">max_call_requests</Symbol> parameter simply specifies 
+(as a hint) the number of calls that can be queued prior to being picked up 
+by call threads.
+<!-- [Anybody have any data on the effect of different numbers of call-->
+<!-- threads on throughput for busy servers?]-->
+<!-- - -->
+</Para>
+</Sect2>
+<Sect2 Id="ADGISG.THREAD.div.5">
+<Title>Scheduling Policies</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.18">
+<Primary>threads</Primary>
+<Secondary>default scheduling policy of</Secondary>
+</IndexTerm>
+<Para>The default thread scheduling policy provides round robin time-slicing and
+guarantees that even low priority threads will get to run.  For servers, this
+policy will provide at least the benefit of fair access to server processing
+time for multiple callers, even when no real parallelism is provided by multiple
+threads of execution.
+<!-- [What can we say about nondefault policies?  Does choosing another-->
+<!-- policy or a nondefault priority run the risk of tangling with-->
+<!-- nonmanager threads, such as timer threads, in the runtime?]-->
+<!-- - -->
+</Para>
+</Sect2>
+</Sect1>
+<Sect1 Id="ADGISG.THREAD.div.6">
+<Title>Thread Safety</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.19">
+<Primary>threads</Primary>
+<Secondary>behavior of when blocked</Secondary>
+</IndexTerm>
+<Para>Thread safety involves two issues. The first is <Replaceable>blocking behavior</Replaceable>.  
+Blocking I/O should block just the thread doing the I/O, not the entire
+process.  The following scenario illustrates the kind of problem that can
+occur when an application fails to observe this rule:
+</Para>
+<OrderedList>
+<ListItem>
+<Para>The client side of the application executes a blocking I/O call such as a
+<Function>read(&thinsp;)</Function> from the keyboard.
+</Para>
+</ListItem>
+<ListItem>
+<Para>The <Function>read(&thinsp;)</Function> sleeps for an indeterminate amount of time.  All threads
+in the client process are blocked.
+</Para>
+</ListItem>
+<ListItem>
+<Para>A timer thread in the client RPC runtime, which manages the client side of
+the RPC protocol, is among the blocked threads.  Eventually the server side
+times the connection out, even though the client application is still running.
+</Para>
+</ListItem>
+</OrderedList>
+<IndexTerm Id="ADGISG.THREAD.indx.20">
+<Primary>reentrancy</Primary>
+</IndexTerm>
+<Para>The second thread safety issue is <Replaceable>reentrancy</Replaceable>.  Routines that operate on
+shared objects must have appropriate locking in place.  A typical reentrancy
+problem is as follows:
+</Para>
+<OrderedList>
+<IndexTerm Id="ADGISG.THREAD.indx.21">
+<Primary><Function>malloc()</Function></Primary>
+</IndexTerm>
+<ListItem>
+<Para>The application invokes a nonreentrant <Function>malloc(&thinsp;)</Function>.
+</Para>
+</ListItem>
+<ListItem>
+<Para>DCE threads interrupts the <Function>malloc(&thinsp;)</Function> and the interrupt handler executes
+a properly reentrant <Function>malloc(&thinsp;)</Function>.  The reentrant
+<Function>malloc(&thinsp;)</Function> examines
+a lock and incorrectly infers that nobody else is currently doing a
+<Function>malloc(&thinsp;)</Function>.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Global data governing memory allocation for the process becomes corrupted.
+</Para>
+</ListItem>
+</OrderedList>
+<Para>These thread safety issues arise in the following two contexts for 
+DCE applications:
+</Para>
+<ItemizedList>
+<IndexTerm Id="ADGISG.THREAD.indx.22">
+<Primary>threadsafeness</Primary>
+<Secondary>of library routines</Secondary>
+</IndexTerm>
+<ListItem>
+<Para>Even when application code is not itself multithreaded (for example, client
+code that does not make any explicit <Literal>pthread</Literal> API calls), both client
+and server applications are still multithreaded as a result of threads created
+by the RPC runtime.  While such single-threaded application code need not itself
+be reentrant, it must still avoid blocking the entire process, and it must take
+care that any library routines that it calls, which may also be called by
+runtime-created threads, are reentrant.
+</Para>
+</ListItem>
+<ListItem>
+<?sml-need 3>
+<Para>When application code is itself multithreaded (which is the default for server
+manager code), it must, in addition to obeying the rules above), 
+also be reentrant; all access to shared objects must be protected by locks.
+</Para>
+</ListItem>
+</ItemizedList>
+<Para>Obviously, providing for the second condition in explicitly multithreaded code is
+the application's responsibility.  The <Literal>pthread</Literal> 
+API provides a set of facilities
+that can be used for this purpose.  To provide for the first condition, which applies
+to all application code, DCE implementations provide a mechanism to make system and
+library calls thread-safe.  This may be implemented either by providing a set of
+<Replaceable>wrappers</Replaceable> for unsafe calls or by providing reentrant libraries and a
+<IndexTerm Id="ADGISG.THREAD.indx.23">
+<Primary>threads</Primary>
+<Secondary>wrappers</Secondary>
+</IndexTerm>nonblocking kernel threads implementation.  Applications must always be built
+using either the appropriate wrapped calls or linked to the appropriate reentrant
+libraries.
+</Para>
+<Para>DCE implementations provide, at the least, via wrappers or some other 
+mechanism, the set of thread-safe calls shown in Table 2-1.
+<IndexTerm Id="ADGISG.THREAD.indx.24">
+<Primary>threadsafe routines provided by DCE</Primary>
+</IndexTerm>
+<!-- - -->
+</Para>
+<Para>Applications should not assume that a call to any routine not on this
+list is necessarily thread-safe.  Whether other routines are safe to
+call from a DCE applications depends on the following factors:
+<IndexTerm Id="ADGISG.THREAD.indx.25">
+<Primary>threadsafeness</Primary>
+<Secondary>criteria for routines</Secondary>
+</IndexTerm></Para>
+<ItemizedList>
+<ListItem>
+<Para>Application code that is single threaded (that has not explicitly created
+any application threads via calls to the <Literal>pthread</Literal> API) need not concern
+itself about reentrancy of routines not on this list, since all library and
+system calls made by RPC created threads are included in this list.  However,
+such application code must still take care that no calls it makes will block
+the entire process.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Application code that is multithreaded must exercise caution when making any
+<IndexTerm Id="ADGISG.THREAD.indx.26">
+<Primary>reentrancy</Primary>
+<Secondary>non-reentrant library calls</Secondary>
+</IndexTerm>call not on this list.  Non-reentrant library calls may be wrapped by the
+application using <Function>pthread_lock_global_np(&thinsp;)</Function>, although this practice is
+<IndexTerm Id="ADGISG.THREAD.indx.27">
+<Primary><Function>pthread_lock_global_np()</Function></Primary>
+</IndexTerm>discouraged since this call is not portable.  The global lock
+can be used only in limited circumstances; the approach will work only if all
+threads in an application follow the same rule.
+<!-- This approach is not safe for-->
+<!-- kernel routines: it must be used only with library routines.-->
+Failure to observe
+these restrictions can lead to deadlocks.  Note also that this approach will not
+work with any call that could block the whole process, for example by making a
+blocking I/O call.
+</Para>
+</ListItem>
+</ItemizedList>
+<?sml-need 4i>
+<Table Frame="All" Remap="center" Orient="Port">
+<Title>Thread-Safe Calls</Title>
+<TGroup Rowsep="0" Colsep="0" Cols="4">
+<ColSpec Colsep="1" Align="Left" Colwidth="1*" Colname="col1" Colnum="1">
+<ColSpec Colsep="1" Align="Left" Colwidth="1*" Colname="col2" Colnum="2">
+<ColSpec Colsep="1" Align="Left" Colwidth="1*" Colname="col3" Colnum="3">
+<ColSpec Align="Left" Colwidth="1*" Colname="col4" Colnum="4">
+<TBody>
+<Row>
+<Entry><Literal>_sleep(&thinsp;)</Literal></Entry>
+<Entry><Function>accept(&thinsp;)</Function></Entry>
+<Entry><Function>atfork(&thinsp;)</Function></Entry>
+<Entry><Function>calloc(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>catclose(&thinsp;)</Function></Entry>
+<Entry><Function>catgets(&thinsp;)</Function></Entry>
+<Entry><Function>catopen(&thinsp;)</Function></Entry>
+<Entry><Function>cfree(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>close(&thinsp;)</Function></Entry>
+<Entry><Function>connect(&thinsp;)</Function></Entry>
+<Entry><Function>creat(&thinsp;)</Function></Entry>
+<Entry><Function>ctermid(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>cuserid(&thinsp;)</Function></Entry>
+<Entry><Function>dup(&thinsp;)</Function></Entry>
+<Entry><Function>dup2(&thinsp;)</Function></Entry>
+<Entry><Function>fclose(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>fcntl(&thinsp;)</Function></Entry>
+<Entry><Function>fdopen(&thinsp;)</Function></Entry>
+<Entry><Function>fflush(&thinsp;)</Function></Entry>
+<Entry><Function>fgetc(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>fgets(&thinsp;)</Function></Entry>
+<Entry><Function>fopen(&thinsp;)</Function></Entry>
+<Entry><Function>fork(&thinsp;)</Function></Entry>
+<Entry><Function>fprintf(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>fputc(&thinsp;)</Function></Entry>
+<Entry><Function>fputs(&thinsp;)</Function></Entry>
+<Entry><Function>fread(&thinsp;)</Function></Entry>
+<Entry><Function>free(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>freopen(&thinsp;)</Function></Entry>
+<Entry><Function>fscanf(&thinsp;)</Function></Entry>
+<Entry><Function>fseek(&thinsp;)</Function></Entry>
+<Entry><Function>ftell(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>fwrite(&thinsp;)</Function></Entry>
+<Entry><Function>getc(&thinsp;)</Function></Entry>
+<Entry><Function>getchar(&thinsp;)</Function></Entry>
+<Entry><Function>gets(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>getw(&thinsp;)</Function></Entry>
+<Entry><Function>isatty(&thinsp;)</Function></Entry>
+<Entry><Function>malloc(&thinsp;)</Function></Entry>
+<Entry><Function>mktemp(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>open(&thinsp;)</Function></Entry>
+<Entry><Function>pclose(&thinsp;)</Function></Entry>
+<Entry><Function>pipe(&thinsp;)</Function></Entry>
+<Entry><Function>popen(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>printf(&thinsp;)</Function></Entry>
+<Entry><Function>putc(&thinsp;)</Function></Entry>
+<Entry><Function>putchar(&thinsp;)</Function></Entry>
+<Entry><Function>puts(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>putw(&thinsp;)</Function></Entry>
+<Entry><Function>read(&thinsp;)</Function></Entry>
+<Entry><Function>readv(&thinsp;)</Function></Entry>
+<Entry><Function>realloc(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>recv(&thinsp;)</Function></Entry>
+<Entry><Function>recvfrom(&thinsp;)</Function></Entry>
+<Entry><Function>recvmsg(&thinsp;)</Function></Entry>
+<Entry><Function>rewind(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>scanf(&thinsp;)</Function></Entry>
+<Entry><Function>select(&thinsp;)</Function></Entry>
+<Entry><Function>send(&thinsp;)</Function></Entry>
+<Entry><Function>sendmsg(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>sendto(&thinsp;)</Function></Entry>
+<Entry><Function>setbuf(&thinsp;)</Function></Entry>
+<Entry><Function>setbuffer(&thinsp;)</Function></Entry>
+<Entry><Function>setlinebuf(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>setvbuf(&thinsp;)</Function></Entry>
+<Entry><Function>sigaction(&thinsp;)</Function></Entry>
+<Entry><Function>sigwait(&thinsp;)</Function></Entry>
+<Entry><Function>sleep(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>socket(&thinsp;)</Function></Entry>
+<Entry><Function>socketpair(&thinsp;)</Function></Entry>
+<Entry><Function>sprintf(&thinsp;)</Function></Entry>
+<Entry><Function>sscanf(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>system(&thinsp;)</Function></Entry>
+<Entry><Function>tempnam(&thinsp;)</Function></Entry>
+<Entry><Function>tmpfile(&thinsp;)</Function></Entry>
+<Entry><Function>tmpnam(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>ttyname(&thinsp;)</Function></Entry>
+<Entry><Function>ttyslot(&thinsp;)</Function></Entry>
+<Entry><Function>vfprintf(&thinsp;)</Function></Entry>
+<Entry><Function>vprintf(&thinsp;)
+<!-- WARNING: ghost column #5: -->
+</Function></Entry>
+</Row>
+<Row>
+<Entry><Function>vsprintf(&thinsp;)</Function></Entry>
+<Entry><Function>write(&thinsp;)</Function></Entry>
+<Entry><Function>writev(&thinsp;)</Function></Entry>
+<Entry></Entry>
+</Row>
+</TBody>
+</TGroup>
+</Table>
+<Para>What follows is a summary of the thread-safety rules that should be followed
+when using the <Literal>pthread</Literal> facilities.  The list is by no means comprehensive;
+it describes the places where multithreaded applications most frequently go
+wrong.
+<!-- For a complete discussion of thread-safe programming practices, see XX.-->
+</Para>
+<ItemizedList>
+<IndexTerm Id="ADGISG.THREAD.indx.28">
+<Primary>mutexes</Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.29">
+<Primary>global lock</Primary>
+</IndexTerm>
+<ListItem>
+<Para>Access to all shared objects should be protected by the appropriate synchronization
+mechnisms.  The pthread global lock is not appropriate for such synchronization.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Mutexes should be used only 
+to protect resources held for a short period of time.
+In particular, note that <Function>pthread_mutex_lock(&thinsp;)</Function> is 
+<Symbol Role="Variable">not</Symbol> a cancellation
+<IndexTerm Id="ADGISG.THREAD.indx.30">
+<Primary><Function>pthread_mutex_lock()</Function></Primary>
+</IndexTerm>point.  Resources needing to be held exclusively for a long time should be protected
+by condition variables rather than mutexes, as this will not inhibit 
+cancelability
+<IndexTerm Id="ADGISG.THREAD.indx.31">
+<Primary>threads</Primary>
+<Secondary>cancelability</Secondary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.32">
+<Primary>condition variables</Primary>
+</IndexTerm>(see Section 2.3.3.2).
+<?sml-break><?sml-need 10></Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.33">
+<Primary>mutexes</Primary>
+<Secondary>and shared objects</Secondary>
+</IndexTerm>
+<Para>A shared object should be protected by only one mutex.
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.34">
+<Primary>threads</Primary>
+<Secondary>wrappers and <Filename>pthread.h</Filename></Secondary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.35">
+<Primary>reentrancy</Primary>
+<Secondary>reentrant libraries</Secondary>
+</IndexTerm>
+<Para>Be sure to use the available thread-safe library calls.  These may be available as
+wrapped routines, via the <Filename>pthread.h</Filename> header file, or your implementation may
+supply reentrant libraries which must be linked with DCE applications.
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.36">
+<Primary><Function>wait()</Function></Primary>
+</IndexTerm>
+<Para>Avoid nonwrapped process-blocking system calls, such as
+<Function>wait(&thinsp;)</Function>.
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.37">
+<Primary>mutexes</Primary>
+<Secondary>and locking sequences</Secondary>
+</IndexTerm>
+<Para>When threads need to acquire more than one mutex at a time, create a locking sequence
+and require that all threads follow the sequence.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Do not make any assumptions about the atomicity of operations, as these are unlikely
+to be portable.
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.38">
+<Primary>threads</Primary>
+<Secondary>avoiding priority inversions</Secondary>
+</IndexTerm>
+<Para>In general, to avoid priority inversion, when three or more threads of different
+priorities access a lock, associate a priority with the lock and force any thread
+to raise its priority to the lock priority before acquiring the lock.  Note that
+<IndexTerm Id="ADGISG.THREAD.indx.39">
+<Primary>threads</Primary>
+<Secondary>default scheduling policy of</Secondary>
+</IndexTerm>the default scheduling policy (<Literal>SCHED_OTHER</Literal>) mitigates the effects of priority
+inversion by giving low-priority threads a chance to execute (and thus release held
+locks) even when higher-priority threads are eligible to run.
+</Para>
+</ListItem>
+<ListItem>
+<Para>You may be able to use the global locking call 
+<Function>pthread_lock_global_np(&thinsp;)</Function> when
+<IndexTerm Id="ADGISG.THREAD.indx.40">
+<Primary><Function>pthread_lock_global_np()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.41">
+<Primary>multithreadedness</Primary>
+<Secondary>and unsafe libraries</Secondary>
+</IndexTerm>calling into libraries not known to be thread safe.
+<!-- Note the cautions listed in Section XXX.-->
+<!-- [above]-->
+</Para>
+</ListItem>
+<ListItem>
+<Para>Use the <Function>atfork(&thinsp;)</Function> routine to keep the state of mutexes consistent across
+<IndexTerm Id="ADGISG.THREAD.indx.42">
+<Primary><Function>atfork()</Function></Primary>
+</IndexTerm>calls to <Function>fork(&thinsp;)</Function>.  Note, however, that this routine is not considered 
+<IndexTerm Id="ADGISG.THREAD.indx.43">
+<Primary><Function>fork()</Function></Primary>
+</IndexTerm>portable.  Try to create threads rather than processes whenever possible.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Call <Function>pthread_cond_wait(&thinsp;)</Function> from within a predicate loop, as in the
+following example:
+<IndexTerm Id="ADGISG.THREAD.indx.44">
+<Primary><Function>pthread_cond_wait()</Function></Primary>
+</IndexTerm></Para>
+<InformalExample>
+<Para><ProgramListing>while (test_condition)
+    pthread_cond_wait();
+</ProgramListing></Para>
+</InformalExample>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.45">
+<Primary>threads</Primary>
+<Secondary>attributes object</Secondary>
+</IndexTerm>
+<Para>Set thread attributes via a <Literal>thread attributes object</Literal> before thread creation.
+Changes to a thread attribute object after a thread has been created
+will not affect the thread's attributes.  A thread can straightforwardly change its
+own scheduling attributes by calling <Function>pthread_set_scheduler(&thinsp;)</Function> and
+<IndexTerm Id="ADGISG.THREAD.indx.46">
+<Primary><Function>pthread_set_scheduler()</Function></Primary>
+</IndexTerm><Function>pthread_set_prio(&thinsp;)</Function>, but cannot reliably change the attributes of another
+<IndexTerm Id="ADGISG.THREAD.indx.47">
+<Primary><Function>pthread_set_prio()</Function></Primary>
+</IndexTerm>thread once it has been created.
+<!-- .LI-->
+<!-- Changing the mutex attributes type in a mutex attributes object does not affect-->
+<!-- any mutexes that were previously created using the attributes object.-->
+</Para>
+</ListItem>
+</ItemizedList>
+<Para><?sml-need 2>See Sections 2.3.3 and 2.3.4 
+for specific guidelines relating to cancels and signals.
+<!-- ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ-->
+<!-- - -->
+</Para>
+</Sect1>
+<Sect1 Id="ADGISG.THREAD.div.7">
+<Title>Threads Programming Topics</Title>
+<!-- - -->
+<Para>The subsections that follow contain discussions of the following aspects of
+multithreaded DCE application development:
+</Para>
+<ItemizedList>
+<ListItem>
+<Para>Thread handles and their use
+</Para>
+</ListItem>
+<ListItem>
+<Para>Storage for thread specific data
+</Para>
+</ListItem>
+<ListItem>
+<Para>Canceling threads
+</Para>
+</ListItem>
+<ListItem>
+<Para>Signals
+</Para>
+</ListItem>
+</ItemizedList>
+<!-- - -->
+<Sect2 Id="ADGISG.THREAD.div.8">
+<Title>Thread Handles</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.48">
+<Primary>threads</Primary>
+<Secondary>handles</Secondary>
+</IndexTerm>
+<Para>The <Literal>pthread</Literal> package provides thread handles to identify threads; these are
+returned as the <Symbol Role="Variable">thread</Symbol> argument to
+<Function>pthread_create(&thinsp;)</Function>.  Applications
+supply thread handles as thread identifiers to the routines
+<Function>pthread_join(&thinsp;)</Function>,
+<IndexTerm Id="ADGISG.THREAD.indx.49">
+<Primary><Function>pthread_join()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.50">
+<Primary><Function>pthread_detach()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.51">
+<Primary><Function>pthread_cancel()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.52">
+<Primary><Function>pthread_equal()</Function></Primary>
+</IndexTerm><Function>pthread_detach(&thinsp;)</Function>, and
+<Function>pthread_cancel(&thinsp;)</Function>.  Thread handles should be
+treated as opaque data; they may be compared by calling
+<Function>pthread_equal(&thinsp;)</Function>,
+but any other operations on thread handles are likely to be nonportable and are
+thus discouraged.
+<!-- - -->
+</Para>
+</Sect2>
+<Sect2 Id="ADGISG.THREAD.div.9">
+<Title>Storage for Thread Specific Data</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.53">
+<Primary>threads</Primary>
+<Secondary>specific global storage</Secondary>
+</IndexTerm>
+<Para>The <Literal>pthread</Literal> package provides the ability to allocate per-thread global
+storage using per-thread data keys.  That is, an application can create storage
+that has global scope within a thread but which is private to each instance of
+that thread.  To do this, the application creates a global data key by calling
+<Function>pthread_keycreate(&thinsp;)</Function>.  Each thread then typically allocates storage of
+<IndexTerm Id="ADGISG.THREAD.indx.54">
+<Primary><Function>pthread_keycreate()</Function></Primary>
+</IndexTerm>the required type and associates this instance with with the global key by calling
+<Function>pthread_setspecific(&thinsp;)</Function>.  Routines that need to access the per-thread storage
+<IndexTerm Id="ADGISG.THREAD.indx.55">
+<Primary><Function>pthread_setspecific()</Function></Primary>
+</IndexTerm>do so by calling <Function>pthread_getspecific(&thinsp;)</Function>, which returns the address of the
+<IndexTerm Id="ADGISG.THREAD.indx.56">
+<Primary><Function>pthread_getspecific()</Function></Primary>
+</IndexTerm>thread's private instance.
+</Para>
+<Para><?sml-need 6>The following code fragments show a sample model of per-thread-data key use:
+<?sml-break><?sml-point-size 11>
+<!--no-op:  13-->
+</Para>
+<InformalExample>
+<Para><ProgramListing role="page-wide">/* Declare global data key storage */
+
+pthread_key_t key;
+
+main()
+{
+          .
+          .
+          .
+
+    /* Create exactly one instance of the key.  You could also use  */
+    /*   a pthread_once() routine...                                */
+
+    status = pthread_keycreate(&amp;key, (pthread_destructor_t) destroy);
+          . 
+          .
+          .
+    /* Start some threads...                                        */
+          .
+          . 
+          . 
+}
+
+/* The following routines are called in each of the threads.        */
+/*  They access the thread's private instance of the "global"       */
+/*  value.                                                          */
+
+/* The following routine sets the value to a thread-specific        */
+/*  value...                                                        */
+
+void write_global(mytype value)
+{
+
+    mytype *global_var;
+
+    global_var = (mytype*) malloc(sizeof(mytype));
+    pthread_setspecific(key, (pthread_addr_t)global_var);
+    *global_var = value;
+}
+
+<?sml-need 14>/* The following routine returns the thread-specific value ...      */
+
+mytype read_global()
+{
+
+    mytype *global_var;
+
+    /* Note the extra indirection; pthread_getspecific() returns    */
+    /*  the address of the thread's private instance of the         */
+    /*  storage...                                                  */
+
+    pthread_getspecific(key, (pthread_addr_t*)&amp;global_var);
+    return (*global_var);   
+}
+</ProgramListing></Para>
+</InformalExample>
+<?sml-point-size 12>
+<!--no-op:  14-->
+<!-- - -->
+</Sect2>
+<Sect2 Id="ADGISG.THREAD.div.10">
+<Title>Canceling Threads</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.57">
+<Primary>threads</Primary>
+<Secondary>canceling</Secondary>
+</IndexTerm>
+<Para>In order to program correctly for cancels, applications must be aware of the
+precise semantics of cancels in a DCE threads environment.  The DCE threads package
+provides for per thread cancellation.  Thread cancellation allows a thread to
+attempt to terminate a thread in the same process in an orderly manner.  The basic
+model is that a cancel is generated for a thread at an unpredictable time as a
+result of some external event (typically, another thread calling
+<Function>pthread_cancel(&thinsp;)</Function>).  Whether and when the canceled thread acts on a
+<IndexTerm Id="ADGISG.THREAD.indx.58">
+<Primary><Function>pthread_cancel()</Function></Primary>
+</IndexTerm>generated cancel depends on the the thread's cancelability state, which may
+be one of the following:
+</Para>
+<Para><IndexTerm Id="ADGISG.THREAD.indx.59">
+<Primary>threads</Primary>
+<Secondary>cancelability state</Secondary>
+</IndexTerm></Para>
+<VariableList>
+<VarListEntry>
+<Term><Literal>disabled</Literal></Term>
+<ListItem>
+<Para>No cancellation takes place.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry>
+<Term><Literal>deferred</Literal></Term>
+<ListItem>
+<Para>Cancellation is deferred to cancellation points.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Literal>asynchronous</Literal></Term>
+<ListItem>
+<Para>Cancellation may occur at any time.
+</Para>
+</ListItem>
+</VarListEntry>
+</VariableList>
+<Para>The default action for DCE threads on cancellation is that the thread calls any
+cancel cleanup routines that have been established and then terminates.
+<IndexTerm Id="ADGISG.THREAD.indx.60">
+<Primary>threads</Primary>
+<Secondary>canceling</Secondary>
+<Tertiary>and exceptions</Tertiary>
+</IndexTerm>In DCE threads a canceled thread receives a cancel as an exception, so a thread
+may establish a nondefault action by providing an exception handler.  
+</Para>
+<Para><?sml-need 7>However,
+this behavior is not recommended for two reasons.  First, the exception handling
+mechanism is not itself portable.  Second, the cancel mechanism is intended to
+<IndexTerm Id="ADGISG.THREAD.indx.61">
+<Primary>threads</Primary>
+<Secondary>termination</Secondary>
+</IndexTerm>provide for orderly thread termination.  It is not designed as a generalized
+thread synchronization mechanism. (There is, for example, only one kind of cancel.)
+Threads should use condition variables for this purpose. (For the same 
+reason, the
+use of <Function>pthread_signal_to_cancel_np(&thinsp;)</Function> is not recommended.)
+<IndexTerm Id="ADGISG.THREAD.indx.62">
+<Primary><Function>pthread_signal_to_cancel_np()</Function></Primary>
+</IndexTerm>
+<!-- - -->
+</Para>
+<Sect3 Id="ADGISG.THREAD.div.11">
+<Title>Cancelability State</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.63">
+<Primary>threads</Primary>
+<Secondary>cancelability state</Secondary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.64">
+<Primary>general cancelability of threads</Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.65">
+<Primary>asynchronous</Primary>
+<Secondary>cancelability of threads</Secondary>
+</IndexTerm>
+<Para>A thread's cancelability state is determined by the combination 
+of two substates: <Replaceable>general cancelability</Replaceable> and <Replaceable>asynchronous 
+cancelability</Replaceable>.  These substates can be set to either 
+<Literal>CANCEL_ON</Literal> or <Literal>CANCEL_OFF</Literal> by calls to the routines 
+<Function>pthread_setcancel(&thinsp;)</Function> and
+<Function>pthread_setasynccancel(&thinsp;)</Function> respectively. 
+<IndexTerm Id="ADGISG.THREAD.indx.66">
+<Primary><Function>pthread_setasynccancel()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.67">
+<Primary><Function>pthread_setcancel()</Function></Primary>
+</IndexTerm>A thread's cancelability state is determined by its general and asynchronous
+cancelability substates, as shown in Table 2-2.
+</Para>
+<Table Frame="All" Remap="center" Orient="Port">
+<Title>Cancelability State</Title>
+<TGroup Rowsep="0" Colsep="0" Cols="3">
+<ColSpec Colsep="1" Align="Left" Colwidth="1*" Colname="col1" Colnum="1">
+<ColSpec Colsep="1" Align="Left" Colwidth="1*" Colname="col2" Colnum="2">
+<ColSpec Align="Left" Colwidth="1*" Colname="col3" Colnum="3">
+<thead>
+<Row>
+<Entry rowsep="1"><Literal>General</Literal></Entry>
+<Entry rowsep="1"><Literal>Asynchronous</Literal></Entry>
+<Entry rowsep="1"><Literal>Cancelability </Literal></Entry>
+</Row>
+</thead>
+<tbody>
+<Row>
+<Entry Rowsep="1"><Literal>Cancelability</Literal></Entry>
+<Entry Rowsep="1"><Literal>Cancelability</Literal></Entry>
+<Entry Rowsep="1"><Literal>State</Literal></Entry>
+</Row>
+<Row>
+<Entry Rowsep="1"><Literal>CANCEL_OFF</Literal></Entry>
+<Entry Rowsep="1"><Literal>CANCEL_OFF</Literal></Entry>
+<Entry Rowsep="1"><Literal>disabled</Literal></Entry>
+</Row>
+<Row>
+<Entry Rowsep="1"><Literal>CANCEL_OFF</Literal></Entry>
+<Entry Rowsep="1"><Literal>CANCEL_ON</Literal></Entry>
+<Entry Rowsep="1"><Literal>disabled</Literal></Entry>
+</Row>
+<Row>
+<Entry Rowsep="1"><Literal>CANCEL_ON</Literal></Entry>
+<Entry Rowsep="1"><Literal>CANCEL_OFF</Literal></Entry>
+<Entry Rowsep="1"><Literal>deferred</Literal></Entry>
+</Row>
+<Row>
+<Entry><Literal>CANCEL_ON</Literal></Entry>
+<Entry><Literal>CANCEL_ON</Literal></Entry>
+<Entry><Literal>asynchronous</Literal></Entry>
+</Row>
+</TBody>
+</TGroup>
+</Table>
+<Para>One awkwardness introduced by this mechanism for setting cancelability state is
+that threads cannot easily determine their current cancelability state, although
+<Function>pthread_setcancel(&thinsp;)</Function> and
+<Function>pthread_setasynccancel(&thinsp;)</Function> return the previous
+substates.  When a thread is created, the default cancelability state is 
+<Literal>deferred</Literal>
+(general cancelability set to <Literal>CANCEL_ON</Literal>, asynchronous cancelability set to
+<Literal>CANCEL_OFF</Literal>).  A thread that needs to discover its current cancelability state
+should explicitly maintain this state in some place where it can be easily queried.
+<!-- - -->
+</Para>
+</Sect3>
+<Sect3 Id="ADGISG.THREAD.div.12">
+<Title>Cancellation Points</Title>
+<!-- - -->
+<!-- Note to reviewers: this and the following sections on cancel-->
+<!-- semantics contain a lot of very specific detail that would typically-->
+<!-- be specified for implementors.  I believe, however, that application-->
+<!-- programmers do need to understand the semantic details if they really-->
+<!-- want to know how cancels are going to work in their programs.  This-->
+<!-- section could really use a few examples!-->
+<IndexTerm Id="ADGISG.THREAD.indx.68">
+<Primary>threads</Primary>
+<Secondary>cancellation points</Secondary>
+</IndexTerm>
+<Para>Applications need to be aware of where cancellation may actually occur when
+cancelability state is set to <Literal>deferred</Literal>.  Cancellation points are points
+inside certain functions where a thread must act upon any pending cancellation
+request when cancelability state is <Literal>deferred</Literal> if the function would block
+indefinitely.  If cancelability state is <Literal>asynchronous</Literal>, then every point is
+a cancellation point; that is, the thread may be canceled at any time.
+</Para>
+<Para>If cancelability state is <Literal>deferred</Literal> then cancellation may occur at the
+following points:
+</Para>
+<ItemizedList>
+<ListItem>
+<Para>While waiting on a condition variable; that is, within
+<Function>pthread_cond_wait(&thinsp;)</Function> or
+<Function>pthread_cond_timedwait(&thinsp;)</Function>.
+<IndexTerm Id="ADGISG.THREAD.indx.69">
+<Primary><Function>pthread_cond_timedwait()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.70">
+<Primary><Function>pthread_cond_wait()</Function></Primary>
+</IndexTerm></Para>
+</ListItem>
+<ListItem>
+<Para>While awaiting the termination of another thread (within
+<Function>pthread_join(&thinsp;)</Function>.)
+<IndexTerm Id="ADGISG.THREAD.indx.71">
+<Primary><Function>pthread_join()</Function></Primary>
+</IndexTerm></Para>
+</ListItem>
+<ListItem>
+<Para>When <Function>pthread_testcancel(&thinsp;)</Function> is called.
+<IndexTerm Id="ADGISG.THREAD.indx.72">
+<Primary><Function>pthread_testcancel()</Function></Primary>
+</IndexTerm></Para>
+</ListItem>
+<ListItem>
+<Para>When <Function>sigwait(&thinsp;)</Function> is called.
+<IndexTerm Id="ADGISG.THREAD.indx.73">
+<Primary><Function>sigwait()</Function></Primary>
+</IndexTerm></Para>
+</ListItem>
+<ListItem>
+<Para>When a thread is waiting within <Function>pthread_delay_np(&thinsp;)</Function> (not a portable
+<IndexTerm Id="ADGISG.THREAD.indx.74">
+<Primary><Function>pthread_delay_np()</Function></Primary>
+</IndexTerm>routine).
+</Para>
+</ListItem>
+<ListItem>
+<Para>During the timeslice interruption.
+<IndexTerm Id="ADGISG.THREAD.indx.75">
+<Primary>threads</Primary>
+<Secondary>timeslice interruption of</Secondary>
+</IndexTerm></Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.76">
+<Primary>threads</Primary>
+<Secondary>wrappers as cancellation points</Secondary>
+</IndexTerm>
+<Para>Within the DCE threads I/O wrappers for system calls that block.  These are
+as follows:
+</Para>
+<ItemizedList>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.77">
+<Primary><Function>read()</Function></Primary>
+</IndexTerm>
+<Para><Function>read(&thinsp;)</Function>
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.78">
+<Primary><Function>readv()</Function></Primary>
+</IndexTerm>
+<Para><Function>readv(&thinsp;)</Function>
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.79">
+<Primary><Function>select()</Function></Primary>
+</IndexTerm>
+<Para><Function>select(&thinsp;)</Function>
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.80">
+<Primary><Function>write()</Function></Primary>
+</IndexTerm>
+<Para><Function>write(&thinsp;)</Function>
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.81">
+<Primary><Function>writev()</Function></Primary>
+</IndexTerm>
+<Para><Function>writev(&thinsp;)</Function>
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.82">
+<Primary><Function>accept()</Function></Primary>
+</IndexTerm>
+<Para><Function>accept(&thinsp;)</Function>
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.83">
+<Primary><Function>connect()</Function></Primary>
+</IndexTerm>
+<Para><Function>connect(&thinsp;)</Function>
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.84">
+<Primary><Function>recv()</Function></Primary>
+</IndexTerm>
+<Para><Function>recv(&thinsp;)</Function>
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.85">
+<Primary><Function>recvmsg()</Function></Primary>
+</IndexTerm>
+<Para><Function>recvmsg(&thinsp;)</Function>
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.86">
+<Primary><Function>recvfrom()</Function></Primary>
+</IndexTerm>
+<Para><Function>recvfrom(&thinsp;)</Function>
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.87">
+<Primary><Function>send()</Function></Primary>
+</IndexTerm>
+<Para><Function>send(&thinsp;)</Function>
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.88">
+<Primary><Function>sendmsg()</Function></Primary>
+</IndexTerm>
+<Para><Function>sendmsg(&thinsp;)</Function>
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.89">
+<Primary><Function>sendto()</Function></Primary>
+</IndexTerm>
+<Para><Function>sendto(&thinsp;)</Function>
+</Para>
+</ListItem>
+</ItemizedList>
+</ListItem>
+<ListItem>
+<Para>When <Function>pthread_setasynccancel(&thinsp;)</Function> is called, and either of the following
+apply:
+<IndexTerm Id="ADGISG.THREAD.indx.90">
+<Primary><Function>pthread_setasynccancel()</Function></Primary>
+</IndexTerm></Para>
+<ItemizedList>
+<ListItem>
+<Para>It has set the cancelability state to <Literal>asynchronous</Literal> (general cancelability
+and asynchronous cancelability are both enabled), it hasn't yet returned, and a
+cancel is pending.
+</Para>
+</ListItem>
+<ListItem>
+<Para>It was called to disable <Literal>asynchronous</Literal> cancelability state, but hasn't
+yet done so, and a cancellation request has been asynchronously delivered.
+</Para>
+</ListItem>
+</ItemizedList>
+</ListItem>
+</ItemizedList>
+<Para>One important blocking routine that is not a cancellation point is
+<Function>pthread_mutex_lock(&thinsp;)</Function>, as this would create a domino effect so that every
+<IndexTerm Id="ADGISG.THREAD.indx.91">
+<Primary><Function>pthread_mutex_lock()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.92">
+<Primary>mutexes</Primary>
+<Secondary>when they should be used</Secondary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.93">
+<Primary>condition variables</Primary>
+<Secondary>when they should be used</Secondary>
+</IndexTerm>routine calling it would also become a cancellation point.  Thus, mutexes should
+be used only to protect resources held for a short period of time so that
+noncancelability will not be a problem.  Resources needing to be held exclusively
+should be protected by condition variables rather than mutexes, as this will not
+inhibit cancelability.
+</Para>
+<Para>If a thread has not set <Literal>disabled</Literal> cancelability state, a cancellation request
+<IndexTerm Id="ADGISG.THREAD.indx.94">
+<Primary>threads</Primary>
+<Secondary>disabling cancellation state</Secondary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.95">
+<Primary><Function>pthread_testcancel()</Function></Primary>
+</IndexTerm>has been made to that thread, and the thread executes
+<Function>pthread_testcancel(&thinsp;)</Function>,
+the cancellation request must be acted upon.  Similarly, if a thread has not set
+<Literal>disabled</Literal> cancelability state, a cancellation request has been made to that
+thread, and the thread is blocked at a cancellation point waiting for an event to
+occcur, then that thread must act upon the cancellation request.  However, if a
+thread is suspended at a cancellation point and the event for which it is waiting
+has completed before a cancellation request is received and acted upon, the thread
+may resume normal execution and the cancellation request remains pending.
+<!-- - -->
+</Para>
+</Sect3>
+<Sect3 Id="ADGISG.THREAD.div.13">
+<Title>Cancellation Side Effects</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.96">
+<Primary>threads</Primary>
+<Secondary>side effects of cancellation</Secondary>
+</IndexTerm>
+<Para>Cancellation ordinarily involves cleanup in order to leave resources in an orderly
+state.  Any side effects of acting upon a cancellation request occur before the first
+cleanup routine is called.
+</Para>
+<Para>There are no side effects of acting upon a cancellation request while executing
+<Function>pthread_join(&thinsp;)</Function>.
+<IndexTerm Id="ADGISG.THREAD.indx.97">
+<Primary><Function>pthread_join()</Function></Primary>
+</IndexTerm></Para>
+<Para><IndexTerm Id="ADGISG.THREAD.indx.98">
+<Primary>threads</Primary>
+<Secondary>cancellation and condition variables</Secondary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.99">
+<Primary>condition variables</Primary>
+<Secondary>and threads cancellation</Secondary>
+</IndexTerm>The side effects of acting upon a cancellation request while in a condition
+variable wait are as follows:
+</Para>
+<ItemizedList>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.100">
+<Primary>mutexes</Primary>
+<Secondary>and threads cancellation</Secondary>
+</IndexTerm>
+<Para>The mutex is reacquired before calling the first cleanup routine.
+</Para>
+</ListItem>
+<ListItem>
+<Para>In addition, while the thread is no longer considered to be waiting for the
+condition, no signals directed at the condition variable are consumed by the
+target thread if there are other threads blocked on the condition variable.
+</Para>
+</ListItem>
+</ItemizedList>
+<!-- zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-->
+<!-- - -->
+<Sect4 Id="ADGISG.THREAD.div.14">
+<Title>Using <Function>pthread_cancel(&thinsp;)</Function> to Terminate a Thread</Title>
+<!-- - -->
+<Para>The <Function>pthread_cancel(&thinsp;)</Function> routine allows a thread to cancel itself or
+<IndexTerm Id="ADGISG.THREAD.indx.101">
+<Primary><Function>pthread_cancel()</Function></Primary>
+</IndexTerm>another thread.  The routine is fully described in the
+<Filename MoreInfo="RefEntry">pthread_cancel(3thr)</Filename> reference page.  
+Its use is straightforward, but if you use it to
+cancel a thread that makes use of mutexes or condition variables, you should
+keep in mind the following aspect of its operation.
+</Para>
+<Para>The canceled thread receives the cancel in the form of an exception. If the
+thread has not disabled its cancelability by a call to
+<Function>pthread_setcancel(&thinsp;)</Function>, its effect is to immediately terminate the thread.
+<IndexTerm Id="ADGISG.THREAD.indx.102">
+<Primary><Function>pthread_setcancel()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.103">
+<Primary>global lock</Primary>
+<Secondary>and threads cancellation</Secondary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.104">
+<Primary>mutexes</Primary>
+<Secondary>and threads cancellation</Secondary>
+</IndexTerm>However, if the thread happens to have acquired a mutex (including the global
+lock) when it is canceled, the mutex will remain in its locked state and no
+other thread will be able to acquire it.  Moreover, the data that was protected
+by the mutex may be in an inconsistent state as a result of the thread's having
+been canceled in the middle of its operation on the data.
+</Para>
+<Para><IndexTerm Id="ADGISG.THREAD.indx.105">
+<Primary>threads</Primary>
+<Secondary>cancellation and exception-handling block</Secondary>
+</IndexTerm>The easiest way to prevent this is simply to disable cancels before entering
+code for which access has been restricted by a mutex.  If this is undesirable,
+you can explicitly handle a cancel by coding an exception-handling block.
+<!-- The DCE Threads exception handling interface is described in Chapter XXX-->
+<!-- of this guide.-->
+</Para>
+<Para><?sml-need 3>
+<IndexTerm Id="ADGISG.THREAD.indx.106">
+<Primary>condition variables</Primary>
+<Secondary>and threads cancellation</Secondary>
+</IndexTerm>This same possibility exists with condition variables, since the variable is
+protected by a mutex.  An example of handling a cancel (or any other exception)
+while using a condition variable follows.
+<!-- It is substantially the same example that appears in Part 2 of this guide.-->
+<IndexTerm Id="ADGISG.THREAD.indx.107">
+<Primary><Function>pthread_mutex_lock()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.108">
+<Primary><Literal>TRY</Literal> macro</Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.109">
+<Primary><Literal>FINALLY</Literal> macro</Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.110">
+<Primary><Literal>ENDTRY</Literal> macro</Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.111">
+<Primary><Function>pthread_mutex_unlock()</Function></Primary>
+</IndexTerm><?sml-break><?sml-point-size 11>
+<!--no-op:  13-->
+</Para>
+<InformalExample>
+<Para><ProgramListing role="page-wide">#include &lt;pthread_exc.h>
+
+    &lt;...>
+
+/* First, lock the mutex that protects the condition variable  */
+/*      and the predicate...                                   */
+pthread_mutex_lock(some_object.mutex);
+
+/* Add this thread to the total number of threads waiting for  */
+/*      the condition...                                       */
+some_object.num_waiters = some_object.num_waiters + 1;
+
+/* Enter the exception handling block...                       */
+TRY
+
+    /* Test the predicate condition...                         */
+    while (! some_object.data_available)
+
+	/* If the desired condition is not yet true, wait for  */
+	/*    it to become true.  This next call also auto-    */
+	/*    matically releases the mutex...                  */
+	pthread_cond_wait(some_object.condition, some_object.mutex);
+
+    /* Code to access data_available goes here */
+
+    &lt;...>
+
+/* If a "cancel" exception occurs during the call to           */
+/*	pthread_cond_wait(), the thread will resume            */
+/*	execution in the FINALLY block following...            */
+FINALLY
+
+    /* Remove this thread from the total number of threads     */
+    /*    waiting for the condition...                         */
+    some_object.num_waiters = some_object.num_waiters - 1;
+
+    /* Release the mutex, and then continue with the           */
+    /*    exception --that is, cancel ...                      */
+    pthread_mutex_unlock(some_object.mutex);
+ENDTRY
+</ProgramListing></Para>
+</InformalExample>
+<?sml-point-size 12>
+<!--no-op:  14-->
+<!-- RERAISE_THIS_CATCH ? (Rich Salz).-->
+<Para><?sml-need 3>
+<IndexTerm Id="ADGISG.THREAD.indx.112">
+<Primary>threads</Primary>
+<Secondary>cancellation and exception-handling block</Secondary>
+</IndexTerm>Note that in order to handle the cancel as an exception, you must
+<Literal>#include</Literal> the <Filename>pthread_exc.h</Filename> header file rather than
+<Filename>pthread.h</Filename>; this allows you to use the DCE Threads exception
+interface.
+<!-- .P-->
+<!-- Further information on mutexes can be found in Part 2 of this guide, and in-->
+<!-- the \*VOSF DCE Application Development Reference\*O.-->
+<!-- zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-->
+<!-- - -->
+</Para>
+</Sect4>
+</Sect3>
+<Sect3 Id="ADGISG.THREAD.div.15">
+<Title>Thread Cleanup</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.113">
+<Primary>threads</Primary>
+<Secondary>cancellation cleanup</Secondary>
+</IndexTerm>
+<Para>Each thread maintains a list of cleanup routines (handlers). The routines are
+placed on and removed from the list by the <Function>pthread_cleanup_push(&thinsp;)</Function> and
+<IndexTerm Id="ADGISG.THREAD.indx.114">
+<Primary><Function>pthread_cleanup_push()</Function></Primary>
+</IndexTerm><Function>pthread_cleanup_pop(&thinsp;)</Function> functions, respectively.  These functions must
+<IndexTerm Id="ADGISG.THREAD.indx.115">
+<Primary><Function>pthread_cleanup_pop()</Function></Primary>
+</IndexTerm>appear as statements and in pairs within the same lexical scope.
+</Para>
+<Para>When a cancellation request is acted upon, the routines on the list are invoked
+in the last in, first out (LIFO) order with cancellation disabled (cancelability
+state of <Literal>deferred</Literal>) until the last cleanup routine returns.  When the last
+cleanup routine returns, thread execution is terminated.  If other routines are
+joining with the target of the cancellation, a status of <Literal>(void*)</Literal>&ensp;-1 is made
+available to them.
+</Para>
+<Para>Cleanup routines are also invoked when the thread calls
+<Function>pthread_exit(&thinsp;)</Function>.
+<IndexTerm Id="ADGISG.THREAD.indx.116">
+<Primary><Function>pthread_exit()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.117">
+<Primary><Function>longjmp()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.118">
+<Primary><Function>siglongjmp()</Function></Primary>
+</IndexTerm>Cleanup routines should never exit via <Function>longjmp(&thinsp;)</Function> or
+<Function>siglongjmp(&thinsp;)</Function>.
+<!-- - -->
+</Para>
+</Sect3>
+<Sect3 Id="ADGISG.THREAD.div.16">
+<Title>Asynchronous Cancel Safety</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.119">
+<Primary>asynchronous</Primary>
+<Secondary>cancelability of threads</Secondary>
+</IndexTerm>
+<Para>A function is said to be <Replaceable>asynchronous cancel safe</Replaceable> if it is written in
+such a way that entering the function with the cancelability state of
+<Literal>asynchronous</Literal> will not cause any invariants to be violated if cancellation
+should occur at any (arbitrary) instruction.  Such functions are often written in
+such a manner that they need acquire no resources, and variables which they write
+that are visible outside their process are strictly limited.
+</Para>
+<Para>Any routines that acquire a resource can not be made asynchronous safe. This
+unfortunately includes most routines that do useful work.  The only function
+that is guaranteed to be asysnchronous cancel safe is
+<Function>pthread_cancel(&thinsp;)</Function>.  In
+<IndexTerm Id="ADGISG.THREAD.indx.120">
+<Primary><Function>pthread_cancel()</Function></Primary>
+</IndexTerm>general, no other library functions should be called with cancelability state
+set to asynchronous.
+<!-- - -->
+</Para>
+</Sect3>
+<Sect3 Id="ADGISG.THREAD.div.17">
+<Title>Cancel Rules Summary</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.121">
+<Primary>threads</Primary>
+<Secondary>rules for cancellation</Secondary>
+</IndexTerm>
+<Para>The following summarizes a set of cancel-related rules that should always be
+adhered to when programming with cancels:
+</Para>
+<ItemizedList>
+<ListItem>
+<Para>Applications should not use cancels as a synchronization mechanism.
+Condition variables should be used instead.
+</Para>
+</ListItem>
+<ListItem>
+<Para><Function>pthread_mutex_lock(&thinsp;)</Function> is
+<Symbol Role="Variable">not</Symbol> a cancellation point.  Resources needing
+<IndexTerm Id="ADGISG.THREAD.indx.122">
+<Primary><Function>pthread_mutex_lock()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.123">
+<Primary>threads</Primary>
+<Secondary>cancellation and mutexes</Secondary>
+</IndexTerm>to be held exclusively for a long time should be protected by condition variables
+rather than mutexes, as this will not inhibit cancelability. 
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.124">
+<Primary>threads</Primary>
+<Secondary>cancellation and condition variables</Secondary>
+</IndexTerm>
+<Para>A condition wait (via <Function>pthread_cond_wait(&thinsp;)</Function> or 
+<Function>pthread_cond_timedwait(&thinsp;)</Function>)
+<IndexTerm Id="ADGISG.THREAD.indx.125">
+<Primary><Function>pthread_cond_timedwait()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.126">
+<Primary><Function>pthread_cond_wait()</Function></Primary>
+</IndexTerm>is a cancellation point.  A side effect of acting on a cancellation request while in a
+condition wait is that the mutex is (in effect) reacquired.  The effect is as if the
+thread were unblocked, allowed to execute up to the point of returning from the wait,
+but at that point notices the cancellation request and handles it instead of returning.
+</Para>
+</ListItem>
+<ListItem>
+<Para>In general, most library calls cannot be assumed to be asynchronous cancel safe, and
+hence must <Symbol Role="Variable">not</Symbol> be called with cancelability state set to <Literal>asynchronous</Literal>.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Cleanup routines should never exit via <Function>longjmp(&thinsp;)</Function> or
+<IndexTerm Id="ADGISG.THREAD.indx.127">
+<Primary><Function>longjmp()</Function></Primary>
+</IndexTerm>
+<IndexTerm Id="ADGISG.THREAD.indx.128">
+<Primary><Function>siglongjmp()</Function></Primary>
+</IndexTerm><Function>siglongjmp(&thinsp;)</Function>.
+</Para>
+</ListItem>
+</ItemizedList>
+<Para>In addition to the material covered in this section, Section 2.4 covers the
+additional semantics of cancels as applied to RPC threads.
+<!-- - -->
+</Para>
+</Sect3>
+</Sect2>
+<Sect2 Id="ADGISG.THREAD.div.18">
+<Title>Signals</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.129">
+<Primary>signals</Primary>
+<Secondary>handling of in a multithreaded environment</Secondary>
+</IndexTerm>
+<Para>Application developers must be aware of significant differences in the handling of
+signals between DCE threads and typical single-threaded environments.  In DCE threads,
+some signals are handled on a per-process basis, and some are handled on a per-thread
+basis.  This section explains the semantic details of DCE thread signal handling.
+</Para>
+<Para>A signal is said to be <Replaceable>generated</Replaceable> for a process or thread when the event that
+causes the signal first occurs.  Each process or thread has an action to be taken in
+response to each signal supported by the system or implementation.  A signal is said
+to be <Replaceable>delivered</Replaceable> when the appropriate signal action for the process or thread
+is taken.  A signal can be <Replaceable>blocked</Replaceable> or (<Replaceable>masked</Replaceable>) by a thread or process by
+<IndexTerm Id="ADGISG.THREAD.indx.130">
+<Primary>signals</Primary>
+<Secondary>blocking of</Secondary>
+</IndexTerm>establishing a <Replaceable>signal mask</Replaceable> containing the signal to be blocked.  
+</Para>
+<Para><?sml-need 4>The delivery of
+a blocked signal is deferred until it is unblocked. (Note that if the action specified
+for a signal is to ignore it, the signal effectively remains blocked.) During the time
+between its generation and delivery a signal is said to be <Replaceable>pending</Replaceable>.
+</Para>
+<Para>Signals can be classified into the following two types, with differing
+semantics:
+<IndexTerm Id="ADGISG.THREAD.indx.131">
+<Primary>signals</Primary>
+<Secondary>semantics of</Secondary>
+</IndexTerm></Para>
+<ItemizedList>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.132">
+<Primary>signals</Primary>
+<Secondary>synchronous</Secondary>
+</IndexTerm>
+<Para><Replaceable>Synchronous signals</Replaceable> are generated by a specific thread and delivered to the same
+thread.  Threads can establish nondefault per-thread signal handlers for sychronous
+signals by calling <Function>sigaction(&thinsp;)</Function>.  Synchronous signals can be blocked on a
+<IndexTerm Id="ADGISG.THREAD.indx.133">
+<Primary><Function>sigaction()</Function></Primary>
+</IndexTerm>per-thread basis by establishing per-thread signal masks.
+</Para>
+</ListItem>
+<ListItem>
+<IndexTerm Id="ADGISG.THREAD.indx.134">
+<Primary>signals</Primary>
+<Secondary>asynchronous</Secondary>
+</IndexTerm>
+<Para><Replaceable>Asynchronous signals</Replaceable> are generated by external events, not identifiable with a single
+thread.  Asynchronous signals are handled on a per-process basis.  An asynchronous
+signal is delivered exactly once to some thread in a process.  All threads in a
+process share the same signal mask.  Per-process handling of asynchronous signals
+<IndexTerm Id="ADGISG.THREAD.indx.135">
+<Primary><Function>sigwait()</Function></Primary>
+</IndexTerm>can be established by calling <Function>sigwait(&thinsp;)</Function>.
+</Para>
+</ListItem>
+</ItemizedList>
+<Para>DCE threads applications must handle synchronous and asynchronous signals differently.
+<!-- - -->
+</Para>
+<Sect3 Id="ADGISG.THREAD.div.19">
+<Title>Signal Masking</Title>
+<!-- - -->
+<Para><IndexTerm Id="ADGISG.THREAD.indx.136">
+<Primary>signals</Primary>
+<Secondary>masking of</Secondary>
+</IndexTerm>Signal masks can be examined and changed with the
+<Function>sigprocmask(&thinsp;)</Function> function.
+<IndexTerm Id="ADGISG.THREAD.indx.137">
+<Primary><Function>sigprocmask()</Function></Primary>
+</IndexTerm>When a synchronous signal is masked via a call to
+<Function>sigprocmask(&thinsp;)</Function> it is masked
+for the calling thread.  When an asynchronous signal is masked via a call to
+<Function>sigprocmask(&thinsp;)</Function> it is masked for the entire process.
+</Para>
+<Para>Care must be taken when a thread unblocks an asynchronous signal. If another thread
+has blocked and is, or is will be, waiting for the same signal, the results can be
+unpredictable and may result in the other thread waiting forever.  This problem can be
+avoided by having all handling of asynchronous signals occur in a single thread, as
+described in Section 2.3.4.3.
+<!-- - -->
+</Para>
+</Sect3>
+<Sect3 Id="ADGISG.THREAD.div.20">
+<Title>Synchronous Signal Handling</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.138">
+<Primary>signals</Primary>
+<Secondary>synchronous</Secondary>
+</IndexTerm>
+<Para>Threads should call <Function>sigaction(&thinsp;)</Function> to establish per-thread handlers for
+synchronous signals.  The DCE Threads <Function>sigaction(&thinsp;)</Function> function only modifies
+the signal action behavior for the calling thread and only works for synchronous
+signals.  Threads must not use <Function>sigaction(&thinsp;)</Function> for asynchronous signals.
+<IndexTerm Id="ADGISG.THREAD.indx.139">
+<Primary><Function>sigaction()</Function></Primary>
+<Secondary>should not be used for asynchronous signals</Secondary>
+</IndexTerm></Para>
+<Para>Signal handlers should be careful in the actions they perform. In general,
+synchronous signal handlers should attempt to clean up and allow the thread
+to terminate.  It is not advisable to attempt to continue after errors such as
+a segment violation, illegal instruction, and the like.  
+</Para>
+<Para>In general, the threads routines cannot safely be called within a signal handler.
+Furthermore, runtime libraries cannot reliably be used in signal handlers. 
+<!-- - -->
+</Para>
+</Sect3>
+<Sect3 Id="ADGISG.THREAD.div.21">
+<Title>Asynchronous Signal Handling</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.140">
+<Primary>signals</Primary>
+<Secondary>asynchronous</Secondary>
+</IndexTerm>
+<Para>Applications should handle asynchronous signals by having one thread (or possibly
+a few specific threads) call <Function>sigwait(&thinsp;)</Function>.  The waited-for signals must be
+<IndexTerm Id="ADGISG.THREAD.indx.141">
+<Primary><Function>sigwait()</Function></Primary>
+</IndexTerm>blocked before waiting.  The recommended procedure is to establish a 
+``signal catcher''
+thread that calls <Function>sigprocmask(&thinsp;)</Function> to establish the per-process mask for
+<IndexTerm Id="ADGISG.THREAD.indx.142">
+<Primary><Function>sigprocmask()</Function></Primary>
+</IndexTerm>asynchronous signals and then calls <Function>sigwait(&thinsp;)</Function> to wait for the set of blocked
+signals.  The following code fragment shows an 
+example of a signal catcher thread
+start routine:
+<?sml-break><?sml-point-size 11>
+<!--no-op:  13-->
+<!-- /********************************************************************/-->
+</Para>
+<InformalExample>
+<Para><ProgramListing role="page-wide"><?sml-need 47>/* 
+ *  This is run by the signal catcher thread to handle async signals.
+ *  We don't use sigaction() here because it won't work with
+ *  async signals.  Note that signals must be blocked prior to being 
+ *  waited for.
+ */
+
+void signal_catcher(char *arg)
+{
+    sigset_t signals;
+    int sig;
+
+    sigemptyset(&amp;signals);
+
+<?sml-need 10>    /* In this sample, we'll catch only SIGINT...                   */
+
+    sigaddset(&amp;signals, SIGINT);
+    sigprocmask(SIG_BLOCK, &amp;signals, NULL);*/
+    while(1)
+    {
+        sig = sigwait(&amp;signals);
+        switch(sig)
+        {
+            case SIGINT:
+
+                /* SIGINT specific actions here.                     */
+                             .
+                             .
+                             .
+                break;
+            default:
+                /* Not reached.  If we were waiting on other         */ 
+                /*  signals. this would establish a default action   */
+                /*  to exit ...                                      */
+           continue;
+        }
+        break;
+    }
+    sigprocmask(SIG_UNBLOCK, &amp;signals, NULL);
+
+    /* Do termination clean up here.                                 */ 
+                .
+                .
+                .
+    exit(1);
+}
+</ProgramListing></Para>
+</InformalExample>
+<!-- - -->
+</Sect3>
+<Sect3 Id="ADGISG.THREAD.div.22">
+<Title>Signal Rules</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.143">
+<Primary>signals</Primary>
+<Secondary>rules for handling in multithreaded programs</Secondary>
+</IndexTerm>
+<Para>The following rules summarize correct signal handing practices for multithreaded
+programs.
+</Para>
+<ItemizedList>
+<ListItem>
+<Para>Signals must be blocked prior to being waited for.  The
+<Function>sigwait(&thinsp;)</Function> 
+<IndexTerm Id="ADGISG.THREAD.indx.144">
+<Primary><Function>sigwait()</Function></Primary>
+</IndexTerm>routine waits for blocked (masked) signals.
+</Para>
+</ListItem>
+<ListItem>
+<Para>In order to avoid unpredictable behavior, all asynchronous signal handling should
+be confined to one signal catcher thread.  This may be extended to a set of signal
+catcher threads.
+</Para>
+</ListItem>
+<ListItem>
+<Para>The <Function>pthread_cond_signal(&thinsp;)</Function> routine
+cannot safely be used in a signal handler that is
+<IndexTerm Id="ADGISG.THREAD.indx.145">
+<Primary><Function>pthread_cond_signal()</Function></Primary>
+</IndexTerm>invoked asynchronously.  In general, mutexes and condition variables are not
+suitable for releasing a waiting thread in response to a signal handler.  When a
+thread must wait for an asynchronous signal, use <Function>sigwait(&thinsp;)</Function> instead.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Signal handlers should not call the <Literal>pthread</Literal> routines.  In general, runtime
+libraries cannot reliably be used in signal handlers.
+</Para>
+</ListItem>
+</ItemizedList>
+<!-- zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-->
+<!-- - -->
+</Sect3>
+</Sect2>
+<Sect2 Id="ADGISG.THREAD.div.23">
+<Title>Forking in a Threaded Application</Title>
+<!-- - -->
+<!---->
+<Para>The <Function>fork(&thinsp;)</Function> system call causes the creation of an exact clone of the
+<IndexTerm Id="ADGISG.THREAD.indx.146">
+<Primary><Function>fork()</Function></Primary>
+</IndexTerm>caller's address space, resulting in the execution by two address spaces of
+the same code.  In order to avoid the problems that would arise in a threaded
+environment when one thread, possibly without the others' knowledge, executes
+a <Function>fork(&thinsp;)</Function>, the POSIX model defines <Function>fork(&thinsp;)</Function> to result in the
+propagation of the calling thread only.  Any other active threads are
+immediately terminated without notice.
+</Para>
+<Para>The abrupt destruction of the other threads means that any mutexes they may
+have been holding at the time of the <Function>fork(&thinsp;)</Function> will persist in the locked
+(and therefore unacquirable) state.  On the other hand, assuming that the call
+to <Function>fork(&thinsp;)</Function> is followed by a call to
+<Function>exec(&thinsp;)</Function>, then the outstanding
+<IndexTerm Id="ADGISG.THREAD.indx.147">
+<Primary><Function>exec()</Function></Primary>
+</IndexTerm>mutexes will remain so only until <Function>exec(&thinsp;)</Function> is called, when the new process
+space will be reinitialized.
+</Para>
+<Para><?sml-need 7>Thus, ``out-of-state'' mutexes are a problem for the forked thread only in the
+interval between the <Function>fork(&thinsp;)</Function> and the
+<Function>exec(&thinsp;)</Function>.  Even so, as long
+as no calls occur here to routines outside the application, you can determine
+whether the thread is going to encounter any mutexes that could have been
+locked by the destroyed threads.  However, it is impossible to be sure of this
+if calls into other libraries, which may have hidden interdependencies, occur
+in this interval.
+</Para>
+<Para>Aside from these considerations, there is also the question of what happens
+when <Function>exec(&thinsp;)</Function> fails and execution returns to the original
+forking (and now lone) thread, which is left with an address space that may
+contain out-of-state mutexes (as well as an inconsistent state in the data
+protected by the mutexes) as a result of the <Function>fork(&thinsp;)</Function>.
+</Para>
+<Para>DCE does not support the ``simple'' <Function>fork(&thinsp;)</Function>; it supports only the
+<Function>fork(&thinsp;)</Function> and <Function>exec(&thinsp;)</Function> sequence.  For cases where forking
+in the presence of threads is felt to be necessary, DCE threads provides a
+mechanism, the <Function>atfork(&thinsp;)</Function> call, which allows you to install ``fork
+<IndexTerm Id="ADGISG.THREAD.indx.148">
+<Primary><Function>atfork()</Function></Primary>
+</IndexTerm>handler'' routines for an application or a library.  These routines will be
+automatically run as follows:
+</Para>
+<ItemizedList>
+<ListItem>
+<Para>A routine that will be run just prior to the fork in the parent process;
+that is, just before all of the other threads are terminated
+</Para>
+</ListItem>
+<ListItem>
+<Para>A routine that will be run in the child process just after the fork occurs;
+that is, just after all the other threads are terminated
+</Para>
+</ListItem>
+<ListItem>
+<Para>A routine that will be run in the parent process just after the fork occurs;
+that is, just before the parent (forking) thread resumes execution
+</Para>
+</ListItem>
+</ItemizedList>
+<!-- .P-->
+<!-- Further information about \*Latfork(\|)\*O can be found in Part 2 of this-->
+<!-- guide, and in the \*VOSF DCE Application Development Reference\*O.-->
+<!-- zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-->
+<!---->
+<!-- zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-->
+<!-- - -->
+<!-- .H 3 "Restrictions on Software Interrupts and Exceptions"-->
+<!-- - -->
+<!-- .P-->
+<!-- From a portability point of view, it is unspecified in which thread (on which-->
+<!-- stack) a software interrupt handler will run.  It is also unspecified what-->
+<!-- happens if an exception propagates out of a software interrupt handler.-->
+<!-- .P-->
+<!-- As a consequence, a software interrupt handler must not allow an exception-->
+<!-- to propagate out of it.  The reason is that the exception could be caught-->
+<!-- by some random exception handler in some thread and result in strange-->
+<!-- behavior.-->
+<!-- .P-->
+<!-- Thus, it is best to avoid complicated coding in a software interrupt routine.-->
+<!-- If you must write a software interrupt handler, ideally you should just-->
+<!-- release a waiting thread using the previously mentioned signal or enqueue functions.-->
+<!-- Note that this has the advantage of minimizing the code in the software-->
+<!-- interrupt, which benefits the application by reducing the latency and-->
+<!-- increasing the throughput for such interrupts.-->
+<!-- zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz-->
+<!-- - -->
+</Sect2>
+</Sect1>
+<Sect1 Id="ADGISG.THREAD.div.24">
+<Title>RPC Threads and RPC Cancel Semantics</Title>
+<!-- - -->
+<IndexTerm Id="ADGISG.THREAD.indx.149">
+<Primary>RPC</Primary>
+<Secondary>threads</Secondary>
+</IndexTerm>
+<Para>Each RPC occurs in the context of a thread. A <FirstTerm>thread</FirstTerm> is a single sequential
+flow of control with one point of execution at any instant.  When an application
+thread extends across client and server execution contexts via the DCE RPC mechanism,
+the local execution contexts are joined by an abstraction known as an <Replaceable>RPC thread</Replaceable>.
+The RPC thread attempts to extend local thread semantics to the situation in which
+execution is extended over two or more local contexts.  Specifically, the the RPC
+mechanism tries to make RPC cancels look to the application as much like local cancels
+as possible.
+<IndexTerm Id="ADGISG.THREAD.indx.150">
+<Primary>RPC</Primary>
+<Secondary>threads</Secondary>
+<Tertiary>cancel semantics of</Tertiary>
+</IndexTerm></Para>
+<Para><?sml-need 7>The semantics of cancels across RPCs are slightly different from the semantics
+across local (procedure) calls.  The differences can be summed up as follows:
+</Para>
+<OrderedList>
+<ListItem>
+<Para>If the cancel state is <Literal>disabled</Literal> when an RPC is made, then, regardless
+of what is done to the cancellation state on the remote procedure, no
+cancels will be seen by the remote procedure.
+</Para>
+<Para><?sml-need 8>This is because a cancel must be noticed in the client-side runtime in order
+for it to be forwarded to the server.  However, if the cancellation state has
+been set to <Literal>disabled</Literal> when an RPC is issued, then since the client-side
+runtime does not enable cancels, the client-side runtime will never notice if
+a cancel has been issued against the calling thread; subsequently, the cancel
+remains pending and unnoticed by the client-side runtime, even if the server
+side has changed the cancellation state (for instance, to <Literal>deferred</Literal>).
+</Para>
+<Para>Furthermore, since lexical scoping of changes to the cancellation state is
+enforced by RPC, the cancellation state in effect at the time of the RPC call
+is restored upon completion of the call.  Thus, any state changes made on the
+server side of the call are lost.  Any issued cancels remain pending as the
+server-side state change is ``undone'' by the client-side runtime prior to
+returning to the calling thread.  In this instance, if a cancel arrives after
+the callee returns, the cancel will not be acted upon.
+</Para>
+<Para>This behavior contrasts with the local procedure call case: if cancel state is
+<Literal>disabled</Literal> when a local procedure call is made, and the callee sets the
+cancellation state to <Literal>deferred</Literal>, then if a cancel arrives and the callee
+hits a cancellation point, the cancel will be acted upon.  Furthermore, if the
+cancel arrives after the callee returns, the cancel will be acted upon when a
+cancellation point is arrived at in the caller.
+</Para>
+</ListItem>
+<ListItem>
+<?sml-need 9>
+<Para>If cancelability state is <Literal>deferred</Literal>, then cancellation requests will be sent
+to the server where they will be handled according to the server's setting of the
+cancelability state for the application thread extension (that is, the call thread)
+in the server.  If ignored at the server, the client side would then effect the
+cancel upon return from the RPC, so the cancel would not be lost or incorrectly
+handled.  In particular, the timeslice interrupt (context switch) is a cancellation
+point in DCE threads, so that even if a cancel were ignored by the server side,
+when the RPC returns, the thread will be at a cancellation point.
+</Para>
+</ListItem>
+<ListItem>
+<?sml-need 5>
+<Para>If cancelability state is <Literal>asynchronous</Literal>, then cancellation can happen at
+any time.  In general, this state is not recommended across the scope of an RPC
+in line with the rule that most routines that do useful work are not asynchronous
+cancel safe and thus should not be called with asynchronous cancelability state.
+</Para>
+</ListItem>
+</OrderedList>
+</Sect1>
+</Chapter>
+<!--+ 11/13/96 22:48:26
+    | tagMorph:  $Id: threads.sgm,v 1.1.2.5 1996/11/25 18:19:03 carrig Exp $
+    | tagMorph library:  $Id: threads.sgm,v 1.1.2.5 1996/11/25 18:19:03 carrig Exp $
+    | sml-to-docbook:  1.24
+    +-->

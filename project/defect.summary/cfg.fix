@@ -1,0 +1,559 @@
+CR Number                     : 13573
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : dce_config doesn't install DCE headers
+Reported Date                 : 7/19/96
+Found in Baseline             : 1.2.2b3
+Found Date                    : 7/19/96
+Severity                      : B
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : dce_config
+Diff supplied by              : provider
+Diff release                  : 1.2.2
+Sensitivity                   : public
+
+[7/19/96 public]
+
+Running dce_config from BL3 to install the DCE application develpment
+environment doesn't create the /usr/include/dce directory.  The headers
+in /usr/include (e.g. xds.h, xom.h) are installed, but none of the headers
+that belong in /usr/include/dce.
+
+This was found in an install on a clean machine - one on whicih the directory
+/usr/include/dce didn't exist; perhaps the headers would have been installed
+if the directory did exist.
+
+No errors were reported by dce_config.
+
+[7/19/96 public]
+From my test machine:
+
+(root@ibm_l4) -->ls -l /usr/include | grep dce | pg
+lrwxrwxrwx   1 root     system        31 Apr 21 1995  dce -> /opt/dcelocal/share/include/dce
+
+from dce_config:
+        # Now create the link for /usr/include/dce/
+        # Be nice and make sure they don't already have a directory
+        issymlink /usr/include/dce
+        temp=$?
+        if [ $? -eq 2 ]         # does not exists
+        then
+                ln -s $DCELOCAL/share/include/dce /usr/include/dce
+        elif [ $temp -eq 1 ]    # exists and not a symlink
+        then
+            echo "\t/usr/include/dce on your Operating System already exists"
+            echo "\tIf desired, replace it with a symbolic link to $DCELOCAL/sha
+re/include/dce"
+        fi
+        # else do nothing if its a symlink
+
+Shouldn't this be cancelled?
+
+did you do 'cd <dce_install_tree>/etc; ./dce_config -i?
+
+[7/19/96 public]
+Sorry I was too hasty, it is a bug and here is the fix:
+*** /vob/dce/src/config/dce_config@@/main/DCE_1.2.2/psn_bugfix/0        Fri Jul 19 15:44:36 1996
+--- /vob/dce/src/config/dce_config      Fri Jul 19 15:47:19 1996
+***************
+*** 3500,3506 ****
+        # Be nice and make sure they don't already have a directory
+        issymlink /usr/include/dce
+        temp=$?
+!       if [ $? -eq 2 ]         # does not exists
+        then
+                ln -s $DCELOCAL/share/include/dce /usr/include/dce
+        elif [ $temp -eq 1 ]    # exists and not a symlink
+--- 3500,3506 ----
+        # Be nice and make sure they don't already have a directory
+        issymlink /usr/include/dce
+        temp=$?
+!       if [ $temp -eq 2 ]              # does not exists
+        then
+                ln -s $DCELOCAL/share/include/dce /usr/include/dce
+        elif [ $temp -eq 1 ]    # exists and not a symlink
+
+
+
+CR Number                     : 13266
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : Install fails with incorrect etc directory specified
+Reported Date                 : 12/28/95
+Found in Baseline             : 1.2.1
+Found Date                    : 12/28/95
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : dce_config,dce_config_utils,dce_com_utils,dce_shutdown,dce_config_env
+Sensitivity                   : public
+
+[12/28/95 public]
+dce_config is set to the install area when the install option is used.  
+However, all of the other routines are set to /etc on the machine they
+are on.  dce_config sets the DCE_ETC directory to "." for install, but
+to "/etc" for regular configurations.  If the /opt/dcelocal area has
+been removed before installation, install will not work.
+
+It is possible to work around this by entering the following code
+in all scripts EXCEPT dce_config,  which are used with dce_config:
+
+: ${DCE_ETC:=/etc}
+export DCE_ETC
+
+[1/3/96 public]
+The context diff of the fix is:
+
+*** /vob/dce/src/config/dce_config@@/main/DCE_1.2/1     Wed Jan  3 14:04:19 1996
+--- /vob/dce/src/config/dce_config@@/main/DCE_1.2/2     Wed Jan  3 16:42:08 1996
+***************
+*** 8,13 ****
+--- 8,16 ----
+  #
+  # HISTORY
+  # $Log:	c013266,v $
+# Revision 1.2  96/01/03  17:09:41  root
+# changed fields: Status  Fixed In Baseline  Affected File(s)  Responsible Engr.  Resp. Engrs Company   new/changed/deleted note(s) [psn 1/3/96 public]
+# 
++ # Revision /main/DCE_1.2/2  1996/01/03  21:42 UTC  psn
++ #     Fix DCE_ETC install time setting.
++ #
+  # Revision /main/DCE_1.2/1  1996/01/03  19:05 UTC  psn
+  #     Fix a test..
+  #     [1995/12/04  22:35 UTC  psn  /main/DCE1_1_WP/jrr_1.2_mothra/8]
+***************
+*** 643,653 ****
+  if [ "$INSTALL" = "y" -o "$1" = "install" ]
+  then
+        ETC="."
+  else
+        ETC="/etc"
+  fi
+
+! export ETC
+
+  # DEBUG?
+  D=$1
+--- 646,658 ----
+  if [ "$INSTALL" = "y" -o "$1" = "install" ]
+  then
+        ETC="."
++       DCE_ETC="."
+  else
+        ETC="/etc"
++       DCE_ETC="/etc"
+  fi
+
+! export ETC DCE_ETC
+
+  # DEBUG?
+  D=$1
+***************
+*** 667,673 ****
+  fi
+
+  echo "*****************************************************************" >>$lo
+gfile
+! echo "dce_config V$Revision: 1.2 $($Date: 96/01/03 17:09:41 $)
+executed: `date`" >>$logfile
+  echo "*****************************************************************" >>$lo
+gfile
+
+  # Report the values of the environment variables to the config log file
+--- 672,678 ----
+  fi
+
+  echo "*****************************************************************" >>$lo
+gfile
+! echo "dce_config V$Revision: 1.2 $($Date: 96/01/03 17:09:41 $)
+executed: `date`" >>$logfile
+  echo "*****************************************************************" >>$lo
+gfile
+
+  # Report the values of the environment variables to the config log file
+***************
+*** 3748,3754 ****
+    log_msg DETAIL "Executing: $cmd"
+    secval_status=`$cmd`
+    rtn_status=$?
+!   if [ "$saved_krb5ccname" != "" ]
+    then
+      KRB5CCNAME=$saved_krb5ccname
+      export KRB5CCNAME
+--- 3753,3759 ----
+    log_msg DETAIL "Executing: $cmd"
+    secval_status=`$cmd`
+    rtn_status=$?
+!   if [ "$saved_krb5ccname"XX != "XX" ]
+    then
+      KRB5CCNAME=$saved_krb5ccname
+      export KRB5CCNAME
+*** /vob/dce/src/config/dce_shutdown@@/main/DCE_1.2/1   Wed Jan  3 14:42:53 1996
+--- /vob/dce/src/config/dce_shutdown@@/main/DCE_1.2/2   Wed Jan  3 16:42:27 1996
+***************
+*** 7,16 ****
+  # src directory for the full copyright text.
+  #
+  # @HP_DCE_VERSION@
+! # @(#)Module: dce_shutdown $Revision: 1.2 $ $Date: 1996/01/03 19:4
+3 UTC $
+  #
+  # HISTORY
+  # $Log:	c013266,v $
+# Revision 1.2  96/01/03  17:09:41  root
+# changed fields: Status  Fixed In Baseline  Affected File(s)  Responsible Engr.  Resp. Engrs Company   new/changed/deleted note(s) [psn 1/3/96 public]
+# 
+  # Revision /main/DCE_1.2/1  1996/01/03  19:43 UTC  psn
+  #     Merge mothra changes into mainline for DCE 1.2.1 code base.
+  #     [1995/12/01  19:14 UTC  psn  /main/jrr_1.2_mothra/1]
+--- 7,19 ----
+  # src directory for the full copyright text.
+  #
+  # @HP_DCE_VERSION@
+! # @(#)Module: dce_shutdown $Revision: 1.2 $ $Date: 1996/01/03 21:4
+3 UTC $
+  #
+  # HISTORY
+  # $Log:	c013266,v $
+# Revision 1.2  96/01/03  17:09:41  root
+# changed fields: Status  Fixed In Baseline  Affected File(s)  Responsible Engr.  Resp. Engrs Company   new/changed/deleted note(s) [psn 1/3/96 public]
+# 
++ # Revision /main/DCE_1.2/2  1996/01/03  21:43 UTC  psn
++ #     Fix DCE_ETC install time setting.
++ #
+  # Revision /main/DCE_1.2/1  1996/01/03  19:43 UTC  psn
+  #     Merge mothra changes into mainline for DCE 1.2.1 code base.
+  #     [1995/12/01  19:14 UTC  psn  /main/jrr_1.2_mothra/1]
+***************
+*** 123,129 ****
+      exit 1
+  fi
+
+! DCE_ETC="/etc"
+  export DCE_ETC
+
+
+--- 126,132 ----
+      exit 1
+  fi
+
+! : ${DCE_ETC:="/etc"}
+  export DCE_ETC
+
+
+*** /vob/dce/src/config/dce_config_utils@@/main/DCE_1.2/1       Wed Jan  3 14:26
+:29 1996
+--- /vob/dce/src/config/dce_config_utils@@/main/DCE_1.2/2       Wed Jan  3 16:42
+:25 1996
+***************
+*** 7,12 ****
+--- 7,15 ----
+  #
+  # HISTORY
+  # $Log:	c013266,v $
+# Revision 1.2  96/01/03  17:09:41  root
+# changed fields: Status  Fixed In Baseline  Affected File(s)  Responsible Engr.  Resp. Engrs Company   new/changed/deleted note(s) [psn 1/3/96 public]
+# 
++ # Revision /main/DCE_1.2/2  1996/01/03  21:43 UTC  psn
++ #     Fix DCE_ETC install time setting.
++ #
+  # Revision /main/DCE_1.2/1  1996/01/03  19:27 UTC  psn
+  #     Set the DCE_ETC env
+  #     [1995/12/04  20:02 UTC  psn  /main/jrr_1.2_mothra/2]
+***************
+*** 92,98 ****
+        set -x
+  fi
+
+! DCE_ETC="/etc"
+  export DCE_ETC
+
+  SOURCE_CONFIG_UTILS=1
+--- 95,101 ----
+        set -x
+  fi
+
+! : ${DCE_ETC:="/etc"}
+  export DCE_ETC
+
+  SOURCE_CONFIG_UTILS=1
+*** /vob/dce/src/config/dce_config_env@@/main/DCE_1.2/1 Wed Jan  3 14:26:25 1996
+--- /vob/dce/src/config/dce_config_env@@/main/DCE_1.2/2 Wed Jan  3 16:42:22 1996
+***************
+*** 6,15 ****
+  # src directory for the full copyright text.
+  #
+  # @HP_DCE_VERSION@
+! # @(#)Module: dce_config_env $Revision: 1.2 $ $Date: 1996/01/03 19
+:27 UTC $
+  #
+  # HISTORY
+  # $Log:	c013266,v $
+# Revision 1.2  96/01/03  17:09:41  root
+# changed fields: Status  Fixed In Baseline  Affected File(s)  Responsible Engr.  Resp. Engrs Company   new/changed/deleted note(s) [psn 1/3/96 public]
+# 
+  # Revision /main/DCE_1.2/1  1996/01/03  19:27 UTC  psn
+  #     Merge mothra changes to mainline for OSF DCE 1.2.1 code base.
+  #     [1995/12/01  22:46 UTC  psn  /main/jrr_1.2_mothra/1]
+--- 6,18 ----
+  # src directory for the full copyright text.
+  #
+  # @HP_DCE_VERSION@
+! # @(#)Module: dce_config_env $Revision: 1.2 $ $Date: 1996/01/03 21
+:43 UTC $
+  #
+  # HISTORY
+  # $Log:	c013266,v $
+# Revision 1.2  96/01/03  17:09:41  root
+# changed fields: Status  Fixed In Baseline  Affected File(s)  Responsible Engr.  Resp. Engrs Company   new/changed/deleted note(s) [psn 1/3/96 public]
+# 
++ # Revision /main/DCE_1.2/2  1996/01/03  21:43 UTC  psn
++ #     Fix DCE_ETC install time setting.
++ #
+  # Revision /main/DCE_1.2/1  1996/01/03  19:27 UTC  psn
+  #     Merge mothra changes to mainline for OSF DCE 1.2.1 code base.
+  #     [1995/12/01  22:46 UTC  psn  /main/jrr_1.2_mothra/1]
+***************
+*** 133,139 ****
+  # If the user provided a config file to set up, use it
+  # otherwise look in a 'standard' place for it
+  #
+! DCE_ETC=/etc
+  export DCE_ETC
+
+  : ${CONFIG_FILE:="${DCE_ETC}/dce_config.conf"}
+--- 136,142 ----
+  # If the user provided a config file to set up, use it
+  # otherwise look in a 'standard' place for it
+  #
+! : ${DCE_ETC:="/etc"}
+  export DCE_ETC
+
+  : ${CONFIG_FILE:="${DCE_ETC}/dce_config.conf"}
+*** /vob/dce/src/config/dce_com_utils@@/main/DCE_1.2/1  Wed Jan  3 14:26:19 1996
+--- /vob/dce/src/config/dce_com_utils@@/main/DCE_1.2/2  Wed Jan  3 16:42:19 1996
+***************
+*** 6,15 ****
+  # src directory for the full copyright text.
+  #
+  # @HP_DCE_VERSION@
+! # @(#)Module: dce_com_utils $Revision: 1.2 $ $Date: 1996/01/03 19:
+27 UTC $
+  #
+  # HISTORY
+  # $Log:	c013266,v $
+# Revision 1.2  96/01/03  17:09:41  root
+# changed fields: Status  Fixed In Baseline  Affected File(s)  Responsible Engr.  Resp. Engrs Company   new/changed/deleted note(s) [psn 1/3/96 public]
+# 
+  # Revision /main/DCE_1.2/1  1996/01/03  19:27 UTC  psn
+  #     Remove HP specific stuff.
+  #     [1995/12/04  20:43 UTC  psn  /main/jrr_1.2_mothra/2]
+--- 6,18 ----
+  # src directory for the full copyright text.
+  #
+  # @HP_DCE_VERSION@
+! # @(#)Module: dce_com_utils $Revision: 1.2 $ $Date: 1996/01/03 21:
+43 UTC $
+  #
+  # HISTORY
+  # $Log:	c013266,v $
+# Revision 1.2  96/01/03  17:09:41  root
+# changed fields: Status  Fixed In Baseline  Affected File(s)  Responsible Engr.  Resp. Engrs Company   new/changed/deleted note(s) [psn 1/3/96 public]
+# 
++ # Revision /main/DCE_1.2/2  1996/01/03  21:43 UTC  psn
++ #     Fix DCE_ETC install time setting.
++ #
+  # Revision /main/DCE_1.2/1  1996/01/03  19:27 UTC  psn
+  #     Remove HP specific stuff.
+  #     [1995/12/04  20:43 UTC  psn  /main/jrr_1.2_mothra/2]
+***************
+*** 223,229 ****
+  set -x
+  fi
+
+! DCE_ETC="/etc"
+  export DCE_ETC
+
+  SOURCE_COM_UTILS=1
+--- 226,232 ----
+  set -x
+  fi
+
+! : ${DCE_ETC:="/etc"}
+  export DCE_ETC
+
+  SOURCE_COM_UTILS=1
+*** /vob/dce/src/config/dce_shutdown@@/main/DCE_1.2/1   Wed Jan  3 14:42:53 1996
+--- /vob/dce/src/config/dce_shutdown@@/main/DCE_1.2/2   Wed Jan  3 16:42:27 1996
+***************
+*** 7,16 ****
+  # src directory for the full copyright text.
+  #
+  # @HP_DCE_VERSION@
+! # @(#)Module: dce_shutdown $Revision: 1.2 $ $Date: 1996/01/03 19:4
+3 UTC $
+  #
+  # HISTORY
+  # $Log:	c013266,v $
+# Revision 1.2  96/01/03  17:09:41  root
+# changed fields: Status  Fixed In Baseline  Affected File(s)  Responsible Engr.  Resp. Engrs Company   new/changed/deleted note(s) [psn 1/3/96 public]
+# 
+  # Revision /main/DCE_1.2/1  1996/01/03  19:43 UTC  psn
+  #     Merge mothra changes into mainline for DCE 1.2.1 code base.
+  #     [1995/12/01  19:14 UTC  psn  /main/jrr_1.2_mothra/1]
+--- 7,19 ----
+  # src directory for the full copyright text.
+  #
+  # @HP_DCE_VERSION@
+! # @(#)Module: dce_shutdown $Revision: 1.2 $ $Date: 1996/01/03 21:4
+3 UTC $
+  #
+  # HISTORY
+  # $Log:	c013266,v $
+# Revision 1.2  96/01/03  17:09:41  root
+# changed fields: Status  Fixed In Baseline  Affected File(s)  Responsible Engr.  Resp. Engrs Company   new/changed/deleted note(s) [psn 1/3/96 public]
+# 
++ # Revision /main/DCE_1.2/2  1996/01/03  21:43 UTC  psn
++ #     Fix DCE_ETC install time setting.
++ #
+  # Revision /main/DCE_1.2/1  1996/01/03  19:43 UTC  psn
+  #     Merge mothra changes into mainline for DCE 1.2.1 code base.
+  #     [1995/12/01  19:14 UTC  psn  /main/jrr_1.2_mothra/1]
+***************
+*** 123,129 ****
+      exit 1
+  fi
+
+! DCE_ETC="/etc"
+  export DCE_ETC
+
+
+--- 126,132 ----
+      exit 1
+  fi
+
+! : ${DCE_ETC:="/etc"}
+  export DCE_ETC
+
+
+
+CR Number                     : 12446
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : aud
+Short Description             : UHYP:Need cell-wide default filters
+Reported Date                 : 9/30/94
+Found in Baseline             : 1.1b20
+Found Date                    : 9/30/94
+Severity                      : C
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : dce_config
+Sensitivity                   : public
+
+[9/30/94 public]
+We should create and install default filters cell-wide for dts and
+sec.  If not, then all events will go to the respective trail files
+and much disk space will be eaten up.
+
+[10/3/94 public]
+On hypercritical list.
+
+[10/11/94 public]
+Designated for unintegrated tree.
+
+[10/13/94 public]
+Fixed.  Added default filters for sec, dts, and audit.  This will be
+installed automatically when audit is configured.
+
+
+
+CR Number                     : 12292
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dfs_config,dfs.clean
+                                             config.env
+Short Description             : UHYP:cannot config dfsgwd if dfs client daemons running, no bosserver setup/use during dfsgwd config, xtra groups added to rgy
+Reported Date                 : 9/21/94
+Found in Baseline             : 1.1b16
+Found Date                    : 9/21/94
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : dfs.clean, dfs_config, config.env
+Sensitivity                   : public
+
+[9/21/94 public]
+The DFS/NFS Secure Gateway Appendix A section
+A.1.2.2 Configuring the Gateway Server Process
+item 13. Create a simple BOS Server process......
+
+is not implemented via the dce_config process for
+dfs client configure dfs-nfs gateway server
+
+the gateway server should be maintained as all other
+dfs servers (flserver, ftserver, bakserver, repserver, etc)
+via the boss server, although this particular server
+is configured on a dfs client the bosserver can be
+configured to run there also, the machine could in fact
+also be a dfs server anyway, omitting bosserver 
+from starting, shutdown as well as other operations 
+available to the user and administrator leaves the
+gateway server with a less friendly user/admin 
+environment
+
+the changes to fix this are trivial and should be included
+in the dce 1.1 product
+
+[9/26/94 public]
+I've changed this to a P1 bug since either reconfig
+of the dfs client (causing reboot, I could set this as
+a P0 I suppose) must be performed to config the gateway
+server at some time other than when initial dfs client
+config occurred...
+
+I've also 'optionally' allowed the user to make use of
+the bosserver on the dfs client to control/monitor
+the gateway server process.
+
+[10/13/94 public]
+I've completed the changes and submitted them to the
+unintegrated tree.
+
+
+

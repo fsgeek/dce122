@@ -1,0 +1,244 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" HISTORY
+...\" $Log: dce_svc_printf.3dce,v $
+...\" Revision 1.1.4.1  1996/11/18  17:00:38  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  16:57:06  wardr]
+...\"
+...\" Revision 1.1.2.7  1995/06/21  13:19:45  buckler
+...\" 	More 1.1 edits.
+...\" 	[1995/06/19  15:21:46  buckler]
+...\" 
+...\" Revision 1.1.2.6  1995/05/31  17:05:55  buckler
+...\" 	1.1 edits.
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/05/30  22:54:38  buckler]
+...\" 
+...\" Revision 1.1.2.5  1994/10/17  21:45:31  buckler
+...\" 	{enh, 8441, R1.1}
+...\" 	Incorporated technical review.
+...\" 	[1994/10/17  21:45:18  buckler]
+...\" 
+...\" Revision 1.1.2.3  1994/09/14  14:52:41  weir
+...\" 	Updates
+...\" 	[1994/09/14  14:51:33  weir]
+...\" 
+...\" Revision 1.1.2.2  1994/09/13  21:31:05  weir
+...\" 	Updates
+...\" 	[1994/09/13  21:29:22  weir]
+...\" 
+...\" Revision 1.1.2.1  1994/09/08  19:32:02  weir
+...\" 	Reorganized reference pages
+...\" 	[1994/09/08  19:30:40  weir]
+...\" 
+...\" $EndLog$
+...\" 
+...\" 
+...\" 
+...\" 
+.TH dce_svc_printf 3dce
+.SH "Name"
+\*Ldce_svc_printf\*O \- Generates a serviceability message
+.SH "Synopsis"
+...\" ----------------------------------------------------------------------
+.sS
+\*L#include <dce/dce.h>\*O
+.sp .4v
+\*Lvoid dce_svc_printf(
+.nL
+	\*LDCE_SVC(dce_svc_handle_t \*Vhandle\*L, char * \*Vargtypes\*L),
+.nL
+	\*Lconst unsigned32 \*Vtable_index\*L,
+.nL
+	\*Lconst unsigned32 \*Vattributes\*L,
+.nL
+	\*Lconst unsigned32 \*VmessageID\*L,
+.nL
+	\*L.\ .\ .);
+.sE
+.SH "Parameters"
+...\" ----------------------------------------------------------------------
+.SS "Input"
+.VL
+.LI "\*Vhandle\*O"
+The caller's serviceability handle.
+.LI "\*Vargtypes\*O"
+Format string for the message.
+.LI "\*Vtable_index\*O"
+The message's subcomponent name (defined in the \*Lsams\*O file).
+.LI "\*Vattributes\*O"
+Any routing, severity, action, or debug attributes that are to associated
+with the generated message, OR'd together.
+.LI "\*VmessageID\*O"
+The message ID, defined in the message's \*Lcode\*O field in the \*Lsams\*O file.
+.LI "\*L.\ .\ .\*O"
+Any format arguments for the message string.
+.LE
+.SH "Description"
+...\" ----------------------------------------------------------------------
+...\" 
+.PP
+The \*Ldce_svc_printf(\|)\*O routine is the 
+normal call for writing or displaying
+serviceability messages.  It cannot be called with a literal text argument. 
+Instead, the message text is retrieved from a message catalog or an 
+in-core message table.  These are generated
+by the \*Lsams\*O utility, which in turn outputs sets of tables
+from which the messages are extracted for output.
+.PP
+There are two main ways in which to call the routine.  If a message has been
+defined in the \*Lsams\*O file with both \*Lsub-component\*O and \*Lattributes\*O
+specified, then the \*Lsams\*O output will include a convenience macro for
+the message that can be passed as the single argument to \*Ldce_svc_printf(\|)\*O,
+for example:
+...\" 
+.oS
+dce_svc_printf(SIGN_ON_MSG);
+.oE
+...\" 
+.PP
+The convenience macro's name will be generated from the uppercase version of the
+message's \*Lcode\*O value (as specified in the \*Lsams\*O file), with the string \*L_MSG\*O
+appended.
+...\" 
+.PP
+If a convenience macro is not generated, or if you want to override some of
+the message's attributes at the time of output, then you must call the routine
+in its long form.  An example of this form of the call looks as follows:
+...\" 
+.oS
+dce_svc_printf(DCE_SVC(\*Vapp_svc_handle\*C, ""), \*Vapp_subcomponent\*C,\\
+	svc_c_sev_error | svc_c_route_stderr, \*VmessageID\*C);
+.oE
+...\" 
+.PP
+\*LDCE_SVC(\|)\*O is a macro that \*Emust\*O be passed as the first argument
+to \*Ldce_svc_printf(\|)\*O if a convenience macro is not being used.  It takes
+two arguments:
+...\" 
+.ad l
+.ML
+.LI
+The caller's serviceability handle
+.LI
+A format string for the message that is to be output
+.LE
+.ad b
+...\" 
+.PP
+The format string is for use with messages that have been coded with argument
+specifiers.  It is a character string consisting of the argument types as they
+would be passed to a \*Lprintf(\|)\*O call.  If the message is to be routed to a
+binary file, the format is extended to include a \*L%b\*O specifier; using \*L%b\*O
+in a different routing will give unpredictable results.  The \*L%b\*O specifier
+takes two arguments: an integer size, and a buffer pointer.
+.PP
+The remaining arguments passed to \*Ldce_svc_printf(\|)\*O are as follows:
+...\" 
+.ad l
+.ML
+.LI
+Subcomponent table index
+.PP
+This symbol is declared in the \*Lsub-component\*O list coded in Part II of the
+\*Lsams\*O file; its value is used to index into the subtable of messages in which the
+desired message is located.
+...\" 
+.LI
+Message attribute(s)
+.PP
+This argument consists of one or more attributes to be applied to the message
+that is to be printed.  Note that you \*Emust\*O specify at least one severity
+here.  Multiple attributes are OR'd together, as shown in the 
+following example.
+.PP
+There are four categories of message attributes:
+...\" 
+.VL
+.LI "Routing"
+The available routing attribute constants are as follows:
+.ad l
+.ML
+.LI
+\*Lsvc_c_route_stderr\*O
+.LI
+\*Lsvc_c_route_nolog\*O
+.LE
+.ad b
+...\" 
+.PP
+.ne 4
+However, most routing is done either by passing specially-formatted
+strings to \*Ldce_svc_routing(\|)\*O or by environment variable
+values.  Note that using \*Lsvc_c_route_nolog\*O without using
+\*Lsvc_c_route_stderr\*O will result in no message being generated.
+...\" 
+.LI "Severity"
+The available severity attribute constants are as follows:
+.ad l
+.ML
+.LI
+\*Lsvc_c_sev_fatal\*O
+.LI
+\*Lsvc_c_sev_error\*O
+.LI
+\*Lsvc_c_sev_warning\*O
+.LI
+\*Lsvc_c_sev_notice\*O
+.LI
+\*Lsvc_c_sev_notice_verbose\*O
+.LE
+.ad b
+...\" 
+.LI "Action"
+The available message action attribute constants are as follows:
+.ad l
+.ML
+.LI
+\*Lsvc_c_action_abort\*O
+.LI
+\*Lsvc_c_action_exit_bad\*O
+.LI
+\*Lsvc_c_action_exit_ok\*O
+.LI
+\*Lsvc_c_action_brief\*O
+.LI
+\*Lsvc_c_action_none\*O
+.LE
+.ad b
+...\" 
+.PP
+Note that \*Lsvc_c_action_brief\*O is used to suppress the standard prolog.
+...\" 
+.LI "Debug Level"
+.nL
+Nine different debug levels can be specified 
+(\*Lsvc_c_debug1\*O...\*Lsvc_c_debug9\*O or \*Lsvc_c_debug_off\*O).
+...\" 
+.LE
+.LI
+Message ID
+.PP
+This argument consists of the message's \*Lcode\*O, as declared in the \*Lsams\*O
+file.
+.LE
+.ad b
+...\" ----------------------------------------------------------------------
+.SH "Errors"
+.PP
+The following describes a partial list of errors that might be returned.
+Refer to the \*(Tg for complete descriptions of all error
+messages.
+...\" ----------------------------------------------------------------------
+...\" 
+.PP
+This routine has no return value.
+.SH "Related Information"
+.ad l
+Functions:  \*Ldce_svc_register(3dce)\*O, \*LDCE_SVC_DEFINE_HANDLE(3dce)\*O.
+.ad b

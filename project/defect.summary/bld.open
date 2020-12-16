@@ -1,0 +1,2737 @@
+CR Number                     : 13680
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : 
+Short Description             : TARGET_SYS should be TARGET_MACHINE
+Reported Date                 : 12/9/96
+Found in Baseline             : 1.2.2
+Found Date                    : 12/9/96
+Severity                      : D
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[12/9/96 public]
+
+There are a few Makefiles that should have TARGET_SYS changed to TARGET_MACHINE:
+
+test/file/cmmhs/RIOS/Makefile
+file/bosserver/Makefile
+
+
+
+CR Number                     : 13679
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : 
+Short Description             : Problem with abs path in a Makefile
+Reported Date                 : 12/6/96
+Found in Baseline             : 1.2.2
+Found Date                    : 12/6/96
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[12/6/96 public]
+
+My suggestion would be to change the file as Sean suggests at the end of this
+entry, since we are shipping with rc files that use absolute paths, and make
+a note in the release notes.
+
+From Sean:
+ If you look at src/test/functional/security/lib/Makefile:
+
+.if ${TARGET_MACHINE} == "RIOS"
+# If OBJECTDIR is a relative path
+VPATH           = ${SOURCEBASE}/${OBJECTDIR}/admin/expect_dce
+.else
+# If OBJECTDIR is an absolute path
+VPATH           = ${OBJECTDIR}/admin/expect_dce
+.endif
+
+For some reason, OBJECTDIR was a relative path on our RIOS platform here
+at HP and we had to define VPATH this way in order to pick up the expect
+binary.  On your system, OBJECTDIR is not relative, so you want to use
+the VPATH in the else part of the statement above.
+
+For now, I would just remove the entire [.if/.else/.endif] block
+and replace it with:
+
+VPATH           = ${OBJECTDIR}/admin/expect_dce
+
+This will get you past the build problem but is not the correct fix
+because it doesn't handle relative pathnames for OBJECTDIR.
+
+
+
+CR Number                     : 13619
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : 
+Short Description             : nbase.idl dependency problems
+Reported Date                 : 8/26/96
+Found in Baseline             : 1.2.2
+Found Date                    : 8/26/96
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[8/26/96 public]
+There a small flurry of mail about nbase.idl a while back, but nothing
+came of it. Here is the relavant bit of info:
+
+>We have been experiencing a problem with nbase.idl. It doesn't show up in
+>a ClearCase clearmake build because clearmake winks the darn thing in from
+>a previous build. It is just too helpful. ;-) Anyway, nbase.idl is needed in:
+>
+>
+>[ /dce/utils/svc ]
+>rm -rf service.h
+>/project/dce/build/dce1.2.2_recycle/tools/rios/bin/idl      -no_mepv -keep c_sou
+>rce   -I/project/dce/build/dce1.2.2_recycle/export/rios/usr/include -I/project/d
+>ce/build/dce1.2.2_recycle/external/rios/usr/include -client none -server none /u
+>2/build/dce1.2.2_recycle/src/dce/utils/svc/service.idl
+>/project/dce/build/dce1.2.2_recycle/tools/rios/bin/idl: File /u2/build/dce1.2.2_
+>recycle/src/dce/utils/svc/service.idl, line 1
+>File dce/nbase.idl not found
+>Compilation aborted
+>*** Error code 3
+>
+>but it is not built made available until:
+>
+>[ /rpc/sys_idl ]
+>(cd /u2/build/dce1.2.2_recycle/src/rpc/sys_idl; ln -s `pwd`/nbase.idl
+> /project/dce/build/dce1.2.2_recycle/export/rios/usr/include/dce/nbase.idl)
+>
+>which is kind of strange because that implies it already exists in the export
+>tree.
+
+
+
+CR Number                     : 13387
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : 
+Short Description             : DCE_DEBUG redefined
+Reported Date                 : 3/11/96
+Found in Baseline             : 1.2.1
+Found Date                    : 3/11/96
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : /usr/include/dce/dce.h
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[3/11/96 public]
+
+Not a defect perhaps so much as a build peculiarity -- we turn on
+DCE_DEBUG in a ".mk" file for our builds, so I'm getting it redefined
+in dce.h.  We #ifdef'ed it out:
+
+% diff -C 3 dce.h dce.h.orig
+*** dce.h       Mon Mar 11 15:26:11 1996
+--- dce.h.orig  Mon Mar 11 15:25:07 1996
+***************
+*** 147,155 ****
+  extern const char *dceshared_path;
+  
+  /* If DCE_DEBUG is defined then debugging code is activated. */
+- #ifndef DCE_DEBUG
+  #define DCE_DEBUG 
+- #endif
+
+[ damon 08/26/96 public]
+
+Unless this really needs to be addressed for 1.2.2, I'd like to defer this.
+
+
+
+CR Number                     : 13184
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : audit tests
+Short Description             : Fix dependencies
+Reported Date                 : 10/31/95
+Found in Baseline             : 1.1
+Found Date                    : 10/31/95
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : security/audit/ts/{api_filter,api_log,api_log_to_daemon,ecfile_filter}/Makefile
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/31/95 public]
+
+Minor dependency fixes...
+
+*** /vob/dce.src.test/src/test/security/audit/ts/api_filter/Makefile@@/main/3   Fri Jun 10 16:45:26 1994
+--- /vob/dce.src.test/src/test/security/audit/ts/api_filter/Makefile@@/main/HPDCE02/2   Tue Jun 27 17:20:16 1995
+***************
+*** 6,11 ****
+--- 6,21 ----
+  #
+  # HISTORY
+  # $Log:	c013184,v $
+# Revision 1.3  96/08/26  16:21:45  root
+# changed fields:  new/changed/deleted note(s) [damon 08/26/96 public]
+# 
+# Revision 1.2  95/11/02  17:12:13  root
+# changed fields:  new/changed/deleted note(s) [trant 11/01/95 public]
+# 
+# Revision 1.1  95/10/31  17:37:30  root
+# new CR
+# 
++ # Revision /main/HPDCE02/2  1995/06/27  21:20 UTC  kline_s
++ #     Merge in revised audit tests.
++ #
++ # Revision /main/HPDCE02/kline_s_mothra/1  1995/06/27  01:49 UTC  kline_s
++ #     Added aud_testf.h dependency for aud_testf_rpc_manager.o
++ #     Removed ignored -g option from CCFLAGS.
++ #
++ # Revision /main/HPDCE02/1  1995/03/01  22:30 UTC  mob
++ #     Change dependency from .idl to .h
++ #
+  # Revision 1.1.2.2  1994/06/10  20:45:26  devsrc
+  #     cr10872 - fixed copyright
+  #     [1994/06/10  17:17:00  devsrc]
+***************
+*** 32,38 ****
+             delfilter.worldover addfilter.princ1noac addfilter.group1noac \
+             addfilter.princ1succalarm addfilter.princ1denialarm
+
+! CFLAGS   = -g ${${TARGET_MACHINE}_CFLAGS}
+
+  INCFLAGS = -I../../../../../security/audit/h -I../../../../../security/audit/idl
+
+--- 42,48 ----
+             delfilter.worldover addfilter.princ1noac addfilter.group1noac \
+             addfilter.princ1succalarm addfilter.princ1denialarm
+
+! CFLAGS   = ${${TARGET_MACHINE}_CFLAGS}
+
+  INCFLAGS = -I../../../../../security/audit/h -I../../../../../security/audit/idl
+
+***************
+*** 44,50 ****
+
+  aud_testf_cstub.o: aud_testf_cstub.c
+
+! aud_testf.o: aud_testf.idl
+
+  LIBS = -laudit -ldce  -ltetapi -ltettcm
+  .include <${RULES_MK}>
+--- 54,62 ----
+
+  aud_testf_cstub.o: aud_testf_cstub.c
+
+! aud_testf.o: aud_testf.h
+!
+! aud_testf_rpc_manager.o: aud_testf.h
+
+  LIBS = -laudit -ldce  -ltetapi -ltettcm
+  .include <${RULES_MK}>
+*** /vob/dce.src.test/src/test/security/audit/ts/api_log/Makefile@@/main/4      Fri Jun 10 16:45:47 1994
+--- /vob/dce.src.test/src/test/security/audit/ts/api_log/Makefile@@/main/HPDCE02/4      Fri Aug 18 16:10:06 1995
+***************
+*** 6,11 ****
+--- 6,28 ----
+  #
+  # HISTORY
+  # $Log:	c013184,v $
+# Revision 1.3  96/08/26  16:21:45  root
+# changed fields:  new/changed/deleted note(s) [damon 08/26/96 public]
+# 
+# Revision 1.2  95/11/02  17:12:13  root
+# changed fields:  new/changed/deleted note(s) [trant 11/01/95 public]
+# 
+# Revision 1.1  95/10/31  17:37:30  root
+# new CR
+# 
++ # Revision /main/HPDCE02/4  1995/08/18  20:10 UTC  kline_s
++ #     Merge fix for CHFts15645.
++ #
++ # Revision /main/HPDCE02/kline_s_mothra/3  1995/08/17  21:30 UTC  kline_s
++ #     CHFts16115: Remove DES_HIDDEN conditional - only using one protection
++ #     level due to singular Domestic/Export release.
++ #
++ # Revision /main/HPDCE02/kline_s_mothra/2  1995/07/06  19:45 UTC  kline_s
++ #     Enable tests to function properly using international (ie. non-DES) bits.
++ #
++ # Revision /main/HPDCE02/kline_s_mothra/1  1995/06/27  02:04 UTC  kline_s
++ #     Added aud_test.h dependency for aud_test_rpc_manager.o.
++ #     Removed ignored -g option from list of CCFLAGS options.
++ #
++ # Revision /main/HPDCE02/1  1995/03/01  22:29 UTC  mob
++ #     Change dependency from .idl to .h
++ #
+  # Revision 1.1.2.3  1994/06/10  20:45:47  devsrc
+  #     cr10872 - fixed copyright
+  #     [1994/06/10  17:17:11  devsrc]
+***************
+*** 32,38 ****
+  SCRIPTS  = api_log
+  OTHERS   =
+
+! CFLAGS = -g ${${TARGET_MACHINE}_CFLAGS}
+  INCFLAGS = -I../../../../../security/audit/h -I../../../../../security/audit/idl
+
+  IDLFILES = aud_test.idl
+--- 49,56 ----
+  SCRIPTS  = api_log
+  OTHERS   =
+
+! CFLAGS = ${${TARGET_MACHINE}_CFLAGS}
+!
+  INCFLAGS = -I../../../../../security/audit/h -I../../../../../security/audit/idl
+
+  IDLFILES = aud_test.idl
+***************
+*** 43,49 ****
+
+  aud_test_cstub.o: aud_test_cstub.c
+
+! aud_test.o: aud_test.idl
+
+  aud_test_LIBS = -ltettcm -ltetapi -laudit -ldce
+
+--- 61,69 ----
+
+  aud_test_cstub.o: aud_test_cstub.c
+
+! aud_test.o: aud_test.h
+!
+! aud_test_rpc_manager.o: aud_test.h
+
+  aud_test_LIBS = -ltettcm -ltetapi -laudit -ldce
+
+*** /vob/dce.src.test/src/test/security/audit/ts/api_log_to_daemon/Makefile@@/main/4    Fri Jun 10 16:45:56 1994
+--- /vob/dce.src.test/src/test/security/audit/ts/api_log_to_daemon/Makefile@@/main/HPDCE02/4    Fri Aug 18 16:10:45
+1995
+***************
+*** 6,11 ****
+--- 6,28 ----
+  #
+  # HISTORY
+  # $Log:	c013184,v $
+# Revision 1.3  96/08/26  16:21:45  root
+# changed fields:  new/changed/deleted note(s) [damon 08/26/96 public]
+# 
+# Revision 1.2  95/11/02  17:12:13  root
+# changed fields:  new/changed/deleted note(s) [trant 11/01/95 public]
+# 
+# Revision 1.1  95/10/31  17:37:30  root
+# new CR
+# 
++ # Revision /main/HPDCE02/4  1995/08/18  20:10 UTC  kline_s
++ #     Merge fix for CHFts16115
++ #
++ # Revision /main/HPDCE02/kline_s_mothra/3  1995/08/17  21:30 UTC  kline_s
++ #     CHFts16115: Remove DES_HIDDEN conditional - only using one protection
++ #     level due to singular Domestic/Export release.
++ #
++ # Revision /main/HPDCE02/kline_s_mothra/2  1995/07/06  19:45 UTC  kline_s
++ #     Enable tests to function properly using international (ie. non-DES) bits.
++ #
++ # Revision /main/HPDCE02/kline_s_mothra/1  1995/06/27  02:27 UTC  kline_s
++ #     Added aud_testd.h dependency for aud_testd_rpc_manager.o.
++ #     Removed ignored -g option from list of CCFLAGS options.
++ #
++ # Revision /main/HPDCE02/1  1995/03/01  22:29 UTC  mob
++ #     Change dependency from .idl to .h
++ #
+  # Revision 1.1.2.3  1994/06/10  20:45:56  devsrc
+  #     cr10872 - fixed copyright
+  #     [1994/06/10  17:17:17  devsrc]
+***************
+*** 32,38 ****
+  SCRIPTS  = api_log_to_daemon stopauditd startauditd disableauditd \
+             setaclnologperm restorelogperm
+
+! CFLAGS = -g ${${TARGET_MACHINE}_CFLAGS}
+
+  INCFLAGS = -I../../../../../security/audit/h -I../../../../../security/audit/idl
+
+--- 49,56 ----
+  SCRIPTS  = api_log_to_daemon stopauditd startauditd disableauditd \
+             setaclnologperm restorelogperm
+
+! # Can't use encryption for international build
+! CFLAGS = ${${TARGET_MACHINE}_CFLAGS}
+
+  INCFLAGS = -I../../../../../security/audit/h -I../../../../../security/audit/idl
+
+***************
+*** 44,50 ****
+
+  aud_testd_cstub.o: aud_testd_cstub.c
+
+! aud_testd.o: aud_testd.idl
+
+  LIBS = -ltettcm -ltetapi -laudit -ldce
+  .include <${RULES_MK}>
+--- 62,70 ----
+
+  aud_testd_cstub.o: aud_testd_cstub.c
+
+! aud_testd.o: aud_testd.h
+!
+! aud_testd_rpc_manager.o: aud_testd.h
+
+  LIBS = -ltettcm -ltetapi -laudit -ldce
+  .include <${RULES_MK}>
+*** /vob/dce.src.test/src/test/security/audit/ts/ecfile_filter/Makefile@@/main/4        Fri Jun 10 16:46:21 1994
+--- /vob/dce.src.test/src/test/security/audit/ts/ecfile_filter/Makefile@@/main/HPDCE02/4        Fri Aug 18 16:10:31
+1995
+***************
+*** 6,11 ****
+--- 6,27 ----
+  #
+  # HISTORY
+  # $Log:	c013184,v $
+# Revision 1.3  96/08/26  16:21:45  root
+# changed fields:  new/changed/deleted note(s) [damon 08/26/96 public]
+# 
+# Revision 1.2  95/11/02  17:12:13  root
+# changed fields:  new/changed/deleted note(s) [trant 11/01/95 public]
+# 
+# Revision 1.1  95/10/31  17:37:30  root
+# new CR
+# 
++ # Revision /main/HPDCE02/4  1995/08/18  20:10 UTC  kline_s
++ #     Merge fix for CHFts16115
++ #
++ # Revision /main/HPDCE02/kline_s_mothra/3  1995/08/17  21:31 UTC  kline_s
++ #     CHFts16115: Remove DES_HIDDEN conditional - only using one protection
++ #     level due to singular Domestic/Export release.
++ #
++ # Revision /main/HPDCE02/kline_s_mothra/2  1995/07/06  19:45 UTC  kline_s
++ #     Enable tests to function properly using international (ie. non-DES) bits.
++ #
++ # Revision /main/HPDCE02/kline_s_mothra/1  1995/06/27  02:16 UTC  kline_s
++ #     Add aud_testec_rpc_manager.o build dependency on aud_testec.h.
++ #
++ # Revision /main/HPDCE02/1  1995/03/01  22:29 UTC  mob
++ #     Change dependency from .idl to .h
++ #
+  # Revision 1.1.2.3  1994/06/10  20:46:21  devsrc
+  #     cr10872 - fixed copyright
+  #     [1994/06/10  17:17:32  devsrc]
+***************
+*** 45,51 ****
+
+  aud_testec_cstub.o: aud_testec_cstub.c
+
+! aud_testec.o: aud_testec.idl
+
+  LIBS = -laudit -ldce  -ltetapi -ltettcm
+  .include <${RULES_MK}>
+--- 61,69 ----
+
+  aud_testec_cstub.o: aud_testec_cstub.c
+
+! aud_testec.o: aud_testec.h
+!
+! aud_testec_rpc_manager.o: aud_testec.h
+
+  LIBS = -laudit -ldce  -ltetapi -ltettcm
+  .include <${RULES_MK}>
+
+[11/01/95 public]
+Please also include this fix in the next merge.  Thanks.
+
+[08/26/96 public]
+From a quick inspection of files it seems that a lot has changed since this
+was filed and that this may all be moot. Any objection to my closing/cancelling
+this?
+
+
+
+CR Number                     : 12610
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : 
+Short Description             : Promblem with doing two builds simultaneously on same machine
+Reported Date                 : 10/13/94
+Found in Baseline             : 1.1
+Found Date                    : 10/13/94
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/13/94 public]
+
+Platform - HPUX 
+Machine - Zagreb
+
+Nightly build failed on HPUX; passed on AT486; On RIOS build is clean, 
+tests are compiling
+
+extract from build log 'build.log.10-12-94' in the directory /u1/RAT_tools/logs/HPUX on 'vertigo'
+
+relative path: ./file/sys
+mkdir ../../../obj/hp800/file/sys
+cd ../../../obj/hp800/file/sys
+c89 -c    -D_SHARED_LIBRARIES  +z  -DAFS_DEBUG -DDCESHARED_PATH=\"/opt/dce\" -DDCELOCAL_PATH=\"/opt/dcelocal\" -D__hppa -Dhp9000s800 -Dhp9000s700 -D__hp9000s800 -D__hp9000s700 -DHPUX -D__hpux -Dunix +DA1.0 -D_HPUX_SOURCE    -I- -I. -I/u3/devobj/sb/nb_ux/src/file/sys -I/project/dce/build/dce1.1-snap/src/file/sys  -I/u3/devobj/sb/nb_ux/export/hp800/usr/include -I/project/dce/build/dce1.1-snap/export/hp800/usr/include    /project/dce/build/dce1.1-snap/src/file/sys/lclcalls.c
+if [ -f /u3/devobj/sb/nb_ux/src/file/sys/build.made ]; then  rm -rf `head -1 /u3/devobj/sb/nb_ux/src/file/sys/build.made | awk -F":" '{print $1}'`;  fi
+if [ ! -d /u3/devobj/sb/nb_ux/src/file/ncscompat ]; then  makepath /u3/devobj/sb/nb_ux/src/file/ncscompat/ > /usr/tmp/build.made 2>& 1;  mv /usr/tmp/build.made /u3/devobj/sb/nb_ux/src/file/ncscompat;  fi;
+mv: /usr/tmp/build.made: cannot access: No such file or directory
+*** Error code 1
+
+...
+...
+
+
+if [ -f /u3/devobj/sb/nb_ux/src/dce/utils/db44/build.made ]; then  rm -rf `head -1 /u3/devobj/sb/nb_ux/src/dce/utils/db44/build.made | awk -F":" '{print $1}'`;  fi
+make: don't know how to make ../file/ncscompat/compat_junct.o (continuing)
+`build_all' not remade because of errors.
+*** Error code 1
+
+
+...
+...
+
+ld -b -L/u3/devobj/sb/nb_ux/export/hp800/usr/shlib -L/project/dce/build/dce1.1-snap/export/hp800/usr/shlib -L/usr/shlib -L/u3/devobj/sb/nb_ux/export/hp800/usr/lib     -L/project/dce/build/dce1.1-snap/export/hp800/usr/lib   -o libdsal.sl.X d26phon.o  -ldce  
+ld: Can't find library for -ldce
+*** Error code 1
+
+[10/13/94 public]
+It looks like a build problem.  I am reassigning it to bldc].
+
+[10/14/94 public]
+This is a problem only when there are two builds running simultaneously
+on the same machine.  What happens is that there are some temporary files
+created in the /tmp directory called "build.made".  The problem is that
+after the first build is done with the file it moves it, and the second
+build looks for it and can't find it - so the build gets an error.  The 
+correct thing to do would be to name the build.made file something unique,
+like with a process id or something like that.  Anyway we are deferring it
+because there is a work around => don't do two builds as the same time.
+
+[2/6/96 public]
+Work-around: Don't do two builds on the same machine at the same time. Changed
+this to Enh Req.
+
+
+
+CR Number                     : 12244
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : other
+Component Name                : bld
+Subcomponent Name             : 
+Short Description             : OSDqa09170 sams should be invoked in the standard way
+Reported Date                 : 09/19/94
+Found in Baseline             : 1.1
+Found Date                    : 09/06/94
+Severity                      : C
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : security/gssapi/Makefile
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[09/19/94 public]
+Full Description:
+
+Related-file:::: Problem
+ DESCRIPTION:
+
+ In the 2nd beta drop code:
+ 	the security/gssapi/Makefile file references sams via
+ 	${DEFTOOLBASE}sams.  Every other makefile uses ${SAMS}
+ 	to do this, and we think the latter is desirable in this
+ 	case as well.
+Related-file::Added 940906 by ddts:: /build/hiosfm/RCS/dce1.1/src/security/gssapi/./Makefile,v 7.2
+ /build/hiosfm/RCS/dce1.1/src/security/gssapi/./Makefile,v 7.2
+ rusman 1994/09/06 13:03:25 +4 -3
+ Reason:  OSDqa09170 (new bug)
+ use normal method to reference sams in build
+
+     *** /tmp/ci.21352..Makefile.21386.1	Tue Sep  6 09:03:27 1994
+     --- /tmp/Makefile.21386.2	Tue Sep  6 09:03:27 1994
+     ***************
+     *** 43,49 ****
+
+       .include <${RULES_MK}>
+
+
+       dcegssmsg.h: gss_msgs.sms
+     ! 	${DEFTOOLBASE}sams -o thmcsSu $>
+
+     --- 43,50 ----
+
+       .include <${RULES_MK}>
+
+
+       dcegssmsg.h: gss_msgs.sms
+     ! 	${SAMS} -o thmcsSu $>
+     ! #	${DEFTOOLBASE}sams -o thmcsSu $>
+
+[08/26/96 public]
+
+Unless this really needs to be addressed for 1.2.2, I'd like to defer this.
+
+
+
+CR Number                     : 11497
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : all Makefiles
+Short Description             : Makefile variables are being overwritten
+Reported Date                 : 7/29/94
+Found in Baseline             : 1.1
+Found Date                    : 7/29/94
+Severity                      : E
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/29/94 public]
+
+We should check all DCE components and make sure the CFLAGS 
+(as well as others) are NOT overwritten those in the common
+Makefile.  i.e. we need to look carefully at '=' assignment.
+Maybe the '?=' or '+=' or <target>_CFLAGS is supposed to be
+used.
+
+In any case, if someone is using 'CFLAGS = XXXX', it is probably
+a no-no and should have been set to '<target>_CFLAGS = XXXX $CFLAGS'
+so that the original CFLAGS value defined via the common Makefile 
+is NOT being overwritten.
+
+[7/29/94 public]
+
+We should also check to make sure that things are NOT being 
+set twice.  And if they are, we should see whether that is
+the case.  This is because sometimes the order is important.
+i.e.  -cpev -no_mepv -cepv ...???
+
+thanks
+annie
+
+[8/10/94 public]
+This is good, but saying "we should check" is probably too passive.  How
+about running a grep and finding out where there are problems and opening a
+bug for each component with problems?
+
+[08/12/94 public]
+I also think it should be a cardinal sin to ever invoke IDL with the -v
+flag... so "IDLFLAGS.*-v" would be a good grep pattern to add.
+
+[08/29/94 public]
+I'd like to cancel this.  Or at the very least, pass this on from a 
+'bld' problem to someone else.  Component owners should be policing
+their own makefiles (since they are the only one's that change them ...
+the RATs certainly haven't been changing them).
+
+[08/29/94 public]
+I'd rather you didn't cancel this.  Leave it open as an enhancement if you
+want.  It's pretty obvious to me that we component owners don't know
+enough about Makefiles.  It needs someone with a global view and a
+fast hand with btools to go through and do cleanups.  If Annie is still
+interested in attacking this, ANYTHING would be an improvement...
+
+[08/29/94 public]
+Oh, oh!  I should have canceled this before I started grepping the Makefiles.
+There are a lot of Makefiles that overwrite the CFLAGS variable.  I was
+redirecting the 'grep' output to a file and ran out of space on my disk.
+I'll enter the complete list of Makefiles here and try to figure out later
+how to parcel them out the each of the component owners.
+
+[9/6/94 public]
+
+The following Makefiles have the option "-v" set for IDLFLAGS.  I will fix these
+Makefiles.
+
+./file/bakserver/Makefile
+IDLFLAGS                = -keep c_source -v -no_mepv
+
+./file/bosserver/Makefile
+IDLFLAGS                = -keep c_source -v -no_cpp
+
+./file/bubasics/Makefile
+IDLFLAGS                = -keep c_source -v -no_mepv
+
+./file/config/Makefile
+IDLFLAGS                = -keep c_source -v -no_cpp -no_mepv
+
+./file/flserver.klib/Makefile
+IDLFLAGS                = -keep c_source -v -no_cpp -no_mepv 
+
+./file/flserver/Makefile
+IDLFLAGS                = -keep c_source -v -no_cpp -no_mepv 
+
+./file/fsint.klib/Makefile
+IDLFLAGS                = -keep c_source -v -no_cpp -no_mepv
+
+./file/fsint/Makefile
+IDLFLAGS                = -keep c_source -v -no_cpp -no_mepv 
+
+./file/ftserver/Makefile
+IDLFLAGS                = -keep c_source -v -no_cpp -no_mepv 
+
+./file/icl/Makefile
+IDLFLAGS                = -keep c_source -v -no_cpp -no_mepv 
+
+./file/ncsubik/Makefile
+IDLFLAGS                = -keep c_source -v -no_cpp -no_mepv 
+
+./file/update/Makefile
+IDLFLAGS                = -keep c_source -v -no_cpp -no_mepv
+
+./nosupport/security/audit/auditcp/Makefile
+IDLFLAGS =  -keep c_source -v 
+
+./rpc/kruntime/Makefile
+IDLFLAGS        = -v -keep c_source -cepv -no_mepv
+
+./rpc/runtime/Makefile
+IDLFLAGS        = -keep c_source no_cpp -v -cepv -no_mepv 
+
+./security/client/rca/Makefile
+IDLFLAGS = -keep c_source -cepv -v
+
+./security/server/rrs/Makefile
+IDLFLAGS =  -keep c_source -cepv -v
+
+./security/utils/Makefile
+IDLFLAGS =  -keep c_source -cepv -v 
+id_encode.idl_IDLFLAGS = -v -keep c_source
+authz_encode.idl_IDLFLAGS = -v -keep c_source
+sec_attr_trig.idl_IDLFLAGS = -v -keep c_source
+sec_login_encode.idl_IDLFLAGS = -v -keep c_source
+rsec_pwd_mgmt.idl_IDLFLAGS = -v -keep c_source
+acl_encode.idl_IDLFLAGS = -v -keep c_source
+
+./security/audit/auditd/Makefile
+rdaclifv0.idl_IDLFLAGS = -keep c_source -v -no_mepv
+
+./test/directory/cds/Makefile
+IDLFLAGS        ?= -v -space_opt -keep c_source `genpath ${INCFLAGS}` ${INCDIRS}
+
+./test/file/ubik/Makefile
+IDLFLAGS                = -keep c_source -v -no_cpp -no_mepv 
+
+./test/rpc/rtandidl/moretests/Makefile
+IDLFLAGS                = -keep c_source -v 
+
+./test/rpc/runtime/kncstest/Makefile
+IDLFLAGS        = -no_cpp -keep c_source -no_mepv -v
+
+./test/rpc/runtime/ncstest/Makefile
+IDLFLAGS        = -no_cpp -keep c_source -no_mepv -v
+
+./test/systest/rpc/rpc.runtime.1/Makefile
+IDLFLAGS        += -no_cpp -keep ${IDLKEEP} ${MEPV} -v ${IDL_CC_OPT}
+
+./test/functional/security/ts/client/pwd_mgmt/pwd_strength/Makefile
+IDLFLAGS        = -keep c_source -v
+
+./time/common/Makefile
+IDLFLAGS = -no_mepv -keep c_source -v
+
+./time/service/Makefile
+IDLFLAGS = -no_mepv -keep c_source -v
+rdaclifv0.idl_IDLFLAGS = -keep c_source -v -no_mepv
+
+[9/6/94 public]
+Marty, you might want to check with the DCE team before taking the -v 
+option out from the IDL flags.  Some folks might need the messages from
+the IDL -v option.
+
+thanks
+annie
+
+[9/12/94 public]
+The "-v" switch has been removed from the Makefiles listed above.
+
+As far as checking the "CFLAGS" variable in the Makefiles, I propose that
+this CR be deferred until dce1.2.  It is a little too late in the game to 
+clean up any Makefiles.
+
+[9/19/94 public]
+Defer this to dce 1.2.
+
+[2/6/96 public]
+Made it an enhancement request as it does not block anyone nor its any
+sizable work.
+
+
+
+CR Number                     : 11487
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : all of dce components
+Short Description             : check to make sure that -g has been removed
+Reported Date                 : 7/29/94
+Found in Baseline             : 1.1
+Found Date                    : 7/29/94
+Severity                      : E
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/29/94 public]
+
+Check to make sure that -g has been removed from all Makefile, component
+included makefiles (*.mk), and common Makefiles - osf.std.mk, ..., 
+Makeconf before DCE ships.
+
+[2/6/96 public]
+Enh. Lowered the priority. Its more like a productization issue for companies
+creating binaries for release.
+
+
+
+CR Number                     : 11252
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 10300
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : libdce libraries
+Short Description             : need a option to build either the libraries going into libdce or not
+Reported Date                 : 7/11/94
+Found in Baseline             : 1.1
+Found Date                    : 7/11/94
+Severity                      : E
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/11/94 public]
+
+The libraries going into libdce do not necessarily have to be built.
+Until now some Makefiles (i.e. gds/ASN1/Makefile) use for that
+
+.if ${USE_SHARED_LIBRARIES} == 0
+  LIBRARIES     = libasn1.a
+  EXPLIB_TARGETS        = ${LIBRARIES:S/^/export_/g}
+  libasn1.a_EXPDIR  = /usr/lib/
+.endif
+
+Some other (most of the other gds libraries - libdua, libd27, ...)
+do just build the library - see OT 10300.
+
+I think USE_SHARED_LIBRARIES is a bad option - it is used for 
+other things already.
+
+There should be another option to have the possibility to switch
+on and off the build of the libraries which o-files go into
+libdce.
+
+[ sally 7/14/94 public ]
+assigned this to sally
+
+
+
+CR Number                     : 11163
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : 
+Short Description             : Add Vista/Veritas Capabilities
+Reported Date                 : 7/1/94
+Found in Baseline             : 1.1
+Found Date                    : 7/1/94
+Severity                      : E
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : lbe/mk/osf.std.mk, lbe/mk/osf.prog.mk, lbe/mk/osf.dce.passes.mk, lbe/mk/osf.obj.mk, Makeconf, threads/Makefile
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[7/1/94 public]
+
+The Vista/Veritas functionality needs to be added to the 
+common makefiles.
+
+[7/22/94 ]
+
+I have sent a request to the DRB to submit the code changes for Veritas
+Vista support in DCE.
+
+Here are instructions on how to build DCE with VISTA.
+
+		BUILDING DCE WITH VISTA
+
+Thanks to help from Andy Mckeen, Ed Frankenberry, Martha Lynch and Kevin
+Sullivan, we've managed to build and test a few components (threads, time,
+rgy_edit, dcecp, dced) with VISTA for DCE 1.1 on the at486 platform.
+We did not have the time or space to test every component, although we 
+did do complete builds of source and test on all three platforms with
+the vista code in the common Makefiles but with VISTA undefined.
+
+We don't have licenses for the VISTA "covcc" binaries and libraries for the
+HPUX and RIOS platforms (site licenses are $1500 per platform), but HP and
+IBM do, so we can depend on their building DCE 1.1 with VISTA on these
+respective platforms.  OR we can use the statistics that we get from running
+VISTA on the 486, since the results shouldn't differ that much between
+platforms (just a guess).
+
+1) Mount the VISTA binaries and libraries via "osfmount" (mounts it on
+   "/usr/vista" from "pomerol.osf.org"):
+
+        osfmount vista
+
+2) Then you *must* define the following VISTA environmental variables:
+
+        setenv VISTA 1
+        setenv VLM_HOST pomerol
+        setenv VISTAHOME /usr/vista
+        set path = ( /usr/vista/bin $path )
+        setenv VISTA_ARGS "-o cov3.o"
+        setenv HIT_FILE <filename of your hit file including its full path>
+   
+   "cov3.o" is not required since by default Vista will link in the cov.o
+   coverage monitor.  The cov3.o adds the  capability to monitor programs 
+   that use fork/exec.
+
+   Building VISTA involves using the VISTA tool "covcc" which is a preproces-
+   sor to the C compiler that instruments the object files for dynamic metrics
+   and produces ".M" map files for static metrics.
+
+   On the "covcc" command line all arguments from "covc"" to "--" belong to
+   "covcc", while arguments after "--" are handed to "cc", "ld" or "ar" which
+   are the usual C compiler utilities.
+
+3) Build and install VISTA in DCE.
+
+   You can either:
+
+        - build only the static metrics.  ODE will do no compiling but will
+          produce a ".M" VISTA map file containing static metrics for each
+          ".o" that would otherwise be generated.  For example, in the
+          threads component:
+
+                mkdir -p src/time
+                cd src/time
+                build statmet_all
+                su
+                build install_all
+
+        - build both dynamic and static metrics: this is the default.  ODE
+          will compile and produce both ".o" and ".M" files.  The object files
+          will be instrumented with VISTA, having VISTA code for every routine
+          entry and exit and branch entry.  For example, in threads:
+
+                mkdir -p src/time
+                cd src/time
+                build build_all
+                su
+                build install_all
+
+   You can build VISTA for all of DCE, but please note that:
+
+        - it greatly slows the DCE build since dynamic metrics inserts
+          VISTA code into every routine entry and exit point and every code
+          branch point in every object file, and static metrics produces
+          a map file for every DCE object file.
+        - you will need more, maybe much more, space for the DCE outputs
+          because:
+                - each .o file will be larger,
+                - each .o files will now have a corresponding .M map file,
+                - thus the resulting binaries and libraries will be larger.
+
+   More likely you will build VISTA in a single DCE component at a time as
+   you need to measure the component's performance.
+
+   Lots of warning messages may display for some components or subcomponents.
+
+4.) If you want to see the hits information. When you excecute the program
+    that has been built with Vista it will put all that data in a
+    hits file - defaulting to the location you excecute the command from or
+    overiding that with the value of HIT_FILE>
+
+5.) If you need further information please see Martha Lynch.  She has more
+   detailed instructions on how to use Vista.
+
+[07/26/94 public]
+Changed setenv VISTA -> setenv VISTA 1
+
+[07/26/94 public]
+changed HIT_FILE definition, changed open status to fix.
+
+[08/10/94 public]
+Attempt to build statmet_all target (static metrics) per
+rrizzo's instructions above fails:
+
+(NB: Andy McKeen saw this same failure while helping me rule
+out "management error.")
+
+pedro 68 % build statmet_all
+relative path: ./time
+cd ../../obj/at386/time
+[ /time/common ]
+makepath common/. && cd common &&  exec make MAKEFILE_PASS=BASIC  _SUBMAKE_=_IS_SUBMAKE_   statmet_all
+covcc   -thm    -z /project/dce/build/dce1.1/tools/at386/macho/gcc  -- -B/project/dce/build/dce1.1/too/at386/macho/  -I. -I/u1/pshaw/sandboxes/dce11/src/time/common -I/project/dce/build/dce1.1/src/time/coon  -I. -I/u1/pshaw/sandboxes/dce11/src/time/common -I/project/dce/build/dce1.1/src/time/common -IPOSI-I/u1/pshaw/sandboxes/dce11/src/time/common/POSIX -I/project/dce/build/dce1.1/src/time/common/POSIX -I1/pshaw/sandboxes/dce11/export/at386/usr/include -I/project/dce/build/dce1.1/export/at386/usr/include /project/dce/build/dce1.1/src/time/common/time_support.c
+In file included from /project/dce/build/dce1.1/src/time/common/time_support.c:74:
+/project/dce/build/dce1.1/src/time/common/POSIX/dts.h:54: dcedtssvc.h: No such file or directory
+covcpp: cpp failed:  /project/dce/build/dce1.1/tools/at386/macho/gcc -E -C -D__COVCC__ -B/project/dce/ild/dce1.1/tools/at386/macho/ -I. -I/u1/pshaw/sandboxes/dce11/src/time/common -I/project/dce/build/dce1/src/time/common -I. -I/u1/pshaw/sandboxes/dce11/src/time/common -I/project/dce/build/dce1.1/src/timeommon -IPOSIX -I/u1/pshaw/sandboxes/dce11/src/time/common/POSIX -I/project/dce/build/dce1.1/src/time/cmon/POSIX -I/u1/pshaw/sandboxes/dce11/export/at386/usr/include -I/project/dce/build/dce1.1/export/at38usr/include /project/dce/build/dce1.1/src/time/common/time_support.c
+covcc: failed to cpp preprocess
+*** Error code 1
+`statmet_all' not remade because of errors.
+*** Error code 1
+`statmet_all' not remade because of errors.
+
+[kevins 8/11/94 public] 
+
+For some reason your build is not doing the AUTOGEN pass. I checked out 
+the process for building with default Vista (static and dynamic metrics) 
+in clean sandbox and it worked fine. The problem seems to be only with the 
+static metric generation. 
+
+The statmet_all process needs to be updated to run AUTOGEN and 
+export_all_EXPINC before running the covcc. 
+
+starting
+
+[annie 9/6/94 public] 
+update instructions for building components
+
+[annie 9/6/94 public] 
+If you ever get the error message as followed during the build:
+
+VERITAS ViSTA License Authorization Failure.
+
+It means that our license has VERITAS VISTA license has expired.
+
+[annie 9/6/94 public] 
+Because DCE has a lot of components and you can potentially run out of 
+diskspace trying to build with VISTA turned on, the suggestion is break
+up the DCE components, and build from there.  
+
+    1) osfmount vista
+
+    2) in your dce sandbox, specify the workon command 
+
+    3) in a ksh shell, 
+
+        export VISTA=1 
+        export VLM_HOST=pomerol
+        export VISTAHOME=/usr/vista
+        export PATH=/usr/vista/bin:$PATH
+        export VISTA_ARGS="-o cov3.o"
+        export HIT_FILEi=<filename of your hit file including its full path>
+
+    4) - build both dynamic and static metrics: this is the default.
+      
+       example:
+           cd src/time
+           build build_all
+           su root
+           build install_all
+      
+       The DCE components may be broken down as followed:
+           src/time            src/admin/tcl_dce     src/config          
+           src/directory/xoms  src/test              src/tools
+
+       The following DCE components still have problems and I am
+       looking into this.  The problems are unrelated to veritas.
+       It is just that the component Makefile was not robust enough
+       for a component build.
+           src/admin/dcecp     src/admin/dced        src/dce
+           src/directory/cds   src/directory/gds     src/directory/xds   
+           src/file            src/libdce            src/libdcedfs
+           src/noship          src/nosupport         src/rpc          
+           src/security
+
+           src/threads src/time src/tools 
+  
+       NOTE: you could potentially get a bunch of warnings messages 
+       during the build.  However, you SHOULD NOT encounter any errors.
+
+    5) - build only the static metrics.  
+       cd src/time
+       build statmet_all 
+       su root
+       build install_all
+
+[annie 9/6/94 public] 
+I did not have a chance to finish this.  Given the time frame we have,
+we will have to defer this.  I was trying to figure out how one can 
+build with veritas component-wise.  Oh well.  Defer to DCE1.2
+
+thanks
+annie
+
+[psn 2/6/94 public] 
+Changed it enhancement as was confirmed by Mark. Not everybody is using
+Vista. Also Veritas has sold it off already and I don't think the
+knowledge of such third party tool into DCE makefiles would do any
+great help.
+
+
+
+CR Number                     : 11012
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : noship/lex
+Short Description             : remove noship/lex
+Reported Date                 : 6/20/94
+Found in Baseline             : 1.1
+Found Date                    : 6/20/94
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[6/20/94 public]
+
+OSC lex should be removed and any reference to it as well.
+
+[7/1/94 public]
+Changed severity and priority - because I believe it is just
+a cleanup issue that does not really effect much.
+
+[9/7/94 public]
+The Makefile that referenced the osc104 lex are:
+
+rpc/idl/idl_compiler/Makefile
+rpc/rtandidl/testsh/Makefile
+security/api/testsh/Makefile
+
+If the references are removed and tested, them the noship/lex area
+can be defuncted.
+
+[9/12/94 public]
+It appears that DCE lex files in the idl_compiler component need to be
+ported to the OSF/1 1.2 platform.
+
+Due to the time constrain for this project, the fix will have to be
+defered to DCE1.2.
+
+So, we will have to retain the OSF/1 1.0.4 lex in noship in order to
+build DCE.  The release notes MUST specifically specify this problem.
+I believe that the retro fit tape will have the OSF/1 1.0.4 lex on it.
+
+thanks
+annie
+
+[2/06/96 public]
+Changed to Enh Req. Whoever is doing 1.2 port on OSF/1 can do the fix
+and submit.
+
+
+
+CR Number                     : 10180
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : osf.dce.mk
+Short Description             : DCELOCAL, etc
+Reported Date                 : 3/18/94
+Found in Baseline             : 1.1b4
+Found Date                    : 3/18/94
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[3/18/94 public]
+
+These lines should not be in osf.dce.mk.  I don't know what would break
+if they were removed, but they should go:
+    DCESHARED_PATH=/opt/dce
+    DCELOCAL_PATH=/opt/dcelocal
+    DCEPATHS ?= -DDCESHARED_PATH=\"/opt/dce\" -DDCELOCAL_PATH=\"/opt/dcelocal\"
+
+[3/18/94 public]
+Well, here's an idea of what would break.  These are the makefiles which
+reference any one of the three above values:
+
+./admin/dced/server/Makefile
+./directory/gds/adm/adm_iapl/Makefile
+./directory/gds/adm/admin/Makefile
+./directory/gds/adm/delupd/Makefile
+./directory/gds/adm/usradmin/Makefile
+./directory/gds/cache/Makefile
+./directory/gds/cacheadm/adm_iapl/Makefile
+./directory/gds/cacheadm/admin/Makefile
+./directory/gds/cacheadm/delupd/Makefile
+./directory/gds/dsa/Makefile
+./directory/gds/dua/lib/Makefile
+./directory/gds/dua/lib_r/Makefile
+./directory/gds/ipc/Makefile
+./directory/gds/nds/Makefile
+./directory/gds/osiadr/Makefile
+./directory/gds/stub/RIOS/machdep.mk
+./directory/gds/stub/Makefile
+./directory/xoms/Makefile
+./diskless/dl_init/Makefile
+./diskless/uninteg/dl_init/Makefile
+./file/AT386/machdep.mk
+./file/HP800/machdep.mk
+./file/PMAX/machdep.mk
+./file/RIOS/machdep.mk
+./lbe/mk/osf.dce.mk
+./rpc/rpcd/Makefile
+./security/client/acl/Makefile
+./security/client/admin/acl_edit/svr_example/Makefile
+./security/client/admin/acl_edit/Makefile
+./security/client/admin/passwd_export/Makefile
+./security/client/admin/passwd_import/Makefile
+./security/client/admin/rgy_edit/Makefile
+./security/client/admin/sec_admin/Makefile
+./security/client/dce_login/Makefile
+./security/client/rca/Makefile
+./security/helper/Makefile
+./security/server/bin/Makefile
+./security/server/rrs/Makefile
+./security/server/rs/Makefile
+./security/server/rsdb/Makefile
+./security/server/sec_clientd/Makefile
+./security/server/sec_salvage_db/Makefile
+./security/utils/Makefile
+./test/directory/gds/ros/testenv/Makefile
+./test/security/commands/rgy/Makefile
+./test/systest/security/sec.rgy.7/Makefile
+./time/libutc/kernel/RIOS/machdep.mk
+./time/libutc/user/Makefile
+
+[03/18/94 public]
+I was over-zelous with cut&paste.  The line that should go is this one:
+    DCEPATHS ?= -DDCESHARED_PATH=\"/opt/dce\" -DDCELOCAL_PATH=\"/opt/dcelocal\"
+Since for code cleanup these become global variables not constants.
+
+[ damon 08/26/96 public]
+
+Unless this really needs to be addressed for 1.2.2, I'd like to defer this.
+
+
+
+CR Number                     : 10017
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : 
+Short Description             : install modes wrong on most files
+Reported Date                 : 2/25/94
+Found in Baseline             : 1.1b2
+Found Date                    : 2/25/94
+Severity                      : E
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/25/94 public]
+The install modes on most files are wrong.  Only executable binaries
+should have their execute bits set.  osf.std.mk sets IMODE to 755.
+This is only appropriate for a small fraction of the installed files.
+The common makefiles could look at the suffix and make a better guess,
+or not set the mode at all, since when a program is linked successfully,
+it is given the x bit.  Other (data, .h, .idl, etc.) files already have
+correct (or closer to correct) mode set.  Also, installed files should
+probably not be writable.
+
+[2/6/96 public]
+Since not all vendors use install tree as their binary release, lowered to 
+enhancement. Its a matter of how things are packaged when released to end 
+users. The way it works has not caused any problems.
+
+
+
+CR Number                     : 9978
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : bld
+Subcomponent Name             : 
+Short Description             : rules for linking processes with shared libraries are wrong
+Reported Date                 : 2/18/94
+Found in Baseline             : 1.1
+Found Date                    : 2/18/94
+Severity                      : E
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/18/94 public]
+We have build libdce.a on a machine called snirs3 in a sandbox
+/project/dirx/build/predce11. This sandbox is backed to 
+/project/dce/build/dce1.1. Then we have built a process
+gdsditadm in this sandbox; this sandbox was linked with "-ldce".
+All worked fine. Then we have installed DCE and GDS on another
+machine (snirs1). On snirs1 /project/dirx/build/predce11 does not
+exist. But /project/dce/build/dce1.1 exists on both machines.
+If I start gdsditadm on snirs1 I get a lot of unresolved symbols.
+The reason was that not the installed libdce.a in /usr/lib was
+taken but the /project/dce/build/dce1.1/export/rios/usr/lib/libdce.a.
+
+The reason for that seems to be that the rules for building processes
+on RIOS define a LIBPATH beginning with /project/dirx/build/predce11/...,
+followed by /project/dce/build/dce1.1/export/rios/usr/lib, followed by
+/usr/lib. If /project/dirx/build/predce11/export/rios/usr/lib does not
+exist the"old" libdce.a from /project/dce/build/dce1.1/export/rios/usr/lib
+is taken. This is a part of the loadmap file when I link gdsditadm
+with "-bloadmap":
+
+(ld):
+insert /project/dirx/build/predce11/export/rios/usr/lib/libdce.a
+0706-406 IMPORT_FILE: 7510 symbols imported.
+(ld):
+insert /usr/lib/libc.a
+0706-406 IMPORT_FILE: 14 symbols imported.
+0706-406 IMPORT_FILE: 2575 symbols imported.
+0706-406 IMPORT_FILE: 2 symbols imported.
+...
+(ld):
+mismatch
+0706-294 No type mismatches detected.
+(ld):
+er full
+0706-297 No unresolved symbols detected.
+...
+(ld):
+libpath /project/dirx/build/predce11/export/rios/usr/lib:/project/dirx/build/pre
+dce11/export/rios/usr/lib:/project/dce/build/dce1.1/export/rios/usr/lib:/usr/lib
+:/lib
+0706-474 LIBPATH:  Library path set to /project/dirx/build/predce11/export/rios/
+usr/lib:/project/dirx/build/predce11/export/rios/usr/lib:/project/dce/build/dce1
+.1/export/rios/usr/lib:/usr/lib:/lib
+
+This LIBPATH shouldn't be set; it gives problems whenever you
+build on one machine and install on another machine where the build
+sandbox is not available - but the backing build is.
+It is not a gds problem - it seems to be a general problem in the rules.
+
+
+define a 
+all what
+
+[zeliff 2/18/94 public] 
+Re-assigned to the Rats for investigation as this sounds like a common
+makefile problem.
+
+[04/27/94 public]
+Bumped priority and severity because it's really hard to work in this
+environment. 
+We have only two RIOS machines - both are used as test machines (one
+for functional tests, one for code coverage). Both have mounted the
+/project/dirx/build  which contains the nigthly build.
+If the nigthly build has built a libdce that is bad it shouldn't effect
+the installation. But it does.
+Waiting again for an answer ...
+
+
+[ annie ]
+This is the behavior of the RIOS loader for shared images.  So, as a
+workaround for now, please set LIBPATH in your environment to /usr/lib.
+
+[05/04/94 public]
+OK. We will use this workaround. But anyway: This should be fixed if
+it is really a problem of the "build". If it is a common RIOS problem
+we will continue to use the workaround.
+
+[07/01/94]
+Lowered the severity - since there is a workaround and because it
+seems to be a problem with the way the rios loader behaves.
+
+[02/06/96 public]
+Made an Enh req. IBM can take the lead and fix the makefiles otherwise
+we can continue using static libraries.
+
+
+
+CR Number                     : 9924
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : bld
+Subcomponent Name             : 
+Short Description             : use tar -xfo, when EXPORT_USING_TAR is set
+Reported Date                 : 2/10/94
+Found in Baseline             : 1.1
+Found Date                    : 2/10/94
+Severity                      : E
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/10/94 public]
+
+If EXPORT_USING_TAR is set and the export directory is NFS mounted,
+then tar -xf complains, because it tries to change the creation time of
+the exported file (seems to be an NFS internal: first copy, then chown, then
+chmod), but the exported file belongs to the owner of the original file.
+Using tar -xfo helps.
+
+[2/6/96 public]
+Changed to Enh req.
+
+
+
+CR Number                     : 9748
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : common makefiles
+Short Description             : EXPDIR defaults to IDIR in
+certain situations
+Reported Date                 : 1/14/94
+Found in Baseline             : 1.1
+Found Date                    : 1/14/94
+Severity                      : B
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : lbe/mk/osf.std.mk
+Sensitivity                   : public
+
+[1/14/94 public]
+If EXPDIR has not been specified in a makefile and IDIR has not been
+specified the EXPDIR defaults to _MISSING_EXPDIR_
+
+If EXPDIR has not been specified but IDIR has, then EXPDIR defaults to the
+value of IDIR.  This is bad -- it is a completely unwarrented assumption
+that header files (or IDL files) export to the same directory in which they
+are installed.  This is especially true for DCE -- header files are
+installed in /share/include/dce/ whereas they are exported to
+/usr/include/dce/
+
+I think EXPDIR should default to _MISSING_EXPDIR_ in cases where it has not
+been specified in a makefile.  This facilities the finding of makefile
+defects.
+
+[1/22/94 public]
+ Assigned this one to Mario Moreira. He has been working on getting the
+common makefiles cleaned up.
+
+[7/1/94 public]
+Assigned to Annie
+
+[7/13/94 public ]
+Reassigned to Marty - Please let me know if you are too busy with Motif.
+Thanks Marty.
+
+[7/13/94 public]
+If all your really after is weeding out Makefiles that dont have EXPDIR
+defined then I can easily have it default _MISSING_EXPDIR_ and add the code
+
+.if ${_EXPDIR_} == "_MISSING_EXPDIR_"
+_DO_EXPLINKS_=\
+        (echo "*** Makefile Error in export pass.";\
+         echo "*** The target ${_EXPORT_TARGET} could not be exported." \
+         echo "*** Please define the variable EXPDIR in the subsystem Makefile.") 
+.else
+_DO_EXPLINKS_=\
+        (cd ${EXPORTBASE}${_EXPDIR_:H};\
+         ${RM} ${_RMFLAGS_} ${_EXPLINKS_}\
+         ${_EXPLINKS_:@.LINK.@; ${LN} ${_EXPORT_TARGET} ${.LINK.}@})
+.endif
+
+This would be a lot less cryptic.
+----
+
+Comments???!!!
+
+[7/13/94 public]
+This sounds really nice.  If I read the above correctly the msg is
+displayed whenever EXPDIR is not set regardless of whether IDIR is set.
+This should be the behavior.
+
+[7/13/94 public]
+Marty, that's exactly what I was looking for.
+
+How about using only one line for the error message, with a unique key for
+which you can grep.  For example:
+
+MAKEFILE_ERROR: target ${_EXPORT_TARGET} could not be exported.
+
+[7/13/94 public]
+Come to think of it, if you provide the error message for exporting, can
+you go and change the code for installing, too?  Right now, stuff will be
+installed in _MISSING_IDIR by default.
+
+[7/13/94 public]
+
+
+Alright, if you remove the EXPDIR from threads/Makefile you get the ouput:
+
+# build export_all
+relative path: ./threads
+cd ../../obj/rios/threads
+exec make MAKEFILE_PASS=AUTOGEN  _SUBMAKE_=_IS_SUBMAKE_  export_all
+Export all targets = 
+exec make MAKEFILE_PASS=FIRST  _SUBMAKE_=_IS_SUBMAKE_  export_all
+*** makefile error: Cannot export cma.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export cma_config.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export cma_px.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export pthread_exc.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export cmalib_crtlx.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export cma_sigwait.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export cma_errno.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export exc_handling.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export threadmsg.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export cma_defs.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export cma_queue.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export cma_assert.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export cma_kernel.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export cma_defer.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export cma_host.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export cma_ux.h because EXPDIR is not defined in Makefile.
+*** makefile error: Cannot export cma_stdio.h because EXPDIR is not defined in Makefile.
+Export all targets = 
+exec make MAKEFILE_PASS=THIRD  _SUBMAKE_=_IS_SUBMAKE_  export_all
+Export all targets = 
+Export all targets = 
+
+
+And if you remove the IDIR from threads/Makefile you get the output:
+
+# build install_all
+relative path: ./threads
+cd ../../obj/rios/threads
+*** makefile error: The target cma.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target cma_config.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target cma_px.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target pthread.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target pthread_exc.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target cmalib_crtlx.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target cma_sigwait.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target cma_errno.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target exc_handling.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target threadmsg.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target cma_defs.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target cma_queue.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target cma_assert.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target cma_kernel.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target cma_defer.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target cma_host.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target cma_ux.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target cma_stdio.h could not be installed because the variable IDIR is not set.
+*** makefile error: The target dcethd.cat could not be installed because the variable IDIR is not set.
+
+
+
+EXPDIR and IDIR will no longer be dependent on one another.
+
+I have the code for this.  If this is what you want then I'll start testing it.
+
+Note that this does not stop make processing and chances are that this will
+cause errors later on in the build (at least for export pass).
+
+[7/13/94 public]
+It's a beautiful thing.
+
+re: build errors.  That's okay; exporting headers to _MISSING_EXPDIR_ would
+have resulted in failures later on, as well.  On the whole, that's the
+right thing to happen.
+
+[9/12/94 public]
+I was wrong.  After testing my changes to osf.std.mk I have found that 
+there are cases where it will incorrectly report   <target>_EXPDIR as missing 
+the EXPDIR definition.  The output from my changes looks great, but is 
+sometimes incorrect.  Also, considering the number of targets that we export, 
+I'm wondering if it makes sense to add this kind of overhead to the builds.  
+Checking each export target for _MISSING_EXPDIR_ may be a very small hit on
+performance, but, we have so many things already in these makefiles
+that slow down performance.  Do we need another?
+
+The original request that missing EXPDIR definitions default to 
+_MISSING_EXPDIR_ is the right way to go.  The change is quick and
+simple and has no performance hits.
+
+[9/19/94 public]
+Defer to dce1.2.
+
+
+
+CR Number                     : 9644
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : bld
+Subcomponent Name             : 
+Short Description             : can't clobber .o's
+Reported Date                 : 12/22/93
+Found in Baseline             : 1.1
+Found Date                    : 12/22/93
+Severity                      : E
+Priority                      : 4
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[12/22/93 public]
+This CR is a place holder so if we have nothing else to do, maybe we could
+do this:
+
+> Isn't one of these supposed to work?
+> 
+>   absolut admin/dsh$ build clobber_main.o    
+>   relative path: ./admin/dsh.
+>   cd ../../../obj/hp800/admin/dsh
+>   make: don't know how to make clobber_main.o. Stop
+>   
+>   absolut admin/dsh$ build rmtarget_main.o
+>   relative path: ./admin/dsh.
+>   cd ../../../obj/hp800/admin/dsh
+>   make: don't know how to make rmtarget_main.o. Stop
+>   
+>   absolut admin/dsh$ build clean_main.o   
+>   relative path: ./admin/dsh.
+>   cd ../../../obj/hp800/admin/dsh
+>   make: don't know how to make clean_main.o. Stop> 
+>
+> I have a main.o in my object tree that I want to get rid of,
+> and I don't have a main.c in my src tree (I just submitted
+> it and am getting it from the backing tree).  I had tried to
+> touch main.c to change the times to rebuild a program and
+> inadvertently created an empty main.c in my src tree, when I
+> tried a build a bad main.o got created in the obj tree with
+> of course a later timestamp than the main.c in the backing
+> tree.  So I need to remove the main.o, and I thought one of
+> these commands would do it, but they didn't.  I went in a
+> deleted the main.o by hand, so this certainly isn't holding
+> me up, but isn't it supposed to work?
+
+The answer is that the common makefiles say that for this to work, main.o
+must be set in $OBJECTS.  In this particular case I could change the
+Makefile to say OBJECTS = $dcecp_OFILES, but that is clutter and only works
+in one directory.  The better solution would be if the common makefiles
+were changed so that OFILES was checked for the target as well.
+
+[1/13/94 public]
+
+This is an enhancement request.
+Assigning to Mario Moreira.
+
+[7/1/94 public ]
+reassigned to Ron Rizzo
+
+[7/1/94 public ]
+CR was listed with "ron" as responsble engr.
+changed to "rrizzo".
+
+
+
+CR Number                     : 9490
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : bld
+Subcomponent Name             : Build
+Short Description             : Compile phase still uses -L
+and -l for -pic-extern
+Reported Date                 : 11/15/93
+Found in Baseline             : 1.0.3
+Found Date                    : 11/15/93
+Severity                      : E
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[11/15/93 public]
+Historically, building with -pic-lib on the OSF/1 platforms required the
+inclusion of the -L<path> and -l<lib> options on the compile line. With
+the advent of -pic-extern, this is no longer needed. A small change to
+lbe/mk/osf.std.mk will remove these unneded options.
+
+[ninja]:/usr/sandbox/dcecp/src/lbe/mk> diff osf.std.mk
+/dce1.1/lbe/mk/osf.std.mk
+522c522
+<       ${_CC_NOSTDINC_} ${_GENINC_} ${_CC_INCDIRS_}
+---
+>       ${_CC_NOSTDINC_} ${_GENINC_} ${_CC_INCDIRS_} ${_CC_PICLIB_}
+
+[1/13/94 public]
+
+Assigned to Ron Rizzo.
+
+[1/13/94 public]
+Yes.  Note that the compile lines should change from -pic-lib to
+-pic-extern even though in recent versions they do the same thing.
+
+
+
+CR Number                     : 9484
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : 
+Short Description             : sams blding process
+interdependcies not evaluated properly
+Reported Date                 : 11/12/93
+Found in Baseline             : 1.1
+Found Date                    : 11/12/93
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[11/12/93 public]
+
+When building a component that is dependant on a changed sams file, the
+sams includes and objects are rebuilt correctly but the components 
+objects that are dependant on the sams include files are not rebuilt. 
+
+The workaround is to delete all of the objects and rebuild the entire 
+component.
+
+[11/12/93 public]
+This is no different, say, from #include's of IDL-generated header
+files.  Or, in fact, putting .h dependencies in our Makefiles.
+I believe there is an open CR on this, so this should be cancelled.
+For what it's worth, one school of thought says that you optimize the
+common case (build from scratch) and don't slow down make by putting
+in .h dependencies.
+
+[11/12/93 public]
+There is a little more detail that Kevin didn't enter in yet.  Our Makefile
+has the sams generated .h files listed in HFILES and of course the .o's are
+in OFILES.  Build should be tracked this dependency and rebuilt all the
+.o's listed in OFILES.
+
+This is not a makedepend issue.  With the size of DCE I'm not sure that the
+common case is build from scratch, but I see the argument (and don't want
+to get into it :-).  This also relates to our "conventions" for makefiles
+that we should be telling the providers about how to put rules for sams
+files in the Makefiles.  We thought we had the method down, but it doesn't
+seem to work.
+
+Since we added the rule explicitly with HFILES, it might not be related to
+the fact that it's a SAMSFILE at all, but then again...
+
+I think Kevin will add the test case to this CR soon...
+
+[11/15/93 public]
+
+Here is a snippet of the Makefile which sets the HFILES dependencies for
+sams. I have also added explicit dependencies in the following. 
+The explicit dependencies work fine  for all cases but the implicit
+HFILES dependency does not work in any case. This is not only for the 
+sams files, that are generated, but also for any other case I have tested. 
+For instance, in the HFILES line described below the file dcecp.h can 
+be modified and no file is built during the build process. This is a
+problem. It does not, however, appear to be isolated to SAMSFILE. 
+
+
+SAMSFILES		= dcp.sams
+SAMIDL_INCLUDES 	= dcedcpsvc.h dcedcpmsg.h dcedcpmac.h
+SAMS_TARGETS    	= dcedcpsvc.h dcedcpmsg.h dcedcpmac.h \
+                	  dcedcpsvc.c dcedcpmsg.c dcedcp.cat
+
+# what we are building
+ILIST           	= dcedcp.cat
+dcedcp.cat_IDIR 	= /nls/msg/en_US.ASCII/
+
+HFILES			= dcedcpmsg.h dcedcpmac.h dcedcpsvc.h dcecp.h
+OFILES			= main.o commands.o parseargv.o dcecp_login.o \
+		  	  dcedcpsvc.o dcedcpmsg.o rpccp.o rgy.o \
+		  	  ${CDS_OFILES} ${DTS_OFILES}
+PROGRAMS		= dcecp
+
+.include <${RULES_MK}>
+
+main.o:			dcecp_login.h
+commands.o:		dcecp_login.h rpccp.h cdscp.h dts_proto.h rgy.h
+dcecp_login.o:		dcecp_login.h
+rpccp.o:		rpccp.h
+${CDS_OFILES}: 		cdscp.h cdscp_attr.h
+${DTS_OFILES}:		dts.h dts_proto.h dcecp_login.h dtssts.h
+dts_arith.c:		../../../src/time/common/arith.c
+			$(CP) ${../../../src/time/common/arith.c:P} dts_arith.c 
+rgy.o:			rgy.h
+
+[11/14/93/public]
+Just for the heck of it, I stuck the following makefile in a sandbox:
+
+Makefile:
+  PROGRAMS = xx
+
+  HFILES= xx.h tt.h yy.h
+
+  .include <${RULES_MK}>
+
+Where xx.c is a "hello world" program, and xx.h, tt.h and yy.h are empty
+files.  I get the following results:
+
+mhickey@darkman[wkon-dce103](351)% build
+relative path: ./test/systest/directory/gds/gds_xds_str_001
+cd ../../../../../../obj/hp800/test/systest/directory/gds/gds_xds_str_001
+exec make MAKEFILE_PASS=FIRST  _SUBMAKE_=_IS_SUBMAKE_  build_all
+exec make MAKEFILE_PASS=FIRSTA  _SUBMAKE_=_IS_SUBMAKE_  build_all
+exec make MAKEFILE_PASS=FIRSTB  _SUBMAKE_=_IS_SUBMAKE_  build_all
+exec make MAKEFILE_PASS=THIRD  _SUBMAKE_=_IS_SUBMAKE_  build_all
+exec make MAKEFILE_PASS=BASIC  _SUBMAKE_=_IS_SUBMAKE_  build_all
+c89 -c    -D_SHARED_LIBRARIES    -D__hppa -Dhp9000s800 -Dhp9000s700
+-D__hp9000s800 -D__hp9000s700 -DHPUX -D__hpux -Dunix +DA1.0 -D_HPUX_SOURCE
+ -I.
+-I/users/mhickey/sb/dce103/src/test/systest/directory/gds/gds_xds_str_001
+-I/users/mhickey/sb/dce103/src/test/systest/directory/gds/gds_xds_str_001
+-I/project/dce/build/dce1.0.3/src/test/systest/directory/gds/gds_xds_str_001
+ -I/users/mhickey/sb/dce103/export/hp800/usr/include
+-I/users/mhickey/sb/dce103/export/hp800/usr/include
+-I/project/dce/build/dce1.0.3/export/hp800/usr/include
+../../../../../../../src/test/systest/directory/gds/gds_xds_str_001/xx.c
+c89      -z -Wl,-Bimmediate,-Bnonfatal,-a,default,+b,/lib:/usr/lib
+-L/users/mhickey/sb/dce103/export/hp800/usr/shlib
+-L/users/mhickey/sb/dce103/export/hp800/usr/shlib
+-L/project/dce/build/dce1.0.3/export/hp800/usr/shlib -L/usr/shlib
+-L/users/mhickey/sb/dce103/export/hp800/usr/lib
+-L/users/mhickey/sb/dce103/export/hp800/usr/lib
+-L/project/dce/build/dce1.0.3/export/hp800/usr/lib   -o xx.X xx.o     
+mv xx.X xx
+
+mhickey@darkman[wkon-dce103](352)% build
+relative path: ./test/systest/directory/gds/gds_xds_str_001
+cd ../../../../../../obj/hp800/test/systest/directory/gds/gds_xds_str_001
+exec make MAKEFILE_PASS=FIRST  _SUBMAKE_=_IS_SUBMAKE_  build_all
+exec make MAKEFILE_PASS=FIRSTA  _SUBMAKE_=_IS_SUBMAKE_  build_all
+exec make MAKEFILE_PASS=FIRSTB  _SUBMAKE_=_IS_SUBMAKE_  build_all
+exec make MAKEFILE_PASS=THIRD  _SUBMAKE_=_IS_SUBMAKE_  build_all
+exec make MAKEFILE_PASS=BASIC  _SUBMAKE_=_IS_SUBMAKE_  build_all
+mhickey@darkman[wkon-dce103](353)% touch yy.h
+mhickey@darkman[wkon-dce103](354)% build
+relative path: ./test/systest/directory/gds/gds_xds_str_001
+cd ../../../../../../obj/hp800/test/systest/directory/gds/gds_xds_str_001
+exec make MAKEFILE_PASS=FIRST  _SUBMAKE_=_IS_SUBMAKE_  build_all
+exec make MAKEFILE_PASS=FIRSTA  _SUBMAKE_=_IS_SUBMAKE_  build_all
+exec make MAKEFILE_PASS=FIRSTB  _SUBMAKE_=_IS_SUBMAKE_  build_all
+exec make MAKEFILE_PASS=THIRD  _SUBMAKE_=_IS_SUBMAKE_  build_all
+exec make MAKEFILE_PASS=BASIC  _SUBMAKE_=_IS_SUBMAKE_  build_all
+c89 -c    -D_SHARED_LIBRARIES    -D__hppa -Dhp9000s800 -Dhp9000s700
+-D__hp9000s800 -D__hp9000s700 -DHPUX -D__hpux -Dunix +DA1.0 -D_HPUX_SOURCE
+ -I.
+-I/users/mhickey/sb/dce103/src/test/systest/directory/gds/gds_xds_str_001
+-I/users/mhickey/sb/dce103/src/test/systest/directory/gds/gds_xds_str_001
+-I/project/dce/build/dce1.0.3/src/test/systest/directory/gds/gds_xds_str_001
+ -I/users/mhickey/sb/dce103/export/hp800/usr/include
+-I/users/mhickey/sb/dce103/export/hp800/usr/include
+-I/project/dce/build/dce1.0.3/export/hp800/usr/include
+../../../../../../../src/test/systest/directory/gds/gds_xds_str_001/xx.c
+c89      -z -Wl,-Bimmediate,-Bnonfatal,-a,default,+b,/lib:/usr/lib
+-L/users/mhickey/sb/dce103/export/hp800/usr/shlib
+-L/users/mhickey/sb/dce103/export/hp800/usr/shlib
+-L/project/dce/build/dce1.0.3/export/hp800/usr/shlib -L/usr/shlib
+-L/users/mhickey/sb/dce103/export/hp800/usr/lib
+-L/users/mhickey/sb/dce103/export/hp800/usr/lib
+-L/project/dce/build/dce1.0.3/export/hp800/usr/lib   -o xx.X xx.o     
+mv xx.X xx
+
+So the basic HFILES functionality is working... something else must be
+wrong.
+
+[11/17/93 public]
+
+Apparently HFILES does work as we would like. 
+
+It actually works as follows. In our Makefile we 
+have three variables set. HFILES, OFILES, PROGRAMS. We should
+have another variable set dcecp_OFILES. The HFILES dependence
+evaluation is done by a build internal variable called _ALL_OFILES_.
+The variable is set by looping on each entry in the PROGRAMS variable. 
+For each entry _ALL_OFILES_ is updated with ${.PROG.}_OFILES or, if 
+that does not exist ${.PROG.}.o. Then the HFILES dependency is applied 
+to all of the entries in _ALL_OFILES_.  
+
+A third rule is really needed. When the PROGRAMS variable is only one 
+entry long and niether of the previously described 
+conditions exist, _ALL_OFILES_ should be set to OFILES.
+
+[1/13/94 public]
+
+Re-assigned this from Ken to me.
+
+[7/1/94 public ]
+Re- assigned to sally
+
+[9/30/94 public]
+As kevins 11/17/93 note says this isn't as bad as we though, and it's not
+getting into 1.1...
+
+
+
+CR Number                     : 9386
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : all
+Short Description             : some files with duplicate RCS headers..
+Reported Date                 : 11/5/93
+Found in Baseline             : 1.0.3
+Found Date                    : 11/5/93
+Severity                      : E
+Priority                      : 4
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[11/5/93 public]
+
+Most of the following files have two or more HISTORY/$Log:	c009386,v $
+# Revision 1.5  96/08/26  17:50:23  root
+# changed fields: Fix By Baseline   new/changed/deleted note(s) [damon 08/26/96 public]
+# 
+# Revision 1.4  94/03/15  15:06:59  nata
+# added the Created HISTORY line
+# 
+# Revision 1.3  94/01/13  13:16:06  notuser
+# changed fields: Responsible Engr.  Resp. Engr's Company   new/changed/deleted note(s) [marcyw 1/13/94 public]
+# 
+# Revision 1.2  93/11/05  16:37:22  notuser
+# changed fields:  new/changed/deleted note(s) [sommerfeld 11/5/93 public]
+# 
+# Revision 1.1  93/11/05  16:28:34  notuser
+# new CR
+# /$EndLog$ in them
+(some of them just have multiple $Log:	c009386,v $
+# Revision 1.5  96/08/26  17:50:23  root
+# changed fields: Fix By Baseline   new/changed/deleted note(s) [damon 08/26/96 public]
+# 
+# Revision 1.4  94/03/15  15:06:59  nata
+# added the Created HISTORY line
+# 
+# Revision 1.3  94/01/13  13:16:06  notuser
+# changed fields: Responsible Engr.  Resp. Engr's Company   new/changed/deleted note(s) [marcyw 1/13/94 public]
+# 
+# Revision 1.2  93/11/05  16:37:22  notuser
+# changed fields:  new/changed/deleted note(s) [sommerfeld 11/5/93 public]
+# 
+# Revision 1.1  93/11/05  16:28:34  notuser
+# new CR
+# ').
+
+directory/cds/cache/PMAX/casysinfo.c
+directory/cds/cdsbrowser/panep.h
+directory/cds/control/Makefile
+directory/cds/library/PMAX/unix_getaddr.c
+directory/cds/library/PMAX/unix_qarith.c
+diskless/swap/user/cmd.c
+lbe/bin/make/Makefile
+lbe/bin/make/porting/environment.c
+nosupport/test/systest/1.0.2systest/directory/cds/cds.acl.6/Makefile
+rpc/runtime/PMAX/sysconf.h
+test/security/api/control/id_map.tsh
+test/security/api/moretests/idmap.c
+test/security/api/moretests/idmap.h
+test/security/api/moretests/key_mgmt.c
+test/security/api/moretests/key_mgmt.h
+test/security/api/moretests/main.c
+test/security/api/moretests/rgy_misc.c
+test/security/api/moretests/tsh_common.h
+test/security/api/moretests/tsh_main.h
+threads/AT386/cma_vmprot.c
+threads/PMAX/cma_vmprot.c
+time/libutc/kernel/PMAX/machdep.mk
+time/libutc/kernel/SVR4/utc_adjtime.c
+time/libutc/kernel/SVR4/utc_gettime.c
+
+don't ask me why I noticed this :-).
+
+assigned to "bld" since this seems like something the RAT's can clean up.
+
+[11/5/93 public]
+
+Aha! we have proof that OT uses RCS under the covers :-)
+
+The $ L o g $ in my original entry was expanded in the text above..
+
+[1/13/94 public]
+
+Assigned to Ron Rizzo.
+
+[08/26/96 public]
+
+Unless this really needs to be addressed for 1.2.2, I'd like to defer this.
+Since I there is no fixby entry that I can enter for a real defer, I am
+simply removing the fixby entry.
+
+
+
+CR Number                     : 8299
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : bld
+Subcomponent Name             : 
+Short Description             : remove references to -DAIX32
+Reported Date                 : 7/16/93
+Found in Baseline             : 1.0.3
+Found Date                    : 7/16/93
+Severity                      : E
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : see list
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[7/16/93 public]
+The compilation conditional AIX32 has existed since we upgraded the RIOSes
+to AIX3.2.  It was designed to allow backwards compatiblity for the 1.0.1
+release.  We've moved beyond that now so we no longer need it.
+
+The conditionals should be removed and the code provided for the case in
+which AIX32 is true should be made the default.
+
+Here are the affected files:
+./directory/cds/adver/adver_sysdep_unix.c
+./directory/cds/cdsbrowser/cds_browsersource.c
+./directory/cds/server/event_lib.c
+./diskless/boot/bootpd/bootpd.c
+./file/RIOS/machdep.mk
+./file/bakutil/Makefile
+./file/bakutil/budb_test.c
+./file/cm/cm_subr.c
+./file/config/RIOS/param.h
+./file/episode/vnops/efs_vnodeops.c
+./file/osi/RIOS/osi_cred_mach.h
+./file/osi/osi_cred.h
+./file/xvnode/RIOS/xvfs_vfs2aix.c
+./lbe/mk/osf.dce.mk
+./rpc/idl/idl_compiler/message.c
+./rpc/kruntime/RIOS/comsoc_sys.c
+./rpc/kruntime/RIOS/ipnaf_sys.c
+./rpc/runtime/RIOS/comsoc_sys.h
+./rpc/runtime/RIOS/ipnaf_sys.c
+./rpc/runtime/RIOS/sysconf.h
+./rpc/runtime/comnaf.c
+./rpc/runtime/dce_error.c
+./threads/cma_message.c
+
+[6/28/94 public]
+This should be cleaned up by 1.1.
+
+[7/1/94 public]
+reassigned to Annie
+
+[7/12/94 public]
+After looking at the code a bit, I think the fix for this is not as 
+straightforward as Rich had implied.  The conditional
+"#ifdef AIX32"     and
+"#ifdef AFS_AIX32_ENV"
+
+not only differentiates between revisions of the AIX operating systen, but,
+from other  platforms as well.  Should code that is currently AIX specific
+be suddenly included on HP or 486?  Removing these ifdefs will cause
+other platforms to use the code enclosed in the "#ifdef AIX32".  Currently,
+the other platforms don't use this code.
+
+Am I missing something?  It seems as though we are going to need an 
+"#ifdef AIX32" of some kind in the code.  
+
+Also,  most of the files listed do not have "#ifdef AIX32".  Rather, they
+have comments about the AIX32 upgrade.
+
+[zeliff 7/12/94 public] 
+
+Your point about the removing the code is well taken.  You should probably
+change AIX32 to _AIX (which is the correct means of identifying
+machine-dependent source code -- see RFC34.2 for details) and remove the
+AIX3.1.5 code.
+
+Also, the list of files is out of date.  The defect was opened a year ago
+(i.e., four DCE releases ago) and the source code has changed quite a bit.
+However, there are still occurances in some of the code.
+
+[08/26/96 public]
+
+Unless this really needs to be addressed for 1.2.2, I'd like to defer this.
+Since there is no fixby entry that I can enter for a real defer, I am
+simply removing the fixby entry.
+
+
+
+CR Number                     : 6709
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 5188
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : common makefiles
+Short Description             : can't build idl stubs with 'c' files
+Reported Date                 : 12/31/92
+Found in Baseline             : 1.0.2
+Found Date                    : 12/07/92
+Severity                      : E
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : osf.dce.mk osf.std.mk
+Sensitivity                   : public
+
+[12/31/92 public]
+If you don't specify -keep c_source in the IDLFLAGS variable in a makefile
+tat invokes the IDL compiler, you always re-IDL.  This should not be the
+case.  The common makefiles should contain .idl.o rules similar to what is
+ currently there for .idl.c rules to fill the gap in the suffix chain.  In 
+ order to make such rules possible, you must also add a way to get 
+ CFLAGS passed to the idl compiler to get the shared libray stuff done right.
+ I have prototypes for the second change in a sandbox if anyone wants'em.
+
+[ Disclaimer: this may be a dup.  I have been holding this defect with the
+  intent of checking to see if it was already entered, but the schedule being
+  what it is, I have no time.
+]
+
+[12/31/92 public]
+Note that make will still do things twice anyway.  That is, blocks like:
+	client_stub.o server_stub.o: server.idl
+		...
+Will still run IDL twice.  This is an ODE make bug, see ODE OT #232.
+
+[01/04/92 public]
+Right, Rich.  That is understood.  The behavior that I want to avoid is the
+consistent rebuild of the *cstub.o and *sstub.o from an unmodified .idl file
+if -keep c_source is not specified.  This is caused by the lack of a .idl.o
+rule in osf.std.mk.  In the absence of this type of rule, make is forced to
+re-idl the file in an attempt to follow the .idl -> .c -> .o path from a 
+.idl to a .o.
+
+[01/04/92 public]
+Rich Zeliff asked that I add the prototype changes to fix this defect to
+this defect report:
+ 
+   osf.dce.mk
+   ----------
+     Added the lines indicated by a '+'
+
+       .if ${USE_SHARED_LIBRARIES}
+       _SHCCDEFS_=-D_SHARED_LIBRARIES
+       _PICLIB_=-pic-lib ${_GENLIB_} ${_CC_LIBDIRS_} ${_LIBS_}
+       _GLUE_=-%ld," -warn_nopic -glue"
+   +   _GENIDLCFLAGS_= ${_SHCCDEFS_} ${_PICLIB_}
+       .else
+       _SHCCDEFS_=
+       _PICLIB_=
+       _GLUE_=
+   +   _GENIDLCFLAGS_=
+       .endif
+
+ [ Note: this just gets the stuff needed for shared libs passed on the idl
+         command line.  The idl command line uses this as described below.
+ ]
+
+
+ osf.std.mk
+ ----------
+    Added the following assignment:
+
+      _IDLCFLAGS_ = -cc_opt '${_GENIDLCFLAGS_} \
+               ${${TARGET_MACHINE}_IDLCFLAGS} \
+       ${${.TARGET}_IDLCFLAGS} \
+       ${${.ALLSRC:T:M*.idl}_IDLCFLAGS:U${IDLCFLAGS}}'
+
+
+   And modified the assignment of _IDLFLAGS as indicated by the '+':
+ 
+      _IDLFLAGS_=\
+  +        ${_IDLCFLAGS_} \
+           ${${TARGET_MACHINE}_IDLFLAGS} \
+           ${${.TARGET}_IDLFLAGS} \
+           ${${.ALLSRC:T:M*.idl}_IDLENV:U${IDLENV}}\
+           ${${.ALLSRC:T:M*.idl}_IDLFLAGS:U${IDLFLAGS}}\
+           ${${.ALLSRC:T:M*.idl}_IDLARGS:U${IDLARGS}}\
+           ${_GENIDLINC_} ${_CC_INCDIRS_}
+
+  [ Note: these changes get the CFLAGS into the idl command line, as well
+          as any shared library stuff.
+  ]
+
+
+  If these changes are combined with .idl.o rules in the style of the 
+  existing .idl.c rules, then you should be able to build *stub.o files 
+  without keeping the 'C' source around.
+
+[01/04/93 public]
+Forgot one change:
+
+  osf.std.mk
+  ----------
+    Added .i to SUFFIXES list.
+
+[01/08/92 public]
+I was in an OT frenzy at the time I entered the last note.  It actually 
+belongs on the end of 6708.
+
+[1/28/93 public]
+This is a dup of defect #5188.
+
+[1/29/93 public]
+I hate to be retentative (BUT I CAN'T HELP IT!!), but this is not a defect
+of 5188.  
+   The 5188 defect refers to the sequence:
+      During the EXPORT pass
+        idl runs and generates a .h in the obj tree, which is then exported
+        to the export tree.  So the dates for the .idl and the two .h files
+        now looks like this:
+          src              obj               export
+         .idl older than   .h  same date as   .h
+
+      During some subsequent pass:
+        idl runs to generate a *_cstub.c, *_sstub.c or some such.  In the
+        course of doing this, idl generates a new .h file.  So NOW the 
+        dates for the .idl and the two .h's looks like this:
+          src              obj               export
+         .idl older than   .h  NEWER THAN     .h
+
+      On the next EXPORT pass, make performs the following sequence of 
+      checks:
+         I want to build ../export_tree/.h, it depends on .h. where is 
+         .h?  It is here in the obj tree.  
+         
+         .h in the obj tree depends on the .idl file.  Where is the .idl
+         file?  It is in the src tree.  Is it newer than the .h in the obj
+         tree? No.  So the .h in the obj tree is up to date.  (Which is 
+         why idl does not regenerate the .h on each EXPORT pass).
+
+         Is the .h in the obj tree newer than the .h in the export tree?
+         YES!  I better tar it/copy -p it out to the export tree.
+
+     So the problem here is how to either make the export version of the
+     .h depend on  the .idl file in the src tree, or to avoid changing the
+     date on the .h file in the obj tree when the .*stub.c is generated.
+
+     There is another problem hidden in defect 5188 as well.  When the 
+     subsequent pass causes idl to regenerate the .h file, it may pick a 
+     .acf file that could change the contents of the .h file that is 
+     eventually, as described above, to the export tree.
+
+    
+     I filed this defect against the fact that there is now dependency path
+     in the common Makefiles for a .idl to .o transformation as there is
+     for a .idl to .c transformation.  The defect describes via makefile
+     excerpts, the kind of support that would have to be added to the
+     common makefiles to make these kind of rules work.  
+
+     Defer me, call me an enhancement, but don't dup me! :-)
+
+[2/3/93 public]
+Okay, it's not a dup.  However, we've got to defer this.
+
+[10/15/93 public]
+
+Defer to the 1.1 code cleanup work.
+Re-assigned to me, since cjd is no longer a rat.
+
+[7/1/94 ]
+reassigned to Annie
+
+[07/01/94 public]
+Did this get fixed during Bill Sommerfeld's common makefile changes?
+
+[09/26/94 public]
+A quick glance at the common Makefiles do not show the enhancement being
+incorporated.  However, since the capabilities seem to be there, and we
+are running out of time for DCE1.1, this bug has been deferred to DCE1.2
+for more investigation and such.
+
+thanks
+annie
+
+[02/6/96 public]
+Looks like deferring is a tradition! Changed to Enh req.
+
+
+
+CR Number                     : 6708
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : common makefiles
+Short Description             : should be able to generate pre-processed files automatically
+Reported Date                 : 12/31/92
+Found in Baseline             : 1.0.2b8
+Found Date                    : 12/21/92
+Severity                      : C
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : src/lbe/mk/osf.stc.mk src/lbe/mk/osf.obj.mk
+Sensitivity                   : public
+
+[12/31/92 public]
+It should be possible to easily generate post-preprocessor versions of 
+files for debugging purposes.  This is is easily implemented in the common
+makefiles.  I have a prototype of the changes (that I have been using for
+a while) in a sandbox if anyone is interested.
+
+[ Disclaimer: this may be a dup.  I have been holding this defect with the
+  intent of checking to see if it was already entered, but the schedule being
+  what it is, I have no time.
+]
+
+[01/04/92 public]
+Rich Zeliff requested that I attach the prototype changes I alluded to in
+the original bug comment to the defect:
+
+  osf.obj.mk
+  ----------
+    Added the following rules:
+
+     .c.i:
+        ${_CC_} ${CC_NO_OBJ} ${_CCFLAGS_} ${.IMPSRC} > ${.TARGET}
+
+
+     .y.i:
+        ${YACC} ${_YFLAGS_} ${.IMPSRC}
+        ${_CC_} ${CC_NO_OBJ} ${_CCFLAGS_} y.tab.c
+        -${RM} ${_RMFLAGS_} y.tab.c
+        ${MV} -f y.tab.o ${.TARGET}
+
+
+     .l.i:
+        ${LEX} ${_LFLAGS_} ${.IMPSRC}
+        ${_CC_} ${CC_NO_OBJ} ${_CCFLAGS_} lex.yy.c
+        -${RM} ${_RMFLAGS_} lex.yy.c
+        ${MV} -f lex.yy.o ${.TARGET}
+
+ [ Note: these are the standard .something to .o rules with a different
+         target suffix and a new flag variable on the _CC_ line - ${CC_NO_OBJ}
+         This is defined as described below.
+ ]
+
+
+ osf.dce.mk
+ ----------
+   Added the following assignment:
+
+     CC_NO_OBJ=${NO_OBJ:D${NO_OBJ}:U${${TARGET_MACHINE}_NO_OBJ_FLAG}}
+
+ [ Note: ${TARGET_MACHINE}_NO_OBJ_FLAG} would be defined in some global
+         place (like the Makeconf file) to be the compiler flag for 
+         pre-processing only for a particular platform; ie: on the PMAX, 
+ 
+           PMAX_NO_OBJ_FLAG = -E
+
+         I understand that this puts a one compiler per platform limit on
+         the compilers that this method could support, but this is only a 
+         prototype.  The correct variable expansion for setting CC_NO_OBJ
+         to the correct flag for the compiler of choice on a given platform
+         is left as an exercise for the reader (something like
+           CC_NO_OBJ = ${NO_OBJ:D${NO_OBJ}:U${${_CC_TYPE_}_NO_OBJ_FLAG}}
+         though, of course, you need to allow for per Makefile overrides
+         for ${CC_TYPE}_NO_OBJ_FLAG, etc.
+ ]
+
+  
+ These two changes allow me (having set NO_OBJ to be -E in my Makefile) to
+ enter "build xxx_server.i" and get the pre-processed file in my obj directory.
+
+[01/07/93 public]
+I mentioned this before to Mark in email and he agress:  NO_OBJ is a
+bad name.  Something like CPP_ONLY is better.
+
+[01/04/93 public]
+Forgot one change:
+
+  osf.std.mk
+  ----------
+    Added .i to SUFFIXES list.
+
+[1/28/93 public]
+This is really an enhancement to the makefiles.
+
+[zeliff 12/23/93 public] 
+Bumped pri/sev to C1 because this could be an important aid for code
+cleanup work.  To see why, try figuring out which IFDEFed code path
+actually is compiled in directory/cds/server.
+
+Also, removed cjd as assignee.
+
+[7/1/94 public]
+re-assigned to Sally
+
+
+
+CR Number                     : 5083
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : bld
+Subcomponent Name             : bld
+Short Description             : Should be able to replace project rules selectively
+Reported Date                 : 8/17/92
+Found in Baseline             : 1.0.2
+Found Date                    : 8/17/92
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : jaffe@transarc.com
+Transarc Status               : open
+
+[8/17/92 public]
+It is impossible to replace any rules in the osf.<project>.mk file
+because the rules in osf.std.mk are read later and stomp on
+yours.
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `jaffe@transarc.com' 
+Added field Transarc Status with value `open'
+
+[8/18/92 public]
+Corrected previous comments; the problem is that osf.std.mk reads in
+osf.<project>.mk and then stomps on the project rules (thus making it
+difficult to really create new projects).
+
+[12/23/93 public]
+Removed cjd as assignee.
+
+[1/7/94 public]
+Reassigned and lowered severity to C
+
+[7/12/94 public]
+Considering the fate of the ODE development effort and the new Reorg;
+I think it is unrealistic to hope for clean, interchangable
+build rules for the common makefiles.  The ability to easily create new 
+projects using the current build environment is not an issue the DCE project
+needs to concern itself with.  The build environment improvements should
+speed up the development of DCE,  not speed up getting new projects 
+started.
+
+This CR should be canceled.
+
+[7/13/94 public]
+It certainly shouldn't be cancelled for that reason.  Regardless of the
+future of ODE, it's still a defect in the DCE sources.
+
+[7/13/94 public]
+removed mason@transarc from 'opened-by' and 'dan@transarc' from interest
+lists.  Mail bounced back from Transarc claiming these are no longer valid
+addresses.
+
+
+
+CR Number                     : 2975
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : bld
+Subcomponent Name             : ode
+Short Description             : .o's found via VPATH
+Reported Date                 : 4/21/92
+Found in Baseline             : 1.0.1b11
+Found Date                    : 4/21/92
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/21/92 public]
+If libfoo.a is to be built from foo.o, foo.c does not exist in the 
+corresponding directory in the src tree, or in the VPATH'd src
+directory, the obj directory corresponding to the VPATH is searched for
+first foo.c AND THEN foo.o.
+
+If the VPATH'd directory has already been visited, the former (finding
+.c's in the obj dir) finds .c's such as idl stubs, even if you wanted to 
+build them again in the new directory with different flags. This can
+occur if the source you are trying to VPATH to is a .idl file. The latter 
+finds .o's, also, perhaps built with the wrong flag. This can occur if
+the foo.o (in the obj VPATH) was built from foo.c that was also VPATH'd to,
+i.e. VPATH's are not chained.
+
+[05/27/92 public]
+Will be considered for DCE 1.0.2.
+
+[5/27/93 public]
+Yow, one year since the last update.
+
+My fear is that the cure will be worse than the problem.  It's worth
+assessing whether there are portions of DCE which *rely* on this
+functionality.  If so, we need to open up component defects against them
+and then fix this defect *after* the others have been closed.
+
+[12/23/93 public]
+Don't use VPATHs.
+
+[12/23/93 public]
+If not using VPATH, then how are two different directories supposed
+to share a single source file?  A common case, e.g., is compiling
+the same IDL with two different ACF's.  Raised to a B1.
+
+[12/23/93 public]
+Reorganize the source tree, of course.  ;-)
+
+You're right, there are valid uses of VPATH.  I was thinking only of the
+situations in which it is used for sloppy source organization.  Another
+example of valid use is code which is compiled in both kernel and user
+modes. 
+
+Most of the situations in which VPATHs are used, however, could better be
+solved by collecting the shared objects into libraries.
+
+[7/1/94]
+reassigned to rrizzo
+
+[8/30/94 public]
+We cannot address this problem in the timeframe left in the dce1.1
+project.  If we are ever to address problems like this, the work
+must be done at the beginning of a project.  That way if the RATs break
+the build for a couple of days, its no big deal.
+
+This is being deferred to dce1.2.
+
+
+
+CR Number                     : 2543
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : bld
+Subcomponent Name             : 
+Short Description             : Shared library stuff is target dependent
+Reported Date                 : 4/4/92
+Found in Baseline             : 1.0.1
+Found Date                    : 4/4/92
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/4/92 public]
+
+Various makefiles and .mk files do stuff related to shared libraries.  Even
+just considering the two reference platforms, "shared libraries" work
+differently.  What seems to be implied by "shared libraries" in the
+makefiles is OSF's OSF/1 -style shared libraries.  (E.g., consider the use
+of flags like "-pic-lib" in osf.dce.mk.)
+
+It would seem like the whole topic of shared libraries needs to be
+revisited.  Perhaps much of what's hanging around now really belongs in
+PMAX target subdirectories, or otherwise conditioned on ${TARGET_MACHINE}
+being PMAX.
+
+[05/27/92 public]
+This will be considered for DCE 1.0.2.
+
+[1/11/93 public]
+This is part of the DCE1.1 code cleanup project.
+
+[5/27/93 public]
+Scheduled for 1.0.3.
+
+[12/23/93 public]
+Removed cjd as assignee.  This defect is still very valid.
+
+[7/1/94 sally]
+Lowered the Severity - This bug has been here since 4/4/92 it would
+appear that there is a workaround.
+
+
+

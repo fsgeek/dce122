@@ -1,0 +1,172 @@
+...\"
+...\"  @OSF_COPYRIGHT@
+...\"  COPYRIGHT NOTICE
+...\"  Copyright (c) 1990, 1991, 1992, 1993 Open Software Foundation, Inc.
+...\"  ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE in the
+...\"  src directory for the full copyright text.
+...\"
+...\"
+...\" HISTORY
+...\" $Log: rpc_binding_reset.3rpc,v $
+...\" Revision 1.1.8.1  1996/11/18  19:56:30  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  19:33:58  wardr]
+...\"
+...\" Revision 1.1.6.7  1995/06/07  20:10:42  buckler
+...\" 	1.1 edits  Prentice Hall reformat
+...\" 	[1995/06/07  20:05:46  buckler]
+...\" 
+...\" Revision 1.1.6.5  1994/10/19  20:15:25  neilson
+...\" 	CR 10326 - Automatic fix to name of intro ref page
+...\" 	[1994/10/19  20:09:07  neilson]
+...\" 
+...\" Revision 1.1.6.4  1994/07/14  19:04:18  jshirley
+...\" 	(def,10220,R1.1}
+...\" 	Remove references to rpcd and sec_clientd.
+...\" 	[1994/07/14  18:43:14  jshirley]
+...\" 
+...\" Revision 1.1.6.3  1993/01/26  17:49:57  cjd
+...\" 	Embedded copyright notice
+...\" 	[1993/01/26  17:18:15  cjd]
+...\" 
+...\" Revision 1.1.6.2  1992/10/01  20:43:18  weir
+...\" 	Removed change bars; moved into 1.0.2doc tree
+...\" 	[1992/10/01  19:54:14  weir]
+...\" 
+...\" 	For P/H, now and forever!
+...\" 	[1992/09/16  14:42:46  oaf]
+...\" 
+...\" Revision 1.1.4.3  1992/09/16  18:27:44  oaf
+...\" 	*** empty log message ***
+...\" 
+...\" Revision 1.1.4.2  1992/08/14  17:42:47  oaf
+...\" 	2nd edits, PURPOSE fix, .ad l on related functions (& restore)
+...\" 	[1992/08/14  16:45:21  oaf]
+...\" 
+...\" Revision 1.1.2.2  1992/05/15  18:39:04  buckler
+...\" 	Editorial review
+...\" 	[1992/05/15  18:36:53  buckler]
+...\" 
+...\" Revision 1.1  1992/01/29  15:35:38  damon
+...\" 	Initial revision
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc.  ALL RIGHTS RESERVED
+...\"   HISTORY COMMENTS:
+...\"
+...\"   DATE:                            COMMENT:
+...\"
+...\"	Mon Nov 11, 1991                 Initial file submission to HP
+...\"                                    for final integration at IBM.
+...\"                                   
+...\"
+...\" ********************************************************************
+...\" Copyright (c) 1991 Hewlett-Packard Co. and Digital Equipment Corp. *
+...\" All rights reserved.                                               *
+...\" ********************************************************************
+.TH rpc_binding_reset 3rpc
+...\" .iX "\*Lrpc_binding_reset(\|)\*O"
+.SH "Name"
+\*Lrpc_binding_reset\*O - Resets a server binding handle
+.PP
+Used by client or management applications
+.SH "Synopsis"
+.sS
+\*L#include <dce/rpc.h>\*O
+.sp .4v
+\*Lvoid\*L \*Lrpc_binding_reset\*L(
+.nL
+	\*Lrpc_binding_handle_t \*Vbinding\*L,
+.nL
+	\*Lunsigned32 *\*Vstatus\*L);
+.sE
+.nL
+.ne 1.5i
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vbinding\*O"
+Specifies the server binding handle to reset.
+.LE
+.SS "Output"
+.VL
+.LI "\*Vstatus\*O"
+Returns the status code from this routine.  This status code
+indicates whether the routine completed successfully or, if not, why not.
+.LE
+.nL
+.ne 1.5i
+.SH "Description"
+.PP
+The \*Lrpc_binding_reset(\|)\*O routine disassociates a server instance
+from the server binding handle specified in the
+\*Vbinding\*O parameter.  This routine removes the endpoint portion
+of the server address in the binding handle as well as any other
+server instance information in the binding handle.
+The host portion of the server address remains unchanged.  The result
+is a partially bound server binding handle.  This binding handle can
+rebind to another server instance on the previous host
+when it is later used to make a remote procedure call.
+The \*Lrpc_intro(3rpc)\*O reference page contains an explanation of
+partially and fully bound binding handles.
+.PP
+This routine does not affect any authentication information for
+the \*Vbinding\*O parameter.
+.PP
+Suppose that a client can be serviced by any compatible server instance on
+the host specified in the binding handle.  Then, the client can call the
+\*Lrpc_binding_reset(\|)\*O routine before making a remote procedure call
+using the binding handle specified in \*Vbinding\*O.
+.PP
+When the client makes the next remote procedure call using the reset
+server binding handle in \*Vbinding\*O, the client's
+RPC runtime uses a well-known endpoint from the client's
+interface specification, if any.  Otherwise, the client's RPC runtime
+automatically communicates with the DCE host daemon (\*Ldced\*O) on the
+specified remote host, to obtain the endpoint of a compatible server
+from the local endpoint map.  If a compatible server is located,
+the RPC runtime updates \*Vbinding\*O with a new endpoint.
+.PP
+However, if a compatible server is not located, the
+client's remote procedure call fails.  If the failed
+call uses
+a connection protocol (\*Lncacn\*O), it receives the
+\*Lrpc_s_endpoint_not_found\*O status code.
+If the failed call uses a datagram protocol (\*Lncadg\*O), it receives
+the \*Lrpc_s_comm_failure\*O status code.
+.PP
+If a server application wants to be available to clients making a remote
+procedure call on a reset binding handle, it registers all binding
+handles by calling \*Lrpc_ep_register(\|)\*O or
+\*Lrpc_ep_register_no_replace(\|)\*O.  If, however, the IDL-generated file
+contains endpoint address information, then the application does not
+have to call either of these two routines.
+.nL
+.ne 1.5i
+.SH "Return Values"
+.PP
+No value is returned.
+.nL
+.ne 1.5i
+.SH "Errors"
+.PP
+The following describes a partial list of errors that might be returned.
+Refer to the \*(Tg for complete descriptions of all error
+messages.
+.VL
+.LI "\*Lrpc_s_ok\*O"
+Success.
+.LI "\*Lrpc_s_invalid_binding\*O"
+Invalid binding handle.
+.LI "\*Lrpc_s_wrong_kind_of_binding\*O"
+Wrong kind of binding for operation.
+.LE
+.SH "Related Information"
+.PP
+.ad l
+Functions:
+\*Lrpc_ep_register(3rpc)\*O,
+\*Lrpc_ep_register_no_replace(3rpc)\*O.
+.ad b

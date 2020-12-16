@@ -1,0 +1,2872 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" HISTORY
+...\" $Log: 4_threads.gpsml,v $
+...\" Revision 1.1.2.14  1994/10/30  22:47:38  weir
+...\" 	Last updates
+...\" 	[1994/10/30  22:46:35  weir]
+...\"
+...\" Revision 1.1.2.13  1994/10/30  16:25:40  weir
+...\" 	Updates
+...\" 	[1994/10/30  16:24:20  weir]
+...\" 
+...\" Revision 1.1.2.12  1994/10/29  23:26:00  weir
+...\" 	More Updates
+...\" 	[1994/10/29  23:24:44  weir]
+...\" 
+...\" Revision 1.1.2.11  1994/10/28  20:50:19  weir
+...\" 	DCE 1.1 updates
+...\" 	[1994/10/28  20:48:58  weir]
+...\" 
+...\" Revision 1.1.2.10  1994/10/26  20:40:53  weir
+...\" 	DCE 1.1 Updates
+...\" 	[1994/10/26  20:39:30  weir]
+...\" 
+...\" Revision 1.1.2.9  1994/10/14  18:38:57  weir
+...\" 	Minor edit changes
+...\" 	[1994/10/14  18:37:54  weir]
+...\" 
+...\" Revision 1.1.2.8  1994/06/20  20:28:50  weir
+...\" 	Beta Update
+...\" 	[1994/06/20  20:27:31  weir]
+...\" 
+...\" Revision 1.1.2.7  1994/06/19  20:54:00  weir
+...\" 	Beta Update
+...\" 	[1994/06/19  20:52:55  weir]
+...\" 
+...\" Revision 1.1.2.6  1994/06/17  13:50:27  weir
+...\" 	Beta Update
+...\" 	[1994/06/17  13:48:59  weir]
+...\" 
+...\" Revision 1.1.2.5  1994/06/13  19:25:35  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  19:24:42  devobj]
+...\" 
+...\" Revision 1.1.2.4  1994/06/12  17:32:05  weir
+...\" 	No change-- for copyright insertion
+...\" 	[1994/06/12  17:30:41  weir]
+...\" 
+...\" Revision 1.1.2.3  1994/06/08  18:47:25  weir
+...\" 	Beta Update
+...\" 	[1994/06/08  18:46:22  weir]
+...\" 
+...\" Revision 1.1.2.2  1994/06/02  21:12:42  weir
+...\" 	Beta Updates
+...\" 	[1994/06/02  21:10:56  weir]
+...\" 
+...\" Revision 1.1.2.1  1994/05/03  19:00:25  weir
+...\" 	Reorganization
+...\" 	[1994/05/03  18:59:11  weir]
+...\" 
+...\" $EndLog$
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 1 "DCE Threads"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+.iX "DCE Threads" "overview of"
+.iX "overview" "of DCE Threads"
+...\" 
+.P
+DCE Threads is a POSIX 1003.4a-compliant threading service which allows an
+application to create separate threads of execution within a process. These
+threads have low startup overhead and can share data among themselves.
+.P
+The DCE Remote Procedure Call (RPC) service uses threads to let servers communicate
+with multiple clients concurrently. Many of the server functions in DCE use threads
+to allow simultaneous communication with multiple clients and for the concurrent
+processing of data while waiting for I/O operations to complete.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Choosing a Pthreads Implementation"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+DCE requires that its platform provide access to a Pthreads implementation
+(specifically, to an implementation of POSIX 1003.4a Draft 4). If your platform
+already provides such an implementation, it is recommended that you use it. If
+it does not, DCE includes a user space threads implementation of the POSIX draft
+which you can use instead.
+.P
+It is important to keep in mind the following things in connection with your
+choice (if you have one) of a Pthreads implementation:
+...\" 
+...\" 
+.BL
+...\" 
+.LI
+The other DCE components have been built and tested using only the DCE Threads
+implementation; thus you may encounter some difficulties if you use a different
+threads implementation. For example, see the section in Chapter 6 of this guide
+on ``Porting CDS to Kernel Threads''.
+...\" 
+.LI
+Pthreads is not yet a standard, and implementations of different drafts can contain
+incompatible functionality, particularly in their handling of signals.
+...\" 
+...\" 
+...\" 
+...\" .zA "def,6766,R1.0.2,synchronous signals"
+...\" 
+.nS "Note"
+The default behavior of DCE Threads in DCE 1.0.2 when a synchronous
+terminating signal occurs is to dump core; that is, to not handle the
+signal. This differs from the pre-DCE 1.0.2 behavior, where such a
+signal would be turned into an exception and propagated out to whatever
+process was the original owner of the thread (namely the client, even
+though the exception might have occurred in the server). Therefore, if
+an application using DCE Threads wants to handle such signals, it must
+now set up a signal handler to do so by calling \*Lsigaction(\|)\*O.
+Note that the new DCE Threads behavior is in fact similar to the default
+behavior of most UNIX programs.
+.nE
+...\" 
+...\" .zZ "def,6766,R1.0.2,synchronous signals"
+...\" 
+...\" 
+...\" 
+.LI
+The DCE Threads implementation uses several non-portable routines (each of which
+is identified by \*L_np\*O at the end of its name, as specified in Draft 4 of the
+specification). The functionality supplied by these routines will have to be
+re-implemented for the platform to which you are porting if you use some other
+threads implementation. There are six such routines in DCE 1.0.3:
+...\" 
+.BL
+...\" 
+.LI
+\*Lpthread_delay_np(\|)\*O
+...\" 
+.LI
+\*Lpthread_get_expiration_np(\|)\*O
+...\" 
+.LI
+\*Lpthread_lock_global_np(\|)\*O
+...\" 
+.LI
+\*Lpthread_mutexattr_getkind_np(\|)\*O
+...\" 
+.LI
+\*Lpthread_mutexattr_setkind_np(\|)\*O
+...\" 
+.LI
+\*Lpthread_unlock_global_np(\|)\*O
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.LI
+DCE makes use of a non-standard exception interface to Pthreads. This interface
+is layered above Pthreads and should be easily portable to other Pthread
+implementations. See the file
+.DS
+    \*Vdce-root-dir\*L/dce/src/threads/pthread_exc.h\*O
+.DE
+...\" 
+.P
+for details.
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "If You Choose DCE Threads"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Applications that execute in a threaded environment must use library routines
+that are thread-safe. This means that the library routines must be reentrant and
+that they must not block the entire calling process when called (see the
+``Considerations and Dependencies'' section at the beginning of Chapter 5 of this
+guide for an explanation why).
+.P
+DCE Threads ensures thread-safety for threaded applications by implementing
+wrapper routines for the library functions that DCE applications call. The wrapper
+code has the effect of changing a call to a wrapped library routine into a call to
+a \*Lcma_\*Vroutine_name\*L(\|)\*O routine which first performs whatever steps are
+necessary to ensure thread-safety for that routine, then calls the actual
+\*Vroutine_name\*O library routine, and finally undoes whatever locking was necessary
+to protect the library call.
+.P
+The wrapper routines are ``activated'' for a particular C file (that is, the routines
+in that file will be wrapped) if that file \*L#include\*Os the \*Lpthread.h\*O header
+file\(emassuming, of course, that specific wrapper routines have been implemented for
+the library routines that are to be wrapped. DCE Threads provides example wrapper
+routines for many library functions (in fact, for all essential functions that DCE
+code calls).
+.P
+When porting DCE to a new platform, you will have to implement wrappers for the
+library functions that are not already wrapped by DCE Threads example code. DCE
+Threads is supplied with wrappers for all library calls that DCE itself uses,
+thus making DCE thread-safe. However, applications written to use DCE will probably
+use additional library routines, and wrappers will have to be implemented for such
+routines. When writing the additional wrappers, it will probably be a good idea to
+closely integrate them into your libraries, so that thread-safe routines will be
+accessible to applications without their having to explicitly \*L#include pthreads.h\*O\(ema
+step which can easily be inadvertently omitted, with unpleasant consequences.
+...\" 
+...\" 
+...\" .zZ "New Section"
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Considerations and Dependencies"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "DCE Threads" "dependencies"
+.iX "dependencies" "of DCE Threads"
+...\" 
+.P
+A process switches execution between different threads by manipulating
+a \*Vsignal context frame\*O on its stack. In highly simplified form, this
+switch can be modeled in three steps:
+...\" 
+.AL
+.LI
+The current context of an executing thread is saved on the stack.
+.LI  
+The process switches to the next signal context frame where its
+context has been saved.
+.LI
+The thread being switched out executes a \*Lsigreturn(\|)\*O system call,
+which allows the next thread to run.
+.LE
+...\" 
+.P
+The actual process is more complicated; several other things must occur, such
+as updating the runtime of a thread and choosing which thread to run next.
+.P
+In addition to manipulating the stack to change the context of a running thread,
+DCE Threads uses a periodic timer service to allow proportionate dispatching of
+threads. This periodic timer service must be available in the target environment.
+You can use either \*LSIGVTALRM\*O or \*LSIGALRM\*O for the periodic timing.
+The virtual timer is preferable.
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.H 3 "DCE Threads File Locations"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "DCE Threads" "file locations"
+.iX "file locations" "DCE Threads"
+.de ZY
+\v'-3p'\\$1\v'3p'\s0 
+..
+...\" 
+.P
+Table 2-1 lists the locations of libraries and files for DCE
+Threads. Note the following:
+...\" 
+.BL
+.LI
+A subcomponent may consist of multiple source files.
+.LI
+\*LSource file\*O pathnames are relative from:
+.DS
+    \*Vdce-root-dir\*L/dce/src\*O
+.DE
+.P
+The path indicates the directory in which the \*LMakefile\*O attempts
+to build the component.
+.LI
+\*LInstalled file\*O pathnames are relative from
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine_name\*L/opt/dce1.1\*O
+.DE
+.P
+unless noted by ``N/A.'' The path indicates the directory in which the
+subcomponent is installed.
+.LE
+...\" 
+...\" 
+.TB "Locations of DCE Threads Files"
+.ad l
+.TS H
+center tab(@) box;
+lB | lB | lB | lB
+lB | lB | lB | lB
+lB | l | lB | lB.
+DCE Threads@@Location of@Location of
+Subcomponent@Function\h'1.8i'@Source Files@Installed Files
+...\"	Subcomponent@Function\h'1.8i'@Source Files\v'-3p'\\1\v'3p'\s0@Installed Files\v'-3p'\\2\v'3p'\s0
+_
+.TH
+_
+libcma.a@DCE Threads library.@threads@\*L/usr/lib\*O as part of \*Llibdce.a\*O
+_
+cma.h@External definitions for CMA services.@threads@share/include/dce
+_
+cma_config.h@T{
+Configuration header file to set up control symbols.
+T}@threads@share/include/dce
+_
+cma_ux.h@T{
+Header file for UNIX system call wrapper routines.
+T}@threads@share/include/dce
+_
+cma_px.h@Header file for POSIX wrapper routines.@threads@share/include/dce
+_
+pthread.h@T{
+External definitions for CMA's pthread services.
+T}@threads@share/include
+_
+pthread_exc.h@T{
+External definitions for CMA's pthread exception (\*Lptdexc\*O)
+services.
+T}@threads@share/include
+_
+cmalib_crtlx.h@T{
+Header file for C runtime library wrapper routines.
+T}@threads@share/include/dce
+_
+cma_sigwait.h@T{
+Header file for the CMA implementation of POSIX \*Lsigwait\*O
+routine.
+T}@threads@share/include/dce 
+_
+cma_errno.h@Header file for the CMA's per-thread \*Lerrno\*O.@threads@share/include/dce
+_
+cma_kernel.h@T{
+Module to define the interface for locking and
+unlocking the kernel scheduling database.
+T}@threads@share/include/dce
+_
+cma_defer.h@T{
+Routine to defer actions until they can be performed
+immediately.
+T}@threads@share/include/dce 
+_
+cma_stdio.h@T{
+Header file for example wrapper routines that make selected C runtime
+library routines thread-reentrant.
+T}@threads@share/include/dce 
+_
+exc_handling.h@Header file for exception handling in C.@threads@share/include/dce
+_
+threadmsg.h@Header file for threads messages.@threads@share/include/dce
+_
+cma_host.h@Header file for host-specific functions.@threads/\*Vmachine\*O@share/include/dce
+_
+dcethreads.cat@DCE Threads message catalog.@threads@\*Omachine dependent
+@@@(\*Le.g., \*Lshare/nls/msg/$LANG)
+...\" 
+...\" 
+...\"	.T&
+...\"	l s s s.
+...\"	T{
+...\"	.ZY "1"
+...\"	All paths are relative from \*Vdce-root-dir\*L/dce/src\*O.
+...\"	The path indicates the directory in which the \*LMakefile\*O attempts
+...\"	to build the component.
+...\"	T}
+...\"	T{
+...\"	.ZY "2"
+...\"	All paths are relative from
+...\"	\*Vdce-root-dir\*L/dce/install/\*Vmachine_name\*L/opt/dce1.0\*O unless 
+...\"	noted by "N/A."
+...\"	The path indicates the directory in which the subcomponent is
+...\"	installed.
+...\"	T}
+...\" 
+.TE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Porting Considerations"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "DCE Threads" "porting"
+.iX "porting" "DCE Threads"
+...\" 
+.P
+DCE contains Threads code ported to the reference platforms listed
+in the ``Reference Platforms'' section of Chapter 1 of this guide.
+If you are porting to a different platform, you need to consider
+the information in the following sections.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Platform Definitions and Variables"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .zA "def,8422,R1.0.3,alphabetized symbol lists"
+...\" 
+.P
+Several files in the Threads code contain definitions that must be customized
+for the target platform of a new port. These files are as follows:
+...\" 
+.BL
+.LI
+\*Lcmalib_crtlx.h\*O
+.P
+This file defines the types used in interfacing to memory management
+functions from the standard C library.
+The two types (described in the code) are:
+...\" 
+.BL
+.LI
+\*LSTDLIB_MEM_PTR_T\*O
+.LI
+\*LSTDLIB_MEM_SIZE_T\*O
+.LE
+...\" 
+...\" 
+...\" 
+.LI
+\*Lcma_config\*O
+.P
+To start with, you need to modify \*Lcma_config.h\*O so it knows about your
+platform. In that file, create a name for your hardware platform and assign
+it a number, and create a software vendor and combined platform ID. Names for
+the existing ports can be found in \*Lcma_config.h\*O; you can use these names
+as examples when creating this information. See ``Preprocessor Variables'',
+below, for a list of the variables that appear in this file and their
+meanings.
+...\" 
+...\" 
+...\" 
+.LI
+\*Lcma_stack_int.h\*O
+.P
+This file defines several sizes related to per-thread stacks.
+You should choose values for these appropriate to your platform.
+The sizes (described in the code) are as follows:
+...\" 
+.BL
+.LI
+\*Lcma__c_chunk_count\*O
+.LI
+\*Lcma__c_default_guard\*O
+.LI
+\*Lcma__c_default_stack\*O
+.LI
+\*Lcma___c_reserve_size\*O
+.LE
+...\" 
+...\" 
+...\" 
+.LI
+\*Lcma_stdio.c\*O
+.P
+This file defines wrapper functions to ensure thread-safe access to the
+\*Lstdio\*O functions of the standard C library. Each wrapper function
+should be declared to have the same signature (return type and argument
+types) as the underlying library function for which it provides a wrapper.
+.P
+The existing wrapper functions are declared to match the relevant definitions
+in ANSI C. If your compilation environment is non-ANSI, you may need to modify
+the wrappers to match it.
+...\" 
+...\" 
+...\" 
+.LI
+\*Lcma_ux.h\*O
+\*Lcma_px.h\*O
+.P
+These files contain wrapper routines.
+...\" 
+.P
+.nS "note"
+You may not need to use the wrapper functions in \*Lcma_ux.h\*O and
+\*Lcma_px.h\*O if your compilation environment provides a thread-reentrant
+C library (see the \*Lcma_config.h\*O symbol \*L_CMA_REENTRANT_CLIB_\*O).
+.nE
+...\" 
+...\" 
+...\" 
+.LI
+\*Lexc_handling.h\*O
+.P
+This header file defines symbols that are equivalent (except for
+\*L_EXC_BAR_JMP_\*O) to a subset of the symbols defined in \*Lcma_config.h\*O.
+This file is meant for inclusion by other threads implementations that
+may wish to interface to the DCE Threads exception package.
+.P
+This file defines the variables below, for which you need to provide
+unique values for your platform (presumably the same ones you gave in
+\*Lcma_config.h\*O):
+...\" 
+.BL
+.LI
+\*L_EXC_BAR_JMP_\*O
+.LI
+\*L_EXC_HARDWARE_\*O
+.LI
+\*L_EXC_OS_\*O
+.LI
+\*L_EXC_OSIMPL_\*O
+.LI
+\*L_EXC_PLATFORM_\*O
+.LI
+\*L_EXC_PROTO_\*O
+.LI
+\*L_EXC_VENDOR_\*O
+.LI
+\*L_EXC_VOLATILE_\*O
+.LE
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+...\" .zZ "def,8422,R1.0.3,alphabetized symbol lists"
+...\" 
+...\" .zA "Added conditional symbols"
+...\" .zA "def,8422,R1.0.3,alphabetized symbols"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Threads Preprocessor Variables"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+.P
+The following conditional compilation variables must be set as part of a DCE
+Threads port. Examples for other platforms will be found for most of them in
+either \*Lcma_config.h\*O or \*Vmachine_type\*L/cma_host.h\*O. All of these
+can be set as either command line options or set explicitly in
+\*Vmachine_type\*L/cma_host.h\*O.
+...\" 
+...\" 
+.VL .5i
+.LI
+\*L_CMA_COMPILER_\*O
+.P
+Possible values are:
+...\" 
+.BL
+.LI
+\*L_CMA__CC\*O
+.LI
+\*L_CMA__CFRONT\*O
+.LI
+\*L_CMA__DECC\*O
+.LI
+\*L_CMA__DECCPLUS\*O
+.LI
+\*L_CMA__GCC\*O
+.LI
+\*L_CMA__GCPLUS\*O
+.LI
+\*L_CMA__SIEMENSC\*O
+.LI
+\*L_CMA__VAXC\*O
+.LE
+...\" 
+...\" 
+...\" 
+.P
+Each compiler has its own quirks, and DCE Threads
+tries to do as much with each as possible. For
+example, it instantiates function prototypes where
+possible, even if the compiler is not fully ANSI C
+compliant.
+...\" 
+...\" 
+...\" 
+.LI
+\*L_CMA_EXPORT_\*O
+.P
+See \*L_CMA_IMPORT_\*O.
+...\" 
+...\" 
+...\" 
+.LI
+\*L_CMA_EXPORT_FLAG_\*O
+...\" 
+.P
+See \*L_CMA_IMPORT_\*O.
+...\" 
+...\" 
+...\" 
+.LI
+\*L_CMA_HARDWARE_\*O
+.P
+Possible values are:
+...\" 
+.BL
+.LI
+\*L_CMA__ALPHA\*O
+.LI
+\*L_CMA__CPLMIPS\*O
+.LI
+\*L_CMA__HPPA\*O
+.LI
+\*L_CMA__IBMR2\*O
+.LI
+\*L_CMA__MIPS\*O
+.LI
+\*L_CMA__MX300I\*O
+.LI
+\*L_CMA__M68K\*O
+.LI
+\*L_CMA__VAX\*O
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+.P
+The computer on which DCE Threads will run.
+...\" 
+...\" 
+.LI
+\*L_CMA_IMPORT_\*O
+.LI
+\*L_CMA_EXPORT_\*O
+.LI
+\*L_CMA_EXPORT_FLAG_\*O
+...\" 
+.P
+The above three symbols specify the keywords used for \*LEXPORT\*Oing variables from DCE
+Threads, or for \*LIMPORT\*Oing those variables to client code. For normal UNIX systems,
+\*LIMPORT\*O is usually \*Lextern\*O and \*LEXPORT\*O is usually \*Lnull\*O. Because of
+oddities in the VAX C implementation of \*Lextern\*O, DCE Threads uses \*Lglobaldef\*O
+for \*LEXPORT\*O and \*Lglobalref\*O for \*LIMPORT\*O. \*L_CMA_EXPORT_FLAG_\*O is 1
+(\*LTRUE\*O) if \*L_CMA_EXPORT_\*O has a non-null value, and 0 (\*LFALSE\*O) otherwise.
+...\" 
+...\" 
+...\" 
+.LI
+\*L_CMA_KTHREADS_\*O
+.P
+Possible values are: undefined, \*LMACH\*O.
+...\" 
+...\" 
+...\" 
+.P
+This symbol specifies the type of kernel threads (if any) supported by the target.
+In general, DCE Threads will map user threads onto kernel threads if they are
+available.
+...\" 
+...\" 
+...\" 
+.LI
+\*L_CMA_MP_HARDWARE_\*O
+.P
+Possible values are: \*L0\*O, \*L1\*O.
+...\" 
+...\" 
+.P
+This symbol defines whether DCE Threads is being built to support actual
+multiprocessor hardware, not merely kernel threads. In most cases, the
+important distinction is kernel threads vs. user multiplexing. However,
+there are some decisions that ought to be based on whether the kernel
+threads may actually run on different CPUs concurrently; hence this
+convenient symbol.
+...\" 
+...\" 
+.P
+Generally, the value of this symbol will be the same as:
+.oS
+    _CMA_KTHREADS_ != _CMA__NONE
+.oE
+.P
+(Kernel threads are assumed to run on multiprocessor hardware.) However, this
+should be overridden if kernel threads are being used and it is not desirable
+to assume multiprocessor hardware (setting this symbol for non-multiprocessor
+hardware may degrade performance).
+...\" 
+...\" 
+.LI
+\*L_CMA_MULTIPLEX_\*O
+.P
+Possible values are: \*L0\*O, \*L1\*O.
+...\" 
+...\" Note that right now it's always 0...
+...\" 
+...\" 
+.P
+If this symbol is set to \*LTRUE\*O (\*L1\*O), then kernel threads are supported,
+and DCE Threads additionally will multiplex multiple user threads on each kernel
+thread. This balances some of the advantages and disadvantages of each (user mode
+context switching is faster, but use of kernel threads is more robust since kernel
+functions generally block only the calling kernel thread).
+...\" 
+...\" 
+.LI
+\*L_CMA_NOWRAPPERS_\*O
+.P
+Possible values are: \*L1\*O or undefined.
+...\" 
+.P
+If this symbol is defined, DCE Threads will not use its I/O and C library wrapper
+functions. Usually, this symbol is set to \*L1\*O for building DCE Threads, and left
+undefined for building client code.
+...\" 
+...\" 
+.LI
+\*L_CMA_NO_POSIX_SIGNAL_\*O
+.P
+Possible values are: \*L1\*O or undefined.
+...\" 
+.P
+If this symbol is defined, the target platform is assumed not to support a POSIX-compatible
+\*Lsigaction(\|)\*O function; DCE Threads will use \*Lsigvec(\|)\*O instead. NOTE: this
+symbol must be tested with \*L#ifdef\*O.
+...\" 
+...\" 
+.LI
+\*L_CMA_OSIMPL_\*O
+.P
+Possible values are:
+...\" 
+.BL
+.LI
+\*L_CMA__OS_AIX\*O
+.LI
+\*L_CMA__OS_BSD\*O
+.LI
+\*L_CMA__OS_OSF\*O
+.LI
+\*L_CMA__OS_SYSV\*O
+.LI
+\*L_CMA__OS_VMS\*O
+.LE
+...\" 
+...\" 
+.P
+The closest ancestor of the operating system, since each family inherits
+common characteristics (particularly in signal behaviors).
+...\" 
+...\" 
+.LI
+\*L_CMA_OS_\*O
+.P
+Possible values are:
+...\" 
+.BL
+.LI
+\*L_CMA__BSD\*O
+.LI
+\*L_CMA__SVR4\*O
+.LI
+\*L_CMA__UNIX\*O
+.LI
+\*L_CMA__VMS\*O
+.LE
+...\" 
+...\" 
+...\" 
+.P
+The operating system on which DCE Threads will run;
+generally, all UNIX-descended systems have certain
+similarities which need to be considered as a group.
+...\" 
+...\" 
+.LI
+\*L_CMA_PER_THD_SYNC_SIGS_\*O
+.P
+Possible values are: \*L0\*O, \*L1\*O.
+...\" 
+...\" 
+.P
+If TRUE (1) then the system supports per-thread
+synchronous signals.
+...\" 
+...\" 
+.LI
+\*L_CMA_PLATFORM_\*O
+.P
+Possible values are:
+...\" 
+.BL
+.LI
+\*L_CMA__ALPHA_UNIX\*O
+.LI
+\*L_CMA__ALPHA_VMS\*O
+.LI
+\*L_CMA__DCOSX_MIPS\*O
+.LI
+\*L_CMA__HPPA_UNIX\*O
+.LI
+\*L_CMA__IBMR2_UNIX\*O
+.LI
+\*L_CMA__MIPS_UNIX\*O
+.LI
+\*L_CMA__M68K_UNIX\*O
+.LI
+\*L_CMA__SINIX_MX300I\*O
+.LI
+\*L_CMA__VAX_VMS\*O
+.LI
+\*L_CMA__VAX_UNIX\*O
+.LE
+...\" 
+...\" 
+...\" 
+.P
+This symbol is a convenient combination of hardware platform/operating
+system.
+...\" 
+...\" 
+.LI
+\*L_CMA_PROTECT_MEMORY_\*O
+.P
+Possible values are: \*L1\*O (\*LTRUE\*O), undefined.
+.P
+Set to \*LTRUE\*O (\*L1\*O) if the environment supports protecting memory
+pages (DCE Threads will set stack guard pages to no access to trap stack
+overflows). See also the ``Guard Pages'' section below.
+...\" 
+...\" 
+...\" 
+.LI
+\*L_CMA_PROTO_\*O
+.P
+Possible values are: \*L1\*O, undefined.
+...\" 
+.P
+This symbol is set if the compiler supports function prototypes
+(if \*L__STDC__\*O is true, or if any of a number of specific
+compilers is being used). Note: this must be tested by an
+\*L#ifdef\*O, not by an \*L#if\*O
+...\" 
+...\" 
+.LI
+\*L_CMA_REENTRANT_CLIB_\*O
+.P
+Possible values are: \*L0\*O, \*L1\*O.
+...\" 
+...\" 
+.P
+This symbol is true if and only if the platform's C library is reentrant. This will
+generally be true on a platform where \*L_CMA_THREAD_IS_VP_\*O is true, but it may
+also be true for multiplexed threads if the C library is designed properly (for
+example, the OSF/1 \*Llibc_r\*O library allows thread packages to pass it a vector
+of interlock management functions, rather than assuming that some Mach thread
+synchronization mechanism is sufficient).
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+.LI
+\*L_CMA_SPINLOOP_\*O
+.P
+Possible values are: \*L0\*O, \*Ln\*O.
+...\" 
+...\" 
+.P
+This symbol controls the number of times a thread will spin (in a tight loop)
+while attempting to lock a mutex before it gives up and blocks itself.
+.P
+For multiprocessor hardware, DCE Threads can be configured to ``spin'' on a
+mutex lock for some time before giving up and blocking the thread. If this symbol
+is set to 0, DCE Threads will not spin. Otherwise, \*L_CMA_SPINLOOP_\*O determines
+the number of times DCE Threads will try to acquire the lock before blocking.
+.P
+On a uniprocessor configuration, this symbol should be defined to zero; spinning
+will not accomplish anything but to waste the rest of the thread's timeslice. Even
+when kernel threads are supported on uniprocessor hardware, this symbol will probably
+have little value, since the thread may still spin (wasting CPU time) until the kernel
+performs a thread context switch.
+...\" 
+...\" 
+...\" 
+.LI
+\*L_CMA_STACK_TRACE_\*O
+.P
+Possible values are: \*L0\*O, \*L1\*O.
+...\" 
+...\" 
+.P
+This can be set to cause DCE Threads to generate trace
+messages when stack management operations are called.
+It triggers conditional compilation in \*Lcma_stack.c\*O.
+...\" 
+...\" 
+...\" 
+.LI
+\*L_CMA_THREAD_IS_VP_\*O
+.P
+Possible values are: \*L0\*O, \*L1\*O.
+...\" 
+...\" 
+.P
+This symbol is true if and only if the platform supports kernel threads and each
+DCE Thread is permanently bound to a specific kernel thread throughout its life.
+In other words, this is a kernel thread platform and threads are not multiplexed
+in user mode. The symbol's value is computed from \*L_CMA_MULTIPLEX_\*O and
+\*L_CMA_KTHREADS_\*O.
+...\" 
+...\" 
+.LI
+\*L_CMA_THREAD_SYNC_IO_\*O
+.P
+Possible values are: \*L0\*O, \*L1\*O.
+...\" 
+...\" 
+.P
+This symbol is true if and only if a blocking I/O function (e.g., \*Lread(\|)\*O)
+will block only the thread that issued the function call. The symbol should
+generally be \*LFALSE\*O if \*L_CMA_MULTIPLEX_\*O or \*L_CMA_UNIPROCESSOR_\*O is
+\*LTRUE\*O, but its value can be controlled separately from these. Note that if
+\*L_CMA_THREAD_SYNC_IO_\*O is \*LTRUE\*O, the DCE Threads I/O wrapper functions
+will not be compiled.
+...\"  
+...\" 
+...\" 
+.LI
+\*L_CMA_TRACE_SEM_\*O
+.P
+Possible values are: \*Ln\*O or undefined.
+...\" 
+.P
+If this symbol is defined, DCE Threads will allocate an array of \*Vn\*O elements
+and trace information relating to the use of internal semaphores (the basic blocking
+mechanism used for mutexes and condition variables). This can be examined from the
+debugger, or printed by \*Lcma__sem_format_array(\|)\*O. It shows the module, line
+number, thread ID, and semaphore opcode of the last \*Vn\*O semaphore operations.
+...\" 
+...\" 
+...\" 
+.LI
+\*L_CMA_UNIPROCESSOR_\*O
+.P
+Possible values are: \*L0\*O, \*L1\*O.
+...\" 
+.P
+A value of \*LTRUE\*O (\*L1\*O) means that kernel threads are not supported and
+threads are a purely user-mode abstraction. This allows certain optimizations (for
+example, ``current thread'' can be implemented as a fetch from a global variable
+rather than a search for the stack pointer).
+...\" 
+...\" 
+...\" 
+...\" .zA "enh,CR5724,R1.0.2,add SVR4 info"
+.LI
+\*L_CMA_UNIX_TYPE\*O
+.P
+Identifies the type of UNIX platform. For example, \*L_CMA_SVR4\*O
+for SVR4-based systems.
+...\" .zZ "enh,CR5724,R1.0.2,add SVR4 info"
+.sp 2
+...\" 
+...\" 
+.LI
+\*L_CMA_UPSTACK_\*O
+.P
+Possible values are: undefined or \*L1\*O.
+...\" 
+.P
+This symbol specifies the direction of stack growth on the target platform. If
+\*LTRUE\*O (\*L1\*O), then a stack ``push'' (e.g., for a function call) causes
+the stack pointer value to \*Vincrease\*O. If undefined, a stack ``push'' causes
+the stack pointer value to \*Vdecrease\*O.
+...\" 
+...\" 
+.LI
+\*L_CMA_VENDOR_\*O
+.P
+Possible values are:
+...\" 
+.BL
+.LI
+\*L_CMA__APOLLO\*O
+.LI
+\*L_CMA__DIGITAL\*O
+.LI
+\*L_CMA__HP\*O
+.LI
+\*L_CMA__IBM\*O
+.LI
+\*L_CMA__OSF\*O
+.LI
+\*L_CMA__PTC\*O
+.LI
+\*L_CMA__SNI\*O
+.LI
+\*L_CMA__SUN\*O
+.LE
+...\" 
+...\" 
+...\" 
+.P
+The company supplying the operating system, since each have
+slightly different behavior and requirements.
+...\" 
+...\" 
+.LI
+\*L_CMA_VOID_\*O
+.P
+Possible values are: \*L0\*O, \*L1\*O.
+...\" 
+Set to \*LTRUE\*O (\*L1\*O) if the compiler supports the use of \*Lvoid *\*O
+types. Most \*L__STDC__\*O compilers do support \*Lvoid *\*O (although a version
+of MIPS C was noted to have a bug that prevented its use). If \*L_CMA_VOID_\*O is
+\*LFALSE\*O (\*L0\*O), DCE Threads will use \*Lchar *\*O instead.
+...\" 
+...\" 
+.LI
+\*L_CMA_VOLATILE_\*O
+.P
+Possible values are: \*L\*Lvolatile\*O or \*Lnull\*O.
+...\" 
+.P
+DCE Threads requires \*Lvolatile\*O storage class in several places, including
+exception handling. Since some compilers do not support \*Lvolatile\*O, DCE
+Threads uses this symbol in place of the \*Lvolatile\*O keyword. Note that DCE
+Threads runtimes built with compilers that do not support volatile may show
+incorrect behavior under certain circumstances (particularly during delivery of
+exceptions). Because these situations tend to occur only when errors have
+already occurred, it is hoped that the absence of volatile will not prevent
+normal DCE Threads operation.
+...\" 
+...\" 
+.LI
+\*L_CMA_VSSCANF_\*O
+.P
+Possible values are: \*L0\*O, \*L1\*O.
+...\" 
+...\" 
+The DCE Threads \*Lstdio\*O formatting wrappers (for the \*Lprintf(\|)\*O and
+\*Lscanf(\|)\*O family) depend on the existence of the \*Lstdarg\*O variety of
+those functions (namely \*Lvsprintf(\|)\*O and \*Lvsscanf(\|)\*O), since DCE
+Threads must pass on the client's variable argument list. Most systems do have
+\*Lvsprintf(\|)\*O. A system with \*Lvsscanf(\|)\*O has not yet been noted,
+although it seems a logical extension. The \*Lscanf(\|)\*O family wrappers
+are coded, but they cannot be built without \*Lvsscanf(\|)\*O: for a system
+which does supply this function, turn on the \*L_CMA_VSSCANF_\*O symbol and
+rebuild DCE Threads.
+.P
+Note that it is assumed if only one symbol is used that if one of the \*Lv*scanf(\|)\*O
+family is present on a system, they all are present.
+...\" 
+...\" 
+...\" 
+.LI
+\*L_USER_THREADS_\*O
+...\" 
+.P
+If this symbol has been defined, then \*Lcma_config.h\*O will override the
+default calculation of the \*L_CMA_UNIPROCESSOR_\*O symbol in \*Lcma_config.h\*O,
+thus forcing use of user threads even if the system supports kernel threads.
+...\" 
+...\" 
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Other Symbols and Macros"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+In addition to the above conditionally defined symbols, the following symbols
+and macros should be set in \*Lcma_host.h\*O.
+...\" 
+...\" 
+...\" 
+.BL
+.LI
+Atomic test and set objects. These can vary across platforms and may depend
+on the setting of \*L_CMA_UNIPROCESSOR_\*O:
+.BL
+.LI
+\*Lcma__c_tac_static_clear\*O
+.LI
+\*Lcma__tac_clear(\*Vaddress\*L)\*O
+.LI
+\*Lcma__tac_set(\*Vaddress\*L)\*O
+.LI
+\*Lcma__tacisset(\*Vaddress\*L)\*O
+.LE
+...\" 
+...\" 
+.LI
+Test and set macros:
+...\" 
+.BL
+.LI
+\*Lcma__kernel_set(\*Vaddress\*L)\*O
+.LI
+\*Lcma__test_and_set(\*Vaddress\*L)\*O
+.LE
+...\" 
+...\" 
+...\" 
+.LI
+Atomic unset operation macros:
+...\" 
+.BL
+.LI
+\*Lcma__kernel_unset(\*Vaddress\*L)\*O
+.LI
+\*Lcma__unset(\*Vaddress\*L)\*O
+.LE
+...\" 
+...\" 
+...\" 
+.LI
+Minimum and maximum default stack addresses:
+...\" 
+.BL
+.LI
+\*Lcma__c_def_stack_max\*O
+.LI
+\*Lcma__c_def_stack_min\*O
+.LE
+...\" 
+...\" 
+...\" 
+.LI
+\*L_CMA_DECODE_SIGNALS\*O
+.P
+Possible values are: \*L0\*O, \*L1\*O.
+.P
+Indicates whether the platform provides a secondary signal code. A value of 1
+specifies that exceptions be raised where possible.
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .zA "def,8422,R1.0.3,alphabetized symbols"
+...\" 
+...\" .zZ "Added conditional symbols"
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Guard Pages"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+You can set \*L_CMA_PROTECT_MEMORY\*O to 1 if your platform supports memory
+page protection. This allows you to put a guard page between stack frames of
+different threads. The guard page is useful for finding threads that exceed
+their allotted space and overflow their stacks, since such an overflow causes
+a memory protection fault. The guard page is useful for debugging purposes
+and, if your platform supports it, its use is strongly recommended.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Hardware-Specific Code"
+...\" ----------------------------------------------------------------------
+...\" 
+.nS "Note"
+The following descriptions apply to data objects whose names begin with the
+string \*Lcma\*O followed by one or more underscores. The underscore
+conventions are as follows:
+.BL
+.LI
+Single underscores follow the initial \*Lcma\*O in symbols meant to be
+accessible to application programs. Note that applications should use POSIX
+threads interfaces instead of CMA interfaces, for portability.
+.LI
+Double underscores follow the initial \*Lcma\*O in symbols that are globally
+visible within CMA, but which are not user-accessible.
+.LI
+Triple underscores follow the initial \*Lcma\*O in symbols local to one source
+file. They should be removed by the linker, and not be visible to any other
+functions or programs.
+.LE
+.nE
+...\" 
+...\" 
+Based on your platform definitions, you need to add hardware-specific
+code to the following files:
+...\" 
+.BL
+.LI
+\*Lcma_dispatch.c\*O
+.P
+If your platform can switch context (threads) asynchronously, edit
+this file and add code to save the state of the currently executing
+thread, and restore the state of the next thread.
+...\" 
+...\" 
+.LI
+\*Lcma_dispatch.h\*O
+.P
+Check this file to verify that it supplies the appropriate
+\*C#define\*Os and \*C#includes\*O, particularly if you have edited 
+\*Lcma_dispatch.c\*O.
+.LI
+\*Lcma_timer.c\*O 
+.P
+If you do not have a virtual timer service, edit this file and
+substitute a different timer service in the \*Lcma__init_timer(\|)\*O
+routine.
+.LI
+\*Lcma_thread_io.c\*O
+.P
+You must define the \*Lsockaddr_in\*O structure in the definition
+of \*Lcma_connect\*O.
+...\" 
+.LE
+...\" 
+...\" 
+.P
+You must also create a
+.DS
+    \*Vdce-root-dir\*L/dce/src/threads/\*VTARGET_MACHINE\*L/cma_host.h\*O
+.DE
+...\" 
+.P
+file for your platform. The easiest way to do this is by copying and editing
+an existing \*Lcma_host.h\*O file from one of the existing \*VTARGET_MACHINE\*O
+subdirectories in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/threads\*O
+.DE
+...\" 
+.P
+Note also that some of the functions normally implemented in \*Lcma_assem.s\*O
+(see the section on ``Assembler Code Functions'' below) may be implementable
+in C on your machine. If this is true, you should create a
+.DS
+    \*Vdce-root-dir\*L/dce/src/threads/\*VTARGET_MACHINE\*L/cma_host.c\*O
+.DE
+.P
+file to contain them.
+...\" 
+...\" 
+.P
+The following sections contain information about other machine-dependent
+modules of DCE Threads which may require porting effort.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Atomic Test and Set"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "test and set"
+.iX "test and set" "atomic"
+...\" 
+.P
+Your version of DCE Threads must provide routines for the atomic test and set
+of an address, as well as its unset. If your hardware has an atomic test and
+set instruction, you can use it. For example, on the IBM RISC System/6000, the
+compare and swap (\*Lcs\*O) supervisor call, which is atomic for a process, is
+used to implement the test and set operation. If your hardware does not have an
+atomic test and set instruction, look at the routines in \*Lcma_host.h\*O in the
+\*LMIPS\*O subdirectory for an example of how to create an atomic test and set
+with a two-stage lock.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The Procedure Call Stack"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "Procedure call stack"
+.iX "Stack" "Procedure call"
+...\" 
+.P
+Because most C compilers do not allow you to manipulate the procedure call
+stack directly, you may have to write several assembler functions to do this.
+In order to this, you must be familiar both with the calling conventions of
+your C compiler, and with the method your operating system uses to store
+signal frames on the stack.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Assembler Code Functions"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "Assembler routines"
+.iX "Functions" "Assembler code"
+...\" 
+.P
+The following assembler functions can be found in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/threads/\*Vmachine\*L/cma_assem.s\*O
+.DE
+.P
+Note that the underscore conventions in function names are as described
+previously.
+...\" 
+.BL
+.LI
+\*Lcma__force_dispatch\*O
+.P
+This function is never called as a subroutine.
+Instead, it is jumped into from \*Lcma__cause_force_dispatch\*O, which
+changes the return address from the periodic timer signal handler that
+interrupts thread execution to point to the first instruction in
+\*Lcma__force_dispatch\*O.
+A new thread is allowed to run for a while by calling
+\*Lcma__yield_processor\*O.
+Eventually, execution is yielded back to this thread, which resumes by
+performing a \*Lsigreturn\*O.
+The call to \*Lcma__get_ibm_async_info\*O copies the signal frame onto
+the stack.
+On some machines, this process can be done by the
+\*Lcma__force_dispatch\*O routine on entry, depending how much
+state needs to be copied.
+For example, on the IBM RISC System/6000 reference platform, the entire machine
+state is held in the signal context frame, which is passed to the
+signal handler.
+.LI
+\*Lcma__create_thread\*O
+.P
+This function initializes a thread, and passes the following arguments
+to that thread:
+...\" 
+.BL
+.LI
+The address of the child context buffer
+.LI
+The address of the base of the child thread stack
+.LI
+The address of the child Thread Control Block (TCB)
+.LI
+The address of the start routine entry point of the thread
+.LI
+The value of the parameter to be passed to the thread start routine
+.LE
+...\" 
+.P
+This routine stores the TCB, start routine, and parameter value on the
+stack so that \*Lcma__execute_thread\*O finds them when it is called.
+Next, a signal frame is created on the stack.
+The entry point of \*Lcma__execute_thread\*O is stored as the next
+instruction to execute in the signal frame, causing the new thread to
+resume execution at the beginning of \*Lcma__execute_thread\*O.
+Next, the thread is started by calling \*Lcma__start_thread\*O, which
+either places the thread in the ready queue or yields to the thread.
+On return, the scheduler allows rescheduling by calling
+\*Lcma__undefer\*O.
+.LI
+\*Lcma__do_call_on_stack\*O
+.P
+This function takes the following arguments:
+...\" 
+.BL
+.LI
+Address of base of target stack
+.LI
+Address of a routine's entry point
+.LI
+Parameter to be passed to the routine
+.LE
+...\" 
+.P
+This function lets a routine be called on a specified stack and passed
+a parameter.
+It simply sets a new stack pointer and calls the function entry point,
+passing the parameter.
+On return from the call, the original stack pointer is restored.
+.LI 
+\*Lcma__execute_thread\*O
+.P
+This function is not called explicitly.
+It is returned to from \*Lcma__create_thread\*O in the execution
+context of a newly created thread.
+Its entry point is stored as the next instruction to execute in a signal
+frame on the stack.
+When this routine executes, the signal frame is gone from the stack
+and the three parameters that the user put on the stack by calling
+\*Lcma__create_thread\*O are now on the top of the stack.
+This routine sets up the stack and registers to call
+\*Lcma__thread_base\*O, which starts execution of the thread.
+.LI
+\*Lcma__restore_thread_ctx\*O
+.P
+This function is passed the address of a thread's static context buffer.
+It restores all the registers from this buffer and branches to execute
+the next instruction contained in the frame.
+.LI
+\*Lcma__transfer_thread_ctx\*O
+.P
+This function is given the address of the current thread's static
+context buffer
+and the address of the new thread's static context buffer.
+It saves the machine context of the current thread into the current
+thread's buffer and restores the new thread's context by calling
+\*Lcma__restore_thread_ctx\*O, thereby causing a dispatch of the new
+thread.
+.LI
+\*Lcma__transfer_main_abort\*O
+.P
+This function resets the stack pointer to refer to the ``main'' thread
+stack and calls \*Lcma__abort_process\*O to kill the entire process.
+It takes no arguments and is called by the \*Lcma___sig_async_term\*O
+signal handler.
+.LI
+\*Lcma__do_async_alert\*O
+.P
+Calls the \*Lcma__async_delivery\*O C routine to deliver an
+asynchronous alert.
+This function is never called directly, but is jumped into by
+manipulating a signal's return address.
+.LI
+\*Lcma__fetch_sp\*O
+.P
+The last assembler function, \*Lcma__fetch_sp\*O, returns the value of
+the current stack pointer to its caller.
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Synchronizing Symbol Access"
+...\" ----------------------------------------------------------------------
+...\"	
+.P
+If your system uses base register plus offset memory addressing, as do XXX86
+and 370-style machines, you may need to use a register as a Table of Contents
+(TOC) for symbol access. For example, one of the reference platforms (AIX on
+the IBM RISC System/6000) allocates register 2 (\*Lr2\*O) for this purpose.
+Since libraries can have private symbols, they have their own TOCs,
+and the linker decides which symbol to use with a \*Lglue\*O routine,
+which switches the TOC when a library function is called.
+.P
+However, you must consider a possible synchronization constraint
+when accessing functions and global variables.
+It is possible to get a time slice in the middle of such a \*Lglue\*O 
+routine that gives the assembler functions the wrong TOC value,
+which is then used to access incorrect global variables and functions.
+This event must be prevented by locking out a forced dispatch until
+the TOC is switched.
+In the reference platform listed above, the \*Lcma__get_toc\*O
+function is added to return the value of \*Lr2\*O when called from
+\*Lcma__cause_force_dispatch\*O.
+The value of \*Lr2\*O is stored in the signal context frame as the
+correct TOC.
+If you are porting DCE Threads to an analogous environment, you may
+have to build in a similar locking process.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Assembler Modules"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+When porting DCE Threads, it is recommended that you look at the
+examples of the assembler module provided for the different platforms.
+They provide examples for writing the assembler functions required for
+a new platform.
+...\" 
+...\" 
+...\" .zA "def,9247,race condition in cma__wait"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Possible Race Condition in cma__wait"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lcma__wait(\|)\*O and \*Lcma__timed_wait(\|)\*O routines have been
+implemented to unlock the mutex before ``entering the kernel'', for example:
+...\" 
+.oS
+    cma__int_unlock ((mutex));
+    cma__enter_kernel ();
+.oE
+...\" 
+.P
+See \*Lcma__wait\*O and \*Lcma__timed_wait\*O in:
+...\" 
+.DS
+    \*Vdce-root-dir\*Lsrc/threads/cma_condition.h\*O
+.DE
+...\" 
+.P
+This was done because to have done otherwise would result in deadlock in the
+reference platform implementations.
+.P
+As a result, you may encounter a race condition in these two routines when
+porting DCE Threads to kernel space on a different platform.
+...\" 
+...\" 
+...\" .zZ "def,9247,race condition in cma__wait"
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Signal Definitions"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lcma_signal.c\*O module should be examined for signal definitions.
+Because different operating systems have different sets of signals, you
+will have to modify \*Lcma__init_signal\*O to account for all the signals
+allowed on your operating system.
+.P
+Each signal must be assigned to either the asynchronous terminating
+signal handler, the asynchronous nonterminating signal handler, the
+synchronous terminating signal handler, or the synchronous nonterminating
+signal handler.
+.P
+Note that \*LSIGKILL\*O, \*LSIGSTOP\*O, and \*LSIGTRAP\*O are not
+caught by DCE Threads signal services. Also note that \*Lcma_signal.c\*O
+uses POSIX signal routines and must be changed for systems that do not
+support the POSIX signal functions.
+...\" 
+...\" .zA "New Sections"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Cancellation Points"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following Pthreads routines are cancellation points:
+...\" 
+.BL
+.LI
+\*Lpthread_cond_timedwait(\|)\*O
+.LI
+\*Lpthread_cond_wait(\|)\*O
+.LI
+\*Lpthread_delay_np(\|)\*O
+.LI
+\*Lpthread_join(\|)\*O
+.LI
+\*Lpthread_setasynccancel(\|)\*O
+.LI
+\*Lpthread_testcancel(\|)\*O
+.LE
+...\" 
+.P
+In addition, the following user space DCE Threads thread-synchronous I/O wrapper
+functions are all cancellation points:
+...\" 
+...\" 
+.BL
+.LI
+\*Laccept(\|)\*O
+.LI
+\*Lconnect(\|)\*O
+.LI
+\*Lread(\|)\*O
+.LI
+\*Lreadv(\|)\*O
+.LI
+\*Lrecv(\|)\*O
+.LI
+\*Lrecvfrom(\|)\*O
+.LI
+\*Lrecvmsg(\|)\*O
+.LI
+\*Lselect(\|)\*O
+.LI
+\*Lsend(\|)\*O
+.LI
+\*Lsendmsg(\|)\*O
+.LI
+\*Lsendto(\|)\*O
+.LI
+\*Lwrite(\|)\*O
+.LI
+\*Lwritev(\|)\*O
+.LE
+...\" 
+...\" 
+.P
+...\" 
+These functions are cancellation points because the thread calling the function
+is put to sleep on a condition wait, which is in turn a cancellation point. The
+\*Lsigwait(\|)\*O function is also a cancellation point, for the same reason.
+.P
+Note that the kernel-thread version of DCE Threads (\*Llibpthreads.a\*O) on the
+OSF/1 reference platform uses the reentrant C library \*Llibc_r\*O and depends,
+for the most part, on kernel thread-synchronous behavior for thread safety, rather
+than using wrapper functions. None of the routines in \*Llibpthreads.a\*O are
+cancellation points, since the Mach kernel, \*Llibmach\*O, and \*Llibc_r\*O do
+not know about Pthreads.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "DCE Threads Use of _setjmp() and _longjmp()"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Exception handling in DCE Threads is implemented by using the \*L_setjmp(\|)\*O
+and \*L_longjmp(\|)\*O routines, if they are supported by the platform. If
+these routines are not supported, the \*Lsetjmp(\|)\*O and \*Llongjmp(\|)\*O
+routines are used for exception handling instead.
+.P
+However, an undesirable side effect of using \*Lsetjmp(\|)\*O and \*Llongjmp(\|)\*O
+in exception handling is that they save and restore the process signal mask, which
+may be maintained per-process rather than per-thread. This can lead to an incorrect
+signal mask being installed when an exception is raised.
+.P
+For example, a thread that is \*Lsigwait(\|)\*Oing on a signal may never be
+awakened if some other thread later executes a \*Lpthread_exit(\|)\*O, because
+\*Lpthread_exit(\|)\*O raises an exception (which is caught by
+\*Lcma__thread_base(\|)\*O). If exception handling is done through \*Lsetjmp(\|)\*O
+and \*Llongjmp(\|)\*O, the result of the \*Lpthread_exit(\|)\*O will be that the
+signal mask will be reset at the thread's exit to what it was when the thread first
+started executing, and if the first thread called \*Lsigwait(\|)\*O in the interval,
+that signal will now be lost.
+.P
+The \*L_setjmp(\|)\*O and \*L_longjmp(\|)\*O routines should be used if present on
+a given platform, since they do not save or restore the process signal mask. In
+addition to avoiding problems like the one described above, leaving the mask alone
+is a performance advantage, since it saves a system call on each exception setup or
+catch operation.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Threads Error Message Reporting"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+DCE Threads cannot use DCE serviceability calls because the serviceability
+API uses Threads for locking. Instead, Threads uses a special non-threaded
+version of the DCE error message retrieval routine.
+.P
+\*Ldce_cma_error_inq_text(\|)\*O is a non-threaded version of the
+\*Ldce_error_inq_text(\|)\*O routine. It returns a threads status message,
+given a status code, just as \*Ldce_error_inq_text(\|)\*O does; however, it
+is hard-coded to look only for a technology value of \*Ldce\*O and a component
+value of \*Lthreads\*O in the status code, and reject as an error any request
+that does not pass such a code. When porting DCE Threads, you can eliminate
+\*Ldce_cma_error_inq_text(\|)\*O if you so desire (either by making it a macro
+that does nothing, or by deleting the calls to it, of which there are very few
+in the Threads code) without disturbing the behavior of Threads; if you do this,
+you will have to substitute some other method for reporting Threads errors.
+.P
+Note that a consequence of DCE Threads' non-use of DCE serviceability is
+that Threads error messages cannot be routed; they are always written to
+standard error.
+...\" 
+...\" 
+...\" .zZ "New Sections"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Building and Linking"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "DCE Threads" "building component code"
+.iX "building component code" "DCE Threads"
+...\" 
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/src/threads\*O
+.DE
+.P
+directory contains the source code for building DCE Threads.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Machine-Specific Compiler Flags"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/src/threads/threads.mk\*O
+.DE
+.P
+file contains the compiler flags for building the DCE Threads component.
+Machine-specific compiler flags affecting compilation of DCE Threads should
+be set in this file. These flags are assigned to the
+.DS
+    \*V${TARGET_MACHINE}\*L_CFLAGS\*O
+.DE
+.P
+macro, and the \*LCFLAGS\*O macro is then assigned using the
+.DS
+    \*V${TARGET_MACHINE}\*L_CFLAGS\*O
+.DE
+.P
+macro. The
+.DS
+    \*Vdce-root-dir\*L/dce/src/threads/Makefile\*O
+.DE
+.P
+further extends the \*LCFLAGS\*O macro with the \*L-D_CMA_NOWRAPPERS_\*O flag
+and, optionally, the \*L-DNDEBUG\*O flag. When \*L-DNDEBUG\*O is not used,
+assertion checking (by means of the C \*Lassert(\|)\*O function) is enabled.
+.P
+The \*Llibcma.a\*O library does not depend on any other DCE components.
+Applications that use only DCE Threads, such as the DCE Threads test
+cases, may be linked with \*Llibcma.a\*O alone or with \*Llibdce.a\*O
+if it is available.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "CMA Wrappers"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+A \*L#define\*O called \*L_CMA_NOWRAPPERS_\*O in \*Lcma_config.h\*O determines
+whether the code uses the CMA wrappers. If CMA wrappers are used, the (compiler)
+preprocessor translates system calls to CMA calls.
+.P
+Wrappers should be turned off when building \*Llibcma.a\*O (CMA itself). Wrappers
+should be turned on when building anything that uses CMA, including other DCE
+components.
+.P
+To turn off CMA wrappers, add the following line for compiles of all files:
+...\" 
+...\" 
+.iS
+    CFLAGS   = ${${TARGET_MACHINE}_CFLAGS} -D_CMA_NOWRAPPERS_
+.iE
+...\" 
+.P
+If you have a prototyping problem with the signal handlers on your operating
+system, add these lines to the \*LMakefile\*Os:
+...\" 
+.iS
+    cma_signal.o_CFLAGS      = -D_NO_PROTO
+    cma_thread_io.o_CFLAGS   = -D_NO_PROTO
+.iE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .zA "Added list of wrapped routines"
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Routines Wrapped by DCE Threads"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Following is a list of all the wrappers that DCE Threads provides, and the
+header files in which each is defined. Wrappers must be added for any
+library routines called by a DCE Thread-ed application whose names are not
+on this list. Note that three routines are wrapped only on an SVR4 platform.
+Note also that some of the other routines are not wrapped on SVR4 platforms
+because SVR4 uses reentrant libraries for thread safety.
+...\" 
+...\" 
+.VL 1.5i
+...\" 
+.LI "\*L_sleep(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+.P
+\*V(Only on SVR4 Platforms)\*O
+...\" 
+.LI "\*Laccept(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Latfork(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+.P
+\*V(Only on SVR4 Platforms)\*O
+...\" 
+.LI "\*Lcalloc(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cmalib_crtlx.h\*O
+...\" 
+.LI "\*Lcatclose(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lcatgets(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lcatopen(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lcfree(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cmalib_crtlx.h\*O
+...\" 
+.LI "\*Lclose(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lconnect(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lcreat(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lctermid(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lcuserid(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Ldup(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Ldup2(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lfclose(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lfcntl(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lfdopen(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lfflush(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lfgetc(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lfgets(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lfopen(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lfork(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lfprintf(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lfputc(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lfputs(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lfread(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lfree(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cmalib_crtlx.h\*O
+...\" 
+.LI "\*Lfreopen(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lfscanf(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lfseek(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lftell(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lfwrite(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lgetc(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lgetchar(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lgets(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lgetw(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lisatty(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lmalloc(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cmalib_crtlx.h\*O
+...\" 
+.LI "\*Lmktemp(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lopen(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lpclose(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lpipe(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lpopen(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lprintf(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lputc(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lputchar(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lputs(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lputw(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lread(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lreadv(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lrealloc(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cmalib_crtlx.h\*O
+...\" 
+.LI "\*Lrecv(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lrecvfrom(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lrecvmsg(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lrewind(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lscanf(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lselect(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lsend(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lsendmsg(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lsendto(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lsetbuf(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lsetbuffer(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lsetlinebuf(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lsetvbuf(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lsigaction(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_px.h\*O
+...\" 
+.LI "\*Lsigwait(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_sigwait.h\*O
+...\" 
+.LI "\*Lsleep(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+.P
+\*V(Only on SVR4 Platforms)\*O
+...\" 
+.LI "\*Lsocket(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lsocketpair(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lsprintf(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lsscanf(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lsystem(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Ltempnam(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Ltmpfile(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Ltmpnam(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lttyname(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lttyslot(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lvfprintf(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lvprintf(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lvsprintf(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_stdio.h\*O
+...\" 
+.LI "\*Lwrite(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LI "\*Lwritev(\|)\*O"
+\*Vdce-root-dir\*L/dce/src/threads/cma_ux.h\*O
+...\" 
+.LE
+...\" 
+...\" 
+...\" .zZ "Added list of wrapped routines"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Enabling Assertion Checking"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Assertion checking can help you debug DCE Threads as you port it. DCE Threads
+is normally built with \*VNDEBUG\*O defined using the \*LCFLAGS\*O macro in the
+\*LMakefile\*O, as follows:
+...\" 
+.oS
+    CFLAGS = -DNDEBUG
+.oE
+...\" 
+This macro disables assertion checking. To enable assertion checking, undefine
+\*VNDEBUG\*O in the \*LMakefile\*O.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Testing and Verification"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "DCE Threads" "testing"
+.iX "testing" "DCE Threads"
+...\" 
+.P
+Nineteen types of DCE Threads tests are shipped with DCE. These tests are
+described below.
+...\" 
+...\" 
+...\" .zA "dcetest_config information added"
+...\" 
+...\" No Threads tests run under TET...
+...\" ----------------------------------------------------------------------
+.H 3 "Installing Threads Functional Tests with dcetest_config"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+You can install the functional tests described in the following sections
+by running the menu-driven \*Ldcetest_config\*O script described in Chapter
+13 of this guide. \*Ldcetest_config\*O will install the tests you select at
+the path you specify, and will create a softlink (called \*L/dcetest/dcelocal\*O)
+to that location.
+.P
+The functional tests for a given component will thus be installed under a:
+.DS
+    \*L/dcetest/dcelocal/test/\*Vcomponent_name\*L/\*O
+.DE
+...\" 
+.P
+directory, where the \*Ltest/\*Vcomponent_name\*O elements of this path are
+equivalent to the \*Ltest/\*Vcomponent_name\*O elements in the pathnames given in
+the sections below, which refer to the tests' source or build locations.
+.P
+Note that \*Ldcetest_config\*O will prompt you for the location \*Vfrom which\*O
+the tests should be installed (in other words, the location of the built test tree).
+If you are installing the DCE Threads functional tests, you should give the
+pathname of the DCE \*Lobj\*O tree, \*Vnot\*O the \*Linstall\*O tree, even though
+the prompt message contains as an example an install tree pathname. For example:
+...\" 
+...\" 
+.FG "Supplying Threads Test Install-from Location"
+.oS
+    Location of DCE Test Install Binaries
+
+
+     1. Filesystem
+     2. Media
+
+    98. Return to previous menu
+    99. Exit
+
+    selection:  \*L1\*C
+
+    Enter the full path to the DCE binary install tree.
+    This will be the directory that contains the
+    .../<BUILD>/install/<machinetype>/dcetest/dce1.1
+    directory:  \*L/myproject/dce/dce1.1/obj\*C
+
+.oE
+...\" 
+.P
+Thus, \*Ldcetest_config\*O will install the DCE Threads functional tests at:
+.DS
+    \*L/dcetest/dcelocal/test/threads/\*O
+.DE
+...\" 
+.P
+where \*L/dcetest/dcelocal\*O is the link to whatever path you supplied as
+the install destination. 
+.P
+The advantage in using \*Ldcetest_config\*O to install the functional tests
+is that it will install \*Vall\*O that is needed and \*Vonly\*O what is needed
+out of the DCE build, thus avoiding the mistakes that can occur with manual
+installation.
+.P
+Note that you can only \*Vinstall\*O (if you choose) functional tests with
+\*Ldcetest_config\*O; for test configuration and execution you must follow
+the instructions in the sections below.
+.P
+Refer to Chapter 13 of this guide for further information on using
+\*Ldcetest_config\*O.
+...\" 
+...\" 
+...\" .zZ "dcetest_config information added"
+...\" 
+...\" ----------------------------------------------------------------------
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Testing Dependencies"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Several of the test cases require the presence of Berkeley I/O, particularly
+the \*Lftime(\|)\*O system call. If you are porting to an operating system
+that is not compatible with the Berkeley Software Distribution (BSD) UNIX,
+you must link a compatibility library with the test cases for them to work
+properly. The test cases also make use of the ANSI C function \*Latexit(\|)\*O.
+If your system does not support this function, you will have to provide an
+equivalent.
+...\" 
+.P
+Note that one of the Threads test cases (\*Lcuvb_nbi_005\*O, which tests
+\*Lcma_fcntl(\|)\*O) uses \*Llockd\*O to create a write lock for a file which
+it uses. If the file is NFS-mounted, the test will hang forever at this point
+if \*Llockd\*O and \*Lstatd\*O are not running on both the local and remote
+machines. This means that you may have to make sure that the test is run on
+only one machine if your platform does not support \*Llockd\*O and \*Lstatd\*O
+(which is the case with the OSF/1 platform).
+...\" 
+...\" 
+...\" 
+.nS "note"
+Both reference platforms require that a compatibility library be used.
+.nE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Threads Test Case Categories"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following sections describe categories of testing done for threads, and
+a brief description of the coverage of each category.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Test Case Naming Format"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+DCE Threads tests are named using the following format:
+.in +0.5i
+4 alphabetic characters, 
+.br
+a dash, 
+.br
+3 alphabetic characters, 
+.br
+a dash,
+.br
+3 alphabetic characters.
+.in -0.5i
+.P
+For example,
+.br
+	abcd-efg-hij
+
+is a test name where each of the following characters represents
+a certain type of test:
+...\" 
+.VL 1.5i
+.LI "\*La\*O"
+C for tests using the CMA Threads interface
+.P
+P for tests using the PThreads (POSIX) interface
+...\"
+.in -1.5i
+.in +1.5i
+.P
+E for ``extended'' test, which may apply to Pthreads
+entry points, or to CMA threads
+entry points that are visible to them.
+Tests starting with E examine thread operation under
+error, exception, or excess conditions, such as writes to broken pipes,
+or situations where thread operations exceed process limits.
+...\"
+.in -1.5i
+.in +1.5i
+.LI "\*Lb\*O"
+V for VMS specific test
+.br
+U for U*IX specific test
+.br
+R for reference implementation (portable) test
+.LI "\*Lc\*O"
+P for performance test
+.br
+Q for performance test using internal interfaces
+.br
+R for regression test
+.br
+U for unit test using internal interfaces
+.br
+V for validation test
+.LI "\*Ld\*O"
+B for batch mode test
+.br
+I for interactive test (for example, needs user input)
+.LI "\*Le\*O,\ \*Lf\*O,\ and\ \*Lg\*O"
+The test topic.  Tests having more than one topic have 3
+additional characters (for example, \*Labcd-efg-efg-hij\*O).
+Topics have the
+following meanings:
+...\" 
+.VL 1i
+.LI "\*LALT\*O"
+Alerts
+.LI "\*LAQO\*O"
+Atomic queue operation
+.LI "\*LATT\*O"
+Attributes objects
+.in -1.5i
+.in +1.5i
+...\"	
+...\"	.LI "\*LBAR\*O"
+...\"	Barrier operations.
+...\"	At present, there are no tests labeled BAR.  
+...\"	However, the CVX tests, listed below, exercise barrier operations.
+...\"	The BAR label is reserved for possible future tests specifially
+...\"	dedicated to barrier tests, should they appear.
+...\"	Conversely, the CVX test cases can get BAR added to their
+...\"	names someday.
+...\"	
+.in -1.5i
+.in +1.5i
+.LI "\*LCAN\*O"
+Pthread cancel
+.LI "\*LCVX\*O"
+Condition variable operations, including barrier operations
+.LI "\*LERR\*O"
+Error reporting
+.LI "\*LEXC\*O"
+Exceptions
+.LI "\*LHAN\*O"
+Handles
+.LI "\*LINI\*O"
+One-time initialization
+.LI "\*LMUT\*O"
+Mutex operations
+.LI "\*LNBI\*O"
+Nonblocking (UNIX) I/O
+.LI "\*LOBJ\*O"
+Dynamic object management
+.LI "\*LPTC\*O"
+Per threads context
+.LI "\*LSAM\*O"
+Sample (or example) programs
+.LI "\*LSIG\*O"
+U*IX signal handling
+.LI "\*LSTK\*O"
+Stacks
+.LI "\*LTHD\*O"
+Threads operations
+.LI "\*LTIM\*O"
+Timer operations
+.LI "\*LWRP\*O"
+Unix wrapper routines
+.LE
+...\" 
+...\"	
+.in -1.5i
+.in +1.5i
+.LI "\*Lh\*O, \*Li\*O, and \*Lj\*O"
+The sequence number of each test.
+Tests whose names differ only by this number typically exercise
+the same operations.
+However, they usually are not versions or revisions of each other,
+and may exercise the same operations quite differently.
+.in -1.5i
+.in +1.5i
+...\"	
+.LE
+...\" 
+.P
+For example, \*Lcrub_err_001\*O is an actual test name, specifying
+that it:
+...\" 
+.BL
+.LI
+is a CMA test
+.LI
+is portable
+.LI
+is a unit test that uses internal interfaces
+.LI
+is a batch mode test
+.LI
+is testing error reporting
+.LI
+is number 1 in the sequence of tests of this kind.
+.LE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Test Topic Abbreviations"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The test topic abbreviations, represented by \*Lefg\*O in the
+preceding test name example, specify test cases with the following
+functions: 
+...\" 
+.VL 2.0i
+.LI "Alerts\ (ALT)"
+These test cases attempt to alert threads with and without exception
+handlers and verify correct thread exit or handling.
+They alert compute-bound threads and threads in a \*Ltimed_wait\*O
+state and also ensure that deferred and synchronous alerts work.
+.LI "Atomic\ Queue\ Operation\ (AQO)"
+.nL
+Exercise the Atomic Queue Operations of the CMA
+library services.
+The operations are currently available only on VMS and are not part
+of DCE.
+.LI "Attributes\ Objects\ (ATT)"
+Verify that attribute objects can be created and
+deleted for both default and specified values.
+They check deferred delete, cache sequencing, and cache reclamation
+and also verify locking during attribute deletion.
+.LI "Pthread\ Cancel\ (CAN)"
+Test the functionality of the thread cancellation
+mechanism that allows a thread to terminate the execution of any other
+thread in the process in a controlled manner.
+.LI "Condition\ Variables\ (CVX)"
+Measure wait/signal performance time when condition
+variables are used.  
+They also verify timed wait functionality.
+.LI "Error\ Reporting\ (ERR)"
+Ensure that calling \*Lcma__error\*O or
+\*Lcma__bugcheck\*O causes process termination and confirm the ability
+of the functions to raise warning and failure exceptions.  
+Error return values are also ensured as per-thread.
+.LI "Exception\ Handling\ (EXC)"
+Force various exceptions, including address and
+status exceptions, which are handled per-thread.
+.LI "Handles\ (HAN)"
+Verify that the thread handle size is static.
+.LI "One\ Time\ Initialization\ (INI)"
+Use one-time initialization and ensure that it executes
+only once.
+.LI "Mutex\ Operations\ (MUT)"
+Lock and unlock a mutex, both with a single thread
+and with multiple threads, while measuring elapsed time.
+Threads attempt to lock and unlock mutexes to which they do not have access,
+as well as friendly mutexes.
+They also test nested locks and use global locks to gain exclusive
+access to libraries.
+.LI "Nonblocking\ UNIX\ I/O\ (NBI)"
+Test the wrapper routines for the UNIX I/O system calls.
+These wrapper routines provide thread-synchronous I/O through the use
+of select and nonblocking I/O mode.
+This category verifies system calls such as \*Lopen(\|)\*O,
+\*Lclose(\|)\*O, and \*Lselect(\|)\*O.  
+File descriptors need to be shared between threads.
+...\"
+.LI "Object\ Management\ (OBJ)"
+Test management of various dynamically allocated
+data objects, such as thread control blocks, mutexes, and condition
+variables.
+...\"
+.LI "Per\ Thread\ Context\ (PTC)"
+Use a PTC destructor that locks a TCB, which ensures proper behavior.
+A batch of threads is created with a context associated with them, and 
+proper behavior of yields is verified.
+.LI "Sample\ Program\ (SAM)"
+Demonstrate the use of threads.
+It creates 10 threads, terminates the odd-numbered threads with an
+alert, and allows even-numbered threads to terminate normally.
+.LI "Signal\ Handling\ (SIG)"
+Test asynchronous, synchronous, terminating, and
+nonterminating signals. 
+The tests send all possible signals and verify correct behavior.
+.LI "Stack\ Handling\ (STK)"
+Test the stack management services.
+Stacks are created, deleted, reassigned, alternated, and shared.
+Multithreaded operations are used on stacks.  
+One test case also checks limits by touching a stack guard page to
+simulate a stack overflow by a thread.
+.LI "Thread\ Operations\ (THD)"
+Measure thread creation time, thread yield performance
+time, and time elapsed during a context switch.  
+They also measure the time-slicing algorithm performance and ensure
+that \*Lthread_exit\*O operations affect the current thread only.  
+Use varying process priorities and policies when creating threads.
+.LI "Timing\ (TIM)"
+Verify timed waits.
+...\"
+.LI "UNIX\ Wrapper\ Routines\ (WRP)"
+Test the implementation of CMA wrapper routines around
+certain UNIX system calls, particularly I/O calls and \*Lfork(\|)\*O.
+...\"
+.LE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Test Case Execution"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+To execute the test cases, no parameters are required. A shell script,
+\*Lruntest\*O, is provided for serial execution. This script can be found
+in the
+.DS
+    \*Vdce-root-dir\*L/dce/obj/\*Vmachinetype\*L/test/threads\*O
+.DE
+...\" 
+.P
+directory, where \*Vmachinetype\*O is your system type (for example, \*Lrios\*O
+or \*Lmips\*O). The test cases can be executed individually by entering the test
+case name on the command line.
+...\" 
+.nS "note"
+Any tests with ``i'' as the fourth character (such as
+\*Lcrvi_sig_003\*O, \*Lcuvi_nbi_004\*O, and \*Lpuvi_nbi_004\*O) are
+not executed by \*Lruntest\*O because they are interactive and must be
+invoked manually.
+.nE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Test Case Results"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Standard output for a successful execution includes a \*CPASSED\*O message.
+Some test cases, however, deliberately cause abnormal program termination,
+and may cause core dumps. The following test cases have nonstandard output:
+...\" 
+.BL
+.LI
+\*Lcrub_err_001\*O, \*Lcrub_err_002\*O, \*Lcrub_err_003\*O
+.P
+These tests correctly return a core dump.
+.LI
+\*Lcrvb_exc_001\*O
+.P
+The first 10 loops of this test complete with the message
+.oS
+    Normal fall through ENDTRY.
+.oE
+.P
+The eleventh loop correctly terminates with a core dump.
+.LI
+\*Lcrvb_sam_001\*O, \*Lprvb_sam_001\*O
+.P
+Even-numbered threads exit normally; odd-numbered threads exit
+prematurely due to an alert.  
+The test then prints
+.oS
+    Program over.
+.oE
+...\" 
+.nS "note"
+In DCE 1.0.1, the \*Lprvb_sam_001\*O test does not output the normal
+header and trailer lines (START and PASSED).
+However, the test does run correctly.
+.nE
+...\" 
+.LI
+\*Lcrvb_thd_007\*O
+.P
+This test generates reports that must be verified manually for
+scheduling accuracy.
+.LI
+\*Lcrvi_exc_001\*O, \*Lprvi_exc_001\*O
+.P
+These tests require that the \*L<Ctrl-Y>\*O debug sequence be entered
+during test case execution.
+.LE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Test Plans"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "DCE Threads" "test plans"
+.iX "test plans" "DCE Threads"
+...\" 
+.P
+Refer to Chapter 1 of the \*VOSF DCE Release Notes\*O for the location of
+the DCE test plans on the DCE distribution tape.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Debugging DCE Threads"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+In the course of porting DCE Threads, you will probably need to debug
+applications that make use of them. These applications could be threads
+functional tests, DCE component programs, or applications of your own
+design. Because any application that uses DCE Threads maintains execution
+state for multiple threads of execution, it will probably confuse your
+current debugger, unless the debugger has already been extended to
+understand the current DCE Threads implementation.
+.P
+The amount of work necessary to extend your debugger to work correctly with DCE
+Threads applications will naturally depend on which one you use. Essentially,
+the debugger must relate the execution state of the currently-running thread
+to the tables internal to DCE Threads thatprovide information on all threads.
+Ideally, the debugger should also permit you to find out information on threads
+that are not currently running.
+.P
+A simple example of such capabilities is described in the following section.
+It consists of additions that can be made to a standard, non-thread-aware
+version of \*Lgdb\*O, in order to find out information about the currently-executing
+thread in a DCE Threads application.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Debugging with gdb"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+\*Lgdb\*O is not aware of DCE Threads, how threads affect the stack, multiple
+contexts, or breakpointing in a particular thread. However, it is possible to
+find out which thread you are currently executing in with \*Lgdb\*O. Calling
+the internal DCE Threads routine:
+...\" 
+.oS
+    cma__get_self_tcb(\|) 
+.oE
+...\" 
+will return a pointer to the current thread's TCB (thread control block).
+.P
+The ``.gdbinit File'' section below contains a listing for a \*L.gdbinit\*O
+file that contains three commands for identifying the currently executing
+thread.
+.P
+The command \*Lpthd\*O uses a fixed offset into the TCB to print the thread's
+``sequence,'' or identifier. This integer identifier is the number output by
+DCE Threads to identify the thread to which a particular error or status
+message applies. The \*Lpthd\*O command is probably the one you will use the
+most from this package.
+...\" 
+.nS "note"
+This fixed offset may be DCE Threads-revision dependent, but is not likely to
+cause problems in the near future.
+.nE
+...\" 
+.P
+The \*Lpthdx\*O command prints this same thread sequence integer, but requires
+the module to have included \*L<cma.h>\*O and \*L<cma_tcb.h>\*O and to be
+compiled with symbol information (\*L-g\*O). This is a cleaner way to
+use the package, but most modules will not have \*L<cma_tcb.h>\*O included.
+.P
+Finally, the command \*Lptcb\*O simply prints a pointer to the TCB. Like
+\*Lpthd\*O, this command does not require your program to be built with
+any CMA symbols.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Breakpointing in a Particular Thread"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+.P
+You can use a \*Lgdb\*O \*Lcondition\*O on a breakpoint to stop on a
+particular statement in a particular thread. To do this easily, you should
+include \*L<cma.h>\*O and \*L<cma_tcb.h>\*O in the module. For example, doing
+the following:
+...\" 
+.iS
+    break 180
+    condition 1 (cma__get_self_tcb (\|) -> header.sequence == 15)
+.iE
+...\" 
+will stop execution on Line 180 of the current source file, whenever thread 15
+is executing. (It is not possible to write a \*L.gdbinit\*O macro to do this
+breakpointing because \*Lgdb\*O macros are not able to take arguments, such
+as line number or thread ID.)
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The .gdbinit File"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Put the following into a file called \*L.gdbinit\*O in your home
+directory:
+...\" 
+...\" 
+...\" changed x/s below to x/x per note from Dave Weisman...
+.oS
+    define pthd
+    x/x (cma__get_self_tcb(\|) + 8)
+    end
+
+    document pthd
+    Prints the CMA thread identifier in the TCB in a program
+    compiled without debug symbols.
+
+    NB: This command may be CMA rev dependent!!
+
+    end
+
+    define pthdx
+    print ((cma__t_int_tcb *) cma__get_self_tcb(\|)) -> header.sequence
+    end
+
+    document pthdx
+    Prints the CMA thread identifier in the TCB
+    end
+
+    define ptcb
+    print/a cma__get_self_tcb(\|)
+    end
+
+    document ptcb
+    Prints the address of this thread's TCB
+    end
+.oE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Debugging Shared Object Core Files"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+One approach to the problem of debugging core files generated with shared
+objects is as follows. Begin by invoking \*Lgdb\*O:
+.oS
+    \*C%\*L\ gdb\ \*Vprogram_to_be_debugged\*L\ core
+.oE
+...\" 
+.P
+(If the application dumped core while executing code in a shared library
+routine, \*Lgdb\*O will at this point incorrectly report the name of the
+routine.) Continue as follows:
+.oS
+    (gdb)\*L\ break main\*C
+    (gdb)\*L\ run\*C
+    (gdb)\*L\ kill\*C
+    Kill the inferior process? (y or n)\*L\ y\*C
+    (gdb)\*L\ where
+.oE
+...\" 
+.P
+\(emand at this point a correct backtrace will be produced.
+.P
+While this may not be the best solution to the problem of debugging with
+shared objects, running the application and breaking at \*Lmain\*O does
+allow \*Lgdb\*O to build the shared object symbol tables needed for a
+backtrace from the core file.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Debugging with dbx"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .zA "edit,8141,1.0.2a,added info from 1.0.2 Release Notes"
+.P
+This section contains code for three DCE Threads-aware \*Ldbx\*O commands for
+Ultrix, implemented as \*Ldbx\*O scripts. These \*Ldbx\*O scripts will allow
+you to display the call frames of each DCE thread in a process. You can also
+continue execution after doing this.
+...\" 
+...\" 
+...\" 
+.nS "Note"
+To use these scripts to debug a DCE application, you must have built the
+application with a DCE Threads library with symbols (that is, with the
+\*L-g\*O flag), and you must use \*Ldbx\*O.
+.nE
+...\" 
+...\" 
+...\" 
+.P
+Following is the code for \*Ldbx_cma_stack_dump\*O:
+...\" 
+.oS
+    #
+    #
+    set $dbxtcb = (struct CMA__T_INT_TCB *)((int)($dbxqueue) - \\
+                  (int)(&(((struct CMA__T_INT_TCB*)0)->threads)))
+    #
+    set $dbxsp = ((struct CMA__T_INT_TCB *)$dbxtcb).static_ctx.sp
+    
+    #>>>
+    #>>> The following numbers obtained from /usr/include/setjmp.h
+    #>>>
+    assign $s0 = *($address)($dbxsp + 19 * 4)
+    assign $s1 = *($address)($dbxsp + 20 * 4)
+    assign $s2 = *($address)($dbxsp + 21 * 4)
+    assign $s3 = *($address)($dbxsp + 22 * 4)
+    assign $s4 = *($address)($dbxsp + 23 * 4)
+    assign $s5 = *($address)($dbxsp + 24 * 4)
+    assign $s6 = *($address)($dbxsp + 25 * 4)
+    assign $s7 = *($address)($dbxsp + 26 * 4)
+    assign $s8 = *($address)($dbxsp + 33 * 4)
+    assign $ra = *($address)($dbxsp + 34 * 4)
+    assign $pc = *($address)($dbxsp + 34 * 4)
+    
+    assign $sp = $dbxsp + 332
+    #>>> 332 should be (_JBLEN = 84) * 4
+    
+    where
+    set $dbxqueue = ((struct CMA__T_QUEUE *)$dbxqueue)->flink
+    #
+    #
+.oE
+...\" 
+...\" 
+.P
+Following is the code for \*Ldbx_cma_stack_dump_init\*O:
+...\" 
+.oS
+    #
+    #
+    set $dbxhpc = $pc 
+    set $dbxhsp = $sp 
+    set $dbxhs0 = $s0
+    set $dbxhs1 = $s1
+    set $dbxhs2 = $s2
+    set $dbxhs3 = $s3
+    set $dbxhs4 = $s4
+    set $dbxhs5 = $s5
+    set $dbxhs6 = $s6
+    set $dbxhs7 = $s7
+    set $dbxhs8 = $s8
+    set $dbxhra = $ra
+    set $dbxptr = (&cma__g_known_threads.queue)
+    set $dbxqueue = ((struct CMA__T_QUEUE *)$dbxptr)->flink
+    set $dbxthdumpinit = 1; 
+    #
+    #
+.oE
+...\" 
+...\" 
+.P
+Following is the code for \*Ldbx_cma_stack_dump_restore\*O:
+...\" 
+.oS
+    #
+    #
+    assign $pc = $dbxhpc
+    assign $sp = $dbxhsp
+    assign $s0 = $dbxhs0
+    assign $s1 = $dbxhs1
+    assign $s2 = $dbxhs2
+    assign $s3 = $dbxhs3
+    assign $s4 = $dbxhs4
+    assign $s5 = $dbxhs5
+    assign $s6 = $dbxhs6
+    assign $s7 = $dbxhs7
+    assign $s8 = $dbxhs8
+    assign $ra = $dbxhra
+    set $dbxthdumpinit = 0
+    #
+    #
+.oE
+...\" 
+...\" .zZ "edit,8141,1.0.2a,added info from 1.0.2 Release Notes"
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Description of dbx Commands"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .zA "Added dbx information"
+.P
+Following is a description of what each of the three commands will do:
+...\" 
+.BL
+...\" 
+...\" 
+.LI
+\*Ldbx_cma_stack_dump_init\*O
+.P
+\*Ldbx_cma_stack_dump_init\*O will save some context and setup a pointer to
+the DCE Thread control block linked list. It does not display anything.
+...\" 
+...\" 
+.LI
+\*Ldbx_cma_stack_dump\*O
+.P
+\*Ldbx_cma_stack_dump\*O will dump the stack of a thread using the \*Ldbx\*O
+``where'' command. It will then increment the pointer to the next thread
+control block. Running \*Ldbx_cma_stack_dump\*O again will result in this
+thread's stack being dumped and the pointer being set to point to the next
+thread control block. The thread control block linked list is circular:
+If executing \*Ldbx_cma_stack_dump\*O causes numerous simultaneous memory
+violations, this means that the pointer has looped around to the front of
+the list. A subsequent invocation of \*Ldbx_cma_stack_dump\*O will then
+display the first thread on the list again, and so on.
+...\" 
+...\" 
+.LI
+\*Ldbx_cma_stack_dump_restore\*O
+.P
+\*Ldbx_cma_stack_dump_restore\*O will restore the context saved in
+\*Ldbx_cma_stack_dump_init\*O, thus allowing you to use the \*Ldbx\*O
+``continue'' command.
+...\" 
+.LE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Example"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following sample command lines are excerpted from a possible \*Ldbx\*O
+session, and demonstrate how the three scripts should be invoked:
+...\" 
+.oS
+    dbx> \*Lrecord output cma_dbx_stack_dump.log\*C
+
+    dbx> \*Lsource \*V<location>\*L/cma_dbx_stack_dump_init\*C
+
+    dbx> \*Lsource \*V<location>\*L/cma_dbx_stack_dump\*C
+
+        \*V......\*C
+
+    dbx> \*Lsource \*V<location>\*L/cma_dbx_stack_dump\*C
+
+        \*V......\*L
+
+    dbx> \*Lsource \*V<location>\*L/cma_dbx_stack_dump\*C
+
+        \*V......\*L
+
+    dbx> \*Lsource \*V<location>\*L/cma_dbx_stack_dump\*C
+
+        \*V......\*L
+
+    dbx> \*Lsource \*V<location>\*L/cma_dbx_stack_dump_restore\*C
+
+    dbx> \*Lcontinue
+.oE
+.P
+
+...\"     
+...\" 
+...\" .zZ "Added dbx information"
+...\" 
+...\" 
+...\" 
+...\" .zZ "Chapter has been reorganized"
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------

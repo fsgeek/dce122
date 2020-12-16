@@ -1,0 +1,573 @@
+<!--
+# @OSF_COPYRIGHT@
+# 
+# 
+# HISTORY
+# $Log: 3b_threads.sgm,v $
+# Revision 1.1.2.7  1996/12/11  15:32:55  carrig
+# 	{enh,R1.2.2}
+# 	Scaled graphics
+# 	[1996/12/11  15:31:36  carrig]
+#
+# Revision 1.1.2.6  1996/12/09  22:47:21  carrig
+# 	{enh,R1.2.2}
+# 	Minor changes
+# 	[1996/12/09  22:46:13  carrig]
+# 
+# Revision 1.1.2.5  1996/11/29  20:43:33  carrig
+# 	{enh,R1.2.2}
+# 	No change
+# 	[1996/11/29  20:42:11  carrig]
+# 
+# Revision 1.1.2.4  1996/11/05  20:11:38  weir
+# 	Cleaned up history
+# 	[1996/11/05  20:10:42  weir]
+# 
+# Revision 1.1.2.3  1996/10/30  17:50:47  carrig
+# 	{enh,R1.2.2}
+# 	Ready for editing
+# 	[1996/10/30  17:49:20  carrig]
+# 
+# Revision 1.1.2.2  1996/10/29  19:06:04  carrig
+# 	{enh,R1.2.2}
+# 	Graphics
+# 	[1996/10/29  19:01:31  carrig]
+# 
+# Revision 1.1.2.1  1996/10/28  19:42:14  wardr
+# 	{edit,R1.2.2}
+# 	Initial checkin after sgml conversion
+# 	[1996/10/28  19:41:24  wardr]
+# 
+# Revision 1.1.1.2  1996/10/28  19:41:24  wardr
+# 	{edit,R1.2.2}
+# 	Initial checkin after sgml conversion
+# 
+# $EndLog$
+-->
+<!---->
+<!-- Fragment document type declaration subset:
+ArborText, Inc., 1988-1993, v.4001
+<!DOCTYPE Book PUBLIC "-//Davenport//DTD DocBook V2.4//EN" [
+]>
+-->
+<!--  COPYRIGHT NOTICE-->
+<!--  Copyright (c) 1990, 1991, 1992, 1993 Open Software Foundation, Inc.-->
+<!--  ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE in the-->
+<!--  src directory for the full copyright text.-->
+<!---->
+<!---->
+<!-- HISTORY-->
+<!-- Revision 1.1.6.1  1996/10/14  16:39:05  weir-->
+<!-- 	No change-->
+<!-- 	[1996/10/14  16:38:17  weir]-->
+<!---->
+<!-- Revision 1.1.4.6  1995/06/02  15:24:53  buckler-->
+<!-- 	PRENTICE HALL reformat.-->
+<!-- 	[1995/06/01  20:58:13  buckler]-->
+<!-- -->
+<!-- 	Incorporated 1.1 edits.-->
+<!-- 	[1995/05/05  22:15:09  buckler]-->
+<!-- -->
+<!-- Revision 1.1.4.5  1994/11/04  00:04:03  neilson-->
+<!-- 	Substituted macros for book names in cross refs.-->
+<!-- 	[1994/11/03  12:23:48  neilson]-->
+<!-- -->
+<!-- Revision 1.1.4.4  1993/01/29  17:17:45  cjd-->
+<!-- 	Embedded copyright notice-->
+<!-- 	[1993/01/29  17:01:15  cjd]-->
+<!-- -->
+<!-- Revision 1.1.4.3  1992/11/24  15:44:40  steiner-->
+<!-- 	Fixed coding conventions.-->
+<!-- 	[1992/11/24  15:24:53  steiner]-->
+<!-- -->
+<!-- Revision 1.1.4.2  1992/09/01  15:58:56  weir-->
+<!-- 	Moved to 1.0.2 tree-->
+<!-- 	[1992/09/01  15:47:54  weir]-->
+<!-- -->
+<!-- Revision 1.1.2.2  1992/03/06  16:30:15  steiner-->
+<!-- 	Edits from Eddie, especially use of quotes and adding-->
+<!-- 	OSF to book titles.-->
+<!-- 	[1992/03/05  23:14:47  steiner]-->
+<!-- -->
+<!-- Revision 1.1  1992/01/29  15:42:57  damon-->
+<!-- 	Initial revision-->
+<!-- -->
+<!---->
+<Sect1 Id="ITODCE.T3B.div.1">
+<Title>DCE Threads</Title>
+<IndexTerm Id="ITODCE.T3B.indx.1" Significance="Preferred">
+<Primary>Threads</Primary>
+</IndexTerm>
+<Para>In a traditional computer program, there is only one thread of control.
+Execution of the program proceeds sequentially, and, at any given
+time, there is only one point in the program that is currently
+executing.
+It is sometimes useful, however, to write a program that contains
+multiple threads of control.
+For example, some programs lend themselves to being structured as
+multiple flows of control, some programs show better performance
+when they are multithreaded, and multiple threads can be mapped to
+multiple processors when they are available.
+</Para>
+<Para>A distributed computing environment based on the client/server model
+and remote procedure call can make good use of the capability for
+multiple threads of control.
+For example,
+when a client makes an RPC call, it blocks until a response is returned
+from the server.
+If there are multiple threads of control in the client, then work can
+continue in another thread while the thread waiting for the RPC response
+is blocked.
+On the server side, this same situation applies since a server may itself
+issue an RPC.
+In addition, servers often handle the requests of multiple clients.
+It is sometimes easier to write a well-structured program when
+each request can be handled by a separate thread of control.
+Often servers manage information, requiring input/output operations
+to a storage device.
+While one server thread is waiting for its input or output operation
+to finish, another server thread can continue working, improving overall
+performance.
+</Para>
+<Para>Using multiple threads puts new requirements on programmers:
+they must manage the threads, synchronize threads' access to global
+resources, and make choices about thread scheduling and priorities.
+A threads implementation must provide facilities for programmers to
+perform these tasks.
+</Para>
+<Para>Threads can be provided by a programming language, an operating system
+kernel, or a user-space library.
+DCE Threads is provided as a user-space library; this has
+implications for its interaction with other software on the system,
+such as an operating system that delivers signals to or blocks a whole
+process, rather than just
+a thread, and preexisting library calls that were not originally
+written for
+a multithreaded environment.
+</Para>
+<Para><?sml-need 5>The following subsections give an overview of the DCE Threads technology
+component.
+They describe the different kinds of functions provided by the technology
+and how DCE Threads is seen from the end user's, programmer's, and
+administrator's perspective, focusing particularly on programming with
+DCE Threads since the application programmer is the main consumer of this
+technology.
+</Para>
+<Sect2 Id="ITODCE.T3B.div.2">
+<Title>What is DCE Threads?</Title>
+<Para><IndexTerm Id="ITODCE.T3B.indx.2">
+<Primary>standards</Primary>
+<Secondary>and Threads</Secondary>
+</IndexTerm>DCE Threads is a user-level (nonkernel) threads library
+based on the pthreads interface specified by POSIX in the 1003.4a
+standard (Draft 4).
+It consists of an API that gives programmers the ability
+to create and manipulate threads, as described in
+Section 3.1.3.
+The other technology components of
+OSF DCE assume the availability of
+threads support.  DCE Threads is provided for use on operating
+systems that do not provide threads already; if a threads package is
+already available, then DCE Threads may not be needed.
+DCE Threads can be used as is&mdash;as a user-level threading
+facility&mdash;or it can be mapped to an existing threads facility provided
+by the host operating system.
+</Para>
+<Para>DCE Threads is designed for compatibility with existing
+operating systems that deal with processes rather than threads, and libraries
+that are not reentrant (that is, not written to handle multiple threads
+executing within them at the same time).
+This compatibility is provided through the use of ``jacket''
+routines, which are used in conjunction with existing libraries, and
+modified operating system calls.
+Since messages from the outside world (such as interrupts and signals)
+have traditionally been addressed to a process, rather than a specific
+thread in a process, this interaction must be modified as well.
+For further information on the way DCE Threads interacts
+with other software, see the chapters on threads in the
+&DCEDg;.
+<?sml-break><?sml-need 5></Para>
+</Sect2>
+<Sect2 Id="ITODCE.T3B.div.3">
+<Title>End User's Perspective</Title>
+<IndexTerm Id="ITODCE.T3B.indx.3">
+<Primary>Threads</Primary>
+<Secondary>end user's perspective</Secondary>
+</IndexTerm>
+<Para>An end user is not aware whether or not threads are being used
+in an application,
+except for a possible difference in performance.
+An application written with threads may run faster than a
+single-threaded version of the same application.
+<!-- .ig ++-->
+<!-- for two reasons:-->
+<!-- If DCE Threads is mapped onto a kernel threads service-->
+<!-- on the host's operating system, then for a multithreaded application,-->
+<!-- if more than one-->
+<!-- processor is available to run the application (either by use of a-->
+<!-- multiprocessor or distributed system), the user may notice that-->
+<!-- the application runs faster, since it is possible to run parts in-->
+<!-- parallel when using threads, and therefore the total execution time can-->
+<!-- go down.-->
+<!-- .P-->
+<!-- Another case in which the end user notices increased performance-->
+<!-- from the use of threads is when threads are used in conjunction with-->
+<!-- remote procedure calls.-->
+<!-- .++-->
+<!-- .ig ++-->
+<!-- One example is when threads are used in-->
+<!-- conjunction with remote procedure calls.-->
+<!-- Remote procedure calls are blocking; that is, after a client sends-->
+<!-- off a request to a server, it does no more work until it receives-->
+<!-- a reply.-->
+<!-- Using threads means that even though one thread may be blocked waiting-->
+<!-- for an RPC to complete, another thread-->
+<!-- in the client process can continue working.-->
+<!-- .++-->
+</Para>
+</Sect2>
+<Sect2 Id="ITODCE.T3B.div.4">
+<Title>Programming with DCE Threads</Title>
+<IndexTerm Id="ITODCE.T3B.indx.4">
+<Primary>Threads</Primary>
+<Secondary>programming with</Secondary>
+</IndexTerm>
+<Para>The distributed application programmer can use threads to help
+structure a program.
+However,
+having multiple threads of control can introduce a higher level of
+complexity than programming with a single thread of control.
+Threads must be managed, scheduled, and allowed to communicate with
+one another in a controlled manner.
+</Para>
+<Sect3 Id="ITODCE.T3B.div.5">
+<Title>Threads Management</Title>
+<IndexTerm Id="ITODCE.T3B.indx.5">
+<Primary>Threads</Primary>
+<Secondary>management</Secondary>
+</IndexTerm>
+<Para>In a traditional process, there is only one thread of control, and it is
+started and terminated implicitly.  However, when it is possible to have
+more than one thread of control, the threads must be created and destroyed
+explicitly.  DCE Threads provides the facilities for doing this.
+</Para>
+</Sect3>
+<Sect3 Id="ITODCE.T3B.div.6">
+<Title>Threads Scheduling</Title>
+<IndexTerm Id="ITODCE.T3B.indx.6">
+<Primary>Threads</Primary>
+<Secondary>scheduling</Secondary>
+</IndexTerm>
+<Para>In the traditional process model, no scheduling is needed since there is
+only one thread of control, and, whenever the process runs, that thread
+runs.  However, with multiple threads, if there are fewer available
+processors than the number of threads to be run, some decision must be
+made as to which thread runs first.  This is analogous to the
+scheduling of processes by the operating system on a timesharing system,
+except that the threads
+scheduling is visible to and controllable by the application
+programmer.
+(Note that POSIX specifies that scheduling
+is optional, so systems using their own threads implementations
+may not include the functionality provided by DCE Threads that is
+described in this section.)
+</Para>
+<Para>DCE Threads scheduling is built on two basic, interacting
+mechanisms:
+</Para>
+<ItemizedList>
+<ListItem>
+<Para>Scheduling priorities
+</Para>
+</ListItem>
+<ListItem>
+<Para>Scheduling policies
+</Para>
+</ListItem>
+</ItemizedList>
+<Para>Each thread has a scheduling priority associated with it.
+Threads with a higher priority have precedence over threads
+with a lower priority when scheduling decisions are made.
+The exact treatment of threads of different priorities depends on
+the scheduling policy under which they are running.
+</Para>
+<Para>DCE Threads offers three scheduling policies:
+</Para>
+<ItemizedList>
+<ListItem>
+<Para>First-In, First-Out (FIFO)
+</Para>
+<Para>The thread in the highest priority category
+that has been waiting the longest to run is scheduled first.
+It runs until it blocks, then again the thread that has been waiting the
+longest runs, and so on.
+Threads in the highest priority level are run in this first-in, first-out
+manner, then the threads in the next highest priority level are
+run FIFO, and so on.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Round-Robin (RR)
+</Para>
+<Para>All of the threads at the highest priority
+level are given turns running by timeslicing.
+That is, one thread runs for a period of time, then it is interrupted
+and another thread runs for a period of time, and so on, until
+all threads have had a chance.
+The process is repeated until all threads in that priority are finished
+or blocked.
+Then the threads in the next highest priority level are also run
+RR until they are all finished or blocked, and so on.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Default
+</Para>
+<Para>Each thread is given turns running by <FirstTerm>timeslicing</FirstTerm>.
+Higher priority threads are given longer periods of time
+to run, but even the lowest priority
+thread eventually has a chance to run.
+This is in contrast to FIFO and RR scheduling,
+in which it is possible for higher priority threads to
+prevent lower priority threads from running at all.
+</Para>
+</ListItem>
+</ItemizedList>
+<!-- .ig ++-->
+<!-- .P-->
+<!-- Note that this scheduling description applies to DCE Threads as it-->
+<!-- is provided as a user-level package.-->
+<!-- If the DCE Threads interface is mapped onto an existing threads-->
+<!-- package supplied by the native operating system, then the operating-->
+<!-- system controls the scheduling of threads, not the DCE Threads-->
+<!-- programmer.-->
+<!-- .++-->
+<!-- .ig ++-->
+<!-- .P-->
+<!-- Note also that-->
+<!-- even if DCE Threads is mapped onto an operating system threads service-->
+<!-- with multiprocessing capability,-->
+<!-- the mapping of runnable threads to specific available processors is done-->
+<!-- by the threads implementation and is not visible to the programmer.-->
+<!-- In other words, a programmer cannot say ``please create this thread and run-->
+<!-- it on that CPU.''-->
+<!-- .++-->
+<?sml-break>
+<?sml-need 6>
+</Sect3>
+<Sect3 Id="ITODCE.T3B.div.7">
+<Title>Thread Communication and Synchronization</Title>
+<IndexTerm Id="ITODCE.T3B.indx.7">
+<Primary>Threads</Primary>
+<Secondary>communications</Secondary>
+</IndexTerm>
+<IndexTerm Id="ITODCE.T3B.indx.8">
+<Primary>Threads</Primary>
+<Secondary>synchronization</Secondary>
+</IndexTerm>
+<Para>Threads communicate through shared variables; that is, one
+thread sets a variable that another thread later reads.
+However, if multiple threads are accessing the
+same variable, incorrect results can occur due to scheduling of threads
+and race conditions.
+To resolve this problem, access to shared variables must be
+synchronized.  DCE Threads provides three facilities for synchronizing
+threads within a process:
+</Para>
+<ItemizedList>
+<ListItem>
+<Para>Mutual exclusion objects (mutexes)
+</Para>
+</ListItem>
+<ListItem>
+<Para>Condition variables
+</Para>
+</ListItem>
+<ListItem>
+<Para>The
+<Command>join</Command>
+<IndexTerm Id="ITODCE.T3B.indx.9">
+<Primary><Command>join</Command> routine</Primary>
+</IndexTerm>routine
+</Para>
+</ListItem>
+</ItemizedList>
+<Para>The
+<FirstTerm>mutex</FirstTerm>
+<IndexTerm Id="ITODCE.T3B.indx.10">
+<Primary><FirstTerm>mutex</FirstTerm> object</Primary>
+</IndexTerm>object is used to synchronize
+access to a given resource, such as a shared variable,
+by multiple threads.  Mutexes ensure that only one
+thread accesses the resource associated with the mutex
+at a time, thus the name <Replaceable>mutual exclusion</Replaceable>
+or <FirstTerm>mutex</FirstTerm>.
+</Para>
+<Para>The mutex works as follows.
+One mutex object is associated with each shared resource;
+for example, a shared variable.
+Before reading or writing the variable, a thread attempts
+to
+<Replaceable>lock</Replaceable>
+the variable's mutex.
+If it succeeds in locking the mutex, the thread proceeds
+to access the variable, and then it
+<Replaceable>unlocks</Replaceable>
+the mutex.
+</Para>
+<Para>If a second thread tries to access the object while the
+first thread is accessing it (the condition that can cause
+indeterminate results if the shared variable is not protected),
+the second thread is blocked when it tries to lock the mutex.
+When the first thread finishes with the variable and unlocks
+the mutex, the second thread is unblocked and gains the lock
+for the
+mutex.
+It can then proceed to access the shared variable.
+</Para>
+<Para>The mutex is a facility by which threads can ensure that their
+access to shared resources is synchronized.
+The threads may or may not be communicating through the shared data.
+The second method of thread synchronization, the
+<Replaceable>condition variable</Replaceable>,
+<IndexTerm Id="ITODCE.T3B.indx.11">
+<Primary>condition variable</Primary>
+</IndexTerm>is used for explicit communications among threads.
+This is done through the use of a shared resource&mdash;the condition
+variable&mdash;and as a result requires the use of a mutex.
+</Para>
+<Para>For example, using a condition variable, Thread A can
+wait for Thread B to accomplish some task.
+To do this, Thread A
+<Replaceable>waits</Replaceable>
+on the condition variable until Thread B
+<FirstTerm>signals</FirstTerm>
+the condition variable, indicating that the particular task has been
+accomplished.
+</Para>
+<Para>Note that, although the condition variable is used for explicit
+communications among threads, the communications are anonymous.
+For example, Thread B does not necessarily know that
+Thread A is waiting on
+the condition variable that Thread B signals,
+and Thread A does not know that it was Thread B that woke it
+up from its wait on the condition variable.
+</Para>
+<Para>There is another synchronization method that is not anonymous&mdash;the
+<Command>join</Command>
+routine.  This allows a thread to wait for another, specific
+thread to complete its execution.
+When the second thread has finished, the first thread unblocks
+and continues its execution.
+Unlike mutexes and condition variables, the
+<Command>join</Command>
+routine is not
+associated with any particular shared data.
+</Para>
+</Sect3>
+<Sect3 Id="ITODCE.T3B.div.8">
+<Title>DCE Threads Exceptions</Title>
+<IndexTerm Id="ITODCE.T3B.indx.12">
+<Primary>Threads</Primary>
+<Secondary>exceptions</Secondary>
+</IndexTerm>
+<Para>DCE Threads provides two ways to obtain information about the 
+results of a threads call.
+One way, specified by the POSIX P1003.4a
+(pthreads) draft standard, is that status values are returned to the thread.
+DCE Threads also gives the programmer an alternative to
+status values.
+This is provided by the exception-returning interface, which is an
+extension to the basic POSIX functionality.
+Exceptions enable routines to ignore status returns when other parts of
+the program are handling errors.
+</Para>
+</Sect3>
+</Sect2>
+<Sect2 Id="ITODCE.T3B.div.9">
+<Title>DCE Threads Administration</Title>
+<IndexTerm Id="ITODCE.T3B.indx.13">
+<Primary>Threads</Primary>
+<Secondary>administration</Secondary>
+</IndexTerm>
+<Para>There are no administrative tasks associated with the DCE Threads
+component.
+<!-- .ig ++-->
+<!-- .H 3 "Example Use of Threads"-->
+<!-- .iX "Threads" "example"-->
+<!-- .P-->
+<!-- How would a programmer use threads in writing a typical distributed-->
+<!-- application?  One example is when writing the server part of a-->
+<!-- client/server application.  A server typically executes a-->
+<!-- continuous cycle:-->
+<!-- first it waits for a request to arrive,-->
+<!-- then it processes the request,-->
+<!-- then it sends back a reply, and starts over again waiting for the next-->
+<!-- request.  This can be inefficient, since the server may spend-->
+<!-- some of its request-filling time in idle\*(EMwaiting for I/O to complete,-->
+<!-- for example.  So often a server process can be made more efficient by-->
+<!-- designing it to run with multiple threads.  One initial thread might-->
+<!-- wait for a request, and when it receives one, create a new thread to-->
+<!-- handle it, while itself going back to listen for the next request.-->
+<!-- Alternatively, a pool of threads might be created when a server starts-->
+<!-- up, and the threads can take turns servicing incoming requests.-->
+<!-- .P-->
+<!-- Threads may need to share access to global variables, in which case-->
+<!-- the programmer can make use of the synchronization routines.  For-->
+<!-- example, the server might need to keep track of the total number of-->
+<!-- requests it processes.-->
+<!-- A programmer could implement this by having different threads update a-->
+<!-- global counting variable; for example, a variable called-->
+<!-- \*Ltotal\*O.-->
+<!-- In this case, a thread must first make sure-->
+<!-- another thread is not accessing the variable at the time it wishes to-->
+<!-- update it.  It does this by claiming the variable's mutual exclusion lock,-->
+<!-- called, for example,-->
+<!-- \*Lmutex_total\*O.-->
+<!-- Then the thread can update the global variable.-->
+<!-- The thread then unlocks the mutex, and other threads are free to-->
+<!-- access the variable.-->
+<!-- .++-->
+</Para>
+</Sect2>
+<Sect2 Id="ITODCE.T3B.div.10">
+<Title>Additional Information on DCE Threads</Title>
+<IndexTerm Id="ITODCE.T3B.indx.14">
+<Primary>Threads</Primary>
+<Secondary>additional information</Secondary>
+</IndexTerm>
+<Para>For additional information on DCE Threads, see the following:
+</Para>
+<ItemizedList>
+<ListItem>
+<Para>The DCE Threads chapters of the
+&DCEDg;
+</Para>
+</ListItem>
+<ListItem>
+<Para>The
+<Filename MoreInfo="RefEntry">(3thr)</Filename>
+reference pages of the
+&DCEDr;
+</Para>
+</ListItem>
+<ListItem>
+<Para>The POSIX
+P1003.4a/Draft 4 <Replaceable>Threads Extension for Portable Operation Systems</Replaceable>
+Specification
+</Para>
+</ListItem>
+<ListItem>
+<Para>The Implementation-Specific Addendum to the POSIX
+P1003.4a/Draft 4 Specification
+</Para>
+</ListItem>
+</ItemizedList>
+<IndexTerm Id="ITODCE.T3B.indx.15" SpanEnd="ITODCE.T3B.indx.1">
+</Sect2>
+</Sect1>
+<!--+ 10/25/96 16:59:01
+    | tagMorph:  $Id: 3b_threads.sgm,v 1.1.2.7 1996/12/11 15:32:55 carrig Exp $
+    | tagMorph library:  $Id: 3b_threads.sgm,v 1.1.2.7 1996/12/11 15:32:55 carrig Exp $
+    | sml-to-docbook:  1.24
+    +-->

@@ -1,0 +1,462 @@
+
+
+
+
+
+
+
+   OSF DCE SIG                                              M. Karuzis (HP)
+   Request For Comments: 31.0                                 December 1992
+
+
+
+                      SUPPORTING THREADLESS DCE CLIENTS
+
+
+   1. INTRODUCTION
+
+      A threadless implementation of the DCE library is one which does not
+      introduce additional threads into an RPC based application.  That is,
+      the runtime library is constrained to performing all call-related
+      processing within the context of the application thread which
+      initiates a remote call.
+
+      The following discussion is limited to supporting the RPC DG protocol
+      in a threadless environment.  As such, all references to the
+      'runtime' should be understood to mean the 'DG runtime.'  It's likely
+      that running the CN protocol in the absence of threads, if possible,
+      will require changes unrelated to those discussed here.
+
+      Also, this paper deals only with the prospect of developing single
+      threaded clients; there is no consideration of, or impact on, the
+      server side of a remote call.
+
+
+   2. HOW THE RUNTIME USES THREADS
+
+      The current implementation of the runtime creates 'helper' threads to
+      perform the following tasks:
+
+        (a) Waiting for, and reading in, socket data (the listener thread).
+
+        (b) Detecting timeouts, and performing garbage collection (the
+            timer thread).
+
+        (c) Maintaining liveness for applications that use context handles
+            (the INDY thread).
+
+   2.1. The Listener Thread
+
+      The listener thread is responsible for reading data from all open
+      sockets, determining to which call the data is being sent, and
+      signalling that call thread that data is available.  The need for a
+      separate thread to read socket data is a consequence of the fact that
+      concurrent calls (over the same protocol family) share a single
+      socket.  This implementation choice necessitates the de-multiplexing
+      of incoming data packets.
+
+
+
+
+
+   Karuzis                                                           Page 1
+
+
+
+
+
+
+
+   DCE-RFC 31.0             Threadless DCE Clients            December 1992
+
+
+
+   2.2. The Timer Thread
+
+      The timer thread has two primary responsibilities.  First, it
+      periodically checks to make sure that calls are making progress (and
+      will initiate corrective action if they are not).  Second, it is
+      responsible for keeping track of internal data structures and freeing
+      up resources that are no longer in use.
+
+   2.3. The INDY Thread
+
+      Applications which use context handles require that servers be
+      informed if a connection to a client is lost (for example, if the
+      client exits prematurely).  This mechanism gives servers an
+      opportunity to clean up state being maintained on behalf of a client
+      that is no longer active.  The DG protocol implements this facility
+      by periodically sending keep-alive messages from client to server.
+      The sending of these keep-alive messages occurs within a separate
+      thread dedicated to this task.
+
+
+   3. ALTERNATIVES TO USING THREADS
+
+   3.1. The Listener Thread
+
+      One of the performance enhancements under consideration for DCE 1.1
+      is the introduction of private client sockets.  Briefly, a call
+      thread using a private socket is given exclusive access to that
+      socket.  One of the features of such a scheme is that the call thread
+      need not be concerned about de-multiplexing data received on the
+      socket.  As such, the call thread can read the socket directly,
+      circumventing the need for a listener thread.
+
+      Assuming that private client sockets are implemented for DCE 1.1, it
+      will be a feature of every client that the listener thread will not
+      be started until the application needs to use a shared socket.  Since
+      the use of shared sockets will only occur in applications that make
+      concurrent RPCs (and are therefore already multi-threaded), single
+      threaded clients will never require the use of the listener thread.
+
+   3.2. The Timer Thread
+
+      The timer thread awakens periodically and consults a queue of timer
+      requests to see if any have reached their activation time.  All such
+      requests are then serviced by calling a routine which was registered
+      along with the timer request.  This process is called 'running the
+      timer chain.'
+
+      To avoid creating a thread to perform this function, we must find
+      some other means of ensuring that timer requests are acted upon.  In
+      addition, it is highly desirable that any new scheme retain much of
+      the existing timer service structure, on which the runtime relies
+
+
+
+   Karuzis                                                           Page 2
+
+
+
+
+
+
+
+   DCE-RFC 31.0             Threadless DCE Clients            December 1992
+
+
+
+      heavily.
+
+      As mentioned above, the timer thread really serves two major
+      functions.  We'll look at them separately to see what the
+      requirements of each are.
+
+   3.2.1. Detecting timeouts
+
+      Client call threads register a timer handler for each new call that's
+      started.  The registered routine is then called periodically to
+      inspect the state of the call, and determine if there are any timeout
+      conditions that need to be handled.
+
+      Rather than having this periodic checking done by the timer thread,
+      we can arrange for it happen along with the rest of the normal call
+      thread processing.  This actually works out quite nicely, since the
+      call thread always know exactly when the next timeout can occur (as
+      opposed to the timer thread which just checks all active calls
+      indiscriminately.)
+
+      Consider that all timeout conditions are the result of not receiving
+      some expected network packet (a fack, working, or response packet).
+      The call blocks trying to read data from the network, and at some
+      later time the timer thread determines that it's been waiting too
+      long and takes some corrective action.  A more elegant way to do this
+      would be for the call to decide how long it is willing to wait for
+      data, and then to block for only that long; if nothing is received,
+      the call thread could handle the situation on its own behalf.  Of
+      course, to leverage off the current implementation, the timeout could
+      be handled by simply having the call thread run the timer chain (by
+      calling the timer thread's base routine directly).  Since the call
+      thread will have previously registered a timer routine, this will
+      result in that routine being run, and the timeout condition will be
+      handled appropriately.
+
+      There are at least three reasonable ways to bound the wait for socket
+      data:
+
+        (a) Use timer interrupts to abort the recvfrom system call.
+
+        (b) Add an augmented recvfrom() into KRPC.
+
+        (c) Use select().
+
+      Using a timer interrupt is probably not viable since it uses a scarce
+      resource that might be required by the application.
+
+      Implementing an augmented recvfrom(), which takes a timer parameter,
+      would be ideal for platforms that support KRPC, since it would avoid
+      the overhead of a call to select() followed by a call to recvfrom().
+
+
+
+
+   Karuzis                                                           Page 3
+
+
+
+
+
+
+
+   DCE-RFC 31.0             Threadless DCE Clients            December 1992
+
+
+
+      Using select is the most general solution to the problem, despite its
+      inefficiency.
+
+   3.2.2. Garbage collection
+
+      The second major task of the timer thread is to run garbage
+      collectors.  To ensure that this facility still works correctly will
+      require that the runtime periodically call through the timer chain,
+      perhaps once every couple of minutes.  To accomplish this, a
+      threadless runtime could keep a clock stamp indicating the last time
+      that the timer chain was run.  Of course, there's no guarantee that
+      the runtime will be able to run the timer chain regularly, but this
+      would only occur if the application went for a long period of time
+      without using RPC.  In such a case, it's unlikely that the
+      accumulation of stale data structures would present a problem.
+
+      The best place from which to make the call into the timer chain is in
+      transceive(), immediately after pushing out the last arguments to a
+      call, but before beginning to wait for a response.  Doing the timer
+      processing here will keep it out of the executing call's fast-path.
+
+   3.2.3. The dual nature of the timer chain
+
+      It's worth noting that, in a threadless environment, the two uses of
+      the timer chain are slightly incongruous.  The detection of timeouts
+      is essentially a synchronous activity, the timer routine gets run at
+      the time that a timeout is detected.  On the other hand, garbage
+      collection is essentially an asynchronous activity; it must be done
+      periodically regardless of whatever else the runtime is doing.
+
+      The result is that whenever a timeout is detected, along with running
+      the call thread's timer routine, the garbage collectors will also get
+      run.  Likewise, whenever the runtime does garbage collection, any
+      active call timer routine will (unnecessarily) be run.  This
+      situation is deemed acceptable based on the following observations:
+
+        (a) This structure makes sense for a threaded runtime, where the
+            listener thread does not have enough information to anticipate
+            timeouts, and so timeouts really are asynchronous.
+
+        (b) Running the garbage collectors when a timeout occurs will not
+            affect performance (we're already dealing with a timeout).
+
+        (c) Running a call thread's timer routine when we do garbage
+            collection will not affect performance since it will only
+            happen once every few minutes.
+
+
+
+
+
+
+
+
+   Karuzis                                                           Page 4
+
+
+
+
+
+
+
+   DCE-RFC 31.0             Threadless DCE Clients            December 1992
+
+
+
+   3.2.4. Other timer thread issues
+
+   3.2.4.1. The runtime clock
+
+      The runtime keeps its idea of the current time in a global variable.
+      Call threads use this value to time-stamp various data structures and
+      activities to aid in detecting timeout conditions.  Since the global
+      time variable is updated once each time the timer thread is run, it
+      exhibits a granularity equal to that frequency.  In particular,
+      between updates, all requests for a time-stamp see the same value.
+
+      This implementation choice trades off clock accuracy for a reduction
+      in system call overhead.  However, without a timer thread it will no
+      longer be possible to make this tradeoff.  Each request for the
+      current time will need to be satisfied by consulting the actual
+      system time.  This will have some impact on performance, although it
+      is anticipated that the impact will be minor.
+
+   3.2.4.2. Delayed ACKS
+
+      One other function performed by the call thread timer routine is the
+      sending of delayed acknowledgements.  This is a performance
+      optimization which relies on the fact that each remote call
+      implicitly acknowledges all preceding calls.  If a client is making
+      back to back calls, we can allow the calls to acknowledge each other,
+      and avoid sending out a specific acknowledgement for each one.  The
+      runtime effects this behavior by delaying the sending of
+      acknowledgements, in the anticipation that a new call will soon be
+      started.  After a period of time, detected by the timer thread, if a
+      new call has not been started, a delayed acknowledgement will be
+      sent.
+
+      There is no way to mimic this behavior in a single threaded
+      environment.  As such, we are forced to forego the optimization, and
+      send out an acknowledgement for every completed call.
+
+   3.3. The INDY Thread
+
+      Since the runtime is not guaranteed that it will be called with any
+      regularity in this environment, it is not possible for it to
+      guarantee that it can regularly send keep-alive messages to a server.
+      Under these conditions it does not seem possible to provide support
+      for context handles.
+
+      However, it may be possible to provide this service by requiring that
+      the runtime be allowed to set up a timer interrupt.  This may be an
+      acceptable compromise for applications that want to be single-
+      threaded but require the use of context handles
+
+
+
+
+
+
+   Karuzis                                                           Page 5
+
+
+
+
+
+
+
+   DCE-RFC 31.0             Threadless DCE Clients            December 1992
+
+
+
+   4. USER VISIBLE EFFECTS OF RUNNING SINGLE THREADED
+
+   4.1. Simplified Debugging Environment
+
+      One significant benefit to developers of single threaded clients will
+      be in the area of debugging.  In the absence of thread-aware
+      debuggers, debugging a multi-threaded program can be a frustrating
+      experience.  And even with a reasonable debugger, application
+      developers who are not experienced with threading can find themselves
+      in a foreign environment, developing even the simplest application.
+
+      This situation can be especially frustrating for a developer whose
+      application becomes threaded as a result of calling into a third
+      party library that uses RPC.
+
+   4.2. Memory and Disk Requirements
+
+      Whether or not there will be any difference in memory or disk usage
+      depends on whether we support two DCE libraries.  This proposition is
+      discussed below in the section titled 'DCE Lite.'
+
+   4.3. Performance
+
+      It is not expected that a single threaded client would see any
+      performance increase over a similar application linked with a
+      threaded DCE library.  In fact, it is likely that performance will
+      decrease slightly.  While it is true that a threadless client will
+      not carry the overhead of a timer thread running several times a
+      second, this will be more than compensated for by the need to call
+      select() before reading each network packet.
+
+
+   5. DCE LITE?
+
+      The discussion thus far has assumed that the existing RPC runtime
+      would be modified to provide both threadless and threaded support.
+      In a client application, the runtime would refrain from creating
+      auxiliary threads unless and until they were needed.  Single threaded
+      client applications would thus remain single threaded.
+
+      At the other end of the spectrum, we might consider providing two DCE
+      libraries, the second providing only the functionality necessary for
+      writing single threaded client applications.  The motivation here
+      would be to reduce the disk/memory requirements of DCE-based
+      applications.
+
+      For example, in such an environment most of the CMA library code
+      could be stubbed out.  Besides the obvious fact that a threadless
+      client wouldn't need any of the code which directly supports
+      threading, it could also do without the code that supports mutual
+      exclusion and thread synchronization.  Bypassing the use of mutex
+
+
+
+   Karuzis                                                           Page 6
+
+
+
+
+
+
+
+   DCE-RFC 31.0             Threadless DCE Clients            December 1992
+
+
+
+      locks and condition variables would presumably also provide a modest
+      increase in performance.
+
+      Also, the DG code has been fairly well partitioned between modules
+      that support clients only, servers only, or both.  Removing server
+      support would reduce the DG code size by approximately 40%.
+
+      The question here is whether there are platforms that would
+      require/benefit from such a partitioning of the DCE functionality.
+      The answer is probably 'no' for any platform which supports
+      dynamic/shared libraries.  In such an environment, the only disk
+      savings will be the difference in size between the full-DCE and DCE-
+      lite libraries; this difference might only be 20-30%; and to benefit
+      from this small decrease in disk usage the system must give up its
+      ability to run servers or multi-threaded clients.
+
+
+   AUTHOR'S ADDRESS
+
+   Mark Karuzis                        Internet email: markar@apollo.hp.com
+   Distributed Object Computing Program          Telephone: +1-508-436-4337
+   Hewlett-Packard Co.
+   250 Apollo Drive
+   Chelmsford, MA 01824
+   USA
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   Karuzis                                                           Page 7
+
+
+
+

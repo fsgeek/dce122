@@ -1,0 +1,1441 @@
+CR Number                     : 12715
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : srvrexec
+Short Description             : All dced FVT's relating to srvrexec are failing with BL-23
+Reported Date                 : 10/24/94
+Found in Baseline             : 1.1b23
+Found Date                    : 10/24/94
+Severity                      : A
+Priority                      : 0
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/24/94 public]
+
+Not sure if test problem or dced code, needs more investigation.  All
+tests passed against NB several weeks ago.  This needs more investigation.
+The failing tests include:
+
+  entry_get_next_2
+  object_read_2
+  object_read_all_2
+  server_start_1
+  server_disable_if_1
+
+All complaining about the srvrexec object not existing.  Simple hand test
+using dcecp shows basic server create/stop/show operations work OK.
+
+[10/25/94 public]
+While reproducing problem with all related exe's built with symbols and in
+the debugger, my OSF/1 crashed (twice).  Now the problem does not occur
+anymore.  So apparently the solution to the problem is to crash your
+machine and restart.
+
+I cannot explain why this is the case.  I was thinking we were looking at a
+test bug, but there is nothing in the tests which is persistant enough
+that a reboot/restart DCE would make a difference.  Also, in the short
+debug period before the crash, noticed a number of 'Comm failure' returns
+to the tests.
+
+Anyway, I will cancel this for now as it can no longer be reproduced.
+
+
+
+CR Number                     : 12455
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : object_read FVTs
+Short Description             : object_read and object_read_all FVT's fail or core dump
+Reported Date                 : 9/30/94
+Found in Baseline             : 1.1b20
+Found Date                    : 9/30/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/30/94 public]
+
+object_read and pbject_read_all FVT's FAIL or core dump.
+
+[10/3/94 public]
+Cannot reproduce.  Cancel.
+
+
+
+CR Number                     : 12308
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : server started by "server start" doesn't always show up
+Reported Date                 : 9/22/94
+Found in Baseline             : 1.1b18
+Found Date                    : 9/22/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/22/94 public]
+
+I'm seeing something very odd when I start servers via "server start".
+Most of them behave properly, but "cdsadv" doesn't appear in
+config/srvrexec -- at least, "server cat -ex" doesn't show it. cdsadv
+*does* start, and continue running. See sample dcecp session below.
+
+The server shouldn't need to do anything to get recorded as executing,
+should it? (Clearly it doesn't: the "dummy" server started below
+executes a simple csh script that sleeps in a loop.)
+
+I assume this is dced's problem.
+
+dcecp> server show /.:/hosts/citron/config/srvrconf/cdsadv
+{uuid a4954c08-d57c-11cd-9c34-0000c08de054}
+{program /opt/dcelocal/bin/cdsadv}
+{arguments {}}
+{prerequisites {}}
+{keytabs {}}
+{entryname {}}
+{services {}}
+{principals {}}
+{starton explicit}
+{uid 0}
+{gid 0}
+{dir {}}
+dcecp> server start /.:/hosts/citron/config/srvrconf/cdsadv
+f72fbc7a-d642-11cd-9cc1-0000c055df56
+dcecp> server cat hosts/citron -ex
+                                                   <<< no server
+dcecp> server start /.:/hosts/citron/config/srvrconf/dtsd   
+1f121594-d643-11cd-9cc1-0000c055df56
+dcecp> server cat hosts/citron -ex                        
+/.../speed_cell/hosts/citron/config/srvrexec/dtsd  <<< no cdsadv
+dcecp> server start /.:/hosts/citron/config/srvrconf/dummy
+cbb4c4b8-d643-11cd-9cc1-0000c055df56
+dcecp> server cat hosts/citron -ex
+/.../speed_cell/hosts/citron/config/srvrexec/dtsd
+/.../speed_cell/hosts/citron/config/srvrexec/dummy  <<< no cdsadv
+dcecp> server show /.:/hosts/citron/config/srvrexec/cdsadv -ex
+Error: Cannot find a matching object.
+
+[citron]
+
+% ps -e | grep cdsadv
+14012 ??       S        0:02.53 /opt/dcelocal/bin/cdsadv
+13600 pts/5    S  +     0:00.03 grep cdsadv
+
+[9/22/94 public]
+Guessing aloud here....
+
+Does cdsadv daemonize itself? (ie, among other stuff, fork/exec with parent
+exiting?)  If so, then dced may be getting teh SIGCHILD from the cdsadv
+it spawned (exited parent) and correctly reaping it from its list of
+running children.
+
+[9/22/94 public]
+
+Looks like you're right. 'ps -ef' shows that cdsadv's parent is init.
+The dtsd I'm starting is a clerk, and its parent is dced. I guess dced
+is doing the "right" thing (what else could it do?), but it's sort of
+a pain.
+
+[9/22/94 public]
+As far as I know, "dtsd" figures out if it was started by dce, then does the
+right thing in terms of daemonizing.  I'm sure cdsd and friends fork, the
+parent exits, and dced thinks it's done.
+
+If we all agree, this should be canced, I guess.
+
+Or, Robert, do cdsadv and friends have a flag that says to run in the forground?
+(dced had "-f").  If so, you could specify that flag on the cmd line in the
+srvrconf object and try that way.
+
+[9/22/94 public]
+Cancelled.  But, I want to throw out a warning of potential bootstrapping
+problems when starting dced daemons with dced.  There is a required ordering 
+and prior to starting cdsd/dtsd process, a need to do a "dcecp -c secval
+activate" to wait for secval to setup the machine principal environment on
+the machine.
+
+See the /etc/rc.dce on a host and server to see what needs to be done.
+
+
+
+CR Number                     : 12295
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : server conf
+Short Description             : fopen() in dced failing on server start
+Reported Date                 : 9/21/94
+Found in Baseline             : 1.1b18
+Found Date                    : 9/21/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/21/94 public]
+
+Put serverexec FVT into infinite loop.  After a few minutes, the dced began
+reporting this message:
+
+  1994-09-21-17:42:45.082-04:00I----- dced ERROR dhd srvrconf scops.c 442
+  0x005cbe98
+  The fopen() call failed during svrvconf_start
+
+run out of file descriptors in the dced??  Plenty of disk space, not too
+many files in /tmp.
+
+[09/21/94 public]
+Gaak, did we really forget to record errno in the message?
+Mistake.  Look at all svcprintf calls and make sure to print errno
+where appropriate.  will make debugging much easier.
+
+[9/22/94 public]
+Cancelled.  Can not reproduce, ran srvrexec FVT in loop for ~1 hour
+on both platforms.  It is possible that there was some
+environment thing (swap, disk space, humidity) that was transient.
+Also, the problem was seen while running in the debugger, possible
+that the debugger session was affecting?
+
+errno being put in SVC messages by JB....
+
+
+
+CR Number                     : 12238
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : dced seg violation
+Reported Date                 : 9/19/94
+Found in Baseline             : 1.1b18
+Found Date                    : 9/19/94
+Severity                      : B
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/19/94 public]
+
+DFS CHO cell config'd with bl-18
+secd on RIOS (m1) died w/in 6 hours of config (CR 12236)
+
+root@cobbler> ls -l /opt/dcelocal/dce_cf.db
+-rw-r--r--   1 root     bin           60 Sep 16 18:21 /opt/dcelocal/dce_cf.db
+
+root@cobbler> ls -l /opt/dcelocal/var/security/core
+-rw-rw-rw-   1 root     bin      5189323 Sep 17 00:16 /opt/dcelocal/var/security/core
+
+dced died on HP (m3) 4 hours after that.
+
+root@dce11> ls -l  /opt/dcelocal/./var/dced/core                              
+-rw-rw-rw-   1 root     sys      6501212 Sep 18 04:32 /opt/dcelocal/./var/dced/core
+
+No tests had been or were running at the time.
+
+Copyright Hewlett-Packard Co. 1985,1987-1992. All Rights Reserved.
+<<<< XDB Version A.09.01 HP-UX >>>>
+Core file from:  dced
+Child died due to: segmentation violation
+Warning:  "/project/dce/build/dce1.1-snap/src/admin/dced/server/main.c" is younger than "/opt/dcelocal/bin/dced" (UE86).
+Procedures:    332
+Files: 33
+
+ 0 memcpy@libc + 0x00000008 (hp-ux export stub)
+ 1 rpc__naf_tower_flrs_to_addr@li + 0x00000050 (0xd2010006, 0x400f4560, 0x400f44ac, 0x40307070)
+ 2 rpc_tower_to_binding@libdce + 0x00000088 (0xd2010006, 0x400f44e0, 0x400f44ac, 0)
+ 3 ping_server (ep = 0x403f0390, timeout = 3, status = 0x400f44ac)    [/project/dce/build/dce1.1-snap/src/admin/dced/server/oeops.c: 339]
+ 4 ep_sliv_task1 (arg = 0x40013840)    [/project/dce/build/dce1.1-snap/src/admin/dced/server/oeops.c: 398]
+ 5 cma__thread_base@libdce + 0x0000021c (0x40031a10, 0, 0, 0)
+
+DFS CHO config:
+1 RIOS X 3 HP
+ m1 (R) = security server, dts server, flserver, fileserver (native and lfs)
+ m2 (H) = cds server, dts server, flserver, fileserver (native and lfs)
+ m3 (H) = dts server, flserver, fileserver (native and lfs)
+ m4 (H) = client-only
+
+[9/21/94 public]
+I can't make this happen.  I'm running nightly bld of last night.  Of course
+this is hard to reproduce.  If dced is dying because secd died, it took 4
+hours to affect dced.  (If that's the case, doesn't this bring it down to
+something less than A0?)
+
+Does it still do it?  Rich made a handful of changes to oeops.c this weekend
+(post-bl18), one of which had to do with cleaning up dead endpoints.
+
+[9/21/94 public]
+You're right - it actually took 1 day PLUS 4 hours (oops!) for this to
+happen after the secd core dump and it's unclear what behavior is expected
+after the 1 and only secd in the cell dies ... dced dying is nasty too, 
+but since the data in this CR isn't very useful, and it hasn't been seen
+again, downgrading in preparation of a cancel.
+
+[10/03/94 public]
+Gail and I talked about this (over tea and crumpets) and we decided it's
+time to pass this OT on to its great reward, under the guise of "machine
+resources" a/k/a "out of swap for some reason."  Cancel.
+
+
+
+CR Number                     : 12229
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : server
+Short Description             : server_stop() does not delete
+the server entry information from the srvrexec database.
+Reported Date                 : 9/16/94
+Found in Baseline             : 1.1b18
+Found Date                    : 9/16/94
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/16/94 public]
+
+A test server is started with dced_server_start(). 
+When terminated with dced_server_stop() [with method hard],
+the test server is killed. But the server entry information [exec]
+is still available. This info can be accessed from dced_object_read() API
+or dcecp server cata -exec commands.
+
+[9/22/94 public]
+Cancelled.  No longer occurs.  Saw this myself last week so possibly
+fixed by reparations made to scops.c/sxops.c in past few days.
+
+
+
+CR Number                     : 12228
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : test/api
+Short Description             : srvrexec api tests need to be enhanced
+Reported Date                 : 9/16/94
+Found in Baseline             : 1.1b18
+Found Date                    : 9/16/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/16/94 public]
+
+srvrexec API tests need to completed.
+
+[9/22/94 public]
+Changed to a "test" CR.
+
+[10/3/94 public]
+Tests complete and all PASSING for now.  Cancel.
+
+
+
+CR Number                     : 12114
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : dced
+Subcomponent Name             : secval
+Short Description             : Node self identity fails to refresh
+Reported Date                 : 9/8/94
+Found in Baseline             : 1.1b16
+Found Date                    : 9/8/94
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/8/94 public]
+
+I have a two node cell, both HP machines, both running 16.3.  One is a
+DCE client and the other has all the core servers on it.  During the
+course of doing some testing I reduced the default ticket lifetime
+down to 5m.  After running for around 3-4 hours the client machine's
+self identity failed to refresh.  This results in the cell being very
+unhappy.
+
+Some of the noticable errors that come to the console are:
+
+Failed to retrieve server binding from the namespace: status 0x10d0a7ce (dce / cds)
+LAN profile not found
+Can't retrieve DCE cell name from configuration DB: status 0x10d0a7ce (dce / cds)
+Too few servers (0), need 1 servers
+dfs: ticket has expired; running unauthenticated.
+Failed to retrieve server binding from the namespace: status 0x10d0a7ce (dce / cds)
+LAN profile not found
+Can't retrieve DCE cell name from configuration DB: status 0x10d0a7ce (dce / cds)
+Too few servers (0), need 1 servers
+dfs: ticket has expired; running unauthenticated.
+
+A klist results in:
+
+# klist
+DCE Identity Information:
+        Global Principal: /.../booboo_cell/hosts/lstarr/self
+        Cell:      281aa1d2-c681-11cd-b270-08000932c179 /.../booboo_cell
+        Principal: 000030a1-ca56-21cd-bf00-08000932c179 hosts/lstarr/self
+        Group:     0000000c-c681-21cd-b201-08000932c179 <group name unknown>
+        Local Groups:
+                0000000c-c681-21cd-b201-08000932c179 <group name unknown>
+
+Identity Info Expires: 94/09/08:14:23:55
+Account Expires:       never
+Passwd Expires:        never
+
+Kerberos Ticket Information:
+Ticket cache: /opt/dcelocal/var/security/creds/dcecred_ffffffff
+Default principal: hosts/lstarr/self@booboo_cell
+
+
+There is plenty of disk space:
+
+# bdf /opt
+Filesystem           kbytes    used   avail capacity Mounted on
+/dev/dsk/c201d6s0    320406  263714   24651    91%   /
+
+I am only using HP machines in this cell so I do not know if this
+problem exists on the other platforms.
+
+[9/8/94 public]
+Andy, is sec_clientd running or secval?  I assume secval since that is the
+default.  Are all DCE servers still running?  (no core dumps)
+
+Can you do this: 
+
+  dcecp -c secval deactivate
+  dcecp -c secval activate
+
+and let me know what happens.
+
+[9/8/94 public]
+
+I ran the above commands and the node's self identity came back....
+
+The are no core dumps under /opt/dcelocal
+
+[9/8/94 public]
+Can you re-config with sec_clientd instead of secval and tell me if the
+same thing happens. 
+
+  setenv SEC_CLIENT sec_clientd & re-dce_config
+ OR
+  Carefull edit /etc/rc.dce so that "dced -s" is in, comment "activate_secval"
+    is gone and the sec_clientd wait for creds loop from dce_config is
+    edited in place.
+
+If you don't have the time to do this let me know.
+
+[9/9/94 public]
+
+The problem did not show up when running sec_clientd instead of secval.
+
+[9/11/94 public]
+Cannot reproduce on my machine.  I am running a dced from my sandbox
+which contains changes to the secval code to fix OT #11940 & 7370.
+These will be checked in for Mondays NB.   Outside chance that these 
+changes addressed the problem you are seeing.  More likely, I am not 
+doing whatever it is that causes the problem to show itself in your cell.  
+
+Andy, can you take a moment to assist me to reproduce on my machine and/or try
+again on Tuesday with NB?
+
+[9/23/94 public]
+We've all tried to reproduce this.  We can't.  We all feel that this was
+resolved by other fixes (hopefully, not covered by them...)  Canceling.
+
+
+
+CR Number                     : 11995
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : dced
+Subcomponent Name             : keytab
+Short Description             : keytab create command disregards keytype "plain"
+Reported Date                 : 9/1/94
+Found in Baseline             : 1.1
+Found Date                    : 9/1/94
+Severity                      : C
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/1/94 public]
+
+Regardless which keytype is  specified in the data option ,"keytab show" 
+always displays "des" , e.g.
+dcecp> keytab create /.../c=ie/o=digital/hosts/sniosf2/config/keytab/gds \
+
+> -attr  {
+> {storage /opt/dcelocal/keys/gds2 }
+> {data {helmut plain 1 helmut}}}
+dcecp> keytab show  /.../c=ie/o=digital/hosts/sniosf2/config/keytab/gds
+{uuid f840e260-c580-11cd-9401-08002b0f59bb}
+{annotation  {}}
+{storage /opt/dcelocal/keys/gds2}
+{/.../c=ie/o=digital/helmut des 1}
+
+[9/1/94 public]
+
+The sec_key_mgmt i/f only supports "des" key now. You input the "plain" key
+and then it's stored as "des" key. This is why it shows "des" key.
+
+Rich, should we cancel it?
+
+[09/01/94 public]
+No -- it sounds like the server should reject "plain" as an unsupported
+keytype.
+
+[9/1/94 public]
+It's just doing what sec_key_mgmt_set_key() does.  If you specify "plain" or
+"des" as the passwd param, then read it with sec_key_mgmt_get_key(), it will
+say type="des".  Always.  If the goal of rkeytab is to provide remote access
+to sec_key_mgmt_XXX() functions, dced is doing the right thing.
+
+If you reject "plain" in the server, and the passwd in the registry for
+a prin is, say, "my-pass", there would be no way to set that passwd in
+the local keytab file to "my-pass".  Here's a reasonable scenario:
+    You write a new service that will run on several machines.
+    You get your cell admin to create a prin for your server, and tell
+	him to make the password "my-pass".
+    Problem: How do you write that passwd to the key file on those
+	server machines.
+
+[9/1/94 public]
+I talked Rich and some others about this. Agreement on the
+above points. Canceling.
+
+
+
+CR Number                     : 11920
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : srvrconf
+Short Description             : srvrconf_start dumps core
+Reported Date                 : 8/26/94
+Found in Baseline             : 1.1b16
+Found Date                    : 8/26/94
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/26/94 public]
+
+Found in 8/25 NB -):
+
+server start dumps core. Here is the server and trace,
+
+dcecp> server show tserver1
+{uuid def0f86c-c108-11cd-a947-0000c010df56}
+{program tserver}
+{arguments /.:/hosts/foster/test_server}
+{prerequisites {}}
+{keytabs {}}
+{entryname /.:/hosts/foster/test_server}
+{services
+ {{ifname {test server}}
+  {annotation {dcecp server test program}}
+  {interface {008bebed-c7c1-1ddc-9cb3-0000c0ba4944 1.0}}
+  {bindings {ncadg_ip_udp 130.105.5.50}}
+  {objects 0073f23a-2e1a-1ddd-b73a-0000c0ba4944}
+  {flags {}}
+  {entryname /.:/hosts/foster/test_server}}}
+{principals /.../foster_cell/tserver}
+{starton explicit}
+{uid 0}
+{gid 0}
+{dir /project/dce/build/nb_486/install/at386/dcetest/dce1.1/test/tet/functional/admin/dcecp/ts/server}
+dcecp> server start tserver1
+Error: Communications failure
+
+========
+(gdb) r -d
+Starting program: /usr/bin/dced -d
+DEBUG: register_servers
+DEBUG: dced_wait_for_register
+DEBUG: dced_wait_for_sec
+DEBUG: acl_patcher
+DEBUG:sec_clientd_setup_first_context
+DEBUG:setup first succeeds
+DEBUG:Exiting sec_clientd_setup_1rst_context:0
+DEBUG: dced_wait_for_secval
+DEBUG:maintain_machine_context
+
+Program received signal 11, Segmentation fault
+0xa41b55a7 in cma__reinit_thread_io (0)
+(gdb) bt
+#0  0xa41b55a7 in cma__reinit_thread_io (0)
+#1  0xa41c3af3 in cma_fork ()
+#2  0x40cbca in srvrconf_start (h=0x592798, id_uuid=0x616aec, fixed=0x0, 
+    attributes=0x0, instance=0x5971c0, st=0x616adc)
+    at /project/dce/build/dce1.1-snap/src/admin/dced/server/scops.c:562
+#3  0x424ded in op6_ssr (h=0x592798, IDL_call_h=0x572a70, IDL_elt_p=0x616e38, 
+    IDL_drep_p=0x616e68, IDL_transfer_syntax_p=0xa4498120, 
+    IDL_mgr_epv=0x431bac, IDL_status_p=0x616e60) at srvrconf_sstub.c:2443
+#4  0xa421eb7e in rpc__dg_execute_call (5712496, 0)
+#5  0xa41d3fdc in cthread_call_executor (5710880)
+#6  0xa41abb77 in cma__thread_base ()
+#7  0xa41b0f69 in cma__create_thread ()
+#8  0xa41d3e2c in cthread_call_executor ()
+#9  0x5fc3f8 in acl_db ()
+Cannot access memory at address 0x2.
+(gdb)
+
+[8/31/94 public]
+Ping, can you repeat this?  This worked fine for me (486) with
+last night's bld:
+
+    dcecp> server create  -prog /tmp/test1 -gid 0 -uid 0 -dir /tmp \
+      -prin test1 -entryname /.:/hosts/acme/test1  test1
+    dcecp> server cat  -prog /tmp/test1 -gid 0 -uid 0 -dir /tmp \
+    /.../bigred/hosts/acme/config/srvrconf/ep-compat
+    /.../bigred/hosts/acme/config/srvrconf/test1
+    dcecp> server sh test1
+    {uuid e68b9438-c50e-11cd-9b60-0000c09ce054}
+    {program /tmp/test1}
+    {arguments {}}
+    {prerequisites {}}
+    {keytabs {}}
+    {entryname /.:/hosts/acme/test1}
+    {services {}}
+    {principals /.../bigred/test1}
+    {starton {}}
+    {uid 0}
+    {gid 0}
+    {dir /tmp}
+    dcecp> ser start test1
+    ee21e0f8-c50e-11cd-8b8e-0000c09ce054
+
+And the program started and ran.  (I did not try defining "services" yet.)
+
+Lowered priority, since it worked for me...
+
+[9/1/94 public]
+I tried last NB, it works fine. It could be some changes checked in during
+this week fixed tis problem as side effect. So I'm cancelling this OT.
+
+
+
+CR Number                     : 11807
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : dced crashes on srvconf create command
+Reported Date                 : 8/22/94
+Found in Baseline             : 1.1b15
+Found Date                    : 8/22/94
+Severity                      : A
+Priority                      : 0
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/22/94 public]
+
+DCDREL002 fails in a single pass on the at486 nodes. The following
+dcecp command is executed:
+
+server create /.:/hosts/maui/config/srvrconf/dcdrel002_server.1063-req 
+	-attribute { 
+	{program /u1/opt/dcetest/test/tet/system/dced/ts/rel/dcdrel002_server}
+	{arguments /.:/hosts/maui/systest/dcdrel002_server.1063-req}
+	{starton request } 
+	{ services 
+	  { {entryname /.:/hosts/maui/systest/dcdrel002_server.1063-req} 
+	    {interface 00032b04-f3f0-1e0e-9ea7-0000c0dc0d4b,1.0} } } }
+
+On maui this returns "connection closed", and the equivalent command
+on node jamaica returns "communications failure". On both systems
+dced has crashed, and the stack trace for the two is the same:
+
+Core was generated by `dced'.
+Program terminated with signal 11, Segmentation fault.
+#0  0x40676b in srvr_hash_table_add (ht=0x432668, up=0x67a2 58, value=0x5de7dc,
+                                     st=0x5deaf4)
+    at /project/dce/build/dce1.1-snap/src/admin/dced/server/misc.c:533
+
+(gdb) bt
+#0  0x40676b in srvr_hash_table_add (ht=0x432668, up=0x67a258, value=0x5de7dc, 
+    st=0x5deaf4)
+    at /project/dce/build/dce1.1-snap/src/admin/dced/server/misc.c:533
+#1  0x4068cf in srvr_hash_build (t=0x432cc0, ht=0x432668, st=0x5deaf4)
+    at /project/dce/build/dce1.1-snap/src/admin/dced/server/misc.c:579
+#2  0x405fae in srvr_add_to_table (t=0x432cc0, new=0x5de858, st=0x5deaf4)
+    at /project/dce/build/dce1.1-snap/src/admin/dced/server/misc.c:313
+#3  0x40b5cb in srvrconf_create (h=0x671038, server=0x5deaf8, st=0x5deaf4)
+    at /project/dce/build/dce1.1-snap/src/admin/dced/server/scops.c:151
+#4  0x4229d2 in op2_ssr (h=0x671038, IDL_call_h=0x4d3ae0, IDL_elt_p=0x5dee4c, 
+    IDL_drep_p=0x4fe7c8, IDL_transfer_syntax_p=0x4d3cdc, IDL_mgr_epv=0x430990, 
+    IDL_status_p=0x5dee28) at srvrconf_sstub.c:1980
+#5  0xa41fdd64 in acl_db ()
+#6  0xa41d476c in acl_db ()
+#7  0xa41ac3db in acl_db ()
+#8  0xa41b17cd in acl_db ()
+#9  0xa41d45bc in acl_db ()
+#10 0x5ebc48 in acl_db ()
+Cannot access memory at address 0x2.
+
+(Note that core was generated from BL15 while the source is pointing to 
+the nightly build. I'll rerun to verify that the stack trace as printed
+here is meaningful, or to correct it.)
+
+[08/26/94 public]
+I believe this is essentially a dup of 11809 (same bug) which was fixed
+under yet a third OT#.  Cancel this?
+
+[9/1/94 public]
+Just checking...  This worked for me (essentially the same as what rick
+did above):
+
+    server create test2 \
+	-attribute { \
+	{program /tmp/test1}\
+	{arguments /.:/hosts/acme/systest/dcdrel002_server.1063-req}\
+	{starton request } \
+	{ services \
+	{ {entryname /.:/hosts/acme/systest/dcdrel002_server.1063-req} \
+	    {interface 00032b04-f3f0-1e0e-9ea7-0000c0dc0d4b,1.0} } } }
+
+[9/8/94 public]
+Reran the tests against BL16.3 and this problem has been fixed as
+Rich stated above.
+
+
+
+CR Number                     : 11668
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 11488
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : dced
+Subcomponent Name             : secval
+Short Description             : sec_clientd dumps core on RIOS
+Reported Date                 : 8/12/94
+Found in Baseline             : 1.1b14
+Found Date                    : 8/12/94
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/12/94 public]
+
+NB: 08/11/94
+Cell Configuration;
+
+HPUX: Core Server (No dtsd)
+RIOS: client/SEC replica (No dtsd)
+OSF1: client/SEC replica (No dtsd)
+
+The sec_clientd running on the RIOS did a core dump; there was no
+problem with the replica.
+
+This is the size of the coredump:
+
+root@soldier> ls -l /opt/dcelocal/etc/core*
+-rw-rw-rw-   1 root     bin      117925591 Aug 11 20:31 /opt/dcelocal/etc/core
+
+and this is the info given by the where command in dbx:
+
+root@soldier> dbx /opt/dcelocal/bin/sec_clientd core
+dbx version 3.1 for AIX.
+Type 'help' for help.
+reading symbolic information ...
+[memory image in core]
+
+segmentation violation in leftmost at 0xd00c6bc0
+0xd00c6bc0 (leftmost+0x10) 81050004          l   r8,0x4(r5)
+(dbx) where
+leftmost(0xd0) at 0xd00c6bc0
+malloc_y(0xd0) at 0xd00c5468
+malloc(0xd0) at 0xd00c40f0
+cma_lib_malloc(0xbc) at 0xd035741c
+rpc__mem_alloc(0xbc, 0x50, 0x0) at 0xd036d2d4
+rpc__krb_cn_create_info(0x5, 0x20269a70, 0x20139198) at 0xd049b6dc
+rpc__cn_assoc_process_auth_tlr(0x20139168, 0x2018c038, 0x670, 0x20288048,
+0x20269c64, 0x20269c78, 0x20139258, 0x0) at 0xd04c0fd4
+do_alter_cont_req_action_rtn(0x20139168, 0x2018c018, 0x20139170) at
+0xd04bdca4
+incr_do_alter_action_rtn(0x20139168, 0x2018c018, 0x20139170) at 0xd04c0514
+rpc__cn_sm_eval_event(0x67, 0x2018c018, 0x20139168, 0x20139170) at
+0xd04b5b6c
+receive_dispatch(0x20139168) at 0xd04c4754
+rpc__cn_network_receiver(0x20139168) at 0xd04c2660
+cma__thread_base(0x20235158) at 0xd034eb04
+(dbx) 
+
+I must add that on the core server, I had the usual "mismatch seal 0"
+messages. I am saving the core, in case someone requests more information.
+System tests were running at the time this happened.
+
+[8/15/94 public]
+Yikes, a 117Mb coredump for sec_clientd?  It's no wonder that RPC couldn't
+malloc any more memory...  We're counting on Greg's upcoming fixes resolving
+the mismatch seal problem, but this seems like there's also a huge memory
+leak...  I'm adding dce-team@osf.org to the CC list.  If anybody is seeing
+abnormal growth of sec_clientd, could you please update this CR? (unless
+everybody is seeing it, in which case send email to me and I'll forward it
+to whoever ends up looking into this, so we don't wind up rereading this
+CR every couple of minutes as it gets updated).
+
+[8/15/94 public]
+How about trying dced's "secval" instead.  To use it:
+
+    1. edit /etc/rc.dce to
+	start dced with with a "-s" flag
+	comment out starting sec_clientd
+    2. restart dce on your machine
+
+I'm working on getting sec_clientd out of dce_config so dced/secval will
+be config'ed by default.  (It's more of a pain than it looks.)
+sec_clientd will be going away - moving to nosupport [CR 11488] - so it's
+probably best to not spend too much (or any?) time on this.
+
+[8/15/94 public]
+While I agree that memory leaks are not as bad as coredumps (thus the p1
+instead of p0 I presume), and that sec_clientd is going away, I think this
+needs to be looked into...  sec_clientd does practically nothing that would
+cause this 117MB leak within itself and the code within this prog hasn't been
+changing either, only the library APIs that it relies on, so this problem
+should be seen with dced/secval too if it's really a problem with sec_clientd.
+Since sec_clientd is what is still being used by most people, we would like
+them to let us know if they see the memory leak problem and any info assoc
+with it (ie: how big, how long had it been up, what activity had the cell seen)
+rather than wait until people start using secval and start looking for the
+problem with even less time to fix it.
+
+[8/15/94 public]
+I have had a cell up since Aug 11 (from 8/10 nightly) and my sec_clientd
+is doing fine (OSF/1):
+
+USER    PID %CPU %MEM   VSZ  RSS TTY      STAT STARTED         TIME COMMAND
+root  16026  0.0  6.4 10.2M 2.32 ??       S      Aug 11     1:49.50 sec_clientd
+
+surf>ls -l /opt/dcelocal/bin/sec_clientd
+-rwxr-xr-x   1 bin      bin               64083 Aug 10 23:46 /opt/dcelocal/bin/sec_clientd
+
+[08/15/94 public]
+
+I made this a P1 until we get the fixes from Bill and Greg to some P0s.
+Then, we can run the system tests again and try to recreate the security
+problems reported here and elsewhere (i.e. hangs, core dumps, leaks). 
+security is having the most problems on RIOS.
+
+[08/15/94 public]
+Note that "ls -l" doesn't always tell you a file's size; it could have
+holes in it.  Core files on some architectures are particularly capable
+of this.  What does "ls -s" say?
+
+dced's integration of sec_clientd is slowly becoming a complete rewrite
+so while we should try to identify the bug, we shouldn't fix it
+in sec_clientd.
+
+[8/23/94 public]
+I believe that the fixes we were waiting for have all arrived.  Can we
+retest this one and see where we are now?  Thanks.
+
+[8/24/04 public]
+
+System test core testing is no longer using sec_clientd. We have 
+started to use "dced -s". As a result, we won't be following the 
+state of sec_clientd from now on. I will lower the priority of this 
+CR to indicate this.
+
+[8/24/94 public]
+Note that as of the next successful nightly build, the dced will have
+secval on by default.  The meaning of the "-s" flag will be reversed in
+that it will turn secval OFF.  Though the dce_config sscript will still 
+start up sec_clientd by default.  To have dce_config configure dced as 
+the secval service,  do:
+		   setenv SEC_CLIENT dced
+before starting dce_config.
+
+To set back to sec_clientd if problems with secval:
+		   setenv SEC_CLIENT sec_clientd
+and re-config.
+
+Mary, what were the changes that were supposed to address the sec_clientd
+core dump?
+
+[08/26/94 public]
+The secval codebase is pretty much the same as sec_clientd's.  If HP thinks
+they fixed this bug and Martha can't get it to show up, let's cancel this.
+
+[08/18/94 public]
+
+I am no longer using sec_clientd- I am using secval and this problem
+has not happened after a long weekend of testing. I am canceling this.
+
+
+
+CR Number                     : 11337
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : keytab
+Short Description             : Import the keyfile /krb5/v5srvtab causes dced core dump
+Reported Date                 : 7/17/94
+Found in Baseline             : 1.1
+Found Date                    : 7/17/94
+Severity                      : C
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/17/94 public]
+
+Dced core dumps on importing the system default keyfile 
+/krb5/v5srvtab.
+
+[7/26/94 public]
+Not reproducible on 486 or HP.  Ping can't make it happen either.
+Perhaps some inconsistency having to do with the security drop a week
+and a half ago...
+Canceling.
+
+
+
+CR Number                     : 11336
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : api
+Short Description             : dced binding need lock to ptotect its local cache
+Reported Date                 : 7/16/94
+Found in Baseline             : 1.1
+Found Date                    : 7/16/94
+Severity                      : C
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/16/94 public]
+Dced binding need implement lock to protect its local cache 
+because an application has no way to know about the local cache
+kept in each of dced binding and may use the binding on
+conflict operations simultaneously.
+
+[07/18/94 public]
+I thought we decided that dced bindings were not designed to be used in
+multiple threads.  I believe this should be cancelled.
+
+[08/26/94 public]
+So let it be written, so let it be done.
+
+
+
+CR Number                     : 11173
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : EP resolution
+Short Description             : de-serialize
+Reported Date                 : 7/5/94
+Found in Baseline             : 1.1
+Found Date                    : 7/5/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/5/94 public]
+The EP resolution (and compatibility) code maintains the single global
+lock (pthread_mutex) used by rpcd.  We could gain some speed by splitting
+this into a three-level read/read-intent-to-write/write lock.
+
+[08/26/94 public]
+This turns out to be too tricky to do (the context handle needs to modify
+the incore lists) and might not gain anything anyway (same comment).
+
+
+
+CR Number                     : 10717
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : keytab
+Short Description             : rkeytab_delete_key need to check key type and reject non-des type request by now
+Reported Date                 : 5/20/94
+Found in Baseline             : 1.1
+Found Date                    : 5/20/94
+Severity                      : D
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/20/94 public]
+sec_key_xxx interface now only support "des" type key, but this may
+change in the future. by now it could be better to check the key type and
+return non-support type request as error so that user (of dced/dcecp)
+won't get confused.
+
+[8/1/94 public]
+If the dced keytab functions are supposed to be simply remote versions
+of sec_key_mgmt_*() calls, then this should be canceled. 
+sec_key_mgmt_delete_key() does not take the key type as a param, only prin
+and version.  The manpage says this explicitly - "this routine deletes all
+key types that have the specified key version number..." However, if this
+operation is supposed to give remote access to
+sec_key_mgmt_delete_key_type(), then the type should be checked.
+Which do we want?
+
+[8/1/94 public]
+How about we check key type field, if the key type is specified, it means 
+sec_key_mgmt_delete_key_type(), otherwise means sec_key_mgmt_delete_key()?
+
+[9/3/94 public]
+Canceling, since the dced operations are intended to be a remote interface
+to sec_key_mgmt_*.  They do that correctly.
+
+
+
+CR Number                     : 9930
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : IDL files
+Short Description             : Need fault_status comm_status
+Reported Date                 : 2/10/94
+Found in Baseline             : 1.1
+Found Date                    : 2/10/94
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/10/94 public]
+All IDL files that are part of libdce should be compiled with ACF files
+that have the [fault_status,comm_status] attributes.  Without this, a
+failing RPC could cause client code to core dump when there is a perfectly
+good error_status_t parameter available.  When adding the ACF files, it is
+important to make sure that no API changes.  As most routines probably
+already have an "error_status_t *st" parameter this will probably not be
+an issue; routines that don't will have to be handled on a case-by-case,
+probably by adding a new routine that DOES have the status param and
+changing our existing code to call that routine.
+
+[02/18/94 public]
+dced already has the ACF files; cancelling.
+
+
+
+CR Number                     : 9710
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 9146
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : manpages should use error_status_t rather than unsigned long for status vars
+Reported Date                 : 1/10/94
+Found in Baseline             : 1.0.3
+Found Date                    : 1/10/94
+Severity                      : E
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Some manpages, including dce_cf_get_host_name(3dce), incorrectly show
+the type "unsigned long" for status, rather than error_status_t.
+Steve Strange  1/10/94
+Digital Equip. Corp., DCE/DFS on DEC OSF/1 development
+
+[1/10/94 public]
+
+[1/18/94 public]
+
+This problem was fixed in the 1.0.3 documents in
+response to CR9146. I checked the 1.0.3 documentation
+source and the latest postscript output of that
+source, and the fixes are there. I am therefore
+cancelling this CR.
+
+
+
+CR Number                     : 9076
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : other
+Component Name                : dced
+Subcomponent Name             : secval
+Short Description             : 68-byte dcecred_ffffffff stops self
+Reported Date                 : 10/8/93
+Found in Baseline             : 1.0.2
+Found Date                    : 10/8/93
+Severity                      : B
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/8/93 public]
+  Scenario: secd is down, no replicas. In the cell, a client node
+reboots, and as it reboots cleans its creds directory. sec_clientd
+is then run.
+  sec_clientd winds up creating a dcecred_ffffffff file with limited
+contents. I have not traced the exact sequence through here -- like all
+others, I am so busy -- but what we see is that the cred file has only a
+'header'. A picture to replace my thousand words:
+                                                                      .
+k2# dce.ps
+  PID TT STAT  TIME COMMAND
+23397 ?  S <   1:15 secd
+23403 ?  S     0:14 ./sec_clientd -v
+k2# kill 23397
+k2# sec_clientd -v &
+
+[1] 23424
+k2# ls -ls $CREDS/*ffffffff*
+sec_clientd - Unable to open override file /opt/dcelocal/etc/passwd_override
+sec_clientd - Registering override interface
+sec_clientd 10/08/93 15:52:36 - Registering rsec_login interface
+sec_clientd 10/08/93 15:52:39 - Setting up machine context
+sec_clientd 10/08/93 15:52:39 - Listening on roverride/rsec_login interface
+   1 -rw-------  1 root           52 Oct  8 15:52 /opt/dcelocal/var/security/creds/dcecred_ffffffff
+
+[1]  + Done                 sec_clientd -v
+k2# ls -ls $CREDS/*ffffffff*
+   1 -rw-------  1 root           52 Oct  8 15:52 /opt/dcelocal/var/security/creds/dcecred_ffffffff
+                                                                      .
+k2# klist -e -c FILE:$CREDS/dcecred_ffffffff
+Specified credentials not found: No currently established network identity for which context exists (dce / sec)
+                                                                      .
+Kerberos Ticket Information:
+Ticket cache: /opt/dcelocal/var/security/creds/dcecred_ffffffff
+Default principal: hosts/k2/self@k2.dce.transarc.com
+k2#
+                                                                      .
+                                                                      .
+                                                                      .
+  But the thumbnail sketch is that this abbrevaited file is not grown by
+the addition of tickets; the KDC is down and unreachable. Following the
+code in sec_clientd.c:machine_context(), we see that the machine-context
+thread gets errors back due to the downed secd, and eventually enters
+its TRY-block where it immediately skips over the "while
+(GOOD_STATUS(.." loop and then perishes. Along this path, the keymgmt
+thread never gets created.
+                                                                      .
+ The lack of the context thread causes at least dtsd to complain and has
+effects on dfsd and its ilk. A user may kills ec_clientd in hopes of
+resolving this problem, but what happens then is that
+sec_login_setup_first() immediately returns due to the presence of the
+creds file. The truncated cred file violates assumptions in the code
+paths meant to inherit it, and the exact same outcome as before is
+achieved.
+
+[10/8/93 public]
+fixed priority to what it was supposed to be - B2.
+
+[08/26/94 public]
+dced's secval won't do anything until secd is available.
+Cancelling.
+
+
+
+CR Number                     : 5112
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : dced
+Short Description             : dced should export binding info to hosts/<hostname>/self
+Reported Date                 : 8/18/92
+Found in Baseline             : 1.0.1
+Found Date                    : 8/18/92
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : 
+Transarc Status               : 
+
+[8/18/92 public]
+ 
+Currently (in 1.0.1) the binding on the hosts/<hostname>/self entry in the
+namespace is created by dce_config. It is only a UDP binding (Even if the
+cell is being created with only connectionful transports! This is because
+dce_config doesn't check what transport are availble.)
+ 
+This entry is not currently used by any part of DCE, so this isn't a big
+problem, but it's there for consistency, and for consistency's sake we
+should also have the connectionful bindings there.
+ 
+The correct way to fix this is to have rpcd export the binding information
+(since only rpcd knows exactly what transports it's willing to accept). This
+requires some more fancyness in the cell creation case (obvisously rpcd can't
+do the export until after the namespace has been created), but this is a
+small programming problem.
+
+[10/16/92 public]
+Changed code enginer to Mishkin.
+
+[1/27/93 public]
+ 
+Cancelled after discussion with R. Mackey.
+
+[1/27/93 public]
+ 
+There seems to be some confusion, nothing in DCE will break if this entry isn't
+created correctly, indeed, nothing in DCE will break at all if this entry isn't
+created by dce_config.
+ 
+Nat had a argument on why the binding on host/<hostname>/self was useful.
+Certain applications might need to communicate with the rpcd on a host, using
+the bindings on host/<hostname>/self was the way he expected them to do it.
+ 
+NOW, either this shouldn't be supported at all - in which case dce_config
+shouldn't put the binding there - or all the bindings that are relavent should
+be placed there. Nat felt stongly that they should all be there, and agreed to
+make the changes outlined above.
+ 
+In any case, this should be fixed (though it might be reasonable to defer
+it from DCE1.0.1) - either by elminating the binding from dce_config, or
+preferably, changing rpcd.
+
+[1/30/93 public]
+ 
+The (probably) cleanest fix for this is to introduce a new rpcd
+management interface to export all of its bindings to the
+namespace.  rpccp would be the client of this interface, and when
+dce_config has finished creating the namespace, it would invoke
+rpccp to export the rpcd bindings.
+ 
+Changing this OT to an enhancement.
+
+[6/20/94 public]
+Since rpcd is going to be replaced by dced in DCE R1.1, this enhancement
+is probably moot.  Adding the dced component owner to the CC list
+sbut I am canceling this enhancement.
+
+[6/20/94 public]
+Is there some reason why you aren't just changing the component for these
+defects to dced instead of cancelling them?
+
+[6/20/94 public]
+I canceled this one because, as I said above, this one is probably moot.
+The 1 other defect that related to rpcd, I assigned to dced.
+I would expect Rich to re-open this if, in fact, dced has this problem.
+
+[6/20/94 public]
+Is there some characteristic of dced that makes it moot?  It seems like the
+above arguments still hold.
+ 
+By the way, in the cells I've seen, /:/fs is a group containing the self
+entry for the primary server.
+
+[6/21/94 public]
+ 
+Dave's right, the argument above applies equally well to the dced.
+
+[6/21/94 public]
+Well, I don't see you guys jumping to *fix* this.
+I also might point out that if it is indeed a dced problem, the
+perhaps instead out just pointing this out to me, you could re-assign
+the defect (as I have) to the dced component (and the dced componet lead).
+
+[6/24/94 public]
+This defect was just forwarded to me, so I haven't been involved in
+this discussion, but I would like to point out that one DCE component
+would be quite broken without the self entry in the namespace. I believe
+that this entry is primarily there for DFS and thus the reason it only
+has udp binding information.  When cn RPC was introduced into our code
+base, a well-intentioned install/config person modified the config
+tools to include the cn binding information for this entry.  DFS
+was dead in the water. I don't think this can be changed without
+significant impact to DFS. This section of our config tool now
+reads:
+ 
+        # Export the DFS endpoint mapper host binding (only for ncadg_ip_udp)
+        echo $default_protocols | grep -q "ncadg_ip_udp"
+        if [ $? -eq 0 ]; then
+        echo "export -i e1af8308-5d1f-11c9-91a4-08002b14a0fa,3.0 \
+                -b ncadg_ip_udp:${ip_address}[135] \
+                /.:/hosts/$dce_host/self"
+        fi
+Changed Interest List CC from `rsalz' to `rsalz, dstokes@austin, 
+ cfe@transarc.com' 
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `' 
+Added field Transarc Status with value `'
+
+[6/24/94 public]
+Well, blush.  Looks like ubik needs to filter its bindings a bit
+better than it does, or something.  But, yes, DFS really needs that
+hosts/FOO/self entry.
+ 
+But it gets worse.  If a machine has more than one network address,
+all those addresses should be put into the hosts/FOO/self entry to get
+ubik to work.  Otherwise, one of the Ubik peers might not recognize
+RPCs from another of the Ubik peers as members of the configured set.
+
+[07/12/94 public]
+Criag and I did some off-line discussion about this.  It turns out
+that because of a bug in ubik we can't change what gets put in the self
+entry.  However, dced puts everything in the "config" entry so life's
+not as bad as it seems.  Marking this as cancel, since that seems a little
+more correct then closed.
+
+
+

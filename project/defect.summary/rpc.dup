@@ -1,0 +1,2141 @@
+CR Number                     : 12931
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : other
+Component Name                : rpc
+Subcomponent Name             : IDL
+Short Description             : Marshalling problems in RPC
+Reported Date                 : 6/23/95
+Found in Baseline             : 1.1
+Found Date                    : 6/22/95
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 12885
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : cnxfer.c cncthd.c cncall.c
+Sensitivity                   : public
+
+[6/24/95 public]
+We're  seeing marshalling problems in an RPC program which sends a long byte
+stream across over TCP, with security. 
+
+This is the abbreviated IDL file: 
+
+typedef struct {
+wire_recordFormat_t      format;
+[ptr,length_is(dataLength),
+size_is(bufferLength)] /* wire_pointer_t */ byte * buffer; /* XXX */
+unsigned long           bufferLength;
+unsigned long           dataLength;
+unsigned long           numExternalFields;
+[ptr, size_is(numExternalFields)] 
+wire_externalField_t *externalFieldsArrayP;
+} wire_record_t;
+...
+
+
+typedef struct { 
+unsigned short version ;
+...
+unsigned long numWrites ;
+[ptr , size_is (numWrites ) ] wire_record_t *writeRecordArrayP ; 
+...
+} wire_batchInRequest_t ;
+
+...
+
+wire_status_t _svr_NTBatch(
+[in] handle_t h,
+[ptr,in] wire_batchInRequest_t *batchInP
+);
+
+
+The problem occurs when marshalling the writeRecordArrayP pointer, when more than a certain number
+of entries (11) are used.
+
+
+The length and the size of the byte stream that is sent in the buffer field of batchinP is 
+283. [ Both dataLength and bufferLength are 283] 
+
+The problem occurs when the client and server are run over TCP (they work fine over
+UDP). The client receives a fault packet back from the server. 
+
+Here is what I've been able to detect from looking at the problem
+
+When marshalling the 283 byte array, the client puts the Z-values , i.e. the
+maximum count [ In this case, 283] and then the lower and upper range limits 
+[0 and 283 in this case], and then the actual value of the array. This is
+how IDL marshalling of a conformany, varying undimensional array is done.
+
+Now, after putting down 283 bytes, the marshalling code, wants to put down the
+[ maximum count, offset, actual count] for the next array. This needs to be
+4 byte aligned, so an extra byte of padding is used before the max count is
+put down. 
+
+hence, the encoded stream looks like this
+
+... [ 283 bytes of data] [1 byte of padding] [max count, offset, actual count = 12 bytes][ 283 bytes
+of data][1 byte of padding][max count, offset, actual count] ....
+
+The iovectors that are built up on the client side are thus of sizes 13 bytes [ 1 byte pad + 3 longs[,
+[ 283 bytes], 13 bytes, 283 bytes .... 
+
+When the array size is greater than 11 or so, the byte stream is broken up and sent in
+the form of separate packets. This breaking occurs at a 283 byte boundary. 
+
+Thus we have [283 byte data] ||| [ 13 bytes ] 
+
+The data in the packet is thus unaligned and is not on a 4 byte boundary. The auth
+trailer actually pads this out to 4 bytes and sticks on the trailer and sends it out. 
+
+On the receive side, the auth trailer is removed and the padding is thrown away, and the
+data is again not aligned. 
+
+
+After consuming an array element the server unmarshalling code calls  rpc_ss_ndr_unmar_Z_values
+to unmarshal the expected Z values in the input stream. This works fine until you reach the end
+of the packet. At that point, the code calls IDL_UNMAR_LONG(), which in turn
+calls IDL_UNMAR_ALIGNED_SCALAR( on a 4 byte boundary), which in turn calls 
+IDL_UNMAR_ALIGN_MP() to align  on a 4 byte boundary. 
+
+#define IDL_UNMAR_ALIGN_MP(IDL_msp, alignment)\
+{ \
+int advance;\
+advance = (idl_byte *)\
+(((IDL_msp->IDL_mp - (idl_byte *)0) + (alignment-1)) & ~(alignment-1)) \
+- IDL_msp->IDL_mp; \
+IDL_msp->IDL_mp += advance; \
+IDL_msp->IDL_left_in_buff -= advance;\
+}
+At this point, IDL_left_in_buff is 0, and decrementing it by 1 sets it to a 0xfffffe
+
+#define IDL_UNMAR_ALIGNED_SCALAR( marshalling_macro, size, type, param_addr ) \
+{ \
+IDL_UNMAR_ALIGN_MP( IDL_msp, size ); \
+rpc_ss_ndr_unmar_check_buffer( IDL_msp ); \
+...
+
+}
+
+IDL_UNMAR_ALIGNED_SCALAR "calls" rpc_ss_ndr_unmar_check_buffer(), which ONLY
+calls rpc_call_receive() to get a new buffer if IDL_left_in_buff is zero, which
+isn't true anymore. Hence, it can't get any more data and sends back a fault packet 
+to the client. 
+
+This seems easy to fix, just modify IDL_UNMAR_ALIGN_MP() to not decrement
+IDL_left_in_buff, if IDL_left_in_buff = 0. 
+
+If this is fixed, a second problem shows up in the second packet. 
+
+The data in the second packet is 13 bytes = 1 byte of pad, max count, offset, 
+actual count. However, the starting byte of this is already aligned on a 4 byte
+boundary, thus the unmarshaller doesn't skip over it as it does when it encounters
+it in the middle of a packet. hence, it starts reading one byte out of alignment
+and quickly core dumps. 
+
+This problem also shows up when data lengths of 285, 286 etc. are used. Only those
+lengths divisible by 4 don't cause a problem. 
+
+It seems that this should be fixed on the client side, and that the client should
+reset the IDL_mp_start_offset field after a  packet has been sent out and assume 4 byte 
+alignment to begin with when starting to marshal  a new packet. 
+
+However, from looking at the client marshalling code, and all the iovectors still present
+when a packet is sent out, it seems that a lot of the remaining data has already
+been marshalled and is present in the IDL_msp->IDL_iovec fields at the time the
+first packet is sent. Thus the data is already marshalled, and is not sent at that
+point, and its not clear to me how you would realign it, since at that time you
+don't really have much information on the marshalled-but-not-sent data. 
+
+A second possibility might be for the server unmarshaller side to keep track of how 
+many bytes it needs to align itself at the end of a packet and skip over that many
+bytes at the begining of the the next packet. However, this may mean the data in the
+second packet is misaligned all the way through the packet , and this could cause
+severe performance problems and maybe even BUS errors on some architectures.
+
+[6/23/95 public]
+
+This is a dup of CR #12885. It is a bug in the CN fragmentation code, not
+in the un/marshalling code. Yes, the fix should be made in a sender, not a
+receiver, since it's violating an alignment rule. Also, the receiver should
+reject such a fragment to prevent a coredump caused by the buggy sender.
+
+
+
+CR Number                     : 12792
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 9614
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : dg
+Short Description             : Client fails with 'reject unkown'
+when using authenication level 6 with multiple binding handles.
+Reported Date                 : 2/8/95
+Found in Baseline             : 1.0
+Found Date                    : 2/8/95
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 9614
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1b17
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/8/95 public]
+Client will fail with status 'unknown reject' when using multiple binding   
+handles and authentication level 6.  The client will not fail when using
+authentication levels 1-5 or one binding handle. 
+The basic scenario of the client application is given below:
+				.
+			.
+			.
+		rpc_binding_set_auth_info(handle1,....)
+		server_call(handle1,.....)
+		rpc_binding_set_auth_info(handle2,....)
+		server_call(handle2,.....) 
+		st=unknown reject
+			.
+			.
+			.
+After investigating the problem, the server fails in the rpc__dg_execute_call
+during the execution of rpc__krb_dg_recv_ck.  It seems the _recv_ck is being 
+executed twice in the executor thread on the same packet: once in 
+rpc__dg_call_receive_int and in rpc__dg_execute_call after a WAY validate.
+The question arises if the client should be allowed to use multiple bindings
+within the same process when using authentication level 6.  If so, then
+why would rpc runtime try to decrypt the packet body twice for level 6 or 
+even _recv_ck twice for levels 1-6.
+
+[2/8/95 public]
+
+Fixed in dce1.1. See OT9614.
+
+
+
+CR Number                     : 12541
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 9336
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : 
+Short Description             : VM used up if pipe writer faster than reader
+Reported Date                 : 10/6/94
+Found in Baseline             : 1.1
+Found Date                    : 10/6/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 9336
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/6/94 public]
+When I was discussing the content of OT 12540, someone on the DCE tech
+call mentioned that there's a separate architectural problem with DCE
+RPC pipes; I don't know if it's limited to DG pipes or what.  The
+issue is that if a pipe sender is faster than the receiver, the
+received pipe data is buffered in memory with no throttle-back
+indication to the sender.  The issue is potentially quite serious; DFS
+uses a single pipe in order to transfer the contents of an entire
+fileset, which can easily be in the 1 GB size range.  Even if it were
+acceptable to bloat a receiving process's memory image by the contents
+of a pipe, the receiving process could well exhaust available memory
+to the breaking point in trying to do so.
+
+[10/6/94 public]
+As SEiichi correctly notes, this is a dup of CR 9336.
+I said that CN had this problem, not DG.
+
+
+
+CR Number                     : 12147
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 7990
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : other
+Component Name                : rpc
+Subcomponent Name             : RPC, SEC
+Short Description             : pthread cancels are dangerous
+Reported Date                 : 9/12/94
+Found in Baseline             : 1.0.3
+Found Date                    : 9/12/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 7990
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/12/94 public]
+..
+ It should be noted that this design problem reaches across 102, 102a,
+103, and 103a; it may well be present in v1.1)
+..
+ We've seen several instances of customer applications getting wedged,
+all of which have one common demoninator: the application gets wedged
+in a deadlock because the rpc runtime and/or security credential
+managers are waiting on a mutex or cond-var that was left locked when
+the locking thread was cancelled from above, cancelled by the
+application's logic which has no way of knowing that the targeted thread
+has entered the DCE library and is busy within cancel-frail locking
+scopes.
+ We addressed the most common form of this with the attached delta, but
+did not release this as a patch because it is only one aspect of the
+larger problem -- there need to be similar TRY-blocks added judiciously
+in many places throughout the runtime. Never MIND the complications this
+issue can add when you consider what happens if a thread gets cancelled
+while it has a credential file cursor walking a cred file without
+OPENCLOSE mode active, and/or open for write (with a posix lock on the
+file).
+ We hazard to make these changes on our own for two reasons:
+this is not a platform-isolated issue, it is widespread for all of DCE;
+also the widespread changes drive us quite far from the 1.0.X code base
+and will cimplicate our merge with 1.1. The second points raises the
+third reason that we donot attack this locally: if it doesn't get fixed
+by the OSF, V1.1 will continue to exhibit this weakness / design
+shortfall.
+ I attach, for the technical explanation, the difference file for a fix
+/ instrumentation of the most common occurrence of this problem.
+-------------------------------------------------------
+-------------------------------------------------------------------------------
+Changes to rpc/runtime/krbclt.c in open delta travis-tp12603-beware-of-exceptions-while-setting-binding-auth:
+===================================================================
+RCS file: /afs/tr/proj/alpine/dev/rcs/rpc/runtime/RCS/krbclt.c,v
+retrieving revision 9.1
+diff -cbt -r9.1 rpc/runtime/krbclt.c
+*** 9.1	1993/06/19 02:21:07
+--- rpc/runtime/krbclt.c	1994/07/29 17:19:20
+***************
+*** 1,3 ****
+--- 1,14 ----
++ /*-
++  * @TRANSARC_COPYRIGHT@
++  *
++  * $TALog$
++  * $EndTALog$
++  */
++ 
++ #if !defined(_NOIDENT) && !defined(lint)
++ static char *TARCSId = "$Id: c012147,v 1.8 94/09/15 10:35:34 root Exp $";
++ #endif
++ 
+  /*
+   * @OSF_COPYRIGHT@
+   * COPYRIGHT NOTICE
+***************
+*** 152,157 ****
+--- 163,170 ----
+  {
+      int st, i;
+      rpc_krb_info_p_t krb_info;
++     int outer_cancel_state;
++     boolean32 discard;
+  
+      RPC_MEM_ALLOC (krb_info, rpc_krb_info_p_t, sizeof(*krb_info),
+                     rpc_c_mem_util, rpc_c_mem_waitok);
+***************
+*** 161,166 ****
+--- 174,185 ----
+      RPC_MUTEX_INIT(krb_info->lock);
+      RPC_COND_INIT(krb_info->cond, krb_info->lock);
+      
++     outer_cancel_state = pthread_setcancel(CANCEL_OFF);
++     RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2,
++                    (">>>>>%s:%d: cancellation state at entry: (%s)\n",
++                     outer_cancel_state == CANCEL_ON ? "on" : "off"));
++  TRY {
++ 
+      RPC_KRB_INFO_LOCK(krb_info);
+      
+      if ((authz_prot != rpc_c_authz_name) &&
+***************
+*** 221,227 ****
+--- 240,285 ----
+      st = rpc_s_ok;
+  poison:
+      *infop = (rpc_auth_info_p_t) &krb_info->auth_info;
++ 
++   } CATCH_ALL {
++     /*  We caught an unhandled exception. Display
++      *  the exception itself, clean the state, then
++      *  reraise the exception.
++      */
++     RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2, (">>>>>\n"));
++     RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2,
++                    (">>>>>%s:%d: uncaught exception,", __FILE__, __LINE__));
++     exc_report(THIS_CATCH);
++     /*  See if anyone below us turned cancellation back on (no-no). */
++     RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2,
++                    (">>>>>restoring cancelability to state at entry (%s)\n",
++                     outer_cancel_state == CANCEL_ON ? "on" : "off"));
++     if (pthread_set_cancel(outer_cancel_state) == CANCEL_ON) {
++       RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2,
++                      (">>>>>cancellation was found ON, check subroutines!\n"));
++     }
++     RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2, (">>>>>dropping lock\n"));
++     /*  This next line is an invasion of the RPC_KRB_INFO_LOCK()
++      *  macro, but it guarantees that we can do an unconditional
++      *  unlock of the (presumed fast) mutex.
++      */
++     RPC_TRY_LOCK(krb_info->lock, &discard);
++     RPC_KRB_INFO_UNLOCK(krb_info);
++ 
++     RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2, (">>>>>reraising exception\n"));
++     RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2, (">>>>>\n"));
++     RERAISE;
++   } FINALLY {
+      RPC_KRB_INFO_UNLOCK(krb_info);
++   }
++   ENDTRY;
++ 
++     /*  See if anyone below us turned cancellation back on (no-no). */
++     if (pthread_set_cancel(outer_cancel_state) == CANCEL_ON) {
++       RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2,
++                      (">>>>>%s:%d:at exit from rpc__krb_bnd_set_auth(), cancellation was found ON, check subroutines!\n",
++                       __FILE__, __LINE__));
++     }
+      krb_info->status = st;
+      *stp = st;
+      return;
+-------------------------------------------------------------------------------
+Changes to rpc/runtime/krbdgclt.c in open delta travis-tp12603-beware-of-exceptions-while-setting-binding-auth:
+===================================================================
+RCS file: /afs/tr/proj/alpine/dev/rcs/rpc/runtime/RCS/krbdgclt.c,v
+retrieving revision 9.2
+diff -cbt -r9.2 rpc/runtime/krbdgclt.c
+*** 9.2	1993/06/22 21:44:12
+--- rpc/runtime/krbdgclt.c	1994/07/29 17:19:35
+***************
+*** 1,3 ****
+--- 1,14 ----
++ /*-
++  * @TRANSARC_COPYRIGHT@
++  *
++  * $TALog$
++  * $EndTALog$
++  */
++ 
++ #if !defined(_NOIDENT) && !defined(lint)
++ static char *TARCSId = "$Id: c012147,v 1.8 94/09/15 10:35:34 root Exp $";
++ #endif
++ 
+  /*
+   * @OSF_COPYRIGHT@
+   * COPYRIGHT NOTICE
+***************
+*** 109,116 ****
+--- 120,132 ----
+      rpc_krb_info_p_t krb_info = (rpc_krb_info_p_t)info;
+      rpc_krb_key_p_t krb_key = (rpc_krb_key_p_t)key; 
+      unsigned32 st = rpc_s_ok;
++     int outer_cancel_state;
++     boolean32 discard;
+  
+      /* !!! this needs revision for locking */
++     /* !!! This has been modified since the above comment was made
++      *     to protect the lock-range against cancellations.
++      */
+      
+  #ifdef FORCE_KEY_CHANGE
+      static int ncalls = 0;
+***************
+*** 139,144 ****
+--- 155,166 ----
+      }
+  #endif
+  
++     outer_cancel_state = pthread_setcancel(CANCEL_OFF);
++     RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2,
++                    (">>>>>%s:%d: cancellation state at entry: (%s)\n",
++                     outer_cancel_state == CANCEL_ON ? "on" : "off"));
++  TRY {
++ 
+      /* write-lock krb_info */
+      RPC_KRB_INFO_LOCK(krb_info);
+  
+***************
+*** 171,179 ****
+--- 193,238 ----
+  out:
+      *stp = st;
+  
++   } CATCH_ALL {
++     /*  We caught an unhandled exception. Display
++      *  the exception itself, clean the state, then
++      *  reraise the exception.
++      */
++     RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2, (">>>>>\n"));
++     RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2,
++                    (">>>>>%s:%d: uncaught exception,", __FILE__, __LINE__));
++     exc_report(THIS_CATCH);
++     /*  See if anyone below us turned cancellation back on (no-no). */
++     RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2,
++                    (">>>>>restoring cancelability to state at entry (%s)\n",
++                     outer_cancel_state == CANCEL_ON ? "on" : "off"));
++     if (pthread_set_cancel(outer_cancel_state) == CANCEL_ON) {
++       RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2,
++                      (">>>>>cancellation was found ON, check subroutines!\n"));
++     }
++     RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2, (">>>>>dropping lock\n"));
++     /*  This next line is an invasion of the RPC_KRB_INFO_LOCK()
++      *  macro, but it guarantees that we can do an unconditional
++      *  unlock of the (presumed fast) mutex.
++      */
++     RPC_TRY_LOCK(krb_info->lock, &discard);
++     RPC_KRB_INFO_UNLOCK(krb_info);
++ 
++     RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2, (">>>>>reraising exception\n"));
++     RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2, (">>>>>\n"));
++     RERAISE;
++   } FINALLY {
+      /* unlock krb_info */
+      RPC_KRB_INFO_UNLOCK(krb_info);
++   }
++   ENDTRY;
+  
++     /*  See if anyone below us turned cancellation back on (no-no). */
++    if (pthread_set_cancel(outer_cancel_state) == CANCEL_ON) {
++       RPC_DBG_PRINTF(rpc_e_dbg_cma_thread, 2,
++                      (">>>>>%s:%d: at exit from rpc__krb_dg_pre_call(), cancellation was found ON, check subroutines!\n",
++                       __FILE__, __LINE__));
++     }
+  }
+-------------------------------------------------------------------------------
+
+[9/12/94 public]
+Yuck, that fix is ugly.
+It's also incorrect; as you can't just assume that the krb_info is in a
+consistant state if you're blown out of the water by a cancel while the
+lock is held.
+I believe the correct fix is to disable async cancellability in RPC before
+entering any of the security-specific code.
+
+[9/12/94 public]
+Assuming that sec_*() functions called by rpc runtime don't have any
+(synchronous) cancellation point or handle the cancellation points
+properly, we can just disable the asynchronous cancellability in
+rpc_binding_set_auth_info()::comauth.c (and maybe in
+rpc_server_register_auth_info()?).
+The asynchronous cancellability is disabled in the client stub. Thus, as
+long as the above assumptions are correct, no problem exists in the client
+stub. (rpc__krb_dg_pre_call() never get cancelled.)
+In the server side, the general cancellability is disabled in the call
+executor thread. It gets enabled by the server stub just before calling
+into the server manager routine and then disabled again after returning
+from the server manager routine. However, I see no
+RPC_SS_THREADS_RESTORE_GENERAL() in CATCH_ALL path. This needs to be fixed
+in the IDL compiler. Also, the asynchronous cancellability state should be
+save/restored in the server stub. So, with the IDL compiler fix, like the
+client stub, no problem will exist in the server runtime.
+I believe that we already have a TRY/CATCH block at the right places in the
+rpc runtime. Of course, if my assumptions about sec_*() are wrong, we are
+in trouble... In any case, the originally suggested fix is not correct as
+Bill said.
+
+[9/13/94 public]
+Aren't we just talking about compensating for a programming error?
+As I recall, the pthreads spec says that you should never call into 
+a routine/service with async cancelability enabled unless that routine
+explicitly claims to be be async-cancel safe.
+The RPC runtime does not claim to be async-cancel safe.  (Nor does the C
+library.  Are we going to disable async cancelability in malloc so that
+it doesn't get blasted while it's in some inconsistent state?)
+Also, the RPC runtime tries to detect posted cancels in a timely
+manner by periodically calling pthread_testcancel().  There should be no
+reason why the application needs to enable async cancels while calling
+into RPC.
+
+[9/13/94 public]
+See CR 7990 for the IDL compiler fix.
+
+[9/13/94 public]
+And thanks to Seiichi (tatsu_s) for whipping off the idl compiler
+fix for us.  I am in process of fixing 7990, and I am dup'ing
+this defect to it.
+Transarc, does all this sound good to you?
+
+[9/14/94 public]
+  This all seems to leave the issue of general cancelability
+unaddressed. I want to go and brush up on that before I conclude here. I
+may be wrong, and shouldn't venture this question before doing my
+homework, but isn't almost any call into security w.r.t. credentials
+going to hit a large number of general cancellation points (read(), for
+example)?
+  Like I say, I am still refreshing my memory on general cancellation
+and may come up with more (or more appropriate) questions tomorrow.
+
+[9/15/94 public]
+
+I can't speak for the security code, but the RPC runtime has exception
+handlers set up for each cancelation point it calls into.
+
+
+
+CR Number                     : 12074
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : 
+Short Description             : Illegal state transition in CN client association state machine
+Reported Date                 : 9/7/94
+Found in Baseline             : 1.1b16
+Found Date                    : 9/7/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 8157
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/7/94 public]
+
+Using bl16.3, during weekend testing running DCDREL001, the
+following output was seen at the terminal on an HP system running
+as a DCE client in a 4-node cell:
+
+  Failed to retrieve server binding from the namespace: Name service
+  unavailable (dce / rpc)
+  Failed to retrieve server binding from the namespace: Name service
+  unavailable (dce / rpc)
+  Failed to retrieve server binding from the namespace: Name service
+  unavailable (dce / rpc)
+
+There were about 20 of those messages, followed by:
+
+  Illegal state transition detected in CN client association state
+  machine [cur_state: INIT_WAIT, cur_event: REQ, assoc: 403d7058]
+
+In spite of these messages, DCE still appeared to be functioning on
+this node- it ran the simple "dce.ps" script successfully.
+
+Illegal state transition detected in CN client association state
+machine [cur_state
+: INIT_WAIT, cur_event: REQ, assoc: 403d7058]
+
+[9/7/94 public]
+
+Prasad pointed out that this is now a "feature" in the RPC RTL, 
+to handle a networking problem on the HP-UX by providing a warning 
+message and handling the situation rather than crashing.
+
+[9/7/94 public]
+
+What strikes me is the fact that the message goes to the terminal. I bet
+that this warning message is coming from dced (endpoint mapper) and it's
+not disassociating itself from the stderr (terminal) when it becomes the
+daemon. That means we can't start dced by remsh and if the terminal window
+goes away the serviceability messages will be lost (unless someone changes
+the default routing for dced).
+
+[09/07/94 public]
+Yeah, dced doesn't yet use full SVC and disassociate itself.
+We are fixing this (OT CR 11725).  However, that doesn't explain
+why the RPC runtime is printing out a message to stderr...
+
+[9/7/94 public]
+
+The "Illegal state transition ..." warning message is printed by
+dce_svc_printf() and I believe that its default routing is STDERR. Of
+course, you can argue that the rpc runtime shouldn't print it. :-) Anyway,
+it only happens with HP-UX and BSD 4.4 (real one) networking code and it's
+illegal. :)
+
+
+
+CR Number                     : 11234
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : rpc
+Subcomponent Name             : 
+Short Description             : RPC causes dced to core dump
+when there is a 1.0.3 client in the cell
+Reported Date                 : 7/11/94
+Found in Baseline             : 1.1
+Found Date                    : 7/11/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 8157
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/11/94 public]
+
+Cell Configuration: 
+
+HPUX (dce1.1)   : dced, SEC server, DTS server
+OSF1 (dce1.0.3) : rpcd, CDS server, DTS server
+
+NB- July 6 (BL-11)
+
+The cell was idle during the weekend; dced cored dump with the following
+error:
+
+1994-07-11-05:44:09.536-04:00I----- dced FATAL rpc rpc_svc_cn_state 0x40027928
+Illegal state transition detected in CN client association state machine
+[2, cur_event: 0, assoc: 401313a0]
+
+
+[I had a core dump, unfortunatelly when I brought up the debugger, it
+created another core which overwrote the one from dced]
+
+I am going to restart the cell.
+
+[7/11/94 public]
+This is a dup of 8157, which has been around for quite a while.
+We don't have a good idea as to why this is happening.
+See 8157 for lots of details.
+
+
+
+CR Number                     : 10933
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : rpc runtime
+Short Description             : incorrect exception value
+received in CN
+Reported Date                 : 6/11/94
+Found in Baseline             : 1.0.3
+Found Date                    : 6/11/94
+Severity                      : C
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 10677
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/11/94 public]
+IDL backend testcase pipefault failed with CN protocol
+
+pipefault failed - unexpected CMA exception rpc_x_unknown_reject when
+  the protocol is CN on both AIX and OS/2.
+
+This problem was seen in DCE 1.0.3 on both AIX and OS/2, DCE 1.0.2
+based OS/2 DCE, and DCE 1.1.
+
+When protocol is ncacn_ip_tcp, the client displayed the messages
+    "FAILURE: unexpected exception"
+and "FAILURE: unexpected CMA exception rpc_x_unknown_reject"
+after the message "Unbinding my-handle".
+
+ncadg_ip_udp run ok without displaying the error messages.
+
+Details:
+The test server (in manager.c) intentionally tried to write to a
+closed pipe.  RPC correctly raised rpc_x_ss_pipe_closed exception
+in idl/lib/ndrmi3.c, rpc_ss_ndr_ee_marsh_pipe_chunk().
+
+On the client side, in cncall.c, rpc__cn_call_transceive() received
+the last fragment and checked the status.  The statement
+    fault_code = RPC_CN_PTK_STUTUS(header_p);
+set fault_code to 382312542 (16c9a05e), which translates to runtime
+status: rpc_s_known_reject.
+
+Except the rpc_x_ss_pipe_closed exception, tther pipe fault exceptions
+: rpc_x_ss_pipe_empty, rpc_x_ss_pipe_order and
+rpc_x_ss_pipe_discipline_error were correctly rasied, and the fault_code
+in cncall.c on the client side was set to zero.
+
+[6/13/94 public]
+
+0x16c9a05e = rpc_s_call_orphaned . Sounds like CR 9550 to me.
+
+[6/13/94 public]
+Well, it certainly is a duplicate of 10677, which reported this test failure. 
+I will try to fix 9550 and see if that fixes 10677.
+
+
+
+CR Number                     : 10878
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa,i486
+S/W Ref Platform              : hpux,osf1
+Component Name                : rpc
+Subcomponent Name             : 
+Short Description             : core smoketests fail while
+setting ACLs
+Reported Date                 : 6/7/94
+Found in Baseline             : 1.1
+Found Date                    : 6/7/94
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 10876
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/7/94 public]
+
+I'm not sure which component is resposible so I've assigned this to SEC
+bcause of the recent drop, and cc'd CDS and RPC.
+
+We've run the core smoketests twice now, and each time the HPUX and AT486
+core smoketests both fail during configuring with the following runtime
+error that was also encountered by Kevin Sullivan.  On the HPUX:
+
+S:****** Starting cdsd...
+ERROR:   Error while setting ACLs on /.:
+           Message from acl_edit:
+           ERROR: communications failure (dce / rpc)
+         Unable to bind to object /.:
+
+And in the actual smoketest:
+
+cdscp show server
+connection request rejected (dce / rpc)
+communications failure (dce / rpc)
+communications failure (dce / rpc)
+communications failure (dce / rpc)
+cdscp show dir /.:
+
+                        SHOW
+                   DIRECTORY   /.../budapest_cell
+                          AT   1994-06-07-07:42:42
+Error on entity: /.../budapest_cell
+connection request rejected (dce / rpc)
+Function: dnsEnumAttr
+
+cdscp list dir /.:
+                        LIST
+                   DIRECTORY   /.../budapest_cell
+                          AT   1994-06-07-07:43:53
+cdscp show clearinghouse /.:/budapest_ch
+
+                        SHOW
+               CLEARINGHOUSE   /.../budapest_cell/budapest_ch
+                          AT   1994-06-07-07:44:29
+Error on entity: /.../budapest_cell/budapest_ch
+connection request rejected (dce / rpc)
+Function: dnsEnumAttr
+
+[6/7/94 public]
+Already reported by Rich Z. These look like dups of 10852.
+
+
+
+CR Number                     : 10677
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : rpc
+Subcomponent Name             : idl
+Short Description             : idl's handling of pipe execption with TCP is wrong
+Reported Date                 : 5/17/94
+Found in Baseline             : 1.0.3
+Found Date                    : 5/17/94
+Severity                      : B
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 9550
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/17/94 public]
+
+If a write to a closed pipe happens, an exception of rpc_x_ss_pipe_closed
+is supposed to be returned to the client code.
+
+This is what is being tested by test/rpc/idl/pipefault test. THe test
+runs OK with UDP protocol, but with TCP protocol, you get unexpected 
+exception of rpc_x_unknown_reject. CATCH clause does not catch 
+rpc_x_ss_pipe_closed.
+
+To see the problem, build that test, cd to obj/at386/test/rpc/idl, set 
+env var PROTOCOL to ncacn_ip_tcp, then do:
+
+	run_tests 1 pipefault
+
+[6/13/94 public]
+IBM also discovered this failure.  Here is their analisys:
+
+
+ywei from IBM says:
+
+IDL backend testcase pipefault failed with CN protocol
+
+pipefault failed - unexpected CMA exception rpc_x_unknown_reject when
+  the protocol is CN on both AIX and OS/2.
+
+This problem was seen in DCE 1.0.3 on both AIX and OS/2, DCE 1.0.2
+based OS/2 DCE, and DCE 1.1.
+
+When protocol is ncacn_ip_tcp, the client displayed the messages
+    "FAILURE: unexpected exception"
+and "FAILURE: unexpected CMA exception rpc_x_unknown_reject"
+after the message "Unbinding my-handle".
+
+ncadg_ip_udp run ok without displaying the error messages.
+
+Details:
+The test server (in manager.c) intentionally tried to write to a
+closed pipe.  RPC correctly raised rpc_x_ss_pipe_closed exception
+in idl/lib/ndrmi3.c, rpc_ss_ndr_ee_marsh_pipe_chunk().
+
+On the client side, in cncall.c, rpc__cn_call_transceive() received
+the last fragment and checked the status.  The statement
+    fault_code = RPC_CN_PTK_STUTUS(header_p);
+set fault_code to 382312542 (16c9a05e), which translates to runtime
+status: rpc_s_known_reject.
+
+Except the rpc_x_ss_pipe_closed exception, tther pipe fault exceptions
+: rpc_x_ss_pipe_empty, rpc_x_ss_pipe_order and
+rpc_x_ss_pipe_discipline_error were correctly rasied, and the fault_code
+in cncall.c on the client side was set to zero.
+
+Seiichi notes:
+	0x16c9a05e = rpc_s_call_orphaned . Sounds like CR 9550 to me.
+
+I am investigating 9550 to see if they are the same problem.
+
+[6/13/94 public]
+The fix provided by HP which corrects the fix to 8068 also fixes this
+test failure.  Dup'ing this defect to 9550.
+
+
+
+CR Number                     : 9962
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : CN runtime
+Short Description             : When auth. RPC using CN faults it maps any fault into call orphaned status (0x16c9a05e)
+Reported Date                 : 2/16/94
+Found in Baseline             : 1.0.3
+Found Date                    : 2/16/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 9550
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : rpc/runtime/cnsclsm.c
+Sensitivity                   : public
+
+[2/16/94 public]
+
+When application would use authenticated CN RPC and the call faults in the
+server manager routine, the CN runtime incorrectly returns the fault code
+rpc_s_call_orphaned (0x16c9a05e). It looses the correct falult status that
+was returned to it from the IDL library code.
+
+To reproduce the error you can run the test/rpc/runtime/perf test. Run the
+server and client as show below (the principal 'perf' has to be created and
+its a/c and key should be created with password -dce-):
+
+./server -p1,perf 1 ncacn_ip_tcp
+./client -p1,2,5,perf 9 'ncacn_ip_tcp:140.231.30.192[2001]'
+
+The test fails with the message that it got wrong exception. It was expecting
+IntZeroDivide (0x1c000001) fault.
+
+The action routine abort_resp_action_rtn() (file rpc/runtime/cnsclsm.c) that is
+called from abort_resp_send_fault_action_rtn() should count in the iovec for 
+the authentication trailer as shown below in #ifdef SNI_SVR4. This fix is a
+generic fix and the #ifdef should be taken off:
+
+     /*
+      * If there are buffered iovector elements, deallocate them.
+      *
+      * Note that the comparison below is not strictly correct.
+      * Even if there is only a single iovector element, there
+      * may be copied stub data after the header.  It's ok to
+      * ignore them because the only way in which the first
+      * iovector element would be reused is if we use it to send
+      * a fault.  That operation would adjust the pointers
+      * anyway to point to only the fault data.
+      */
++#ifdef SNI_SVR4
++    if (call_rep->sec == NULL && RPC_CN_CREP_IOVLEN (call_rep) > 1 ||
++        RPC_CN_CREP_IOVLEN (call_rep) > 2)
++#else
+     if (RPC_CN_CREP_IOVLEN (call_rep) > 1)
++#endif /* SNI_SVR4 */
+     {
+         rpc__cn_dealloc_buffered_data (call_rep);
+ 
+         /*
+          * This will keep the call_end_action_rtn from attempting to
+          * send the remaining iov which at this point is only an auth_tlr
+          * if this was an authenticated call.  We are calling this an
+          * orphaned call which technically, it is, ie the connection is
+          * gone and along with it the association.
+          */
+         call_rep->cn_call_status = rpc_s_call_orphaned ;
+
+[2/16/94 public]
+
+Dup'ing. So there are at least two ways to fix this...  I think that
+abort_resp_send_fault_action_rtn() shouldn't call abort_resp_action_rtn().
+
+[2/16/94 public]
+
+I think even if we take out call abort_resp_action_rtn() from the routine
+abort_resp_send_fault_action_rtn() (which I am not sure is "the correct
+thing"), we should apply the fix suggested here. The obviously incorrect
+comparison 'RPC_CN_CREP_IOVLEN (call_rep) > 1' should be fixed.
+
+[2/17/94 public]
+
+I didn't mean just taking out call to abort_resp_action_rtn(). What I was
+trying to say is that abort_resp_send_fault_action_rtn() should do the
+AbortResp action without calling abort_resp_action_rtn(). If we look at the
+server call state machine specification, you'll find that the AbortResp
+action is defined as "discontinue any further transmission of normal
+response data". It is not supposed to set any call status. The fix for
+OT8068 broke this because it didn't pay attention to the fact that
+abort_resp_action_rtn() is called by abort_resp_send_fault_action_rtn().
+
+[2/17/94 public]
+
+Aren't you implying the same thing here? Anyway, OT8068 indeed seems to have
+broken this routine. Setting the call status is creating this problem. However,
+send_call_fault_action_rtn() already does call 'rpc__cn_dealloc_buffered_data
+(call_rep);' then there is no need for the action 
+abort_resp_send_fault_action_rtn() to call to abort_resp_action_rtn() as you
+said and I agree. Yet, we need to fix the incorrect comparison that ignores
+the fact that RPC_CN_CREP_IOVLEN (call_rep) would be 2 for CN auth call.
+
+Many places 'RPC_CN_CREP_IOVLEN (call_rep) = 1' is incorrect as it ignores
+CN auth situation. However, in all cases I checked, this statement is harmless
+since it is never used, rather it is overwritten by correct values when it
+is actually used.
+
+
+
+CR Number                     : 9607
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : runtime?
+Short Description             : pkt_priv protection fails over
+UDP with new binding per call
+Reported Date                 : 12/10/93
+Found in Baseline             : 1.0.3
+Found Date                    : 12/10/93
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 9614
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[12/10/93 public]
+The explanation for the somewhat cryptic short deescription is this:
+  I was testing fixes to the rpc.cds.3 system test for intercell, and was
+  getting really poor results; 1/3 to 1/2 of the calls got rejected
+  with "unknown reject".  So I started trying different things....
+
+  What I ended up with is this:  If I run rpc.cds.3, inter cell or intra
+  cell, using pkt_priv protection, and specifying UDP bindings only, then
+  the first call succeeds, and all subsequent calls, through that binding
+  or any others, fails with the "unknown reject" error.  The short description
+  reflects the following two datapoints:
+     1. The rpc.sec.2 system test, run in the same cell, works correctly
+        for all protection levels and protocols.  Note that there are two
+        major differences between rpc.sec.2 and rpc.cds.3:
+          1. rpc.sec.2 gets a binding and uses it for the duration of 
+             the test run; rpc.cds.3 goes to the namespace for a new
+             binding before each call to the server.
+
+          2. rpc.sec.3 gets bindings directly from the server CDS entry;
+             rpc.sec.2 gets an object UUID from a namespace entry and then
+             pulls a binding from the server entry via a group attribute.
+
+    2. The rpc.cds.3 system test functions properly for all protection
+       levels a protocols except for pkt_priv.  This indicates to me that
+        the test code is basically sound.
+
+ Some might argue the high prio/sev, but group attributes and data
+ encryption are an important part of the value and usefulness of DCE.
+ Let me know if you disagree.   Unfortuneatly, I have no more time to 
+ spend on this at present.  I would guess that the next steps would be
+ something like:
+    Make rpc.cds.3 not use group attributes and see what happens;
+
+    Make rpc.cds.3 use the same binding for the entire test (defeats the
+    purpose of the test, but might help debugging.
+
+    Make rpc.sec.2 use group attribute and see what happens.
+
+    Start digging at the code.
+
+[12/14/93 public]
+
+Or use RPC_DEBUG to get the detailed reject status. RPC_DEBUG=0.1 will
+produce: "(queue_mapped_reject) st=0xXXXX => 0xYYYY...". Also note that
+there are other pkt_privacy related CRs, i.e., 9614, 9551 and 8643.
+
+[12/16/93 public]
+Looked at the RPC_DEBUG output of running this test, and determined that
+I am seeing the same error as is described in 9614;  I get it because I use
+a new binding every call, as opposed to 9614 which does a binding_reset per
+call.  Duped.
+
+
+
+CR Number                     : 9337
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : rpc/runtime/mgmt.c
+Short Description             : if_id_vector in
+rpc_mgmt_inq_if_ids() should be initialized to NULL
+Reported Date                 : 11/3/93
+Found in Baseline             : 1.0.3
+Found Date                    : 11/3/93
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 8193
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : rpc/runtime/comif.c
+Sensitivity                   : public
+
+[11/3/93 public]
+
+Licensee reported:
+
+"       When a NULL binding handle is supplied, if_id_vector returned by
+        rpc_mgmt_inq_if_ids() is not set to NULL.  This variable should
+        be initialized to NULL so as to match the man page and the AES.
+
+Repeat By:
+
+
+Proposed Solution: Extract of our change.
+
+PRIVATE void rpc_mgmt_inq_if_ids (binding_h, if_id_vector, status)
+
+rpc_binding_handle_t    binding_h;
+rpc_if_id_vector_p_t    *if_id_vector;
+unsigned32              *status;
+
+{
+    idl_void_p_t            (*old_allocate) PROTOTYPE ((unsigned long
+size));
+    idl_void_p_t            (*tmp_allocate) PROTOTYPE ((unsigned long
+size));
+    void                    (*old_free) PROTOTYPE ((idl_void_p_t ptr));
+    void                    (*tmp_free) PROTOTYPE ((idl_void_p_t ptr));
+
+#ifdef _FTX
+    if (if_id_vector)
+      (*if_id_vector) = NULL;
+    else {
+      *status = rpc_s_invalid_arg;
+      return;
+    }
+#endif
+
+    RPC_VERIFY_INIT ();
+
+"
+
+[11/3/93 public]
+
+"Found in Baseline" can't be 1.0.3, because it was already fixed in 1.0.3. :-)
+It must be 1.0.2 or 1.0.3b?. Returning rpc_s_invalid_arg when
+if_id_vector==NULL seems to be reasonable.
+
+[11/03/93 public]
+I am sure there are many people waiting for me to respond to that last
+sentence. :-)
+	DO NOT WASTE TIME CHECKING FOR NULL POINTERS
+strcpy doesn't, fopen doesn't, and so on.  A NULL pointer is a programming
+error and many people believe that trying to be "robust" in the face of such 
+errors does not do programmers any good at all.
+
+[11/04/93 public]
+Uh guys, I don't think we are talking about the same problem here.
+I believe the report was concerning NULLing out an output argument
+so it would not return garbage.  This is not the same as checking
+for NULL pointers.  The side affect of the suggested fix, however,
+does check for a null value for the output argument.
+
+Seiichi, are you sure this can be dup'd to 8193?
+
+[11/04/93 public]
+I understand what the suggested code was doing and I was complaining about
+half of it.  (Never mind that the if test is completely backwards --
+the entire function body should be inside the if, as written.)
+The proper fix for this defect is to add this as the first executable
+line of rpc_mgmt_inq_if_ids
+      *if_id_vector = NULL;
+
+[11/04/93 public]
+
+This is the duplication of OT8193. If you look at rpc_mgmt_inq_if_ids(), it
+will call either rpc__if_mgmt_inq_if_ids()::comif.c (local case,
+binding_h==NULL) or inq_if_ids()::mgmt.c (remote case, binding_h!=NULL).
+inq_if_ids() already does the right thing, i.e., returns
+*if_id_vector==NULL on error. That's why the original report said "When a
+NULL binding handle is supplied". rpc__if_mgmt_inq_if_ids() has been fixed
+by OT8193. I must say that nullifying *if_id_vector at the beginning of the
+call is a good coding practice. :-)
+
+
+
+CR Number                     : 9258
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 7504
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : rpc
+Subcomponent Name             : cn
+Short Description             : rpcd dies while running
+dfs_glue for 48 hrs
+Reported Date                 : 10/26/93
+Found in Baseline             : 1.0.3
+Found Date                    : 10/26/93
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 9240
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : rpc/runtime/cnassoc.c
+Sensitivity                   : public
+
+[10/26/93 public]
+
+While attempting to complete the 48 hour dfs_glue test for the
+dfs_repfs.checklist test, rpcd died and coredumped on the DCE core
+component server machine.  The cell configuration is as follows:
+
+	Machine 1:  DCE security server, DCE CDS server
+	Machine 2:  DCE client, DFS FLDB server, root.dfs 
+	Machine 3:  DCE client, DFS FLDB server
+	Machine 4:  DCE client, DFS FLDB server
+
+This is reproducible and Seiichi is attempting to determine the cause of
+this problem when I can get the machines to run the test.
+
+[10/26/93 public]
+
+This is some what related to CR9240 or may be duplicated. rpcd coredump'ed
+by the CMA exception when the timer thread reclaimed the already free'ed
+assoc. The CMA raised the exception because pthread_cond_destroy() was
+called twice.
+
+For your reading pleasure, I have put the RPC_DEBUG=0.20,23,24 trace in
+/afs/dce/project/dce/hp/tmp/OT9258/rpcd.log and the stack dump in the
+rpcd.dump in the same directory. rpcd wasn't debuggable so we couldn't get
+any useful info from the coredump.
+
+[10/27/93 public]
+
+Yes, yes, yes, finally I've found it! It was caused by
+rpc__cn_assoc_grp_create().
+
+When rpc_g_cn_assoc_grp_tbl.assoc_grp_vector is expanded (and relocated),
+the active assoc_grp's first assoc on the grp_assoc_list (the one pointed
+by rpc_g_cn_assoc_grp_tbl.assoc_grp_vector[x].grp_assoc_list.next) is still
+holding the pointer to the old (free'ed) grp_assoc_list, e.g.,
+new_assoc_grp[x].grp_assoc_list.next->last ==
+old_assoc_grp[x].grp_assoc_list . Thus, when this assoc is removed from the
+grp_assoc_list by using RPC_LIST_REMOVE()::rpclist.h macro, it updates
+old_assoc_grp[x].grp_assoc_list.next pointer. It never update the now
+relocated rpc_g_cn_assoc_grp_tbl.assoc_grp_vector[x].grp_assoc_list.next .
+(Also the second assoc on the list still points to the
+old_assoc_grp[x].grp_assoc_list after the removal. See RPC_LIST_REMOVE().)
+If what IBM is seeing in CR9240 happens after the call to
+rpc__cn_assoc_grp_create(), this must be it.
+
+The fix in rpc__cn_assoc_grp_create() should be trivial. I'll think about
+it after I get sleep.
+
+[10/27/93 public]
+
+Here is my suggested fix.
+
+In rpc__cn_assoc_grp_create()::cnassoc.c, between memcpy() and
+RPC_MEM_FREE() add:
+
+        for (i = 0; i < old_count; i++)
+        {
+            /*
+             * Relocate the "last" pointer in the head of the grp_assoc_list.
+             * We don't check group's state because they must be all active.
+             * Otherwise, this function never get called. (grp_assoc_list.next
+             * shouldn't be NULL.)
+             */
+            if (new_assoc_grp[i].grp_assoc_list.next != NULL)
+            {
+                ((rpc_list_p_t)(new_assoc_grp[i].grp_assoc_list.next))->last =
+                    (pointer_t)&new_assoc_grp[i].grp_assoc_list;
+            }
+        }        
+
+We will test this fix.
+
+[10/28/93 public]
+This fix had been submitted to the OSF code base.  I am dupping
+this to 9240 since we believe these problems to be related.
+
+Either defect can be re-opened if more extensive testing finds that this
+fix does not solve the problem.
+
+[10/28/93 public]
+Just noting that I hit this problem in the following config with the
+following symptoms:
+
+486 = core server
+2 HPs + 1 RIOS = core clients, dfs fldb servers
+
+Lost client authentication during bos command attempts, got "Registry
+server unavailable" messages.
+
+486 was REALLY slow, although iostat indicated cpu 95% idle.
+
+/opt/dcelocal/var/rpc contained core file PLUS rpcd.log with the
+telltale last (and in this case only) entry:
+
+Exception: Object referenced does not currently exist (dce / thd)
+
+Thanks for fixing this one!
+
+[10/29/93 public]
+
+I have verified this fix by using runtime/perf test. It's fairly simple.
+
+1) Start the server and save the server output.
+
+  $ script
+  $ export RPC_DEBUG=0.20,23,24
+  $ server -v10 10 ncacn_ip_tcp
+
+2) Start 14 multi-threaded clients.
+
+  $ for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do \
+      client -v10 -w0,99999 -m3 0 ncacn_ip_tcp:host 2 1 n y & \
+    done
+
+Without this fix, the server coredump'ed with:
+
+  Exception: Object referenced does not currently exist (dce / thd)
+  Abort(coredump)
+
+After the fix, the server continued the execution.
+
+3) Verify the server's output that rpc__cn_assoc_grp_create() was called
+twice.
+
+  $ fgrep rpc__cn_assoc_grp_create typescript
+
+
+
+CR Number                     : 8544
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 8126,7587
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : command_ref
+Short Description             : rpccp missing add mapping(8rpc) page
+Reported Date                 : 9/1/93
+Found in Baseline             : 1.0.2
+Found Date                    : 9/1/93
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 8126
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.0.2a
+Affected File(s)              : admin_ref/man8rpc/rpccp_add_mapping.8rpc
+Sensitivity                   : public
+
+[9/1/93 public]
+There is not a man page for 'add mapping(8rpc)' in the RPC section
+of the administration guide.
+
+The usage is similar to the other add commands:
+usage: rpccp add mapping [<options>] [host-address]
+
+options:     a    <string>  annotation field
+             b    <string>  string binding 		(required)
+             i    <if id>   interface identifier 	(required)
+             o    <uuid>    object identifier
+             N              no replace
+
+[9/15/93 public]
+
+The rpccp add mapping(8rpc) man page appeared in the DCE 1.0.2
+Release Notes. At DCE 1.0.2a, it was added to the Administration
+Reference (man pages are bundled in the DCE Administration Reference, not
+the DCE Administration Guide). However, a short description
+of 'add mapping' still needs to be added to the section "DCE RPC
+Administrative Facilities" in the Administration Guide/Core
+Components volume (along with the other operations on endpoint
+maps). I will open a new CR against the Administration Guide.
+
+[9/14/95 public]
+
+As far as I can tell, what used to be "add mapping" (for rpccp) is now
+"endpoint create" (with dcecp). This is well documented in the Command
+Ref, but only touched on in a way in the Guide. So this bug is officially
+obsolete, though in fact maybe still apropos. At any rate, I'm reassigning
+it to HP and they should take the next step.
+
+
+
+CR Number                     : 8543
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : command_ref
+Short Description             : rpccp remove mapping shows -v option
+Reported Date                 : 9/1/93
+Found in Baseline             : 1.0.2
+Found Date                    : 9/1/93
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 8169
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : /admin_ref/8rpc/rpccp_remove_mapping.8rpc
+Sensitivity                   : public
+
+[9/1/93 public]
+The remove mapping(8rpc) page in the RPC section of the administration guide
+shows the -v option, which is not allowed for this subcommand.
+
+[9/15/93 public]
+
+This CR is a duplicate of CR8169, which has been fixed, verified, and closed.
+
+
+
+CR Number                     : 8532
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : rpc
+Subcomponent Name             : test/rpc/rtandidl/moretests
+Short Description             : unexpected argument in function call
+Reported Date                 : 8/30/93
+Found in Baseline             : 1.0.3
+Found Date                    : 8/30/93
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 8516
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : comtest_client_xfr.c
+Sensitivity                   : public
+
+[8/30/93 public]
+
+This is a duplicate of the problem in closed OT #8516.
+
+cc -c       -Dunix -D_ALL_SOURCE -DNO_SIOCGIFADDR  -D_ALL_SOURCE -DAIX32
+-I. \-I/u1/devobj/sb/nb_rios/src/test/rpc/rtandidl/moretests
+-I/project/dce/build/dc\e1.0.3-snap/src/test/rpc/rtandidl/moretests
+-I/u1/devobj/sb/nb_rios/export/rio\s/usr/include
+-I/project/dce/build/dce1.0.3-snap/export/rios/usr/include
+/pro\ject/dce/build/dce1.0.3-snap/src/test/rpc/rtandidl/moretests/comtest_client_xfr\.c
+"/project/dce/build/dce1.0.3-snap/src/test/rpc/rtandidl/moretests/comtest_clien\t_xfr.c",
+line 685.58: 1506-099 (S) Unexpected argument.
+"/project/dce/build/dce1.0.3-snap/src/test/rpc/rtandidl/moretests/comtest_clien\t_xfr.c",
+line 686.41: 1506-099 (S) Unexpected argument.
+"/project/dce/build/dce1.0.3-snap/src/test/rpc/rtandidl/moretests/comtest_clien\t_xfr.c",
+line 687.41: 1506-099 (S) Unexpected argument.
+"/project/dce/build/dce1.0.3-snap/src/test/rpc/rtandidl/moretests/comtest_clien\t_xfr.c",
+line 688.41: 1506-099 (S) Unexpected argument.
+"/project/dce/build/dce1.0.3-snap/src/test/rpc/rtandidl/moretests/comtest_clien\t_xfr.c",
+line 689.41: 1506-099 (S) Unexpected argument.
+"/project/dce/build/dce1.0.3-snap/src/test/rpc/rtandidl/moretests/comtest_clien\t_xfr.c",
+line 735.50: 1506-099 (S) Unexpected argument.
+"/project/dce/build/dce1.0.3-snap/src/test/rpc/rtandidl/moretests/comtest_clien\t_xfr.c",
+line 736.33: 1506-099 (S) Unexpected argument.
+"/project/dce/build/dce1.0.3-snap/src/test/rpc/rtandidl/moretests/comtest_clien\t_xfr.c",
+line 737.33: 1506-099 (S) Unexpected argument.
+"/project/dce/build/dce1.0.3-snap/src/test/rpc/rtandidl/moretests/comtest_clien\t_xfr.c",
+line 738.33: 1506-099 (S) Unexpected argument.
+"/project/dce/build/dce1.0.3-snap/src/test/rpc/rtandidl/moretests/comtest_clien\t_xfr.c",
+line 738.33: 1506-099 (S) Unexpected argument.
+"/project/dce/build/dce1.0.3-snap/src/test/rpc/rtandidl/moretests/comtest_clien\t_xfr.c",
+line 739.33: 1506-099 (S) Unexpected argument.
+*** Error code 1 (continuing)
+
+[08/30/93 public]
+If this is a duplicate bug, you should re-open the old bug.
+Do not open more than one OT for the same problem.
+
+In fact, if you *had* gone to reopen the old bug, you would have
+discovered that it was, in fact, not closed (or marked 'fix').
+
+I have submitted a fix for this problem today, so tonights build
+should not have this problem.
+
+Bug canceled.
+
+
+
+CR Number                     : 8526
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 10266
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : runtime
+Short Description             : cn/dg semantics differ for
+rpc_s_cthread_not_found (rpc_s_server_too_busy)
+Reported Date                 : 8/29/93
+Found in Baseline             : 1.0.2
+Found Date                    : 8/29/93
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 10266
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/29/93 public]
+
+cn-rpc immediately returns rpc_x_server_too_busy in the case of 
+rpc_s_cthread_not_found (bind nak pdu ??).
+
+dg-rpc retries up to comm timeout, then returns rpc_x_comm_failure.
+
+The cn-rpc semantics seem preferable since they allow the application
+writer the most flexibility.
+
+In any event, I don't see why the semantics should be different.
+
+
+
+CR Number                     : 8430
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : 
+Short Description             : unclosed comment in stubbase.h
+Reported Date                 : 8/10/93
+Found in Baseline             : 1.0.3
+Found Date                    : 8/10/93
+Severity                      : E
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 8289
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : rpc/sys_idl/stubbase.h
+Sensitivity                   : public
+
+[8/10/93 public]
+../export/hp800/usr/include/dce/stubbase.h:918: warning: `/*' within comment
+
+The code is:
+
+/*
+   v1_enum macros are missing for CRAY;
+   the whole CRAY section is untested and should probably be 
+  excised from
+
+/*
+ * ndr_small_int is larger than 8 bits
+ */
+#define rpc_marshall_small_int(mp, src)\
+    *(char *)mp = (char)src
+
+[08/16/93 public]
+Third bug on this problem (see 8289 and 7575).
+Somehow this didn't get submitted to 1.0.3i correctly.
+
+
+
+CR Number                     : 8345
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : rpc
+Subcomponent Name             : 
+Short Description             : systest/rpc not ported to HP/UX
+Reported Date                 : 7/22/93
+Found in Baseline             : 1.0.3
+Found Date                    : 7/22/93
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 8340
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/22/93 public]
+
+In general, these tests clearly haven't been ported to HP/UX.  Some of the
+instances are identified below, but there are too many to make individual
+reporting worthwhile.
+
+If these compilation errors cannot be resolved in a timely basis then these
+tests should be removed from the nightly build by modifying the
+test/systest/Makefile SUBDIRS line.
+
+src/test/systest/rpc/rpc.cds.3/chk_stat.c:
+cc: "/project/dce/build/nb_ux/src/test/systest/rpc/rpc.cds.3/err_track.h",
+line 67: error 1000: Unexpected symbol:
+ "time_t".
+cc: "../../../../../../src/test/systest/rpc/rpc.cds.3/chk_stat.c", line
+197: error 1000: Unexpected symbol: ")".
+cc: "../../../../../../src/test/systest/rpc/rpc.cds.3/chk_stat.c", line
+214: error 1000: Unexpected symbol: ")".
+cc: "../../../../../../src/test/systest/rpc/rpc.cds.3/chk_stat.c", line
+197: error 1588: "time_t" undefined.
+cc: "../../../../../../src/test/systest/rpc/rpc.cds.3/chk_stat.c", line
+214: error 1533: Illegal function call.
+
+src/test/systest/rpc/rpc.cds.3/maintain_id.c:
+src/test/systest/rpc/rpc.cds.3/rep_timer.c:
+src/test/systest/rpc/rpc.sec.2/rpc.sec.2_smain.c:
+	"TIMEOFDAY" undefined.
+
+src/test/systest/rpc/rpc.sec.2/rpc.sec.2_cmain.c:
+rpc.sec.2_cmain.c: 314: Unable to find include file 'sys/mode.h'.
+
+src/test/systest/rpc/rpc.cds.3/chk_stat.c:
+cc: "/project/dce/build/nb_ux/src/test/systest/rpc/rpc.cds.3/err_track.h",
+line 67: error 1000: Unexpected symbol:
+ "time_t".
+cc: "../../../../../../src/test/systest/rpc/rpc.cds.3/chk_stat.c", line
+197: error 1000: Unexpected symbol: ")".
+cc: "../../../../../../src/test/systest/rpc/rpc.cds.3/chk_stat.c", line
+214: error 1000: Unexpected symbol: ")".
+cc: "../../../../../../src/test/systest/rpc/rpc.cds.3/chk_stat.c", line
+197: error 1588: "time_t" undefined.
+cc: "../../../../../../src/test/systest/rpc/rpc.cds.3/chk_stat.c", line
+214: error 1533: Illegal function call.
+
+src/test/systest/rpc/rpc.cds.3/rpc.cds.3_parse_cal_spec.c:
+cc: "/project/dce/build/nb_ux/src/test/systest/rpc/rpc.cds.3/err_track.h",
+line 67: error 1000: Unexpected symbol:
+ "time_t".
+
+src/test/systest/rpc/rpc.cds.3/rpc.cds.3_set_cal_uuid.c:
+cc: "/project/dce/build/nb_ux/src/test/systest/rpc/rpc.cds.3/err_track.h",
+line 67: error 1000: Unexpected symbol:
+ "time_t".
+cc:
+"../../../../../../src/test/systest/rpc/rpc.cds.3/rpc.cds.3_set_cal_uuid.c",
+line 97: error 1588: "TRUE" undef
+ined.
+cc:
+"../../../../../../src/test/systest/rpc/rpc.cds.3/rpc.cds.3_set_cal_uuid.c",
+line 97: error 1563: Expression i
+n if must be scalar.
+cc:
+"../../../../../../src/test/systest/rpc/rpc.cds.3/rpc.cds.3_set_cal_uuid.c",
+line 133: error 1588: "TRUE" unde
+fined.
+cc:
+"../../../../../../src/test/systest/rpc/rpc.cds.3/rpc.cds.3_set_cal_uuid.c",
+line 133: error 1563: Expression 
+in if must be scalar.
+cc:
+"../../../../../../src/test/systest/rpc/rpc.cds.3/rpc.cds.3_set_cal_uuid.c",
+line 143: error 1563: Expression 
+in if must be scalar.
+
+[7/22/93 public]
+
+You are right. They are not ported to HP-UX because they weren't included
+in the list of tests which need to be ported.
+
+[7/22/93 public]
+
+These two are actually part of the 6 new system tests which are being
+ported by our systest group and will be given to OSF when they are done.
+
+[07/22/93 public]
+Duplicate of 8340.
+
+
+
+CR Number                     : 8224
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 10568
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : rpc
+Subcomponent Name             : cn runtime
+Short Description             : client hangs when connected to a non-DCE tcp socket
+Reported Date                 : 7/1/93
+Found in Baseline             : 1.0.2
+Found Date                    : 7/1/93
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 10568
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : cnassoc.c
+Sensitivity                   : public
+
+[7/1/93 public]
+
+If a cn rpc client successfully connects to a non-DCE tcp socket, and
+the owner of the socket doesn't mind, the client hangs out forever.
+
+This might be a good use for set_com_timeout in ncacn_ip_tcp.
+
+
+
+CR Number                     : 8206
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : rpc
+Subcomponent Name             : admin ref
+Short Description             : rpccp remove mapping: remove -v
+Reported Date                 : 6/29/93
+Found in Baseline             : 1.0.2
+Found Date                    : 6/29/93
+Severity                      : C
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 8169
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : rpccp_remove_mapping.8rpc
+Sensitivity                   : public
+
+[6/29/93 public]
+
+    <Note by phighley (Paul T. Highley), 92/11/24 11:36:43, action: open>
+The man page for "remove mapping" in the RPC section of the DCE Administration
+Reference needs to remove the reference to the '-v' option.  This is not a
+valid option to the remove mapping command.  See defect 2538 for more details
+on this subject.
+
+Scott Page Note from OT defect 8169 [page 06/17/93 public]:
+
+I think the only outstanding problem listed in this defect (OT 8169) is 
+the -v option in the rpccp remove mapping manpage (it should be removed).
+rpccp has already been fixed.
+
+[07/06/93 public]
+This bug is a duplicate of CR #8169, which is also assigned to me.
+
+
+
+CR Number                     : 8159
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : command_ref
+Short Description             : Man page for "rpccp add
+mapping" command is missing
+Reported Date                 : 6/15/93
+Found in Baseline             : 1.0.2
+Found Date                    : 6/15/93
+Severity                      : B
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 8126
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.0.2a
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/15/93 public]
+
+Man page for "rpccp add mapping" command is missing from the Admin Ref
+book.
+
+[6/21/93 public]
+
+This is a duplicate of 8126. Marked as "dup".
+
+
+
+CR Number                     : 8011
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : app_ref
+Short Description             : describe relationship between
+protection level and authn_svc
+Reported Date                 : 5/17/93
+Found in Baseline             : 1.0.2
+Found Date                    : 5/17/93
+Severity                      : E
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 7800
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/17/93 public]
+
+see man page for rpc_binding_set_authn_info pg. 2-58 of the Application
+Development reference where it states that when
+
+rpc_binding_set_auth_info is called with
+
+	protection level = none
+        authentication service = dce secret
+        authorization service = dce secret
+
+return value is rpc_s_ok, although any subsequent rpc's performed will be
+unathenticated. The documentation should point out that the triplet above
+is just another way to ask for unathenticated not authenticated
+service. This is because authentiacted rpc is not supported unless the
+protection level is at leat connect. The documentation should describe the
+impact of protection level on the availability of authenticated service.
+
+[5/27/93 public]
+Assigned to writer Pam Millette.
+
+[6/22/93 public]
+Changed "Fix By Baseline" from 1.0.3 to 1.1.
+
+[9/8/93 public]
+This CR is a duplicate of 7800, which I am in 
+process of fixing for 1.0.3.
+
+
+
+CR Number                     : 7989
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : rpc
+Short Description             : rpc_mgmt_is_server_listening is broken
+Reported Date                 : 5/13/93
+Found in Baseline             : 1.0.2
+Found Date                    : 5/13/93
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 7970
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : dglsn.c
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : mason@transarc.com
+Transarc Status               : open
+
+[5/13/93 public]
+The rpc_mgmt_is_server_listening() is broken in DCE1.0.2. Providing a 
+partially bound handle with an arbitrary object uuid set on it, to the
+rpc_mgmt_is_server_listening() call, returns a true. The following
+simple program can be used to reproduce the problem:
+--------------------------------------------
+#include <dce/rpc.h>
+main(argc, argv)
+int argc;
+char *argv[];
+{
+    uuid_t uuid;
+    unsigned char *stringBindingP;
+    unsigned char *uuidStringP;
+    unsigned long status;
+    rpc_binding_handle_t handle;
+    if(argc < 3) {
+	printf("usage: %s <protocol_seq> <ip_addr>\n", argv[0]);
+	exit(1);
+    }
+    uuid_create(&uuid, &status);
+    uuid_to_string(&uuid, &uuidStringP, &status);
+    printf("uuid: %s\n", uuidStringP);
+    rpc_string_binding_compose(uuidStringP, (unsigned char *)argv[1], 
+                               (unsigned char *)argv[2], (unsigned char *)0, 
+                               (unsigned char *)0, &stringBindingP, &status);
+    printf("string binding: %s\n", stringBindingP);
+    rpc_binding_from_string_binding(stringBindingP, &handle, &status);
+    if(rpc_mgmt_is_server_listening(handle, &status))
+	printf("server is listening\n");
+    else 
+	printf("error code: %d %x\n", status, status);
+}
+----------------------------------------
+The reason for the problem appears to be the changed logic in recv_dispatch()
+in dglsn.c, that deals with the mechanism to forward the call or determine
+if the call must be handled locally.
+A workaround using the rpc_ep_resolve_binding() is not very appropriate
+because some client libraries may not necesarily know the interface id
+that must be passed to the rpc_ep_resolve_binding() call.
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `mason@transarc.com' 
+Added field Transarc Status with value `open'
+
+
+
+CR Number                     : 7575
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : sys_idl/stubbase.h
+Short Description             : nested comment in source file
+Reported Date                 : 3/23/93
+Found in Baseline             : 1.0.2b19
+Found Date                    : 3/23/93
+Severity                      : E
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 8289
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : stubbase.h
+Sensitivity                   : public
+
+[3/23/93 public]
+
+When the GNU C compiler is run with high-paranoia, it detected a nested
+comment in stubbase.h:
+
+/*
+   v1_enum macros are missing for CRAY;
+   the whole CRAY section is untested and should probably be 
+  excised from
+
+/*
+ * ndr_small_int is larger than 8 bits
+ */
+
+I back dated all revisions of stubbase.h to ensure that no other source
+text was lost, this seems to be an isolated and benign editing error.
+
+
+
+CR Number                     : 5702
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : runtime
+Short Description             : max_call_requests value in the
+API rpc_server_use_all_protseqs() not implemented.
+Reported Date                 : 10/19/92
+Found in Baseline             : 1.0.1
+Found Date                    : 10/19/92
+Severity                      : B
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/19/92 public]
+
+The APIs for the functions rpc_server_use_*protseq*() take the
+argument max_call_requests.
+
+By looking at the runtime code, it seems to me that the value 
+max_call_requests is not taken into account in the current implementation 
+of these APIs.
+
+For example, let's take the following call:
+
+rpc_server_use_all_protseqs( unsigned32  max_calls,
+		             unsigned32  *status) 
+
+Tracing what happens to max_calls here, I found out that in 
+rpc_server_use_protseq_ep() max_calls gets assigned 
+rpc_c_protseq_max_reqs_default, which happens to have the
+value of zero. Here is what seems to be happening according
+to the code.
+
+Excerpt form the file src/rpc/runtime/comnet.c
+
+...
+PUBLIC void rpc_server_use_protseq_ep
+    (rpc_protseq, max_calls, endpoint, status)
+
+...
+...
+    /*
+     * Until both protocol services fully implement this argument, we'll
+     * ignore the value provided and use the default instead.
+     */
+    max_calls = rpc_c_protseq_max_reqs_default;
+
+...
+...
+
+Does this mean that the protocols do not implement this argument yet? 
+So making the number of concurrent requests that the server can accept 
+equal to zero?  How are the perf tests affected by this bug? 
+
+The documentation indicates everywhere that this value can be set to a 
+number greater than zero by the application programmer.
+ 
+
+Martha DasSarma - dassarma@osf.org
+
+[10/20/92 public]
+
+Please cancel this one.  It's a duplicate of CR #4704, which was cancelled.
+
+
+
+CR Number                     : 3875
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 2306
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : rpc
+Subcomponent Name             : 
+Short Description             : 
+Failure when generating a login context with a long PAC.
+Reported Date                 : 5/27/92
+Found in Baseline             : 1.0
+Found Date                    : 5/27/92
+Severity                      : C
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 2306
+Fix By Baseline               : 1.0.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/27/92 public]
+
+Full Description:
+
+        Registry data setup:
+
+        Principal   : user1
+        Groups      : group_001  to group_1000  (1000 groups)
+        Orgs        : org_001    to org_1000    (1000 orgs)
+
+        Steps :
+        1.  Make user1 be member of group_001 to group_1000
+        2.  Make user1 be member of org_001 to org_1000
+        3.  Create an account user1.group_001.org_001
+        4.  Logon to the account.
+
+        Outputs : Fatal error rpc_mem_alloc. Memory allocation failed at
+                  rpcmem.c \31.
+
+Proposed Solution:
+
+        None researched.
+
+[5/27/92 public]
+Changed to C3 from B1 since it's not preventing anybody from getting work done,
+and the workaround is "don't do that".  This is caused by the same problem as
+CR2306, so marked as a 'dup' of that and deferred it since it will not be fixed
+in 1.0.1.  See writeup in 2306 for the upper bound on PAC sizes.
+
+
+

@@ -1,0 +1,87 @@
+# @OSF_COPYRIGHT@
+# 
+# 
+# HISTORY
+# $Log: pubrc,v $
+# Revision 1.1.2.1  1996/09/30  19:50:12  weir
+# 	Initial submission
+# 	[1996/09/30  19:49:35  weir]
+#
+# $EndLog$
+# 
+# $Id: pubrc,v 1.1.2.1 1996/09/30 19:50:12 weir Exp $
+# DocBook instance initialization file
+# This file has been provided as a "quick-and-dirty"
+# solution to partially automating FOSI selection via
+# conditional attribute testing.
+
+# *** ADEPT Tools ***
+require treewalk "$main::publisher_path/packages/tools/treewalk.cmd"
+treewalk::Init()
+# *** End ADEPT Tools ***
+
+if (!menu_exists(".Help.&DocBook")) {
+#    menu_add .Help. "" -separator
+    menu_add .Help. "&DocBook" -cmd {help understand}
+}
+
+#To control FOSI selection by role attribute:
+
+$DISPLAY_BY_ROLE['PUBLISH']='PUBLISH'
+$DISPLAY_BY_ROLE['DRAFT']='DRAFT'
+
+# invert it
+for ( $s in $DISPLAY_BY_ROLE ) {
+	$ROLE_BY_DISPLAY[$DISPLAY_BY_ROLE[$s]] = $s
+}
+
+$FOSI_BY_ROLE['PUBLISH']='docbook'
+$FOSI_BY_ROLE['DRAFT']='draft'
+
+function select_type( force=0 ) {
+	local role, dfltrole = "apps", f, oid
+	if ( doc_parent() != -1 ) {
+		# it's a file entity - get out
+		return
+	}
+	$oid = oid_first()
+	while (oid_valid($oid) && oid_name($oid)!='book')
+	{
+		$oid = oid_forward($oid)
+	}
+	role = oid_attr( $oid, 'role' )
+	if (! force && length( role ) ) {
+		f = DISPLAY_BY_ROLE[role]
+	}
+	else {
+		if ( role ) { 
+			dfltrole = DISPLAY_BY_ROLE[role] 
+		}
+		exec readvar -help "PUBLISH documentation has 7.5 x 9 inch recto-verso pages. \
+DRAFT documentation has 8.5 x 11 inch recto-verso pages and the word DRAFT appears \
+in all running headers." \
+			-prompt "Select type of document:" \
+			-choice "|PUBLISH|DRAFT" \
+			-default "$dfltrole" f
+	}
+	if ( f ) {
+		role = ROLE_BY_DISPLAY[f]
+	}
+	if ( role ) {
+		execute( 'set fosi=$FOSI_BY_ROLE[$role]' )
+		if ( role != oid_attr( $oid, 'role' ) ) {
+			oid_modify_attr( $oid,"role",role )
+		}
+	}
+}
+
+select_type()
+
+# Special keymapping to update automated FOSI selection
+# when changing the role attribute on <Book>.
+#
+# If F5 is currently in use for some other function, remap
+# the key by substituting another keyname for "F5" in the
+# code.
+
+map F5 {save; edit -current}

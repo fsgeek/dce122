@@ -1,0 +1,422 @@
+/* MOMnPOP PTQ.C   Links to MOM.C */
+/*********************************************************************/
+/*** IBM Corporation                                               ***/
+/*** OS/2 LAN Systems Performance                                  ***/
+/*** Department 59LS                                               ***/
+/*** 11400 Burnet Road                                             ***/
+/*** Austin Texas 78759                                            ***/
+/*** Bob Russell, ZIP 9151                                         ***/
+/*** (512) 838-0454,0844 TL 678-0454,0844                          ***/
+/**********************************************************************/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <cur00.h>
+
+#include <sys/timeb.h>
+#include <sys/types.h>
+
+#include "rpc.h"
+#include "mom.h"
+#ifdef PROCNUM
+#include "proc_idl.h"
+#else
+#include "pos_idl.h"
+#endif
+#include "pos_def.h"
+
+/*** Price Lookup Variables ***/
+char *abc[]={"A","B","C","D","E","F","G","H","I","J","K","L","M",
+             "N","O","P","Q","R","S","T","U","V","W","X","Y","Z"
+            };
+
+/*** Catalog Variables ***/
+unsigned char catalog_buffer[CAT_BUFF];
+
+char *cat_names[]={"GENERAL",
+                   "SUMMER",
+                   "SPRING",
+                   "AUTUMN",
+                   "WINTER",
+                   "SPECIAL",
+                   "GARDEN",
+                   "TRUCKS",
+                   "TRACTORS",
+                   "TRAINS",
+                   "TOOLS",
+                   "TUBAS"};
+
+int           display_row=12;
+
+char          pad[72]=
+  "                                                                        ";
+
+
+/*** PRICE LOOKUP *********************************************************/
+long PriceInq( long *appl_time,
+               int NoPrint,
+               struct timeb *d1,
+               struct timeb *d2,
+               SAVE_DATA *save_data,
+#ifdef PROCNUM
+	  char *procnum,
+#endif
+               rpc_binding_handle_t bind_h)
+
+{
+  long          dice;
+  ITEM_ROW_IDL      item_row;
+  char          today[12];
+  ITEM_ROW_IDL          *ptq_buffer;
+
+  /* Make a bogus current date to match the database  range*/
+  dice = get_random(6L) + 10L;            /* Database DD < 13 >< 15 > */
+  (void)sprintf(today,"07-%.2ld-1992\0", dice);
+  save_data->line_item[save_data->trans_header.item_cnt].qty =
+    (short)(dice % 3) + 1;
+
+
+  dice = get_random(MAX_ITEMS) + 10000000L;       /* Make item number  */
+
+  if (! NoPrint)
+  {
+    display_row = 12 + save_data->trans_header.item_cnt;
+    SetCursorPosition(display_row,3);                  /* Display the key   */
+    printw ( "%4d %11ld",
+      save_data->line_item[save_data->trans_header.item_cnt].qty, dice);
+    refresh();
+  }
+
+  ptq_buffer = &item_row;  
+
+  ftime(d1);                                     /* Start timestamp   */
+
+  rpc_PTQ(bind_h,                                 /* Make the RPC call */
+          dice,
+          sizeof(ITEM_ROW_IDL),
+          appl_time,
+#ifdef PROCNUM
+	  procnum,
+#endif
+          ptq_buffer);
+
+  ftime(d2);                                     /* Stop timestamp    */
+
+  /* Now we gotta take the right price based on date */
+  if (today[4] < item_row.eff_dt_2[4])
+      save_data->line_item[save_data->trans_header.item_cnt].price_each =
+      item_row.price_3;
+  else if (today[4] < item_row.eff_dt_1[4])
+      save_data->line_item[save_data->trans_header.item_cnt].price_each =
+      item_row.price_2;
+  else
+      save_data->line_item[save_data->trans_header.item_cnt].price_each =
+      item_row.price_1;
+
+  save_data->line_item[save_data->trans_header.item_cnt].item_no      = dice;
+  save_data->line_item[save_data->trans_header.item_cnt].qty          =
+    save_data->line_item[save_data->trans_header.item_cnt].qty;
+  save_data->line_item[save_data->trans_header.item_cnt].price_each   =
+    save_data->line_item[save_data->trans_header.item_cnt].price_each;
+  save_data->line_item[save_data->trans_header.item_cnt].price_total  =
+    save_data->line_item[save_data->trans_header.item_cnt].price_each *
+    (float)save_data->line_item[save_data->trans_header.item_cnt].qty;
+  strcpy(save_data->line_item[save_data->trans_header.item_cnt].descr,
+    item_row.descr);
+
+  if (! NoPrint)
+  {
+    prtf(display_row,20,item_row.descr,sizeof(item_row.descr));
+    SetCursorPosition(display_row,61);
+    printw ("%8.2f  %8.2f",
+             save_data->line_item[save_data->trans_header.item_cnt].price_each,
+      save_data->line_item[save_data->trans_header.item_cnt].price_each *
+             (float)save_data->line_item[save_data->trans_header.item_cnt].qty);
+    refresh();
+  }
+
+}
+/* End Price Lookup */
+
+/*** CATALOG LOOKUP *******************************************************/
+long Catalog( long *appl_time,
+              int NoPrint,
+              struct timeb *d1,
+              struct timeb *d2,
+#ifdef PROCNUM
+	  char *procnum,
+#endif
+              rpc_binding_handle_t bind_h)
+
+{
+  long          pages;
+  short         books;
+  char          *cat_buffer;
+  char          cat_name[40];
+  unsigned short name_len;
+  unsigned short out_len = CAT_BUFF;
+
+
+  books = (short)get_random(MAX_CATALOGS) -1;
+  pages = get_random(MAX_PAGES);
+
+  (void)sprintf(cat_name, "%s.%.3ld\0", cat_names[books], pages);
+  name_len = strlen(cat_name);
+
+
+  if (! NoPrint)
+  {
+    SetCursorPosition( 2, 24);
+    if (++display_row == 17) display_row = 12;
+
+    printw ( " %10s ", cat_name);
+    refresh();	
+  }
+
+  cat_buffer = (char *)&catalog_buffer;
+
+  ftime(d1);                                     /* Start timestamp   */
+
+  rpc_CAT(bind_h,                                 /* Make the RPC call */
+          books,
+          name_len,
+          CAT_NAME_LEN,
+          cat_name,
+          &out_len,
+          appl_time,
+#ifdef PROCNUM
+	  procnum,
+#endif
+          cat_buffer);
+
+  ftime(d2);                                     /* Stop timestamp    */
+
+  return;
+
+}
+/* End Catalog */
+
+/*** CUSTOMER LOOKUP *********************************************************/
+long CustInq( long *appl_time,
+              int NoPrint,
+              struct timeb *d1,
+              struct timeb *d2,
+              SAVE_DATA *save_data,
+#ifdef PROCNUM
+	  char *procnum,
+#endif
+              rpc_binding_handle_t bind_h)
+
+{
+  long          dice;
+  CUST_DATA_IDL     cust_data;
+  CUST_DATA_IDL          *cmr_buffer;
+  long          area_cd, phone_no;
+
+/*  FILE          *fptr; */
+  char          *pntr;
+  int           i, j;
+
+  /* Make an AREA_CODE and PHONE_NO in the database  range*/
+
+  area_cd   = get_random(MAX_AREA_CODE) + 499L;       /* Make Area Code  */
+  phone_no  = get_random(MAX_EXCHANGE) * 10000L + 999999L;/*Make Exchange*/
+  phone_no +=(dice = get_random(MAX_EXTENSION));      /* Make extension  */
+
+  if (! NoPrint)
+  {
+    SetCursorPosition(7,5);                  /* Display the key   */
+    printw ( "(%3ld) Ph %7ld", area_cd, phone_no);
+    refresh();
+  }
+
+  cmr_buffer = &cust_data;
+
+  ftime(d1);                                     /* Start timestamp   */
+
+  rpc_CMR(bind_h,                                 /* Make the RPC call */
+          area_cd,
+          phone_no,
+          sizeof(CUST_DATA_IDL),
+          appl_time,
+          cmr_buffer);
+
+  ftime(d2);                                     /* Stop timestamp    */
+
+/* HEX dump of the buffer being returned
+pntr=(char *)&cust_data;
+fptr=fopen("x.bin","a");
+j=0;
+for (i=0;i<512;i++)
+{
+  fprintf(fptr,"%.2x ",*(pntr+i));
+  if (++j==16){j=0; fprintf(fptr,"\n");}
+}
+fprintf(fptr,"\n");
+
+fclose(fptr);
+*/
+
+
+  if (! NoPrint)
+  {
+    SetCursorPosition(2,6);
+    printw("%8ld", cust_data.acct_id);
+    prtf(3,5, cust_data.cust_last_name,sizeof(cust_data.cust_last_name));
+    prtf(3,54,cust_data.cust_first_name,sizeof(cust_data.cust_first_name));
+    SetCursorPosition(3,77);
+    printw("%s",cust_data.cust_MI);
+    prtf(4,9,cust_data.ship_addr,sizeof(cust_data.ship_addr)-1);
+    prtf(5,9,cust_data.mail_addr,sizeof(cust_data.mail_addr)-1);
+    prtf(6,5,cust_data.city,sizeof(cust_data.city));
+    SetCursorPosition(6,61);
+    printw("%2s   Zip %9ld", cust_data.state,
+                               cust_data.zip_code);
+    prtf(7,45,cust_data.drv_lic,sizeof(cust_data.drv_lic));
+    SetCursorPosition(7,78);
+    printw("%s", cust_data.drv_lic_state);
+    prtf(8,8,cust_data.cust_ref,sizeof(cust_data.cust_ref));
+    SetCursorPosition(19,62);
+    printw("%6.2f", cust_data.disc_pcnt);
+    SetCursorPosition(20,62);
+    printw("%6.2f", cust_data.tax_pcnt);
+    prtf(21,14,cust_data.date_last_purch,sizeof(cust_data.date_last_purch));
+    refresh();
+  }
+
+  save_data->trans_header.acct_id     = cust_data.acct_id;
+  save_data->trans_header.employee_no = phone_no;
+  strcpy(save_data->trans_header.cust_ref, cust_data.cust_ref);
+  strcpy(save_data->trans_header.trans_type, "SALE");
+  strcpy(save_data->trans_header.paymt_type, "CHECK");
+}
+/* End Price Customer */
+/*** SAVE TRANSACTION *****************************************************/
+long History(long *appl_time,
+#ifdef PROCNUM
+	  char *procnum,
+#endif
+             int NoPrint,
+             struct timeb *d1,
+             struct timeb *d2,
+             SAVE_DATA    *save_data,
+             rpc_binding_handle_t bind_h)
+{
+  SAVE_DATA_IDL          *sav_buffer;
+  unsigned long rc;
+  int real_size;
+  int m;
+
+  sav_buffer = (SAVE_DATA_IDL *) save_data;
+fprintf(stderr, "sav_buffer.trans_no.dept_no=%s\n", sav_buffer->trans_no.dept_no); 
+fprintf(stderr, "sav_buffer.trans_no.trans_date=%s\n", sav_buffer->trans_no.trans_date); 
+fprintf(stderr, "sav_buffer.trans_no.trans_time=%s\n", sav_buffer->trans_no.trans_time); 
+fprintf(stderr, "sav_buffer.trans_no.reg_no=%d\n", sav_buffer->trans_no.reg_no); 
+
+
+fprintf(stderr, "sav_buffer.trans_header.acct_id=%d\n", sav_buffer->trans_header.acct_id); 
+fprintf(stderr, "sav_buffer.trans_header.line_item_cnt=%d\n", sav_buffer->trans_header.line_item_cnt); 
+fprintf(stderr, "sav_buffer.trans_header.item_cnt=%d\n", sav_buffer->trans_header.item_cnt); 
+fprintf(stderr, "sav_buffer.trans_header.trans_type=%s\n", sav_buffer->trans_header.trans_type); 
+fprintf(stderr, "sav_buffer.trans_header.paymt_type=%s\n", sav_buffer->trans_header.paymt_type); 
+fprintf(stderr, "sav_buffer.trans_header.employee_no=%d\n", sav_buffer->trans_header.employee_no); 
+fprintf(stderr, "sav_buffer.trans_header.cust_ref=%s\n", sav_buffer->trans_header.cust_ref); 
+fprintf(stderr, "sav_buffer.trans_header.padding=%s\n", sav_buffer->trans_header.padding); 
+
+for (m=0;m<4;m++)
+{
+fprintf(stderr, "sav_buffer.line_item[%d].item_no=%d\n",m, sav_buffer->line_item[m].item_no); 
+fprintf(stderr, "sav_buffer.line_item[%d].qty=%d\n",m, sav_buffer->line_item[m].qty); 
+fprintf(stderr, "sav_buffer.line_item[%d].price_each=%f\n",m, sav_buffer->line_item[m].price_each); 
+fprintf(stderr, "sav_buffer.line_item[%d].price_total=%f\n",m, sav_buffer->line_item[m].price_total); 
+fprintf(stderr, "sav_buffer.line_item[%d].descr=%s\n",m, sav_buffer->line_item[m].descr); 
+fprintf(stderr, "sav_buffer.line_item[%d].padding=%s\n",m, sav_buffer->line_item[m].padding); 
+fprintf(stderr, "save_data.line_item[%d].padding=%s\n",m, save_data->line_item[m].padding); 
+}
+
+  real_size =
+          sizeof(TRANS_NO) +
+            sizeof(TRANS_HEADER) +
+            sizeof(LINE_ITEM) * save_data->trans_header.line_item_cnt;
+
+fprintf(stderr, "real_size=[%d] sizeof  SAVE_DATA_IDL=%d\n",real_size, sizeof(SAVE_DATA_IDL)); 
+  ftime(d1);                                     /* Start timestamp   */
+
+  rpc_SAV(bind_h,                                 /* Make the RPC call */
+          real_size,
+          sizeof(SAVE_DATA_IDL),
+          appl_time,
+          sav_buffer,
+          &rc
+          );
+
+  ftime(d2);                                     /* Stop timestamp    */
+
+  SetCursorPosition(9,30);
+  printw("%8ld",rc);
+  refresh();
+
+
+}
+/*******************************************************/
+long DataXfer(short num_send,
+              short num_recv,
+              struct timeb *d1,
+              struct timeb *d2,
+#ifdef PROCNUM
+	  char *procnum,
+#endif
+              rpc_binding_handle_t bind_h)
+{
+
+    unsigned char * sendbuf;
+    unsigned char * recvbuf;
+    unsigned char send_buf[8192];
+    unsigned char recv_buf[100];
+    int           i;
+
+
+    for (i=0; i<num_send; i++)
+    {
+       send_buf[i] = 'X';
+    }
+    send_buf[num_send-1]='\0';
+
+    sprintf(recv_buf,"EMPTY\0");
+    sendbuf = (unsigned char *)send_buf;
+    recvbuf = (unsigned char *)recv_buf;
+
+    ftime(d1);                                     /* Start timestamp   */
+
+    for (i = 1; i <= 10; i++)
+    {
+      char_op( bind_h, 
+		num_send, 
+		sendbuf, 
+		num_recv, 
+#ifdef PROCNUM
+	  procnum,
+#endif
+		recvbuf );
+    }
+
+    ftime(d2);                                     /* Stop timestamp    */
+
+}
+/*******************************************************
+ * Left Adjust the text in the specified in/output field length
+ */
+void prtf(int r,int c,char v[74],int l)
+{
+  int s;
+  char w[80];
+
+  SetCursorPosition(r,c);
+  s = l - strlen(v);
+  strcpy(w,v);
+  if (s>0) strncat(w,pad,s);
+  printw("%s", w);
+
+  return;
+}

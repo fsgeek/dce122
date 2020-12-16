@@ -1,0 +1,868 @@
+...\"  @OSF_COPYRIGHT@
+...\"  COPYRIGHT NOTICE
+...\"  Copyright (c) 1990, 1991, 1992, 1993 Open Software Foundation, Inc.
+...\"  ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE in the
+...\"  src directory for the full copyright text.
+...\"
+...\"
+...\" HISTORY
+...\" $Log: 3c_rpc.gpsml,v $
+...\" Revision 1.1.6.1  1996/10/14  16:39:06  weir
+...\" 	No change
+...\" 	[1996/10/14  16:38:18  weir]
+...\"
+...\" Revision 1.1.4.11  1995/06/02  15:24:54  buckler
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/06/01  20:58:23  buckler]
+...\" 
+...\" 	Incorporated 1.1 edits.
+...\" 	[1995/05/05  22:15:23  buckler]
+...\" 
+...\" Revision 1.1.4.10  1994/11/04  00:04:13  neilson
+...\" 	Substituted macros for book names in cross refs.
+...\" 	[1994/11/03  12:23:52  neilson]
+...\" 
+...\" Revision 1.1.4.9  1994/10/19  19:09:19  willie
+...\" 	{enh, 11783, R1.1}
+...\" 	Incorporated technical review.
+...\" 	[1994/10/19  19:08:37  willie]
+...\" 
+...\" Revision 1.1.4.8  1994/10/07  16:01:25  willie
+...\" 	{enh, 11783, R1.1}
+...\" 	Incorporated edits of Host Services parts.
+...\" 	[1994/10/07  15:54:21  willie]
+...\" 
+...\" Revision 1.1.4.7  1994/09/26  16:03:14  willie
+...\" 	{enh, 11783, R1.1}
+...\" 	Fixed reference from Admin.  Ref. to Command Ref.
+...\" 	[1994/09/26  16:02:37  willie]
+...\" 
+...\" Revision 1.1.4.6  1994/09/14  21:07:57  willie
+...\" 	{enh, 11783, R1.1}
+...\" 	Changed rpcd to dced.
+...\" 	[1994/09/14  21:07:36  willie]
+...\" 
+...\" Revision 1.1.4.5  1994/07/13  21:53:06  jshirley
+...\" 	{def,10220,R1.1} Remove reference to rpcd and sec_clientd
+...\" 	[1994/07/13  21:52:28  jshirley]
+...\" 
+...\" Revision 1.1.4.4  1993/01/29  17:17:53  cjd
+...\" 	Embedded copyright notice
+...\" 	[1993/01/29  17:01:22  cjd]
+...\" 
+...\" Revision 1.1.4.3  1992/11/24  15:44:44  steiner
+...\" 	Fixed coding conventions.
+...\" 	[1992/11/24  15:25:13  steiner]
+...\" 
+...\" Revision 1.1.4.2  1992/09/01  15:59:04  weir
+...\" 	Moved to 1.0.2 tree
+...\" 	[1992/09/01  15:48:00  weir]
+...\" 
+...\" Revision 1.1.2.2  1992/03/06  16:30:25  steiner
+...\" 	Edits from Eddie.
+...\" 	[1992/03/06  15:16:13  steiner]
+...\" 
+...\" Revision 1.1  1992/01/29  15:42:59  damon
+...\" 	Initial revision
+...\" 
+...\" $EndLog$
+...\"
+.H 2 "DCE Remote Procedure Call"
+.iX "-![" "RPC"
+.P
+A distributed application based on the client/server model consists
+of two parts: the client side of the application, which runs on one
+machine and makes a request for service on behalf of a user, and
+the
+server side of the application, which runs on another machine on the
+network and fulfills the service request.
+The two pieces of code on two different
+machines need to be able to communicate across the network.
+One model for implementing communications between the client and server
+of an application is the
+RPC facility.
+.iX "RPC" "model"
+.P
+RPC gives programmers the ability
+to express an interaction between the client and server of a distributed
+application as if it were a procedure call; the programmer
+defines a calling interface and a procedure that implements it,
+makes a call to the procedure along with
+any arguments, and receives a return value through the argument
+list or as the procedure result.
+.P
+In RPC, as in a traditional local procedure
+call, control is passed from one code segment to another, and
+then returns to the original segment.
+However, in a local
+procedure call, the code segments are in the same address space on the
+same machine;
+whereas, in a remote procedure call, the called procedure runs in
+a different address space, usually
+on a different machine than the calling procedure.
+As a result, arguments and results are passed differently for local
+and remote procedure calls.
+In local procedure calls, arguments and return values can be passed
+on the process's stack.
+In remote procedure calls, arguments and return values must be packed
+up into messages and sent to the peer machine over the network.
+The underlying RPC mechanism makes this look like a procedure call
+to the programmer.
+.P
+An RPC facility shields the application programmer from
+the details of network communications between client and server
+nodes, such as the following:
+.ML
+.LI
+Fragmentation and reassembly of messages
+.LI
+Handling different data formats (such as byte
+ordering) between different machines
+.LI
+Using a directory service to find message recipients
+.LI
+Using security services to ensure secure communications
+.LE
+.P
+Programmers using RPC do not need to
+rewrite applications in order to port them to different
+architectures, operating systems, communications protocols, or languages.
+RPC provides a high-level programming model to the distributed
+application programmer, hiding communications details, and removing
+nonportable system and hardware dependencies.
+.P
+The following subsections give
+an overview of the DCE RPC technology
+component.
+They describe the components that constitute the technology,
+and how DCE RPC is seen from the end user's, programmer's, and
+administrator's perspectives, focusing primarily on programming with
+RPC since the application programmer is the main consumer of this
+technology.
+The subsections also describe the steps involved in the execution of a remote
+procedure call.
+They describe the ways in which DCE RPC frees
+the programmer from system software and hardware dependencies, and
+then list additional sources of information on DCE RPC.
+.H 3 "What is DCE RPC?"
+.P
+DCE RPC is a facility for calling
+a procedure on a remote machine
+as if it were a local procedure call.  To the application programmer,
+a remote call looks (almost) like a local call,
+but there are several RPC components that work together to implement
+this facility, including
+the Interface Definition Language (IDL) and its compiler,
+a Universal Unique Identifier (UUID) generator,
+and the RPC runtime,
+which supports two RPC protocol implementations.
+One RPC protocol operates over connection-oriented transports such as
+the Transmission Control Protocol/Internet Protocol (TCP/IP),
+and the other RPC protocol operates over connectionless
+transports such
+as the User Datagram Protocol/Internet Protocol (UDP/IP).
+.P
+.ne 7
+An end user does not see RPC at all, and the minimal amount of
+administration involved in RPC
+can usually be handled by the server-side application code, such as advertising
+an application server in
+the DCE Directory Service.  It is the application
+programmer who most comes into contact with the RPC
+component.
+Since many of the DCE components are themselves
+client/server applications, they use RPC as their basis for distributed
+communications.
+.P
+The components that constitute the DCE RPC are as follows:
+.ML
+.LI
+IDL and the IDL compiler
+.P
+An RPC
+interface is described in DCE IDL.
+The IDL file is compiled into object code
+via the IDL compiler.
+The object code is in
+two main parts: one for the client side of the application, and one for the
+server side.
+...\" .ig ++
+...\" .LI
+...\" The Transfer Syntax
+...\" .P
+...\" This protocol defines rules for
+...\" encoding data in such a way that the communicating machines, which may or
+...\" may not have differing internal data representation formats, can
+...\" understand each other.
+...\" The Transfer Syntax is handled by the RPC runtime library and
+...\" IDL-compiler-generated stub code, and is not visible
+...\" to RPC programmers.
+...\" .++
+.LI
+The RPC runtime library
+.P
+This library consists of
+a set of routines, linked with both the client and server sides
+of an application, which implement the communications between them.
+This involves the client finding the server in the distributed system, getting
+messages back and forth, managing any state that exists between
+requests, and processing any errors that occur.
+.LI
+Authenticated RPC
+.P
+DCE RPC is integrated with the DCE Security Service component to provide
+secure communications.
+Levels of security can be controlled by the RPC application
+programmer through the authenticated
+RPC API.
+(See Section 3.5.4 for more information on authenticated RPC.)
+.LI
+Name Service Independent (NSI) API
+.P
+DCE RPC is integrated with the DCE Directory Service component
+to facilitate the location of RPC-based servers by their clients.
+The NSI routines allow a programmer to control the association,
+or binding, of a client to a server during RPC.
+.LI
+DCE host daemon
+.P
+The \*Ldced\*O program
+.iX "\*Ldced\*O daemon"
+.iX "DCE" "host daemon"
+runs on every DCE machine.
+It includes (among other things) an RPC-specific name server called
+the \*Eendpoint mapper service\*O, which manages a database that maps
+RPC servers to the transport endpoints (in IP, the ports) that the
+server is listening for requests on.
+.nL
+.ne 3
+.LI
+DCE control program
+.P
+\*Ldcecp\*O
+.iX "\*Ldcecp\*O"
+.iX "DCE" "control program"
+is a tool for administering DCE.
+...\"It also allows an administrator to access RPC data in CDS.
+.LI
+UUID facilities
+.P
+These are ancillary commands and routines for generating
+UUIDs, which uniquely identify an RPC
+interface or any other resource.
+The
+\*Luuidgen\*O
+.iX "\*Luuidgen\*O program"
+program can optionally generate an IDL template for a service interface,
+along with a unique identifier for the interface.
+.LE
+.H 3 "End User's Perspective"
+.iX "RPC" "end user's perspective"
+.P
+The end user does not come in direct contact with DCE RPC,
+but does see the end result in the form of
+.ML
+.LI
+The availability of distributed applications built using RPC
+.LI
+The ability to use remote resources accessed via RPC
+.LE
+.P
+An end user who is browsing through the namespace may also
+notice the names of RPC-based servers, since these
+servers advertise themselves to their clients through the
+DCE Directory Service.
+.H 3 "Programming with DCE RPC"
+.iX "-[" "RPC" "programming"
+.P
+This section provides a brief overview of the process a programmer goes
+through in using DCE RPC to write an application.
+For an example of how this process applies to a simple application,
+see Section 3.9 of this manual.
+For a more detailed description of the DCE RPC programming process,
+see the \*(Dg.
+.P
+Figure 3-1 shows an overview of the DCE RPC application
+development process.
+The dashed boxes indicate application code written by the DCE
+programmer.
+The other boxes indicate compiled code or code
+generated automatically for the
+programmer by DCE RPC.
+.PP
+.ne 6.0i
+.FG "DCE RPC Programming Process"
+...\" .so intro/pic/3c_rpc_01.pic
+.PS
+.in +.5i
+scale = 80
+box dashed wid 96 ht 80 at 208, 408
+"\fB\s10#typedef account\s0\fP" ljust at 168, 440
+"\fR\s10IDL File\s0\fP"  at 200, 456
+circle radius 16 at 200, 328
+"\fB\s10idl\s0\fP"  at 200, 328
+line ->  from 200, 368 \
+	to 200, 344 
+box  wid 80 ht 24 at 200, 260
+box  wid 80 ht 24 at 320, 260
+box  wid 80 ht 24 at 80, 260
+line   from 200, 312 \
+	to 200, 304 
+line ->  from 200, 304 \
+	to 80, 272 
+line ->  from 200, 304 \
+	to 200, 272 
+line ->  from 200, 304 \
+	to 328, 272 
+"\fR\s10Client Stub\s0\fP"  at 80, 256
+"\fR\s10Header File\s0\fP"  at 200, 256
+"\fR\s10Server Stub\s0\fP"  at 320, 256
+box wid 64 ht 24 at 32, 212
+box wid 64 ht 24 at 368, 212
+box dashed  wid 64 ht 24 at 128, 212
+box dashed  wid 64 ht 24 at 272, 212
+"\fR\s10RPC Runtime\s0\fP"  at 32, 208
+"\fR\s10Client Appl.\s0\fP"  at 128, 208
+"\fR\s10Server Appl.\s0\fP"  at 272, 208
+"\fR\s10RPC Runtime\s0\fP"  at 368, 208
+circle radius 16 at 80, 152
+circle radius 16 at 320, 152
+"\fR\s10Link\s0\fP"  at 80, 152
+"\fR\s10Link\s0\fP"  at 320, 152
+line ->  from 80, 248 \
+	to 80, 168 
+line ->  from 128, 200 \
+	to 96, 160 
+line ->  from 32, 200 \
+	to 64, 160 
+line ->  from 320, 248 \
+	to 320, 168 
+line ->  from 368, 200 \
+	to 336, 160 
+line ->  from 272, 200 \
+	to 304, 160 
+box  wid 80 ht 24 at 80, 92
+box  wid 80 ht 24 at 320, 92
+"\fR\s10Bank Client\s0\fP"  at 80, 88
+"\fR\s10Bank Server\s0\fP"  at 320, 88
+line ->  from 80, 136 \
+	to 80, 104 
+line ->  from 320, 136 \
+	to 320, 104 
+circle radius 24 at 320, 24
+circle radius 24 at 80, 24
+"\fR\s10Install on\s0\fP"  at 80, 24
+"\fR\s10Install on\s0\fP"  at 320, 24
+line ->  from 80, 80 \
+	to 80, 48 
+line ->  from 320, 80 \
+	to 320, 48 
+"\fR\s10Define Interface in DCE IDL:\s0\fP"  at 84, 420
+"\fR\s10Run IDL Compiler:\s0\fP"  at 120, 328
+"\fB\s10credit(\|)\s0\fP"  at 184, 408
+"\fB\s10get_balance(\|)\s0\fP"  at 196, 392
+"\fB\s10debit(\|)\s0\fP"  at 184, 424
+"\fR\s10Client\s0\fP"  at 80, 14
+"\fR\s10Server\s0\fP"  at 320, 14
+line -> dashed from 208, 248 \
+      to 280, 224
+line -> dashed from 192, 248 \
+      to 128, 224
+.in -.5i
+.PE
+.nL
+.ne 12
+.H 4 "The IDL File"
+.iX "IDL files"
+.P
+First, the application programmer defines the
+RPC interface, and associated data types,
+using IDL.
+An
+\*Einterface\*O
+.iX "interface" "definition"
+is a group
+of operations that a server can perform.
+This grouping is similar
+to a module or library in a conventional programming language; that is, a group
+of operations defined in a single file or unit.
+For example, a Bank service might perform operations to
+debit, credit, or read the balance of an account.
+Each of those
+operations and their parameters must be defined in the IDL file.
+The collection of Bank service operations\*(EMdebit, credit,
+read balance\*(EMtogether form the Bank service interface.
+.P
+The process of defining RPC operations
+is similar to defining the input and output of a local procedure call,
+except that in IDL only the calling interface is defined, not the
+implementation of the procedure.
+(An IDL interface definition is similar to an ANSI C prototype
+definition.)
+.P
+Next, the programmer compiles the IDL file with the IDL compiler.
+The compiler produces
+output in a conventional programming language, which is the C language
+in the DCE
+offering and then calls the appropriate compiler to produce object code.
+The output of the compilation consists of a
+\*Eclient stub\*O,
+.iX "stub" "client"
+a
+\*Eserver stub\*O,
+.iX "stub" "server"
+and a
+header file.
+The client and server stubs are routines that make the remoteness
+of the operation transparent to the caller or callee of the operation.
+.H 4 "The Client Side"
+.P
+For the client side of the application,
+the programmer writes application code
+that makes calls to the
+operations in the IDL file.  The client stub code is linked with
+this application code and (along with the RPC runtime code)
+performs the tasks that turn what looks like a
+procedure call into network communications with the server side of the
+application.
+Usually the client side of the application contains
+a relatively small amount of
+RPC code.
+.nL
+.ne 7
+.H 4 "The Server Side"
+.P
+For the server side, the programmer writes application
+routines that implement the operations
+defined in the IDL file.  For example, in the banking application, a database
+lookup might implement the operation to read an account balance.  The
+server stub, generated by the IDL compiler, is linked with the server
+application code.
+The server stub unpacks the arguments and makes the
+call to the application routine as if the client program had called it
+directly.
+The server side of the application contains the bulk of the RPC code that
+needs to be written by the distributed application programmer.
+.H 4 "Binding"
+.iX "binding"
+.P
+In order for the client to send an RPC to the server, it must
+be able to find the server.
+This process is called
+\*Ebinding\*O.
+A client may have some direct way of knowing what server it needs to
+communicate with; for example, it may get this information from
+a file, a value hardcoded into its program,
+an environment variable, or a user.
+A more flexible way for a client to find a server is to take advantage
+of DCE RPC's use of the DCE Directory Service.
+.P
+A client can find a server by asking the directory service
+for the location of a server that handles the interface that
+the client is interested in (in our example, a Bank server).
+In order for the directory service to be able to give the client
+this information, a server must first advertise itself in the directory
+service.
+The server adds itself to the namespace, along with information about what
+interfaces it implements, what protocols it uses to communicate with,
+and where it is located.
+This way, a server can move, or there can be multiple servers
+implementing a given interface, without affecting the
+client.
+The client can still go to the directory service, a well-known central
+source of information, and find out where the server is located.
+.P
+The DCE programmer does not make calls directly to CDS; binding is
+supported by the NSI API,
+an RPC-specific name service layer.
+Calls to this library are made by the client side of an application
+in order 
+to look up binding information for a server based on various criteria,
+such as the type of service, the objects it manages, and the interfaces
+it supports.
+The server side of an application calls this library to advertise
+information about itself to the namespace where clients can find it.
+...\"
+...\"
+...\"
+.H 4 "The Endpoint Mapper Service of the DCE Host Daemon"
+There are two parts to a server's location: the network 
+address of the machine it resides on and the transport-specific
+address of the process\*(EMthe network endpoint
+(for example, a UNIX port).
+The machine location is fairly stable, so its address can reasonably be
+entered into CDS.
+The network endpoint, however,
+can change each time the server process is
+started.
+Instead of making frequent changes to CDS to update a server's endpoint
+address, DCE RPC uses a specialized type of directory service,
+the endpoint mapper service, a service of \*Ldced\*O.
+...\"or \*Lrpcd\*O.
+...\".iX "\*Lrpcd\*O"
+When a server starts, it registers its endpoint(s) with \*Ldced\*O.
+Most servers will register an endpoint for each transport protocol
+supported on the host (for example, TCP and UDP).
+.P
+Every machine that runs an RPC server also runs \*Ldced\*O.
+The \*Ldced\*O process always uses the same network endpoint, so its process
+address is well known.
+Therefore, once a client knows what machine a server is running on,
+it can find the endpoint mapper running on that same machine.
+It can then ask the endpoint mapper for the network endpoint 
+of the server process.
+This process is shown in Figure 3-2 (read the messages, shown
+in quotes, in clockwise order).
+.PP
+.FG "Client Finds Server via CDS and dced"
+...\" .so intro/pic/3c_rpc_02.pic
+.PS
+.in +.5i
+scale = 80
+"\fR\s10@Port X\s0\fP"  at 40, 24
+"\fR\s10Node A\s0\fP"  at 136, 16
+"\fR\s10\"Port X\"\s0\fP"  at 80, 104
+"\fR\s10\"Node A\"\s0\fP"  at 120, 144
+"\fR\s10\"Bank?\"\s0\fP"  at 128, 120
+box  wid 200 ht 96 at 100, 48
+line ->  from 168, 152 \
+	to 64, 152 
+"\fR\s10\"Bank?\"\s0\fP"  at 120, 168
+"\fR\s10Server\s0\fP"  at 40, 32
+circle radius 24 at 40, 32
+"\fR\s10Client\s0\fP"  at 40, 152
+circle radius 24 at 40, 152
+"\fR\s10CDS\s0\fP"  at 192, 152
+circle radius 24 at 192, 152
+line ->  from 64, 160 \
+	to 168, 160 
+"\fB\s10dced\s0\fP"  at 160, 64
+circle radius 24 at 160, 64
+line ->  from 64, 144 \
+	to 152, 88 
+line ->  from 144, 80 \
+	to 56, 136 
+line ->  from 48, 128 \
+	to 48, 56 
+line ->  from 32, 56 \
+	to 32, 128 
+.in -.5i
+.PE
+.iX "-]" "RPC" "programming"
+.nL
+.ne 6
+.H 3 "DCE RPC Administration"
+.iX "RPC" "administration"
+.P
+A few administrative tasks must be performed
+when running a distributed application using RPC.
+The application server executes most of these tasks
+when it first starts.
+As described in the previous section, the server registers its
+(dynamically assigned) listening endpoint
+with \*Ldced\*O.
+The server also advertises
+information about itself and the interfaces it supports
+in the DCE Directory Service.
+.P
+Nonautomated RPC administration is minimal.
+The administrator must ensure that each
+DCE machine has a DCE host daemon running on it.
+An administrator may be involved in registering
+servers in the namespace,
+but this can also be done from server code upon initialization
+as just described.  
+Usually, an administrator will be needed to change
+the ACL on the directory where the server will register so that the
+server has write permission.
+The DCE control program,
+\*Ldcecp\*O,
+allows an administrator to (among many things) control the
+\*Ldced\*O
+and administer RPC
+information in the namespace.
+.P
+An administrator may be involved in installing a new RPC-based
+application.
+In particular, the server side of the application must be started
+before it can begin receiving and servicing requests.
+The administrator
+may arrange for the server process to be started each time the machine is
+booted, for example.
+.H 3 "How an RPC Call Works"
+.iX "RPC" "how it works"
+.P
+A short ``walk-through'' of what happens during an RPC call may help
+clarify the RPC concept and how it works.
+This section describes the RPC call shown in Figure 3-3.
+(This description is somewhat simplified.
+The use of \*Ldced\*O
+.iX "\*Ldced\*O daemon"
+is not shown.)
+.PP
+.ne 4.5i
+.FG "RPC Runtime Process"
+...\" .so intro/pic/3c_rpc_03.pic
+.PS
+.in +.35i
+scale = 80
+"\fR\s108. credit(acct)\s0\fP" ljust at 384, 56
+"\fR\s10Arguments\s0\fP" ljust at 392, 136
+"\fR\s105. Make RPC\s0\fP" ljust at 8, 64
+"\fR\s10Arguments\s0\fP" ljust at 16, 132
+"\fR\s104. Package\s0\fP" ljust at 8, 144
+"\fR\s103. credit(acct)\s0\fP" ljust at 8, 224
+"\fR\s102. Find Server\s0\fP" ljust at 8, 308
+"\fR\s107. Unpack\s0\fP" ljust at 384, 148
+"\fR\s106. Receive RPC\s0\fP" ljust at 388, 228
+"\fR\s101. Advertise\s0\fP" ljust at 384, 308
+box  wid 152 ht 336 at 76, 168
+box  wid 160 ht 336 at 384, 168
+"\fR\s10Init\s0\fP"  at 104, 296
+"\fR\s10Client\s0\fP"  at 104, 312
+circle radius 24 at 104, 304
+circle radius 24 at 104, 224
+circle radius 24 at 104, 144
+circle radius 24 at 104, 64
+line ->  from 104, 200 \
+	to 104, 168 
+line ->  from 104, 120 \
+	to 104, 88 
+"\fR\s10Client\s0\fP"  at 104, 228
+"\fR\s10Appl\s0\fP"  at 104, 216
+"\fR\s10Client\s0\fP"  at 104, 148
+"\fR\s10Stub\s0\fP"  at 104, 132
+"\fR\s10Client\s0\fP"  at 104, 72
+"\fR\s10Runtime\s0\fP"  at 104, 60
+"\fR\s10BANK CLIENT\s0\fP"  at 80, 352
+"\fR\s10BANK SERVER\s0\fP"  at 380, 352
+"\fR\s10Appl\s0\fP"  at 344, 56
+circle radius 24 at 344, 64
+line ->  from 344, 120 \
+	to 344, 88 
+ellipse wid 32 ht 8 at 400, 28
+ellipse wid 32 ht 8 at 400, 12
+line   from 384, 28 \
+	to 384, 12 
+line   from 416, 28 \
+	to 416, 12 
+line   from 362, 48 \
+	to 386, 32 
+"\fR\s10Server\s0\fP"  at 344, 68
+"\fR\s10Stub\s0\fP"  at 344, 132
+"\fR\s10Server\s0\fP"  at 344, 148
+line ->  from 344, 200 \
+	to 344, 168 
+circle radius 24 at 344, 144
+circle radius 24 at 344, 224
+circle radius 24 at 344, 304
+line ->  from 344, 280 \
+	to 344, 248 
+"\fR\s10Server\s0\fP"  at 344, 308
+"\fR\s10Init\s0\fP"  at 344, 296
+"\fR\s10Server\s0\fP"  at 344, 232
+"\fR\s10Runtime\s0\fP"  at 344, 220
+"\fR\s10CDS\s0\fP"  at 224, 304
+circle radius 24 at 224, 304
+line ->  from 128, 312 \
+	to 200, 312 
+line ->  from 200, 296 \
+	to 124, 296 
+line ->  from 324, 320 \
+	to 242, 320 
+"\fR\s10\"Bank@Node B\"\s0\fP"  at 270, 332
+"\fR\s10\"Bank?\"\s0\fP"  at 176, 318
+"\fR\s10\"Node B\"\s0\fP"  at 176, 288
+line ->  from 104, 280 \
+	to 104, 248 
+line ->  from 128, 72 \
+	to 320, 216 
+"\fR\s10credit(acct)\s0\fP" ljust at 216, 128
+.in -.35i
+.PE
+.sp .5
+.P
+On the server side, the Bank server process is started up.
+Before it begins its continuous cycle of receiving and servicing
+requests, the server process advertises its
+location in CDS 
+(see Step 1 in Figure 3-3).
+In this
+way, when a client queries the directory service for a bank
+server, it will be able to find it.
+After initialization,
+the server listens for a
+request to come in from a client over the network.
+This call to wait for client
+requests is a call to the RPC runtime, since the runtime handles
+network communications.
+.P
+Eventually, a user on the Bank client machine invokes the bank
+application.
+The Bank client initialization code calls the RPC runtime to
+find a server offering the Bank service (see Point 2).
+The Bank client
+application code makes a call to a remote procedure; for example, a
+call to a procedure that credits a bank account (3).  This results in
+a call to the client stub code.  The stub
+transforms the arguments of the call into a network
+message (4).  It then calls the client's RPC runtime library, which
+sends the message to the server (5).
+.P
+Back on the server side,
+the RPC request is received by the RPC runtime, which has been
+waiting for a client request (6).
+The runtime passes control, and the received packet, to the
+server stub.  The stub unpacks the arguments sent by the client (7) and
+passes them to the appropriate operation by making a procedure call to
+it.  At this point, the server application code that implements the
+requested operation is called.  The
+operation is performed; that is, the account is credited (8).
+.P
+The RPC reply (not shown in the figure) returns in the
+reverse direction.
+The Bank server application procedure returns the results of the
+credit operation to the stub.
+The stub packs up the return
+parameters and passes the resulting message to the RPC runtime to send
+off to the client over the network.  The server then waits for the next
+client request to come in.
+.P
+The client's runtime receives the server's reply.
+The client stub then
+unpacks the received network message, arranging
+returned parameters such that, when the client application call to RPC
+returns, it looks like it has just performed a local procedure call.
+.P
+The mechanisms in both the client and server stubs and
+the runtime library are transparent to the application programmer.
+The programmer writes the
+application calls to the RPC operations on the client side, and
+provides implementations for those operations on the server side,
+but the network communications code is generated
+automatically.
+.H 3 "System Independence"
+.iX "RPC" "and system independence"
+.iX "DCE" "and related software"
+.P
+There are several ways in which using DCE RPC frees a programmer
+from dependence on other parts of a system.  It provides portability across
+programming languages, data transfer syntax mechanisms, transport and
+network protocols, and operating system and architecture platforms.
+.nL
+.ne 12
+.ML
+.LI
+Language independence
+.P
+DCE RPC is
+\*Elanguage independent\*O
+in the sense that the stubs generated by the IDL compiler
+can be called by programs written in any traditional programming
+language, provided that the language follows the calling conventions
+that the stub expects.
+The DCE IDL compiler generates stubs that use the C language
+calling conventions.
+A client written in FORTRAN, for example, can call an IDL stub in the same
+way that it calls any local C procedure.
+It can then make a remote call to a server (possibly written in another
+language) that contains
+the server stub generated from the same IDL file as the client stub was
+generated from.
+.LI
+Data representation independence
+.P
+The default
+\*Edata representation\*O
+format is the DCE Transfer Syntax, which is currently the Network
+Data Representation (NDR).
+It allows various representations for different types of data, including
+multiple encodings for characters, integers, and floating-point numbers.
+It is \*Emulticanonical\*O;
+that is, there are several canonical formats that can be used.
+The sender chooses one of these formats (in most cases, it will
+be the sender's native data representation),
+with information about what representation it has chosen.
+The receiver
+transforms data into its own format, if it is different
+from the format the data was sent in.
+This model optimizes for the case when both sender
+and receiver use the same data representation, a frequent occurrence.
+(Note that this data transfer is handled by the RPC software and
+is not visible to the application programmer.)
+.P
+The DCE RPC architecture allows the use of transfer syntaxes other than
+DCE Transfer Syntax (although the only transfer syntax currently
+provided in the OSF implementation is DCE Transfer Syntax).
+For example, data could be formatted according
+to the ISO ASN.1/BER specification and sent over the wire in that
+way.
+.nL
+.ne 12
+.LI
+Protocol independence
+.P
+Independence of
+RPC, transport,
+and
+network protocols
+is achieved
+as follows.  The DCE RPC offering includes two different
+RPC protocols.
+The first runs over connection-oriented transport protocols; the second runs
+over connectionless (datagram) transport protocols.
+The programmer can specify the underlying RPC protocol,
+but the semantics of RPC calls are the same
+whether the RPC is running over a connectionless or connection-oriented
+transport.
+Another RPC protocol could be used in place of these two DCE RPC
+protocols; for example, when ISO defines an RPC standard, it
+could be used transparently as a third RPC protocol under the DCE RPC
+interfaces.
+.P
+Servers identify themselves to the directory service according to
+the interface they support and the protocols they use.  In this
+way, a client can look up a server that uses network protocols that
+are compatible with those that the client supports.
+.LI
+Machine independence
+.P
+Because DCE RPC uses the DCE transfer syntax, distributed applications
+are
+\*Emachine independent\*O.
+DCE transfer syntax allows machines to transfer data
+even when their native data representations are not the same.
+.LI
+Operating system independence
+.P
+Finally, DCE RPC offers independence from the
+\*Elocal operating system\*O.
+The application programmer is not directly using the
+networking system calls provided by the local operating system.
+By being one level of abstraction up from this layer, the programmer
+is insulated from networking system calls that are operating system
+specific.
+.LE
+.nL
+.ne 12
+.H 3 "Additional Information on DCE RPC"
+.iX "RPC" "additional information"
+.P
+For additional information on DCE RPC, see the following:
+.ML
+.LI
+The RPC chapters of the
+\*(Dg
+and the
+\*(Ag
+.LI
+The \*L(3rpc)\*O reference pages of the
+\*(Dr
+.LI
+The
+\*L(1rpc)\*O and \*L(8rpc)\*O reference pages of the
+\*(Ar
+.LI
+The RPC-related error messages in the \*(Tg
+.LE
+.iX "-]" "RPC"

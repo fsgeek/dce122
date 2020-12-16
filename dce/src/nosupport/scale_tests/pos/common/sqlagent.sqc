@@ -1,0 +1,573 @@
+/*** POS DB2/2 AGENT Child Process ***********************************/
+/*** IBM Corporation                                               ***/
+/*** OS/2-AIX PSP Systems Performance                              ***/
+/*** Department 57LS                                               ***/
+/*** 11400 Burnet Road                                             ***/
+/*** Austin Texas 78759                                            ***/
+/*** Bob Russell, ZIP 9151                                         ***/
+/*** (512) 838-0844 TL 678-0844                                    ***/
+/*** robert_russell@vnet.ibm.com                                   ***/
+/*********************************************************************/
+/*****************************************************************************
+ * COPYRIGHT:                                                                *
+ * ----------                                                                *
+ * Copyright (C) International Business Machines Corp., 1993,1994,1995,1996. *
+ *                                                                           *
+ * DISCLAIMER OF WARRANTIES:                                                 *
+ * -------------------------                                                 *
+ * The following [enclosed] code is sample code created by IBM               *
+ * Corporation.  This sample code is not part of any standard IBM product    *
+ * and is provided to you solely for the purpose of assisting you in the     *
+ * development of your applications.  The code is provided "AS IS",          *
+ * without warranty of any kind.  IBM shall not be liable for any damages    *
+ * arising out of your use of the sample code, even if they have been        *
+ * advised of the possibility of such damages.                               *
+ *****************************************************************************/
+#define INCL_DOSPROCESS
+
+#define INCL_DOSMEMMGR
+#include <bsememf.h>
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <process.h>
+#include <os2.h>
+
+#include "sql.h"
+#include "sqlenv.h"
+#include "sqlca.h"
+#include "sqlcodes.h"
+#include "sqlutil.h"
+
+#include "pos.h"
+
+#define SQLAGENT
+#include "sqlagent.h"
+
+APIRET   rc;
+
+/*** Sub-Routine Prototypes ***********************************************/
+long START_USING (void);
+long STOP_USING (void);
+int  main(int argc, char **argv);
+/*
+ * MAIN Routine
+ */
+int main(int argc, char **argv)
+{
+  int                    i, cnt;
+  long                   long_proc;
+  unsigned char          NameBuf[40]         ="\\SHAREMEM\\POSDATA0000";
+  unsigned long          FlagsBuf            = PAG_WRITE | PAG_READ;
+  long                   SQL_rc;
+  char                   *env_ptr;
+  int                    verbosity;
+
+   EXEC SQL BEGIN DECLARE SECTION;
+
+      /***** CUSTOMER LOOKUP ******/
+      long       AREA_CODE;
+      long       PHONE_NO;
+      char       EXTN[8];
+      long       ACCT_ID;
+      char       CUST_LAST_NAME[48];
+      char       CUST_FIRST_NAME[24];
+      char       CUST_MI[4];
+      char       SHIP_ADDR[72];
+      char       MAIL_ADDR[72];
+      char       STATE[4];
+      char       CITY[48];
+      long       ZIP_CODE;
+      char       CUST_TYPE[4];
+      double     DISC_PCNT;
+      double     TAX_PCNT;
+      char       DRV_LIC[24];
+      char       DRV_LIC_STATE[4];
+      char       DATE_LAST_PURCH[12];
+      char       CUST_REF[72];
+      char       CUST_FILLER[84];
+
+      /***** PRICE LOOKUP ******/
+      long       ITEM_NO       ;
+      long       UPC_NO        ;
+      char       DESCR[36]     ;
+      char       DEPT_NO[4]    ;
+      long       QTY_ON_HAND   ;
+      char       INV_UNIT[8]   ;
+      long       ORD_AT_QTY    ;
+      long       QTY_TO_ORD    ;
+      long       INV_CNT       ;
+      char       INV_DATE[12]  ;
+      long       QTY_ON_ORD    ;
+      char       LST_ORD_DT[12];
+      double     PRICE_1       ;
+      char       EFF_DT_1[12]  ;
+      double     PRICE_2       ;
+      char       EFF_DT_2[12]  ;
+      double     PRICE_3       ;
+      char       EFF_DT_3[12]  ;
+      double     UNIT_COST     ;
+
+   EXEC SQL END DECLARE SECTION;
+
+
+   struct sqlca sqlca = {"SQLCA   "};
+   long sql_rc = 0L;
+
+
+  /****** override priority RPC sets it at 021B ************/
+  DosSetPriority(1,2,0,0);
+  /*********************************************************/
+
+  #ifdef DEBUGIT
+    printf("ARGC=%d\n",argc);
+    printf("ARGV[0]=<%s>\n",argv[0]);
+    printf("ARGV[1]=<%s>\n",argv[1]);
+  #endif
+
+  /**** Get environment variables ******************************************/
+   if (!(env_ptr = getenv("NOPRINT")))
+     verbosity = 0;
+   else
+     verbosity = 1;
+
+  /****************************
+   * Get the process identifer passed from the server
+   ****************************/
+
+  long_proc = atol(argv[1]);
+
+  printf("POS DB2/2 Agent Process # <%ld> initializing...\n", long_proc);
+
+  /********************************************************************
+   * Get a handle to the named shared memory allocated by the server
+   ********************************************************************/
+
+  (void)sprintf(NameBuf,"\\SHAREMEM\\POSDATA%ld\0",long_proc);
+
+  if (( rc = DosGetNamedSharedMem(&PosAgentRam,NameBuf,FlagsBuf) ))
+  {
+    printf("DosGetNamedSharedMem failed rc=[%d]\n",rc);
+    exit(1);
+  }
+  PosAgentRam->tx_code = 0;
+
+  /***********************************************************
+   * Open the POS Database for this agent
+   ***********************************************************/
+
+  if ((SQL_rc = START_USING())!=0L)        exit(1);
+
+  SetAgentSem((short)long_proc);
+
+  /***********************************************************/
+
+  /******************************************
+   * Wait for something to happen
+   ******************************************/
+
+
+  PosAgentRam->tx_code = 0L;
+  do
+  {
+    WaitAgentSem((short)long_proc);
+    SetAgentSem((short)long_proc);
+
+    /************************************************************
+     * CUSTOMER LOOKUP
+     ************************************************************/
+    if(PosAgentRam->tx_code == 1L)
+    {
+
+      AREA_CODE   = PosAgentRam->cust_data.area_code             ;
+      PHONE_NO    = PosAgentRam->cust_data.phone_no              ;
+
+      #ifdef DEBUGIT
+        printf("Agent <%4ld> %3ld-%7ld   \n",
+                        long_proc,
+                        AREA_CODE,
+                        PHONE_NO );
+      #endif
+
+      /****************************************************************/
+      EXEC SQL
+/*        DECLARE csr1 CURSOR FOR*/
+          SELECT  area_code          ,
+                  phone_no           ,
+                  extn               ,
+                  acct_id            ,
+                  cust_last_name     ,
+                  cust_first_name    ,
+                  cust_MI            ,
+                  ship_addr          ,
+                  mail_addr          ,
+                  state              ,
+                  city               ,
+                  zip_code           ,
+                  cust_type          ,
+                  disc_pcnt          ,
+                  tax_pcnt           ,
+                  drv_lic            ,
+                  drv_lic_state      ,
+                  date_last_purch    ,
+                  cust_ref           ,
+                  cust_filler
+          INTO    :AREA_CODE          ,
+                  :PHONE_NO           ,
+                  :EXTN               ,
+                  :ACCT_ID            ,
+                  :CUST_LAST_NAME     ,
+                  :CUST_FIRST_NAME    ,
+                  :CUST_MI            ,
+                  :SHIP_ADDR          ,
+                  :MAIL_ADDR          ,
+                  :STATE              ,
+                  :CITY               ,
+                  :ZIP_CODE           ,
+                  :CUST_TYPE          ,
+                  :DISC_PCNT          ,
+                  :TAX_PCNT           ,
+                  :DRV_LIC            ,
+                  :DRV_LIC_STATE      ,
+                  :DATE_LAST_PURCH    ,
+                  :CUST_REF           ,
+                  :CUST_FILLER
+          FROM posadmin.customer
+          WHERE area_code = :AREA_CODE
+            AND phone_no  = :PHONE_NO;
+/*          FOR UPDATE OF  date_last_purch;*/
+/*
+      EXEC SQL OPEN csr1;
+
+      if (sqlca.sqlcode != 0)
+        printf("CUSTOMER Open Cursor failed %ld\n",sqlca.sqlcode);
+
+      if (sqlca.sqlcode == 0)
+      {
+        EXEC SQL
+          FETCH csr1
+          INTO    :AREA_CODE          ,
+                  :PHONE_NO           ,
+                  :EXTN               ,
+                  :ACCT_ID            ,
+                  :CUST_LAST_NAME     ,
+                  :CUST_FIRST_NAME    ,
+                  :CUST_MI            ,
+                  :SHIP_ADDR          ,
+                  :MAIL_ADDR          ,
+                  :STATE              ,
+                  :CITY               ,
+                  :ZIP_CODE           ,
+                  :CUST_TYPE          ,
+                  :DISC_PCNT          ,
+                  :TAX_PCNT           ,
+                  :DRV_LIC            ,
+                  :DRV_LIC_STATE      ,
+                  :DATE_LAST_PURCH    ,
+                  :CUST_REF           ,
+                  :CUST_FILLER         ;
+*/
+        if (sqlca.sqlcode != 0)
+          printf("CUSTOMER Fetch failed %ld\n",sqlca.sqlcode);
+/*
+      }
+
+      if (sqlca.sqlcode == 0)
+      {
+        EXEC SQL
+          UPDATE posadmin.customer
+          SET date_last_purch = CURRENT DATE
+          WHERE CURRENT OF csr1;
+
+        if (sqlca.sqlcode != 0)
+          printf("CUSTOMER Update failed %ld\n",sqlca.sqlcode);
+      }
+*/
+      /* Save the last potentially bad sqlcode */
+      PosAgentRam->sql_code = sqlca.sqlcode;
+
+      if (sqlca.sqlcode != 0)
+      {
+        printf("Manual ROLLBACK !\n");
+        EXEC SQL ROLLBACK;
+
+        memset(&PosAgentRam->cust_data, 0,
+               sizeof(PosAgentRam->cust_data));
+        strcpy(PosAgentRam->cust_data.cust_last_name,
+        "Name Not In Database!" );
+      }
+      else
+      {
+        EXEC SQL COMMIT;
+
+
+
+        strcpy(PosAgentRam->cust_data.extn            , EXTN             );
+               PosAgentRam->cust_data.acct_id         = ACCT_ID           ;
+        strcpy(PosAgentRam->cust_data.cust_last_name  , CUST_LAST_NAME   );
+        strcpy(PosAgentRam->cust_data.cust_first_name , CUST_FIRST_NAME  );
+        strcpy(PosAgentRam->cust_data.cust_MI         , CUST_MI          );
+        strcpy(PosAgentRam->cust_data.ship_addr       , SHIP_ADDR        );
+        strcpy(PosAgentRam->cust_data.mail_addr       , MAIL_ADDR        );
+        strcpy(PosAgentRam->cust_data.state           , STATE            );
+        strcpy(PosAgentRam->cust_data.city            , CITY             );
+               PosAgentRam->cust_data.zip_code        = ZIP_CODE          ;
+        strcpy(PosAgentRam->cust_data.cust_type       , CUST_TYPE        );
+               PosAgentRam->cust_data.disc_pcnt       = DISC_PCNT         ;
+               PosAgentRam->cust_data.tax_pcnt        = TAX_PCNT          ;
+        strcpy(PosAgentRam->cust_data.drv_lic         , DRV_LIC          );
+        strcpy(PosAgentRam->cust_data.drv_lic_state   , DRV_LIC_STATE    );
+        strcpy(PosAgentRam->cust_data.date_last_purch , DATE_LAST_PURCH  );
+        strcpy(PosAgentRam->cust_data.cust_ref        , CUST_REF         );
+        strcpy(PosAgentRam->cust_data.cust_filler     , CUST_FILLER      );
+      }
+      /********************************************************************/
+
+    } /* end IF tx_code == 1 */
+
+    /************************************************************
+     * PRICE LOOKUP
+     ************************************************************/
+    else
+    if(PosAgentRam->tx_code == 2L)
+    {
+      ITEM_NO     = PosAgentRam->item_row.item_no                ;
+
+      #ifdef DEBUGIT
+        printf("Agent <%4ld> %8ld   \n",
+                        long_proc,
+                        ITEM_NO );
+      #endif
+
+      /****************************************************************/
+      EXEC SQL
+/*        DECLARE csr2 CURSOR FOR*/
+          SELECT  item_no         ,
+                  upc_no          ,
+                  descr           ,
+                  dept_no         ,
+                  qty_on_hand     ,
+                  inv_unit        ,
+                  ord_at_qty      ,
+                  qty_to_ord      ,
+                  inv_cnt         ,
+                  inv_date        ,
+                  qty_on_ord      ,
+                  lst_ord_dt      ,
+                  price_1         ,
+                  eff_dt_1        ,
+                  price_2         ,
+                  eff_dt_2        ,
+                  price_3         ,
+                  eff_dt_3        ,
+                  unit_cost
+          INTO    :ITEM_NO           ,
+                  :UPC_NO            ,
+                  :DESCR             ,
+                  :DEPT_NO           ,
+                  :QTY_ON_HAND       ,
+                  :INV_UNIT          ,
+                  :ORD_AT_QTY        ,
+                  :QTY_TO_ORD        ,
+                  :INV_CNT           ,
+                  :INV_DATE          ,
+                  :QTY_ON_ORD        ,
+                  :LST_ORD_DT        ,
+                  :PRICE_1           ,
+                  :EFF_DT_1          ,
+                  :PRICE_2           ,
+                  :EFF_DT_2          ,
+                  :PRICE_3           ,
+                  :EFF_DT_3          ,
+                  :UNIT_COST
+
+          FROM posadmin.price
+          WHERE item_no = :ITEM_NO;
+/*
+          FOR UPDATE OF qty_on_hand     ,
+                        qty_on_ord      ,
+                        lst_ord_dt ;
+
+      EXEC SQL OPEN csr2;
+
+      if (sqlca.sqlcode != 0)
+        printf("PRICE Open Cursor failed %ld\n",sqlca.sqlcode);
+
+      if (sqlca.sqlcode == 0)
+      {
+        EXEC SQL
+          FETCH csr2
+          INTO    :ITEM_NO           ,
+                  :UPC_NO            ,
+                  :DESCR             ,
+                  :DEPT_NO           ,
+                  :QTY_ON_HAND       ,
+                  :INV_UNIT          ,
+                  :ORD_AT_QTY        ,
+                  :QTY_TO_ORD        ,
+                  :INV_CNT           ,
+                  :INV_DATE          ,
+                  :QTY_ON_ORD        ,
+                  :LST_ORD_DT        ,
+                  :PRICE_1           ,
+                  :EFF_DT_1          ,
+                  :PRICE_2           ,
+                  :EFF_DT_2          ,
+                  :PRICE_3           ,
+                  :EFF_DT_3          ,
+                  :UNIT_COST         ;
+*/
+        if (sqlca.sqlcode != 0)
+          printf("PRICE Fetch failed %ld\n",sqlca.sqlcode);
+/*
+      }
+
+      if (sqlca.sqlcode == 0)
+      {
+         if (QTY_ON_ORD > 0L)
+         {
+           QTY_ON_HAND += QTY_ON_ORD;
+           if (verbosity)
+             printf("Received item no %ld\n", ITEM_NO);
+           QTY_ON_ORD = 0L;
+         }
+
+         QTY_ON_HAND -= PosAgentRam->order_qty;
+
+         if (QTY_ON_HAND <= ORD_AT_QTY)
+         {
+           QTY_ON_ORD += QTY_TO_ORD;
+
+           if (verbosity)
+             printf("Ordering item no %ld\n", ITEM_NO);
+
+           EXEC SQL
+             UPDATE posadmin.price
+             SET
+                   qty_on_hand = :QTY_ON_HAND ,
+                   qty_on_ord  = :QTY_ON_ORD  ,
+                   lst_ord_dt = CURRENT DATE
+             WHERE CURRENT OF csr2;
+         }
+         else
+         {
+           EXEC SQL
+             UPDATE posadmin.price
+             SET
+                   qty_on_hand = :QTY_ON_HAND ,
+                   qty_on_ord  = 0           ,
+                   lst_ord_dt = lst_ord_dt
+             WHERE CURRENT OF csr2;
+         }
+
+        if (sqlca.sqlcode != 0)
+          printf("PRICE Update failed %ld\n",sqlca.sqlcode);
+      }
+*/
+      /* Save the last potentially bad sqlcode */
+      PosAgentRam->sql_code = sqlca.sqlcode;
+
+      if (sqlca.sqlcode != 0)
+      {
+        printf("Manual ROLLBACK !\n");
+        EXEC SQL ROLLBACK;
+
+        memset(&PosAgentRam->item_row, 0,
+               sizeof(PosAgentRam->item_row));
+        strcpy(PosAgentRam->item_row.descr, "Item Number Not Found!");
+
+      }
+      else
+      {
+        EXEC SQL COMMIT;
+
+               PosAgentRam->item_row.item_no       = ITEM_NO        ;
+               PosAgentRam->item_row.upc_no        = UPC_NO         ;
+        strcpy(PosAgentRam->item_row.descr         , DESCR         );
+        strcpy(PosAgentRam->item_row.dept_no       , DEPT_NO       );
+               PosAgentRam->item_row.qty_on_hand   = QTY_ON_HAND    ;
+        strcpy(PosAgentRam->item_row.inv_unit      , INV_UNIT      );
+               PosAgentRam->item_row.ord_at_qty    = ORD_AT_QTY     ;
+               PosAgentRam->item_row.qty_to_ord    = QTY_TO_ORD     ;
+               PosAgentRam->item_row.inv_cnt       = INV_CNT        ;
+        strcpy(PosAgentRam->item_row.inv_date      , INV_DATE      );
+               PosAgentRam->item_row.qty_on_ord    = QTY_ON_ORD     ;
+        strcpy(PosAgentRam->item_row.lst_ord_dt    , LST_ORD_DT    );
+               PosAgentRam->item_row.price_1       = PRICE_1        ;
+        strcpy(PosAgentRam->item_row.eff_dt_1      , EFF_DT_1      );
+               PosAgentRam->item_row.price_2       = PRICE_2        ;
+        strcpy(PosAgentRam->item_row.eff_dt_2      , EFF_DT_2      );
+               PosAgentRam->item_row.price_3       = PRICE_3        ;
+        strcpy(PosAgentRam->item_row.eff_dt_3      , EFF_DT_3      );
+               PosAgentRam->item_row.unit_cost     = UNIT_COST      ;
+      }
+    } /* end IF tx_code == 2 */
+
+    /*
+     * Tell the dispatcher I'm done.
+     */
+    ClearServrSem((short)long_proc);
+
+  } while (PosAgentRam->tx_code != 999L);
+
+
+  /***********************************************************/
+
+  /***********************************************************
+   * Close the POS Database for this agent
+   ***********************************************************/
+
+  STOP_USING();
+
+  /*
+   * Say Good Night
+   */
+  PosAgentRam->tx_code = 99L;
+  printf("Agent %ld is exiting.\n",long_proc);
+
+  exit(1);
+}
+/************************************************************/
+
+/*** START USING DATABASE ***********************************************/
+long START_USING (void)
+{
+   struct sqlca sqlca = {"SQLCA   "};
+   char *env_ptr;
+   char database[12];
+   int i=0;
+
+  /**** Get environment variables ******************************************/
+   if (!(env_ptr = getenv("POSDBNAME")))
+   {
+     sprintf(database,"POS96\0");
+   }
+   else
+     sprintf(database,"%s",env_ptr);
+
+   /* start database *******************************************************/
+   do
+   {
+      sqlestrd(database, SQL_USE_SHR, &sqlca);
+
+      if(sqlca.sqlcode == -1093)
+      {
+          printf("Logon retry %ld\n");
+          i++;
+      }
+      else
+          printf("START USING DATABASE <%s> rc=%ld\n",
+                                              database, sqlca.sqlcode);
+
+   }  while (sqlca.sqlcode == -1093 && i < 10);
+   return(sqlca.sqlcode);
+}
+/*** STOP USING DATABASE ***********************************************/
+long STOP_USING (void)
+{
+   struct sqlca sqlca = {"SQLCA   "};
+   sqlestpd(&sqlca);
+   printf("STOP USING rc=%ld\n", sqlca.sqlcode);
+   return(sqlca.sqlcode);
+}

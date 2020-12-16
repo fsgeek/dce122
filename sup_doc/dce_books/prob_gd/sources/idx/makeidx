@@ -1,0 +1,64 @@
+#!/bin/sh
+# @OSF_COPYRIGHT@
+# COPYRIGHT NOTICE
+# Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+# ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+# the full copyright text.
+# 
+# 
+# HISTORY
+# $Log: makeidx,v $
+# Revision 1.1.2.3  1994/10/21  18:10:20  steto
+# 	{enh, CR9951, R1.1, Repalaced the contents with final version of script.}
+# 	[1994/10/21  18:10:01  steto]
+#
+# Revision 1.1.2.2  1994/06/13  16:18:16  devobj
+# 	cr10872 - fix copyright
+# 	[1994/06/13  16:14:07  devobj]
+# 
+# Revision 1.1.2.1  1994/06/06  16:02:44  digan
+# 	Initial submission
+# 	[1994/06/06  16:02:08  digan]
+# 
+# 	{enh, CR9951, R1.1}
+# 	This script is to be used to create the two tables for the sams index.
+# 
+# $EndLog$
+# makeidx
+# We assume this script is run in the directory where all
+# the individual SAMS files have been processed to get the
+# separate .idx files, as in
+#       sams -sn -ox XXX.sams
+#       sams -sn -ox YYY.sams
+#       ... and so on.
+# This creates dceXXXmsg.idx, dceYYYmsg.idx, etc., sorted by
+# numeric value.
+
+# Merge all the idx files into one master sorted file.
+cat dce*msg.idx | sed -e 's/ *@ */@/g' -e 's/\\n//' >full.idx
+
+# Create idx-part-1, which has two columns in numeric order:
+#       0x10d0a0a4      CDSCP_ACC_DENIED
+sort -t@ -n +2 -d full.idx | awk -F@ '{print $3, "@", $2 }' >idx-part-1
+
+# Sort alphabetically and create idx-part-2, which looks like:
+#       Acess Denied    CDSCP_ACC_DENIED
+cat <<EOF >idx-part-2
+.TS
+tab(@);
+lBw(3i) lBw(2i)
+lw(3i) lw(2i) .
+Message Text@Symbolic Name
+EOF
+
+sort -t@ -f -d +3 full.idx | awk -F@ '{
+    if ($2 != "" && $4 != "") {
+	if (NR % 20 == 0) { printf(".TE\n.TS\ntab(@);\nlw(3i) lw(2i) .\n"); }
+	printf("T{\n%s\nT}@T{\n%s\nT}\n", $4, $2);
+    }
+}' >>idx-part-2
+
+echo .TE >>idx-part-2
+
+# We're done.
+exit

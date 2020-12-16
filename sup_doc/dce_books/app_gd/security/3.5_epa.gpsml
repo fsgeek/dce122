@@ -1,0 +1,623 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" HISTORY
+...\" $Log: 3.5_epa.gpsml,v $
+...\" Revision 1.1.4.1  1996/03/27  14:03:51  wardr
+...\" 	{edit R1.2.1}
+...\" 	More Release Edits
+...\" 	[1996/03/27  14:03:25  wardr]
+...\"
+...\" Revision 1.1.2.6  1995/06/07  14:46:42  rcb
+...\" 	edited 1.1 version, PRENTICE HALL reformat
+...\" 	[1995/06/07  14:46:00  rcb]
+...\" 
+...\" 	PRENTICE HALL reformat
+...\" 	[1995/05/08  21:13:59  rcb]
+...\" 
+...\" 	incorporated 1.1 edits
+...\" 	[1995/05/08  20:59:38  rcb]
+...\" 
+...\" Revision 1.1.2.5  1994/10/19  19:45:08  millette
+...\" 	(enh, 10514 R1.1)
+...\" 	HP review corrections
+...\" 	[1994/10/19  19:44:50  millette]
+...\" 
+...\" Revision 1.1.2.4  1994/10/07  21:25:12  millette
+...\" 	(enh, 10514 R1.1)
+...\" 	HP review corrections
+...\" 	[1994/10/07  21:24:36  millette]
+...\" 
+...\" Revision 1.1.2.3  1994/06/13  18:20:43  devobj
+...\" 	cr10872- fix copyright
+...\" 	[1994/06/13  18:18:23  devobj]
+...\" 
+...\" Revision 1.1.2.2  1994/06/02  17:09:50  jshirley
+...\" 	Fixed heading level from 4 to 3.
+...\" 	[1994/06/02  17:09:23  jshirley]
+...\" 
+...\" Revision 1.1.2.1  1994/05/03  19:45:43  millette
+...\" 	(enh, 10514 R1.1)
+...\" 	Additions for new delegation functionality
+...\" 	[1994/05/03  19:45:14  millette]
+...\" 
+...\" $EndLog$
+.H 1 "The Extended Privilege Attribute API"
+.P
+.iX "API" "extended privilege attribute"
+.iX "extended privilege attribute"  "API"
+.iX "delegation"
+.iX "identities" "delegating"
+This chapter describes the extended privilege attribute (EPA) API.  
+The EPA facility addresses the requirements of complex 
+distributed systems by allowing clients and servers to invoke 
+secure operations via one or more intermediate servers.
+.P 
+In a simple client/server distributed environment, most operations 
+involve two principals: the initiator of the operation 
+and the target of the operation.  The target of the operation 
+makes authorization decisions based on the identity of the initiator.   
+However, in distributed object-oriented environments, 
+there is frequently a need for server principals to perform 
+operations on behalf of a client principal.  In these 
+cases, it may not be enough for authorization decisions to be based 
+simply on the identity of the initiator since the initiator of the operation 
+may not be the principal that requests the operation. 
+.P
+To handle these cases, the EPA API provides routines that allow   
+principals to operate on 
+objects on behalf of (as delegates of) an initiating principal.
+The collection of the delegation initiator and the 
+intermediaries is 
+referred to as a \*Edelegation chain\*O.
+.P
+.ne 4
+Using the EPA API and related \*Lsec_login_\*V*\*L(\|)\*O calls, 
+an application may be written that allows client Principal A 
+to invoke an operation on server Principal C via 
+server Principal B.  The DCE Security Service will know the true initiator 
+of the operation (Principal A) 
+and can distinquish the delegated operation from the same operation 
+invoked directly by Principal A.  
+.P
+The EPA interface consists of the security credential calls 
+(\*Lsec_cred_\*V*\*L(\|)\*O) that 
+extract privilege attributes and authorization data from an 
+opaque binding handle to authenticated credentials.  
+In addition, the following \*Lsec_login_\*V*\*L(\|)\*O calls of 
+the login API are used to establish 
+delegation chains and to perform other delegation related functions.
+.ML
+.LI
+\*Lsec_login_become_initiator(\|)\*O
+.LI
+\*Lsec_login_become_delegate(\|)\*O
+.LI
+\*Lsec_login_become_impersonator(\|)\*O
+.LI
+\*Lsec_login_cred_get_delegate(\|)\*O
+.LI
+\*Lsec_login_cred_get_initiator(\|)\*O
+.LI
+\*Lsec_login_cred_initialize_cursor(\|)\*O
+.LI
+\*Lsec_login_disable_delegation(\|)\*O
+.LI
+\*Lsec_login_set_extended_attrs(\|)\*O
+.LE
+.H 2 "Identities of Principals in Delegation"
+.P
+The identity of principals in a delegation chain is maintained in extended 
+privilege attribute certificates (EPACs), as are the identities for all 
+DCE principals.  Each EPAC contains the name and group memberships of a 
+principal in the delegation chain and any extended attributes  
+that apply to the principal.  The delegation chain includes an EPAC 
+for each member of the delegation chain. 
+.P
+When delegation is in use, the target server receives the delegation chain, and thus 
+knows the privilege attributes of the delegation chain initiator and each 
+intermediary (delegate) in the chain.  Authorization decisions 
+can then be made based on the identities of all principals 
+involved in the operation.
+.H 3 "ACL Entry Types for Delegation"
+.P
+When a server's ACL manager is presented with credentials to use 
+as a base of an authorization decision, the manager evaluates 
+the privilege attributes of each principal involved in the delegation 
+chain.  The ACL manager grants access for the requested operation 
+only if all principals in the delegation chain have the necessary permissions on 
+the object that is the eventual target of the operation.
+.PP  
+For the initiator of the delegation chain, permission on the target object  
+must be granted directly using any of the following standard ACL entry 
+types:
+.ML
+.LI
+\*Luser_obj\*O
+.LI
+\*Luser\*O 
+.LI
+\*Lforeign_user\*O
+.LI
+\*Lgroup_obj\*O
+.LI
+\*Lgroup\*O
+.LI
+\*Lforeign_group\*O 
+.LI
+\*Lforeign_other\*O
+.LI
+\*Lother_obj\*O
+.LI
+\*Lforeign_other\*O 
+.LI
+\*Lany_other\*O
+.LI
+\*Lextended\*O
+.LE 
+.P 
+For intermediaries in a delegation chain, 
+permissions to a target object can be granted directly to the 
+intermediary with the 
+standard ACL entry type previously described, or permissions can be 
+granted by delegate ACL entries.  Delegate ACL entries grant 
+permissions to principals only if they are acting as delegates.   
+The following delegate ACL entry types are available: 
+.ML
+.ne 20
+.LI
+\*Luser_obj_delegate\*O
+.LI
+\*Luser_delegate\*O
+.LI
+\*Lforeign_user_delegate\*O
+.LI
+\*Lgroup_obj_delegate\*O
+.LI
+\*Lgroup_delegate\*O
+.LI
+\*Lforeign_group_delegate\*O
+.LI
+\*Lforeign_other_delegate\*O
+.LI
+\*Lother_obj_delegate\*O
+.LI
+\*Lforeign_other_delegate\*O
+.LI
+\*Lany_other_delegate\*O
+.LE  
+.P
+Note that, to perform an operation, all delegates in the chain must 
+have the appropriate permissions.  
+For example, assume a delegation chain consists of Principal A 
+(the initiator) and 
+Principal's B and C (the intermediaries).  To perform the operation, the 
+delegation chain requires \*LMrw\*O permissions on Server X.  One way of 
+granting these permission is to grant them directly to  
+each member of the delegation chain, as shown in the following: 
+.oS
+user:Principal A:Mrw
+user:Principal B:Mrw
+user:Principal C:Mrw
+.oE
+Providing access directly also allows each intermediary in the chain 
+to perform the operation of 
+their own initiative, a consequence that may or may not be desired.  
+To specify that Principals B and C may only be intermediaries operating on behalf 
+of an authorized initiating principal without granting them 
+the ability to perform the operation on their own, use delegation entries.  
+In this case, the Server X's ACL would contain the following entries:
+.oS
+user:Principal A:Mrw
+user_delegate:Principal B:Mrw
+user_delegate:Principal C:Mrw
+.oE 
+.H 3 "ACL Checking for Delegation"
+.P
+To determine permissions, the ACL manager first uses the standard 
+access-check algorithm (described in Chapter 25) to
+determine the permissions to grant to the delegation initiator.  
+If the requested permission is not 
+granted, access is denied.  
+.P
+If the requested permission is granted, the ACL manager then 
+checks the permissions granted to the delegates in the chain.  This 
+checking is similar to the standard access-check algorithm, but it takes 
+into account any additional delegate permissions granted to the delegates.  
+If the requested permission is not 
+granted to all delegates, access is denied.  If the requested permission is 
+granted to all delegates, access is granted.
+.H 2 "Calls to Establish Delegation Chains"
+.P 
+The following \*Lsec_login_\*V*\*L(\|)\*O API calls set up a delegation chain:
+.ML
+.LI
+\*Lsec_login_become_initiator(\|)\*O
+.P
+Enables delegation for a client.  The principal that 
+executes this call is known as the \*Edelegation initiator\*O.
+.LI
+\*Lsec_login_become_delegate(\|)\*O, \*Lsec_login_become_impersonator(\|)\*O
+.P 
+Cause an intermediate server to 
+become a delegate in a delegation chain.  The principals 
+that execute these calls are known as \*Eintermediaries\*O in the 
+delegation chain. 
+.LE
+.P
+The \*Lsec_login_become_delegate(\|)\*O call should be used if the 
+traced delegation has been enabled.  The 
+\*Lsec_login_become_impersonator(\|)\*O call
+should be used if simple delegation has been enabled.  See Section 27.2.1
+for more information about delegation types.
+.P
+The following subsections describe the information supplied to the calls 
+that establish delegation chains. 
+.H 3 "Types of Delegation"
+.P
+When a client application calls \*Lsec_login_become_initiator(\|)\*O to 
+enable delegation, that application specifies the type of delegation 
+that should be enabled.  The delegation type can be any of the following:
+.ML
+.LI
+Traced Delegation
+.P
+Includes the identities of all members of the 
+delegation chain in the credentials used for authorization.  To become an 
+intermediary in a traced delegation chain, server principals use the 
+\*Lsec_\%login_\%become_\%delegate(\|)\*O call.
+.P
+Note that ACLs on objects that are targets of traced delegation 
+must grant the requested permission (or delegate permission) to each 
+member of the delegation chain.
+.LI
+Impersonation
+.P
+mIncludes only the identity of the 
+initiator of the delegation chain used for authorization.  All 
+intermediaries ``impersonate'' the delegation initiator.  
+To become an impersonator, principals use the 
+\*Lsec_\%login_\%become_\%impersonator(\|)\*O call.  
+.P
+Note that ACLs on objects that are targets of impersonation 
+need list only the delegation initiator, not each delegate 
+in the chain.
+.LE
+.P
+Generally, traced delegation is the preferred method.  
+The high degree of location transparency inherent in simple 
+delegation greatly increases the risk of a client being 
+compromised by a Trojan horse application.  
+.P 
+When server principals run the \*Lsec_login_become_delegate(\|)\*O or 
+\*Lsec_login_become_impersonator(\|)\*O call to become an 
+intermediary in a delegation chain, they must also specify the 
+delegation type as input to the call.  The type they specify must 
+be the same type as the delegation type specified by the initiator of 
+the chain (unless they specify no delegation).
+.H 3 "Target and Delegate Restrictions"
+.P
+When a principal enables delegation or becomes an intermediary 
+in a delegation chain, 
+the principal may specify target and delegate restrictions.
+Target restrictions 
+identify the server principals (by UUID) to which the identities in a 
+delegation chain can be projected.  Delegate restrictions identify the 
+server principals that can further project the delegation chain.
+.P
+If a target restriction prohibits a server from seeing an indentity in 
+a delegation chain, the security runtime replaces that identity with 
+the identity of the \*Eanonymous principal\*O.  If a 
+delegate restriction prohibits a principal from being an 
+intermediary in a chain, then the security runtime replaces that 
+principal's identity with the identity of the anonymous principal.  
+This replacement with the anonymous identity allows the authenticated 
+RPC call to complete.  Whether the operation requested by the 
+delegation chain is performed can be controlled by ACL entries that 
+grant permission to the anonymous principal on the objects that 
+are the targets of the delegated operation.
+.P
+If no delegate restrictions 
+are supplied, any principal can be an intermediary in the delegation chain.  
+If any delegate restrictions are supplied, then only those supplied can 
+further transmit the delegation chain.
+.nS note
+In the current release of DCE, there is no way for a server to register its DCE
+credentials with the RPC runtime.  Only a server name and key table can
+currently be registered.  Because of this limitation, target restrictions
+are currently implemented so that \*Eall\*O target servers see
+anonymous credentials for any EPAC that contains any target restriction
+regardless of the identity specified in the restriction.
+.nE
+.H 4 "The Anonymous Principal"
+.P
+The DCE Security Service replaces those identities in the
+delegation chain that are not allowed to be seen by target 
+or delegate restrictions 
+with the UUIDs associated with the  
+anonymous principal's identity.  These UUIDs are as follows:
+.ML
+.ne 4
+.LI
+Anonymous principal UUID: \*Lfad18d52-ac83-11cc-b72d-0800092784e9\*O
+.LI
+Anonymous group UUID: \*Lfc6ed07a-ac83-11cc-97af-0800092784e9\*O
+.LE
+.P
+The \*Lother_obj\*O, \*Lany_other\*O,\*Lother_obj_deleg\*O, and 
+\*Lany_other_deleg\*O ACL entries define the anonymous principal's 
+access to objects.  The entries must be set up just as for 
+any other principal.  The appropriate direct or delegate 
+permissions must be granted to the anonymous principal or the 
+delegated operation will fail.
+.P
+.H 4 "Target and Delegate Restriction Syntax"
+.P
+Target and delegate restrictions are expressed as a list 
+of values of type \*Lsec_id_restriction_t\*O.  This 
+data type consists of a UUID and an entry type.  
+The entry type specifies whether the UUID identifies a 
+principal, a group, or ``any other'' principals 
+(in a manner similar to the \*Lany_other\*O ACL entry type).
+As in ACL entry types, the target restriction entry types 
+can refer to 
+principals and groups from the local cell or 
+from foreign cells.
+.P
+The possible delegation entry types are as follows:
+.ML
+.LI 
+\*Lsec_rstr_e_type_user\*O
+.P
+The target or delegate is a local 
+principal identified by UUID.  
+.LI 
+\*Lsec_rstr_e_type_group\*O
+.P
+The target or delegate is any member 
+of a local group identified by UUID.  
+.LI
+\*Lsec_rstr_e_type_foreign_user\*O
+.P
+The target or delegate is a 
+foreign principal identified by principal and cell UUID.
+.LI 
+\*Lsec_rstr_e_type_foreign_group\*O
+.P
+The target or delegate is 
+any member of a foreign group identified by group and cell UUID.
+.LI 
+\*Lsec_rstr_e_type_foreign_other\*O
+.P
+The target or delegate is any 
+principal that can authenticate to the foreign cell  
+identified by UUID. 
+.LI 
+.ne 4
+\*Lsec_rstr_e_type_any_other\*O
+.P
+The target or delegate is any principal 
+that can authenticate to any cell.
+.LI 
+\*Lsec_rstr_e_type_no_other\*O
+.P
+No principal can act as a target or 
+delegate.
+.LE
+.H 3 "Optional and Required Restrictions"
+.P
+When a principal calls \*Lsec_login_become_initiator(\|)\*O to 
+enable delegation, or \*Lsec_login_become_delegate(\|)\*O or 
+\*Lsec_login_become_impersonator(\|)\*O to become an intermediary, 
+the principal can specify optional and required restrictions.
+Optional and required restrictions are provided 
+for use by applications that have specific 
+authorization requirements.  These restrictions, which 
+are defined by the application, can 
+be set by initiators or intermediaries, and are interpreted and enforced 
+by application target servers. 
+Servers can ignore optional restrictions that they cannot interpret, but 
+they must reject requests associated with a required restriction that 
+they cannot interpret.  
+Both optional and required restrictions are supplied as 
+values of type \*Lsec_id_opt_req_t\*O.  They are inserted in an EPAC 
+by the privilege server and evaluated by the 
+target server application. 
+.H 3 "Compatibility Between Version 1.1 and Pre-Version 1.1 Servers and Clients"
+.P
+Prior to DCE Version 1.1, a principal's privilege attributes were stored in a 
+privilege attribute certificate (PAC).  At Version 1.1, the PAC was renamed to
+EPAC and extended to include the following:
+.ML
+.LI
+Target, delegate, optional, and required restrictions.  
+.LI
+Extended registry attributes (ERAs), as described in Chapter 29.
+.LE
+.P
+Additionally, authorization credentials can now consist of multiple EPACs, 
+as in delegation chains, instead of a single PAC.
+.P
+.ne 3
+When a pre-Version 1.1 client interacts with a 
+Version 1.1 server or vice versa, the Version 1.1 
+server requires an EPAC and the pre-Version 1.1 server requires a PAC. 
+.P
+For Version 1.1 servers, the security runtime automatically converts  
+the PAC supplied by a pre-Version 1.1 client to an EPAC.  
+For pre-Version 1.1 servers, the security runtime automatically extracts   
+PAC data from the credentials supplied by the Version 1.1 client.  
+However, because an EPAC for a delegation chain contains the privilege attributes of 
+multiple principals and a PAC contains only one set of privilege attributes, 
+the principals engaged in delegation must specify how to handle this issue of 
+multiple versus single identities.
+.P
+When a principal initiates delegation or becomes an intermediary in 
+a delegation chain, that principal can specify whether to 
+use the privilege attributes of the chain initiator 
+or the last intermediary in the chain to construct the PAC required by 
+a pre-Version 1.1 server.
+This compatibility decision is specified as a value of type 
+\*Lsec_id_compatibility_mode_t\*O, which 
+is set to one of the following three values:
+.ML
+.LI
+\*Lsec_id_compat_mode_none\*O
+.P
+Compatibility mode is off.  The security runtime supplies 
+the application server with an unauthenticated PAC.
+.LI 
+\*Lsec_id_compat_mode_initiator\*O
+.P
+Compatibility mode is on.  The pre-Version 1.1 PAC data is extracted from the 
+EPAC of the delegation initiator.
+.LI 
+\*Lsec_id_compat_mode_caller\*O
+.P
+Compatibility mode is on. 
+The pre-Version 1.1 PAC data extracted from the EPAC of the last 
+intermediary in the delegation chain. 
+.LE
+.H 2 "Calls to Extract Privilege Attribute Information"
+.P
+The EPA API \*Lsec_cred_\*V*\*L(\|)\*O and 
+login API \*Lsec_login_cred_\*V*\*L(\|)\*O 
+calls extract privilege attribute information.  
+These calls return information associated with an opaque handle to an 
+authenticated identity.  
+.P
+.ne 3
+The \*Lsec_cred_\*V*\*L(\|)\*O 
+calls are used by servers that have been called by 
+a client with authenticated credentials.  The calls 
+and the information they return are as follows:
+.ML
+.LI
+\*Lsec_cred_get_authz_session_info(\|)\*O
+.P
+Returns a client's authorization information
+...\" .LI
+...\" \*Lsec_cred_get_authz_token(\|)\*O
+...\" .P
+...\" Returns a shorthand token that 
+...\" represents an authenticated client's credentials 
+.LI
+\*Lsec_cred_get_client_princ_name(\|)\*O
+.P
+Returns the principal 
+name of the client
+.LI
+\*Lsec_cred_get_deleg_restrictions(\|)\*O 
+.P
+Returns delegate restrictions  
+.LI
+\*Lsec_cred_get_delegate(\|)\*O
+.P
+Returns a credential handle to the privilege attributes
+of a delegate in a delegation chain 
+.LI
+\*Lsec_cred_get_delegation_type(\|)\*O
+.P
+Returns the delegation type   
+.LI
+\*Lsec_cred_get_extended_attrs(\|)\*O
+.P
+Returns extended attributes 
+.LI
+\*Lsec_cred_get_initiator(\|)\*O
+.P
+Returns a credential handle to the privilege attributes
+of the initiator of a delegation chain
+.LI
+\*Lsec_cred_get_opt_restrictions(\|)\*O 
+.P
+Returns optional restrictions  
+.LI
+\*Lsec_cred_get_pa_data(\|)\*O
+.P
+Returns privilege attributes from a credential handle 
+.LI
+.ne 3
+\*Lsec_cred_get_req_restrictions(\|)\*O
+.P
+Returns required restrictions  
+.LI
+\*Lsec_cred_get_tgt_restrictions(\|)\*O
+.P
+Returns target restrictions  
+.LI
+\*Lsec_cred_get_v1_pac(\|)\*O
+.P
+Returns pre-Version 1.1 privilege attributes 
+.LI
+\*Lsec_cred_is_authenticated(\|)\*O
+.P
+Returns TRUE if the caller's 
+privilege attributes 
+are authenticated or FALSE otherwise 
+.LE
+.P
+The \*Lsec_login_cred_\*V*\*L(\|)\*O calls are used by clients that are part 
+of a delegation chain.  The calls 
+and the information they return are as follows:
+.ML
+.LI
+\*Lsec_login_cred_get_delegate(\|)\*O
+.P
+Returns the privilege attributes
+of a delegate in a delegation chain. 
+.LI
+\*Lsec_login_cred_get_initiator(\|)\*O
+.P
+Returns the privilege attributes
+of the initiator of a delegation chain
+.LE
+.P
+The \*Lsec_cred_\*V*\*L(\|)\*O and \*Lsec_login_\*V*\*L(\|)\*O 
+calls discussed in this chapter 
+return information about 
+authenticated principals 
+associated with an opaque credential handle supplied to the call.  
+Two credential handles are used:
+.ML
+.LI
+\*Lsec_login_handle_t\*O (returned by a client-side 
+\*Lsec_\%login_\%get_\%current_\%context(\|)\*O call)
+.LI
+\*Lrpc_authz_cred_handle_t\*O (returned by a server-side 
+\*Lrpc_\%inq_\%auth_\%caller(\|)\*O call)
+.LE 
+.P
+.ne 8
+These are handles to all the credentials in a delegation chain.  
+The \*Lsec_\%login_\%cred_\%get_\%initiator(\|)\*O, 
+\*Lsec_\%login_\%cred_\%get_\%delegate(\|)\*O, 
+\*Lsec_\%cred_\%get_\%initiator(\|)\*O, and 
+\*Lsec_\%cred_\%get_\%delegate(\|)\*O calls
+return a handle of type \*Lsec_\%cred_\%pa_\%handle_\%t\*O, 
+which is a handle to the 
+extended privilege attributes of a particular identity in a delegation chain. 
+The other \*Lsec_\%cred_\%\*V*\*L(\|)\*O and 
+\*Lsec_\%login_\%\*V*\*L(\|)\*O calls 
+discussed in this chapter take the \*Lsec_\%cred_\%pa_\%handle_\%t\*O handle 
+and return the requested information for the particular identity.
+...\" 
+.H 2 "Disabling Delegation"
+...\" 
+The login API \*Lsec_login_disable_delegation(\|)\*O call disables delegation 
+for a specified login context.
+It returns a new login context of 
+type \*Lsec_login_handle_t\*O without any delegation information and 
+prevents any further delegation.
+...\" 
+.H 2 "Setting Extended Attributes"
+...\" 
+The login API \*Lsec_login_set_extended_attrs(\|)\*O call adds extended 
+registry attributes 
+to a login context.  The extended registry attributes 
+must have been established and attached to 
+the object by using the ERA API.  (For more information 
+on ERAs, see Chapter 29.)

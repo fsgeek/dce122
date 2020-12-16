@@ -1,0 +1,1024 @@
+CR Number                     : 12522
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : systest
+Subcomponent Name             : 
+Short Description             : rpc.cds.3 and rpc.sec.2 tests are reporting client failures due to server busy
+Reported Date                 : 10/5/94
+Found in Baseline             : 1.1b20
+Found Date                    : 10/5/94
+Severity                      : C
+Priority                      : 0
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/5/94 public]
+
+The rpc.cds.3 and rpc.sec.2 tests are reporting a large number of failures in
+TCP clients due to rpc_s_server_too_busy errors.  The tests do not perform any
+error handling of the comm status returned from a remote call.
+
+The workaround would be to allocate more server threads by default.
+
+[10/21/94 public]
+
+The change to number of server threads is not necessary.  The tests are running
+successfully with a single server thread.
+
+
+
+CR Number                     : 12451
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 12478, 12486
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : systest
+Subcomponent Name             : dced
+Short Description             : server ping is not handled properly
+Reported Date                 : 9/30/94
+Found in Baseline             : 1.1b20
+Found Date                    : 9/30/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/30/94 public]
+
+The dcecp "server ping" operation is used in several places in 
+DCDREL002 to test whether a server is executing or not. When
+servers with the {starton failure} attribute have been stopped
+with a fail and don't restart, a server ping to them using the
+NS name gets an error, reporting "Connection request rejected"
+rather than returning a 0. 
+
+Separately in DCDREL002, when servers are successfully stopped
+using dcecp "server stop", the test waits 60 seconds and then
+issues server ping to assure that the servers have been stopped.
+In this case dcecp "server ping" returns 1 instead of 0.
+
+[9/30/94 public]
+
+> The dcecp "server ping" operation is used in several places in 
+> DCDREL002 to test whether a server is executing or not. When
+> servers with the {starton failure} attribute have been stopped
+> with a fail and don't restart, a server ping to them using the
+> NS name gets an error, reporting "Connection request rejected"
+> rather than returning a 0. 
+
+The "server ping" acted correct in this case. Because your server
+was dead and the NS entry wasn't removed, so the connection was
+rejected. All "server ping" does is same as rpc_mgmt_is_server_listening.
+Please refer to its man page for the details.
+
+> 
+> Separately in DCDREL002, when servers are successfully stopped
+> using dcecp "server stop", the test waits 60 seconds and then
+> issues server ping to assure that the servers have been stopped.
+> In this case dcecp "server ping" returns 1 instead of 0.
+
+"server stop" stops a server by stop_method "rpc" which is blocked 
+by CR#12061. This means that "server ping" acted correct again since
+the server was alive.
+
+Therefore I would say this OT is a test problem.
+
+[fadden 10/5/94] 
+
+Ping was correct on the second point. The server stop failed
+and thus the server really was still running.
+
+On the first point, it was decided that the "server ping"
+command should return a 0 rather than an error, and Ping
+entered a separate CR (12478) to cover that.
+
+
+
+CR Number                     : 12117
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : systest
+Subcomponent Name             : 
+Short Description             : multi-delegate fails to start on client node
+Reported Date                 : 9/8/94
+Found in Baseline             : 1.1b16
+Found Date                    : 9/8/94
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/8/94 public]
+
+I can't seem to start any of the servers for the multi-delegate
+test on a remote node.  So I can't verify that the multi-delegate
+test will work in a multi-node cell.
+
+It seems to be a keytab problem.
+
+I looked at the script rgy_acct.ksh to see what keytab commands
+I needed to do on the client node before I could start a server.
+These are the command I came up with:
+
+ktadd -p string-conv2 -pw pignoses
+
+I think this is correct, but not 100% sure.
+
+When I try and start any server on the client node
+I get the following:
+
+root@inman> ./conv_server2
+sec_login_validate_identity() returned with error:
+   Invalid password (dce / sec)
+
+
+I have assigned this bug to myself for further investigation.
+
+[9/27/94 public]
+
+The rgy_acct.ksh setup script was randomizing the keytabs
+for some reason.  Removed the "kta -r" statement from
+the script and then I can start the servers on remote nodes.
+
+Cancelling this bug.
+
+
+
+CR Number                     : 11937
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : systest
+Subcomponent Name             : 
+Short Description             : audrel001 not catching sig 20 before dce_aud_open
+Reported Date                 : 8/29/94
+Found in Baseline             : 1.1b14
+Found Date                    : 8/29/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/29/94 public]
+
+
+On some iterations of the audrel001 test the test is failing
+because the test is not catching signal 20 on the hp machine.
+
+[9/27/94 public]
+
+Can work around this problem,
+if you put "TET_SIG_IGN=20" in the tetexec.cfg file,
+you don't get this problem.
+
+Cancelling the problem.
+
+
+
+CR Number                     : 11813
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : systest
+Subcomponent Name             : dcdrel002
+Short Description             : Server ping fails with "entry not found"
+Reported Date                 : 8/22/94
+Found in Baseline             : 1.1b15
+Found Date                    : 8/22/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/22/94 public]
+
+The test fails on both OSF/1 and HP-UX platforms with the 
+error "Entry not found." This may be an error in the test
+so I'm entering it that way until it's been investigated.
+
+[10/05/94 public]
+
+Extensive changes have been made both to dced and to this
+test, and this problem no longer occurs. Cancelled.
+
+
+
+CR Number                     : 11715
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : systest
+Subcomponent Name             : 
+Short Description             : sec systests fail on remote logins
+Reported Date                 : 8/16/94
+Found in Baseline             : 1.1b14
+Found Date                    : 8/16/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/16/94 public]
+
+Running the dcesestr, dcesepol and dceseact systests all in my cell
+with b14 all failed last night.  I'm assigning this to myself for
+now since it may likely be a config error.  I'll investigate  more.
+Config was osf/1 sec/cds master, hp sec replica, osf/1 client.
+
+For now, here are the errors shown by each test, usually when doing
+remote logins:
+
+dcesestr:
+
+520|0 1 24637 7 19|LOG: Starting iteration 1
+520|0 1 24637 7 20|LOG: Attempting to log in as sestrleyosemite0p
+520|0 1 24637 7 21|LOG: ERROR: Unable to login as account sestrleyosemitefiji0p
+520|0 1 24637 7 22|LOG: Attempting to log in as sestrleyosemite1p
+520|0 1 24637 7 23|LOG: ERROR: Unable to login as account sestrleyosemitefiji1p
+
+dceseact:
+
+520|0 1 4863 1 29|seactfijip account's password was changed at: yosemite (rlogin_to_machine 2) AS EXPECTED
+520|0 1 4863 1 30|ERROR: Cannot verify seactfijip account's new password at: yosemite (rlogin_to_machine 3)
+520|0 1 4863 1 31|Attempting to change seactfijia's password at yosemite
+520|0 1 4863 1 32|Was able to change seactfijia account's password at: yosemite (rlogin_to_machine 1) AS EXPECTED
+
+dcesepol:
+
+520|0 1 12240 1 12|Executing remote logins to yosemite
+520|0 1 12240 1 13|Current date and time is: Mon Aug 15 18:55:44 EDT 1994
+520|0 1 12240 1 14|Attempting login as sepolpomerol1p on yosemite
+520|0 1 12240 1 15|UNSUCCESSFUL sepolpomerol1p login on yosemite caused by:
+520|0 1 12240 1 16|Sorry. User Identification Failure. - Registry object not found (dce / sec)
+520|0 1 12240 1 17|ERROR: sepolpomerol1p unable to login to yosemite, STATUS = 3
+520|0 1 12240 1 18|Current date and time is: Mon Aug 15 18:55:56 EDT 1994
+
+[8/16/94 public]
+A bit more info.  When tried by hand by using rgy_edit -update to create
+a PGO and account, then exiting and attempting to log into account, got error:
+'User Identification Failure. - Registry object not found (dce / sec)'
+Entering rgy_edit and attempting to view principal failed with error:
+'?(rgy_edit) Cannot retrieve entry for testpr - Entry not found (Registry Edit Kernel) (dce / sad)'
+until setting site specifically to master.  This was still the case 1 hour
+after creating the account.  So it looks like the rgy updates aren't being propagated
+to the master.  
+BUT, this is with B14.  There have been a few 'good builds' since so I will update
+to 14.3 and attempt this again.
+
+[8/16/94 public]
+Cancelling since I can't recreate this with last night's build.
+
+
+
+CR Number                     : 11695
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : systest
+Subcomponent Name             : test/systest/security/sec.rgy.7
+Short Description             : Undefined symbol "_rgy_test_v1_0_s_ifspec"
+Reported Date                 : 8/15/94
+Found in Baseline             : 1.1
+Found Date                    : 8/15/94
+Severity                      : A
+Priority                      : 0
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/15/94 public]
+
+[ /test/systest/security/sec.rgy.7 at 11:10 (AM) Monday ]
+
+/project/dce/build/dce1.1-snap/tools/at386/macho/gcc -B/project/dce/build/dce1.1-snap/tools/at386/macho/  -%ld," -warn_nopic -glue"          -L/u1/devobj/sb/nb_486/export/at386/usr/shlib -L/project/dce/build/dce1.1-snap/export/at386/usr/shlib -L/usr/shlib -L/u1/devobj/sb/nb_486/export/at386/usr/lib     -L/project/dce/build/dce1.1-snap/export/at386/usr/lib   -o secrgy_server.X utils.o secrgy_server.o rgy_test_sstub.o rgy_test_saux.o  -ldce   
+secrgy_server.o: Undefined symbol "_rgy_test_v1_0_s_ifspec" referenced
+
+collect: /project/dce/build/dce1.1-snap/tools/at386/macho/real-ld returned 1 exit status
+
+*** Error code 1
+
+[8/15/94 public]
+
+The reason why this failed is because the build skipped the step where
+idl is run on rgy_test.idl to get rgy_test.h. In this file
+rgy_test_v1_0_s_ifspec is defined. Why the build skipped this step is a
+RAT problem, I think. A quick look at the test log seems to indicate 
+there are other problems similar to this.
+
+Thi is the step missing:
+
+rm -f rgy_test.h
+/u1/devobj/sb/nb_486/tools/at386/bin/idl -cpp_cmd
+"/project/dce/build/dce1.1-snap/tools/at386/macho/cpp"     -k
+eep c_source   -I/u1/devobj/sb/nb_486/export/at386/usr/include
+-I/project/dce/build/dce1.1-snap/export/at386/us
+r/include   -client none -server none
+/project/dce/build/dce1.1-snap/src/test/systest/security/sec.rgy.7/rgy_te
+st.idl
+
+[8/15/94 public]
+
+It appears that we may of had some steps corrupted. I checked
+the obj areas and discovered that when the disk became full
+the build left many 0 length files in several obj directories.
+This could possibly account for some of the errors, although
+t doesn't hurt to check them out anyway for there may be real 0 
+length files. The onlt way to avoid
+this under such circumstances would be to hand search and remove
+each in order to take advantage of beginning where it left
+off or rebuild from scratch. The question here is how reliable
+hand picking is. The best choice although not the most popular
+due to time is to rebuild completely.
+
+[8/17/94 public]
+Canceling - thanks to Martha D. for investigating - the build
+problems in the system test area resulted from lack of disk
+space only.
+
+
+
+CR Number                     : 10727
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : systest
+Subcomponent Name             : cds.acl.6
+Short Description             : cds.acl.6 fails on HP-UX
+Reported Date                 : 5/23/94
+Found in Baseline             : 1.1
+Found Date                    : 5/23/94
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/23/94 public]
+
+The cds.acl.6 system test is failing on the HP-UX machine, but passes on
+AIX and OSF/1.
+
+[05/23/94 public]
+Cancelled, this problem was caused by a security replication bug, I think.
+
+
+
+CR Number                     : 10399
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : systest
+Subcomponent Name             : sec.rgy.7
+Short Description             : sec.rgy.7 dumps core on OSF/1
+Reported Date                 : 4/19/94
+Found in Baseline             : 1.1
+Found Date                    : 4/19/94
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/19/94 public]
+
+The sec.rgy.7 system test dumps core on OSF/1 using BL-7:
+
+root@dce3>  run.sec -l 1 dcesergy
+
+Starting DCESERGY iteration 1 at 0 seconds executed, 04/19/94-13:53:59
+journal file name is: /dcetest/dcelocal/status/system/dcesergy.dce3.940419135355/fail/journal.00001
+Valid and certified with network creds
+
+ Added account: dcesergy_dce3_27844
+
+ Added key to keytab file
+Password must be changed!
+        secrgy_server: Calling rpc_server_use_all_protseqs
+        secrgy_server: Calling rpc_server_register_if
+        secrgy_server: Calling rpc_server_inq_bindings
+        secrgy_server: Calling rpc_ep_register
+        secrgy_server: Login as server dcesergy_dce3_27844 beginning
+        secrgy_server: network wide creds
+        secrgy_server: Beginning NSI export entry:/.:/subsys/dcesergy_dce3_27844
+        secrgy_server: Credential life: 599 mins., refresh interval: 299
+        secrgy_server: Calling rpc_server_listen
+Using cell list:/.../c=us/o=osf/ou=soldier_cell
+Executing server: dcesergy_dce3_27844 timken1111_np2626
+/dcetest/dcelocal/test/tet/system/tools/su.dce[74]: 52 Memory fault(coredump)
+rgy_test_login: status 0x16c9a036 (8!D$dce / rpc)
+Tue Apr 19 13:55:33 EDT 1994
+Cummulative cell login-logout time avg: sec
+Cummulative pass/not pass: 0/10
+add_acct: status 0x16c9a042 (8!D$dce / rpc)
+Tue Apr 19 13:55:43 EDT 1994
+Cummulative pass/not pass: 0/11
+del_acct status:: status 0x16c9a042 (8!D$dce / rpc)
+Tue Apr 19 13:55:51 EDT 1994
+Cummulative pass/not pass: 0/12
+Executing server: dcesergy_dce3_27844 timken1111_np2626
+rgy_test_login: status 0x16c9a042 (8!D$dce / rpc)
+Tue Apr 19 13:56:04 EDT 1994
+Cummulative cell login-logout time avg: sec
+Cummulative pass/not pass: 0/22
+add_acct: status 0x16c9a042 (8!D$dce / rpc)
+Tue Apr 19 13:56:13 EDT 1994
+Cummulative pass/not pass: 0/23
+del_acct status:: status 0x16c9a042 (8!D$dce / rpc)
+Tue Apr 19 13:56:20 EDT 1994
+Cummulative pass/not pass: 0/24
+Cleaning up...
+Password must be changed!
+Current site is: registry server at /.../c=us/o=osf/ou=soldier_cell/subsys/dce/sec/master 
+Domain changed to: principal
+bye.
+Iteration 1 got an error at 155 seconds!
+Journal file remains at /dcetest/dcelocal/status/system/dcesergy.dce3.940419135355/fail/journal.00001
+
+Command "run.sec -l 1 dcesergy" completed at 04/19/94-13:56:34
+1 iteration(s) of 1 on DCESERGY failed.
+Failure journal(s) in /dcetest/dcelocal/status/system/dcesergy.dce3.940419135355/fail/
+See synopsis of iteration status in /dcetest/dcelocal/status/system/dcesergy.dce3.940419135355/pass_fail_log
+or use $TET_ROOT/system/tools/run_summary.ksh for more information.
+
+[05/19/94 public]
+This doesn't appear to be a problem anymore, I'll keep an eye on it.
+
+
+
+CR Number                     : 10240
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : systest
+Subcomponent Name             : dcegdshd and gds_xds_str_001
+Short Description             : dcegdshd & gds_xds_str_001 don't handle authentication method
+Reported Date                 : 3/29/94
+Found in Baseline             : 1.1
+Found Date                    : 3/29/94
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[3/29/94 public]
+GDS recently changed gdsditadm mask 1 to prompt for authentication method.
+I haven't really researched whether this presents a problem for this
+script, but I bet it does.
+
+[03/31/94 public]
+This defect applies to dcegdshd also.  We need to add A2 or the <CR> to
+the screen input files.
+
+Michael, it's likely that the fixes you are making to the GDS systests
+are fixing this.  Can you update the CR if so?
+
+[9/12/94 public]
+
+Changed responsible engineer from DasSarma to O'Malley.
+
+[9/26/94 public]
+
+I haven't seen any problems around authentication running the dcegdshd or
+gds_xds_str_001 tests.
+
+
+
+CR Number                     : 9709
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : systest
+Subcomponent Name             : port_gd
+Short Description             : needs to describe setup for running rpc.sec.2 and rpc.cds.3 intercell
+Reported Date                 : 1/10/94
+Found in Baseline             : 1.1b1
+Found Date                    : 1/10/94
+Severity                      : C
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[1/10/94 public]
+The rpc.cds.3 and rpc.sec.2 system tests can now be run intercell.  As of
+1.0.3, I believe that some of the documentation mentioned that these tests
+could not run intercell.  These mentions should be removed, and information
+should be added about how to set up intercell trust and how to modify the
+configuration files for the tests in order to run the tests intercell.
+
+[6/8/94 public]
+
+Reassigned this CR from Hal Lichtin to Doug Weir (OSF porting
+guide owner).
+
+[10/26/94 public]
+There are no statements in Chapters 14 (rpc.sec.2) or 15 (rpc.cds.3) that
+these tests cannot be run intercell.  However there is no time to put to-
+gether instructions for how to do this in 1.1. Deferred to 1.2.
+
+[8/13/96 public]
+Cancelled--Porting Guide no longer exists.
+
+
+
+CR Number                     : 9498
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : systest
+Subcomponent Name             : gds systest
+Short Description             : rename gds_xds_str_001 to gdsstr001
+Reported Date                 : 11/16/93
+Found in Baseline             : 1.0.3
+Found Date                    : 11/16/93
+Severity                      : C
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[11/16/93 public]
+Rename the gds_xds_str_001 test in some future release to follow
+<comp><type><num> format, which should shorten paths like
+	<dce_root_dir>/src/test/systest/directory/gds/gds_xds_str_001/gds_xds_str_001.data
+in the future.
+
+[11/17/93 public]
+I push back on this only because the breadth of GDS makes a designation
+like gdsstr001 almost useless.  This is okay for a component like time,
+or threads, which are less diverse in their subcomponents, but I feel that 
+the naming scheme for the tests needs to allow for subcomponent
+spcification.  I will bring this up in appropriate internal forums.
+
+
+
+CR Number                     : 9482
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : systest
+Subcomponent Name             : dfs repfldb checklist
+Short Description             : error in NOTE to step 1.
+Reported Date                 : 11/12/93
+Found in Baseline             : 1.0.3
+Found Date                    : 11/12/93
+Severity                      : D
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3a
+Fixed In Baseline             : 
+Affected File(s)              : src/test/systest/file/dfs.repfldb_checklist
+Sensitivity                   : public
+
+[11/12/93 public]
+When verifying the fix for 8301, I noticed the following line in the 
+NOTE attached to step 1. :
+
+                  "The best way
+                   to ensure that the machine running the DCE core services is
+                   to run the core services on a fourth machine that is not
+                   going to run an fldb server."
+
+This should read something like:
+
+                  "The best way
+                   to ensure that the machine running the DCE core services
+         >>>          does not become the sync site            <<<
+                   is
+                   to run the core services on a fourth machine that is not
+                   going to run an fldb server."
+                 
+>>> <<< denote the new text.
+
+[12/16/93 public]
+Cancelling - this is being handled under 9521.
+
+
+
+CR Number                     : 7666
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : other
+Component Name                : systest
+Subcomponent Name             : test/systest/tools/msgqd.c
+Short Description             : Replace signal() with sigset()/sigaction()
+Reported Date                 : 4/7/93
+Found in Baseline             : 1.0.1
+Found Date                    : 4/7/93
+Severity                      : D
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/7/93 public]
+
+Note that two of the three files he mentions have been moved to the
+nosupport area. Only msgqd.c survives.
+
+Full Description:
+
+     In each of the above mentioned system test files, there are one or more
+     signal calls which SNI replaced with sigset or sigaction commands.  In
+     src/test/systest/tools/grd.c, line 727, we suggest replacing
+
+          signal( SIGHUP, cleanup );
+          signal( SIGINT, cleanup );
+          signal( SIGQUIT, cleanup );
+          signal( SIGTERM, cleanup );
+
+     with
+
+          #if defined(SNI_SVR4_POSIX)
+             (void) sigset( SIGHUP, cleanup );
+             (void) sigset( SIGINT, cleanup );
+             (void) sigset( SIGQUIT, cleanup );
+             (void) sigset( SIGTERM, cleanup );
+          #else
+             signal( SIGHUP, cleanup );
+             signal( SIGINT, cleanup );
+             signal( SIGQUIT, cleanup );
+             signal( SIGTERM, cleanup );
+          #endif
+
+     In src/test/systest/tools/lrd.c, line 831, we suggest replacing
+
+          signal( SIGHUP, cleanup );
+          signal( SIGINT, cleanup );
+          signal( SIGQUIT, cleanup );
+          signal( SIGTERM, cleanup );
+
+     with
+
+          #if defined(SNI_SVR4_POSIX)
+             (void) sigset( SIGHUP, cleanup );
+             (void) sigset( SIGINT, cleanup );
+             (void) sigset( SIGQUIT, cleanup );
+             (void) sigset( SIGTERM, cleanup );
+          #else
+             signal( SIGHUP, cleanup );
+             signal( SIGINT, cleanup );
+             signal( SIGQUIT, cleanup );
+             signal( SIGTERM, cleanup );
+          #endif
+
+     In src/test/systest/tools/msgqd.c, line 1021, we suggest replacing:
+
+          signal( SIGHUP, showStatus );
+          signal( SIGINT, showStatus );
+          signal( SIGQUIT, showStatus );
+          signal( SIGTERM, showStatus );
+
+     with
+
+          #if defined(SNI_SVR4_POSIX)
+             {
+             struct sigaction        act;
+
+             act.sa_handler = showStatus;
+             if ( sigemptyset( &act.sa_mask ) != 0 )
+                  {
+                  perror("sigemptyset");
+                  exit(1);
+                  }
+             act.sa_flags = 0;
+             if ( sigaction(SIGHUP, &act, (struct sigaction *)NULL ) != 0 )
+                  {
+                  perror("sigaction: SIGHUP");
+                  exit(1);
+                  }
+             if ( sigaction(SIGINT, &act, (struct sigaction *)NULL ) != 0 )
+                {
+                  perror("sigaction: SIGINT");
+                  exit(1);
+                }
+             if ( sigaction(SIGQUIT, &act, (struct sigaction *)NULL ) != 0 )
+                {
+                  perror("sigaction: SIGQUIT");
+                  exit(1);
+                }
+             if ( sigaction(SIGTERM, &act, (struct sigaction *)NULL ) != 0 )
+                {
+                  perror("sigaction: SIGTERM");
+                  exit(1);
+                }
+             }
+          #else
+             signal( SIGHUP, showStatus );
+             signal( SIGINT, showStatus );
+             signal( SIGQUIT, showStatus );
+             signal( SIGTERM, showStatus );
+          #endif
+
+
+Proposed Solution:
+
+     We propose that USL and/or OSF incorporate the early SNI modifications.
+
+[08/11/93 public]
+Cancelled, these files no longer exist on DCE 1.0.3.
+
+
+
+CR Number                     : 7405
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : systest
+Subcomponent Name             : systest/dcetmall/dcetmchg
+Short Description             : The dcetmchg system test does not reset the clock correctly
+Reported Date                 : 03/02/93
+Found in Baseline             : 1.0.2b17
+Found Date                    : 03/02/93
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[03/02/93 public]
+
+The dcetmchg system test leaves the clock one hour ahead instead of
+resetting it to the correct time.
+
+[03/23/93 public]
+
+In the process of trying to fix this defect I have found that it will
+take quite a bit of work to complete.  I also believe that setting the
+clock forward and backward one hour at least four times every hour is
+not a realistic system test so I am deferring the defect to 1.0.3.
+The problems I have seen trying to fix this include:
+
+	- Once the clock is set ahead one hour tickets expire and you
+	  can not reset the clock to the correct time.
+	- When the clock is set back one hour I have had error saying
+	  that tickets are not valid yet.
+	- I have had to reconfigure the machine the test was run on
+	  because of the havoc caused by changing the clock back and
+	  forth.
+	- Changing the clock back and forth causes rpc/cn errors to
+	  start appearing on the CDS server.
+	- etc.
+
+This test would make a great functional test but for the time being
+it will not be supported on DCE 1.0.2.
+
+[08/11/93 public]
+This test is no longer supported as a system test, someday perhaps it will
+be transformed into a functional test, it would make a good one.
+
+
+
+CR Number                     : 7089
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : systest
+Subcomponent Name             : systests / xx_examine / dcethrpc
+Short Description             : xx_examine can not handle examining logfiles located remotely
+Reported Date                 : 2/2/93
+Found in Baseline             : 1.0.2
+Found Date                    : 2/2/93
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[02/2/93 public]
+
+The script/function ./test/systest/tools/xx_examine does not work cor-
+rectly when logfiles are located locally on test machines.  This function
+was written to only handle examining logfiles located in a common NFS
+mounted location.  This problem appears as fgrep errors when executing
+the dcethrpc system test.
+
+[08/11/93 public]
+This is not a problem now that we are using TET.
+
+
+
+CR Number                     : 7088
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : systest
+Subcomponent Name             : systests
+Short Description             : xx_examine is not included in ./systest/tools/systest.functions
+Reported Date                 : 2/2/93
+Found in Baseline             : 1.0.2
+Found Date                    : 2/2/93
+Severity                      : C
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[02/2/93 public]
+
+The script xx_examine has not been incorporated into the system test
+functions file ./test/systest/tools/systest.functions.
+
+[08/11/93 public]
+Not a problem now that we are using TET.
+
+
+
+CR Number                     : 7080
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : systest
+Subcomponent Name             : systests
+Short Description             : The DCE 1.0.1 system tests are not using tools/systest.functions
+Reported Date                 : 2/1/93
+Found in Baseline             : 1.0.2
+Found Date                    : 2/1/93
+Severity                      : C
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/1/93 public]
+
+The DCE 1.0.1 system tests are still using the xx_* scripts instead of
+the ./systest/tools/systest.functions.
+
+[02/18/93 public]
+Paul is modifying the ones that are not using the above functions file
+and will update this OT.
+
+[08/11/93 public]
+Not necessary with TET.
+
+
+
+CR Number                     : 2337
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : systest
+Subcomponent Name             : test
+Short Description             : Remove DATAFILES from test Makefiles
+Reported Date                 : 3/19/92
+Found in Baseline             : 1.0.1
+Found Date                    : 3/19/92
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[3/19/92 public]
+
+The DATAFILES functionality was removed in the ODE 2.0.2 version of
+make.  Because of schedule constraints, a hack was put into the common
+makefiles to handle some of the DATAFILES functionality.  To eliminate
+reliance upon this hack, we need to remove DATAFILES from both the
+components and the functional tests.
+
+This is a request to have DATAFILES removed from all the tests.
+
+[04/03/92 public]
+
+Reassigned to test group.
+
+[04/10/92 public]
+Copied from Alan H. mail message:
+
+OT#2337 has been reassigned to you folks, to eliminate the
+dependence on DATAFILES, mostly by installing the test products
+rather than leaving them only in the obj tree.
+
+>This task was simpler then expected.  The main piece of work left is
+>setting up the test tree to do installs.  This involves some 168
+>Makefiles.
+
+[04/22/92 public]
+Assigned to Mark Hickey for the future.
+
+
+

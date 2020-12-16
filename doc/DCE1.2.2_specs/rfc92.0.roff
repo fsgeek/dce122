@@ -1,0 +1,1600 @@
+...\" OSF-RFC 92.0
+...\" DCE Interoperability with Kerberos
+...\"
+...\" FORMATTING INSTRUCTIONS for this RFC (these may vary per RFC):
+...\"       nroff -Tlpr rfc92.0.roff > rfc92.0.txt
+...\"       troff -Tps rfc92.0.roff | <ps-post-processor> > rfc0.1.ps
+...\" (Where "troff" means "device-independent troff", or "ditroff".)
+...\"
+...\" =========================================================================
+...\" rcs information $Revision: 1.2 $ $Date: 95/12/19 15:53:18 $
+...\" Before printing your specification, be sure to check all items in <..>
+...\" and all lines preceded by ...\"PUBLISH_CHECK
+...\" - To get line numbers in your spec, uncomment the ".nm 1" line just before
+...\"   the INTRODUCTION.
+...\" - To get change marks in your spec, assume your spec is "fs.roff",
+...\"   and you want the change marks relative to revision "1.5":
+...\"   a. Comment out the ".de mc" line below
+...\"   b. Check out version you want as the base:
+...\"      % /usr/bin/co -p -r1.5 fs.roff >fs.roff.1.1
+...\"   c. Create a change-marked roff source using "diffmk":
+...\"      % /usr/bin/diffmk fs.roff.1.5 fs.roff fs.roff.mk
+...\"   d. Run fs.roff.mk through nroff and print as usual
+...\" - To format the roff source (diffmk'd or plain) into formatted ASCII
+...\"   text using nroff:
+...\"      % /usr/bin/nroff -Tlp fs.roff.mk > fs.txt
+...\" - To print the formatted ASCII text double-sided:
+...\"      % /usr/bin/lp -od -dljdcepcl fs.txt
+...\" - To create a "shar" file suitable for emailing to remote reviewers:
+...\"      % /usr/bin/shar -ZcCsv fs.txt > fs.txt.shar
+...\" =========================================================================
+...\" This template first sets a bunch of *roff options (authors/readers
+...\" don't usually have to know about these).
+...\" Then it defines some strings and macros, many of which deal with
+...\" things that differ between nroff & troff (some of these may not be
+...\" perfect, but they're better than nothing -- to do a really good
+...\" job would require a real semantic markup language.
+...\" Convention: "Begin/End" for strings, "Start/Finish" for macros.
+...\" Strings:
+...\"       \*(f!        - Footnote string (replaces \*F).
+...\"       \*(hB, \*(hE - Page header/footer font (internal use).
+...\"       \*(kB, \*(kE - Doc header font (internal use).
+...\"       \*(qB, \*(qE - Quotations.
+...\"       \*(iB, \*(iE - Italics/emphasis in primary font.
+...\"       \*(bB, \*(bE - Bold font.
+...\"       \*(lB, \*(lE - Literal font.
+...\"       \*(jB, \*(jE - Italics/emphasis in literal font.
+...\"       \*(nH        - Default note header string.
+...\" Macros:
+...\"       .aH      - Appendix header macro (uses number register \na).
+...\"       .aL      - Automatic list macro (replaces .AL; uses num reg \ng).
+...\"       .tS, .tF - Title start/finish (internal use).
+...\"       .cS, .cF - Displays (no-fill) without indentation.
+...\"       .dS, .dF - Displays (no-fill) with indentation.
+...\"       .iS, .iF - Indented (fill) text.
+...\"       .nS, .nF - Note.
+...\" -------------------------------------------------------------------------
+...\" First, set up some number registers here (instead of on command line),
+...\" and include the "mm" macro package here (instead of on command line).
+...\" -------------------------------------------------------------------------
+.if n .nr L 66 \" Nroff page length = 66 lines.
+.if t .nr L 11i \" Troff page length = 11 inches.
+.if n .nr W 72 \" Nroff page width = 72 columns.
+.if t .nr W 6.5i \" Troff page width = 6.5 inches.
+.if n .nr O 3 \" Nroff page offset = 3 columns.
+.if t .nr O 0.75i \" Troff page offset = 0.75 inches.
+.nr N 2 \" No header on page 1.
+.so /usr/lib/tmac/tmac.m \" Points to "mm" package, in /usr/lib/macros.
+...\" -------------------------------------------------------------------------
+...\" Next, twiddle the "mm" package to suit our preferred style.
+...\" -------------------------------------------------------------------------
+...\" Point size and font types.
+...\" -------------------------------------------------------------------------
+.if n .fp 1 R \" "Regular" font ONLY -- don't use any others in nroff.
+.if t \{ .S 10 12 \" Point size = 10, vertical spacing = 12.
+...\" Note: Some systems give different names to these fonts.
+.fp 1 R \" Times roman.
+.fp 2 I \" Times italic.
+.fp 3 B \" Times bold.
+.fp 4 BI \" Times bold italic.
+.fp 5 CW \" Courier.
+.fp 6 CI \" Courier oblique.
+.fp 7 CB \" Courier bold.
+.fp 8 CX \" Courier bold oblique.
+.fp 9 H \" Helvetica.
+.fp 10 HI \" Helvetica oblique.
+.fp 11 HB \" Helvetica bold.
+.fp 12 HX \" Helvetica bold oblique.
+.fp 13 S \} \" Special symbol font -- normally only called automatically.
+...\" -------------------------------------------------------------------------
+...\" Headings; page header and footers; titles.
+...\" -------------------------------------------------------------------------
+.nr Ej 0 \" No eject for first-level headings.
+.nr Hs 7 \" Heading space level = blank line after heading (all levels).
+.nr Hb 7 \" Heading break level = break after heading (all levels).
+.nr Hi 1 \" Post-heading indent = paragraph indent.
+.nr Hc 0 \" Heading centering = none.
+.if n .ds HF 1 1 1 1 1 1 1 \" Heading fonts = regular (no underlining).
+.if t .ds HF 11 11 11 11 11 11 11 \" Heading fonts = Helvetica bold.
+.if t .ds HP 0 0 0 0 0 0 0 \" Heading point sizes (= default).
+.HM 1 1 1 1 1 1 1 \" Heading mark = arabic (all levels).
+.nr Hu 1 \" Unnumbered heading level = 1 (see aH macro, below).
+.de HX \" Beginning-of-heading processing.
+.in 0 \" Left justify headings.
+.ie     \\$2=0 .ds }0\" Null string heading mark for HU.
+.el .ie \\$1=1 .ds }0 \\n(H1.\ \&\" Heading marks = dotted sections + 1 space.
+.el .ie \\$1=2 .ds }0 \\n(H1.\\n(H2.\ \&
+.el .ie \\$1=3 .ds }0 \\n(H1.\\n(H2.\\n(H3.\ \&
+.el .ie \\$1=4 .ds }0 \\n(H1.\\n(H2.\\n(H3.\\n(H4.\ \&
+.el .ie \\$1=5 .ds }0 \\n(H1.\\n(H2.\\n(H3.\\n(H4.\\n(H5.\ \&
+.el .ie \\$1=6 .ds }0 \\n(H1.\\n(H2.\\n(H3.\\n(H4.\\n(H5.\\n(H6.\ \&
+.el .if \\$1=7 .ds }0 \\n(H1.\\n(H2.\\n(H3.\\n(H4.\\n(H5.\\n(H6.\\n(H7.\ \&
+..
+.de HZ \" End-of-heading processing.
+.if n .in 3 \" Indent body of doc by 3 columns in nroff.
+.if t .in 0 \" Don't indent in troff.
+..
+.if n .ds hB \&\" Page header/footer font begin in nroff.
+.if t .ds hB \f9\" Page header/footer font begin in troff.
+.if n .ds hE \&\" Page header/footer font end in nroff.
+.if t .ds hE \fP\" Page header/footer font end in troff.
+.if n .ds kB \&\" Doc header font begin in nroff.
+.if t .ds kB \f(11\" Doc header font begin in troff.
+.if n .ds kE \&\" Doc header font end in nroff.
+.if t .ds kE \f1\" Doc header font end in troff.
+.de tS \" Title start.
+.SP 2 \" 2 blank lines.
+.ce 99 \" Center (each line of) title.
+.if t \{ .ft 11 \" Bold helvetica.
+.S +2 D \} \" Bigger point size.
+..
+.de tF \" Title finish.
+.ce \" Turn off centering.
+.SP 1 \" 1 blank line.
+.if t \{ .ft 1 \" Return to regular font.
+.S P P \} \" Return to regular point size.
+..
+...\" -------------------------------------------------------------------------
+...\" Special Appendix heading macro, .aH.
+...\" -------------------------------------------------------------------------
+.nr a 0 1 \" Appendix number.
+.af a A \" Assign format upper-case alpabetic to number register a.
+.de aH \" Appendix heading macro.
+.if \\na=0 \{ .nr H1 0 \" Reset H1 to 0.
+.HM A 1 1 1 1 1 1 \} \" Heading mark = Upper case alphabetic + arabics.
+.HU "APPENDIX \\n+a. \\$1"
+..
+...\" -------------------------------------------------------------------------
+...\" Paragraph stuff.
+...\" -------------------------------------------------------------------------
+.nr Pt 0 \" Paragraph type = left-justified.
+.nr Pi 0 \" Paragraph indent = 0.
+.nr Ps 1 \" Paragraph spacing = 1 blank space.
+...\" -------------------------------------------------------------------------
+...\" Special list macro, .aL (replaces .AL, for all levels).
+...\" This should be used for almost all lists (including ".LI "\ "").
+...\" The only exception is variable lists (.VL, indented by multiples of 6).
+...\" -------------------------------------------------------------------------
+.de aL
+.nr g \\n(:g
+...\" In-line lists should be numbered (by hand): (1), (2), (3), ...
+.ie     \\ng=0 .LB 6 0 1 3 a \" 1st level: (a), (b), (c), ...
+.el .ie \\ng=1 .LB 6 0 1 3 i \" 2nd level: (i), (ii), (iii), ...
+.el .ie \\ng=2 .LB 6 0 1 4 a \" 3rd level: [a], [b], [c], ...
+.el .ie \\ng=3 .LB 6 0 1 4 i \" 4th level: [i], [ii], [iii], ...
+.el .ie \\ng=4 .LB 6 0 1 6 a \" 5th level: {a}, {b}, {c}, ...
+.el .if \\ng=5 .LB 6 0 1 6 i \" 6th level: {i}, {ii}, {iii}, ...
+..
+.nr Ls 6 \" Blank lines between all list items, by default (but adjustable).
+...\" -------------------------------------------------------------------------
+...\" Footnote stuff; special footnote string, \*(f!.
+...\" -------------------------------------------------------------------------
+.if n .ds f! [\\n+(:p]\" Footnote string (replaces \*F in nroff).
+.if t .ds f! \\*F\" Footnote string (same as \*F in troff).
+.if n .FD 6 \" Footnotes not hyphenated or indented, label left justified.
+.if t .FD 5 \" Footnotes hyphenated, not indented, label left justified.
+.nr Fs 1 \" 1 blank line between footnotes.
+...\" -------------------------------------------------------------------------
+...\" Line adjustment stuff.
+...\" -------------------------------------------------------------------------
+.if n .nr Hy 0 \" No hyphenation in nroff.
+.if t .nr Hy 1 \" Hyphenate in troff.
+.if n .SA 0 \" Set adjust: left margin only in nroff.
+.if t .SA 1 \" Set adjust: left and right margins in troff.
+...\" -------------------------------------------------------------------------
+...\" Miscellaneous stuff.
+...\" -------------------------------------------------------------------------
+.ta \" No tabs by default -- set them up by hand as needed.
+.nr Si \n(Ls \" Default indent for .DS display macro = 6 (use in troff only).
+...\" -------------------------------------------------------------------------
+...\" Displays.
+...\" -------------------------------------------------------------------------
+.de cS \" Display start: no-fill, literal font, no indentation.
+.P
+.nf \" No fill mode.
+.if t .ft 5 \" Constant width font in troff.
+..
+...\" Within .cS, ".ne N"'s can be added by hand, but should be minimized.
+.de cF \" Display finish.
+.if t .ft 1 \" Back to standard font in troff.
+.fi \" Fill mode.
+.P
+..
+.de dS \" Display start: no-fill, literal font, with indentation.
+.P
+.aL \" Use .aL macro for consistent indentation.
+.nf \" No fill mode.
+.LI "\ " \" List item will no (visible) marker.
+.if t .ft 5 \" Constant width font in troff.
+..
+...\" Within .dS, ".ne N"'s can be added by hand, but should be minimized.
+.de dF \" Display finish.
+.if t .ft 1 \" Back to standard font in troff.
+.fi \" Fill mode.
+.LE
+.P
+..
+.de iS \" Indent start: fill, regular font, with indentation.
+.P
+.aL
+.LI "\ "
+..
+.de iF \" Indent finish.
+.LE
+.P
+..
+.ds nH NOTE\"Default note header string -- can be changed by author.
+.de nS \" Note start: fill, italics font, with indentation.
+.P
+.aL \" Use .aL macro for consistent indentation.
+.LI "\ " \" List item will no (visible) marker.
+.if t .ft 2 \" Italics font in troff, and reverse roman <--> italic fonts:
+.if n .ds iB _\" Italics/emphasis primary font begin in nroff.
+.if t .ds iB \f1\" Italics/emphasis primary font begin in troff.
+.if n .ds iE _\" Italics/emphasis primary font end in nroff.
+.if t .ds iE \fP\" Italics/emphasis primary font end in troff.
+.ie \\n(.$=0 \\*(nH:\" Default header string if none supplied by author.
+.el \\$1:\" Header string supplied by author as argument to .nS macro.
+..
+.de nF \" Note finish.
+.if t .ft 1 \" Back to standard font in troff, and remap font macros:
+.if n .ds iB _\" Italics/emphasis primary font begin in nroff.
+.if t .ds iB \f2\" Italics/emphasis primary font begin in troff.
+.if n .ds iE _\" Italics/emphasis primary font end in nroff.
+.if t .ds iE \fP\" Italics/emphasis primary font end in troff.
+.LE
+.P
+..
+...\" -------------------------------------------------------------------------
+...\" Quotation marks and font toggles.
+...\" -------------------------------------------------------------------------
+.if n .ds qB \&"\" Quotation begin in nroff.
+.if t .ds qB ``\" Quotation begin in troff.
+.if n .ds qE \&"\" Quotation end in nroff.
+.if t .ds qE ''\" Quotation end in troff.
+.if n .ds iB _\" Italics/emphasis primary font begin in nroff.
+.if t .ds iB \f2\" Italics/emphasis primary font begin in troff.
+.if n .ds iE _\" Italics/emphasis primary font end in nroff.
+.if t .ds iE \fP\" Italics/emphasis primary font end in troff.
+.if n .ds bB *\" Bold font begin in nroff.
+.if t .ds bB \f3\" Bold font begin in troff.
+.if n .ds bE *\" Bold font end in nroff.
+.if t .ds bE \fP\" Bold font end in troff.
+.if n .ds lB `\" Literal font begin in nroff.
+.if t .ds lB \f5\" Literal font begin in troff.
+.if n .ds lE '\" Literal font end in nroff.
+.if t .ds lE \fP\" Literal font end in troff.
+.if n .ds jB <\" Italics/emphasis literal font begin in nroff.
+.if t .ds jB \fP\f6\" Italics/emphasis literal font begin in troff.
+.if n .ds jE >\" Italics/emphasis literal font end in nroff.
+.if t .ds jE \fP\f5\" Italics/emphasis literal font end in troff.
+..
+...\" =========================================================================
+...\" Finally, it's time to start writing the document!
+...\" The OSF-RFC author modifies the following header/footer info.
+...\" (The major/minor number is assigned by the OSF-RFC Editor.)
+...\" =========================================================================
+...\"PUBLISH_CHECK
+.ND "January 1996" \" Date must be hard-coded.
+...\"PUBLISH_CHECK
+.PH "$\*(hBOSF-RFC 92.0$DCE Interoperability with Kerberos$\\\\*(DT\*(hE$"
+...\"PUBLISH_CHECK
+.PF "$\*(hBMullan$DRAFT #3$Page \\\\n%\*(hE$" \" Draft version.
+...\"PUBLISH_CHECK
+.PF "$\*(hBMullan$$Page \\\\n%\*(hE$" \" Final version.
+...\"
+...\" Following are the first printed lines (header info) of the document:
+...\"
+\&\" Force top-of-first-page trap to position the following info correctly.
+...\"PUBLISH_CHECK
+.tl $\*(kBOpen Software Foundation$$S. Mullan (HP)\*(kE$
+...\"PUBLISH_CHECK
+.tl $\*(kBRequest For Comments: 92.0$$\*(kE$
+.tl $\*(kB\*(DT$$\*(kE$
+...\"PUBLISH_CHECK
+.tS \" Title, in all capitals (can span multiple lines):
+DCE INTEROPERABILITY WITH KERBEROS \*(EM
+FUNCTIONAL SPECIFICATION
+.tF
+...\" =========================================================================
+...\" Now, the actual body of the document!!
+...\" Heading capitalization style:
+...\"     1st level: CAPITALIZE ALL WORDS
+...\"     2nd level: Capitalize Initial Letters of All (Significant) Words
+...\"     3rd-7th level: Capitalize first letter of first word only
+...\" =========================================================================
+...\" -------------------------------------------------------------------------
+...\" No line-numbers by default
+...\" (Uncomment the .nm 1 line to turn line-numbering on.)
+...\" -------------------------------------------------------------------------
+...\"PUBLISH_CHECK
+...\".nm 1 \" Do not page number the final draft
+.P
+.H 1 "INTRODUCTION" \" Always start with an introduction section.
+.P
+...\"The first paragraph of the Introduction should be in the form of an
+...\"*(iBabstract\*(iE, i.e., a brief description of the component or
+...\"subsystem being specified.\*(f!
+...\".FS
+...\"Note that the formatting conventions of OSF RFC's are in effect,
+...\"especially the use of \*(iBmacros\*(iE that simultaneously support ASCII
+...\"and PostScript.  See [RFC 0.1] for details on those.  For an actual
+...\"example of an RFC having the outline shown here, see [RFC 41.2].  (However,
+...\"that RFC used an earlier version of the RFC macros \*(EM again, see
+...\"[RFC 0.1] for details.)
+...\".FE
+.P
+The authentication portion of the DCE Security Service is
+primarily based on Version 5 of the Kerberos [RFC 1510] network
+authentication system.  For the most part, this has allowed the
+DCE Security Server to be able to operate as a Kerberos Key
+Distribution Center (KDC) for Kerberos Version 5 clients
+[John 95].  Today, with some restrictions, you are able to
+successfully use Kerberos Version 5 clients with a DCE Security
+Server as the KDC.  However, in releases 1.0 and 1.1, DCE has
+not officially supported or tested interoperability with
+Kerberos Version 5.  That support and testing is now being added
+to DCE 1.2.
+.P
+This document discusses the requirements and functionality
+necessary for supporting interoperability of DCE and Kerberos
+Version 5 clients, including the Kerberos V5 remote utilities.
+...\"The remainder of the Introduction introduces the component or subsystem
+...\"being specified at a greater level of detail than the abstract in the
+...\"first paragraph.
+...\"PUBLISH_CHECK
+...\".H 2 "Changes Since Last Publication"
+...\".P
+...\"If this is a revision of a previous version, give a list of changes.
+...\".P
+.H 1 "TARGET"
+.P
+...\"Indications of for whom this technology is being built
+...\"and how it is supposed to be used.
+This technology is being provided for customers who have
+Kerberos V5 clients and wish to use the DCE Security Server as a
+Kerberos KDC.  It will also allow users with valid Kerberos V5
+credentials to remotely login without exposing unencrypted
+passwords on the network.
+.P
+.H 1 "GOALS"
+.P
+The primary goals of the DCE 1.2.2 and Kerberos V5
+interoperability project are [see RFC 63.1]:
+.P
+.aL
+.LI
+\*(iBKDC interoperability\*(iE \*(EM Test that the DCE 1.2.2
+Security Server can act as a Kerberos KDC for Kerberos V5
+clients.
+.LI
+\*(iBBSD remote utility interoperability\*(iE \*(EM
+.aL
+.LI
+Provide DCE 1.2.2 versions of the BSD 4.4-Lite remote
+utilities (\*(lBrlogin\*(lE, \*(lBrlogind\*(lE, \*(lBrsh\*(lE,
+\*(lBrshd\*(lE) which provide authentication, encryption.
+.LI
+Test that they are interoperable with the beta 4 or 5
+versions of MIT Kerberos V5 BSD remote utilities.
+.LE
+.LI
+\*(iBKerberos credential cache and keytab file
+compatibility\*(iE \*(EM Ensure that DCE 1.2.2 clients and
+Kerberos V5 clients, using a DCE 1.2.2 security server as the
+KDC, can share credential cache and keytab files without loss of
+data.
+.LE
+.P
+The requirements are stated more specifically in Section 6.
+...\"Define the scope of the technology.
+.P
+.H 1 "NON-GOALS"
+.P
+The following are \*(iBnot\*(iE goals:
+.P
+.aL
+.LI
+Support interoperability of DCE and Kerberos V4 clients.
+.LI
+Support the Kerberos V5 Application Programming Interface.
+.LI
+Support the Kerberos V5 Administration tools.
+.LI
+Support or test interoperability with Kerberos V5 clients using
+GSS-API.
+.LI
+Provide a BSD remote copy utility (\*(lBrcp\*(lE) which
+interoperates with the Kerberos V5 remote utilities.
+.LI
+Support the Kerberos V5 beta 5 password change protocol with a
+DCE Security Server.
+.LI
+Be able to import a Kerberos V5 database into the DCE Security
+Registry.
+.LI
+Provide Kerberos V5 compatible versions of \*(lBftp\*(lE, or
+\*(lBtelnet\*(lE.
+.LI
+Merge forward the DCE sources to the most current version of MIT
+Kerberos V5.
+.LE
+.P
+Also, refer to section 10 for details of which specific versions
+of DCE and Kerberos V5 will be tested and supported.
+...\"Define the scope of the technology.
+.P
+.H 1 "TERMINOLOGY"
+.P
+...\"Definitions of all \*(qBnew\*(qE terms used within this document.
+...\"Use a list like the following:
+.P
+.aL
+...\"PUBLISH_CHECK
+.LI
+\*(bBAuthorization\*(bE
+.P
+The process of determining whether a client may use a service,
+which objects the client is allowed to access, and the type of
+access allowed for each.
+.LI
+\*(bBAuthentication\*(bE
+.P
+Verifying the claimed identity of a principal.
+.LI
+\*(bBBSD\*(bE
+.P
+Berkeley Software Distribution of UNIX.
+.LI
+\*(bBCredentials\*(bE
+.P
+A ticket plus the secret session key necessary to successfully use
+that ticket in an authentication exchange.
+.LI
+\*(bBDCE Security Service\*(bE
+.P
+A DCE service providing authentication, authorization, and other
+security services.  It is based on Kerberos V5, but has
+significant extensions and added functionality.
+.LI
+\*(bBIETF\*(bE
+.P
+Internet Engineering Task Force.
+.LI
+\*(bBKDC\*(bE
+.P
+Key Distribution Center, a Kerberos V5 network service that
+supplies tickets and temporary session keys.
+.LI
+\*(bBKerberos\*(bE
+.P
+Refers to the specification of Kerberos Version 5 contained in
+[RFC 1510].
+.LI
+\*(bBKerberos Realm\*(bE
+.P
+Identified by a unique name, a realm consists of a KDC, and the
+clients and servers registered to that KDC.
+.LI
+\*(bBKerberos Ticket\*(bE
+.P
+A record that helps a client authenticate itself to a server;
+contains client's identity, session key, timestamp, and other
+information, all sealed using the server's secret key.
+.LI
+\*(bBKerberos V5 Client\*(bE
+.P
+A Kerberos client which has been built against a non-DCE
+Kerberos V5 library.
+.LI
+\*(bBMIT Kerberos V5\*(bE
+.P
+Refers to the MIT distribution of Kerberos V5.  Thus, this
+refers to the components as implemented in that offering.
+.LI
+\*(bBTGT\*(bE
+.P
+A Kerberos V5 Ticket-Granting Ticket which can be used to obtain
+additional tickets to servers.
+.LE
+.P
+.H 1 "REQUIREMENTS"
+.P
+...\"Discusses areas such as security, portability, and internationalization
+...\"that must be addressed by this technology.  This could be a list, or
+...\"just a general discussion, as appropriate.
+The specific requirements for this project are as follows:
+.P
+.aL
+.LI
+Provide and test Kerberos V5 and DCE client coexistence on a
+single machine with a DCE KDC, sharing the same credential and
+keytab files.
+.LI
+Provide \*(lBrlogin\*(lE and \*(lBrsh\*(lE utilities which
+optionally provide user authentication including forwarding of
+credentials to the remote host, and encryption of session data
+(at least if built with U.S. Domestic DCE sources).  These
+utilities must be able to interoperate with other Kerberos V5
+remote utilities.  More specifically:
+.aL
+.LI
+An \*(lBrlogin\*(lE, \*(lBrlogind\*(lE, \*(lBrsh\*(lE, and
+\*(lBrshd\*(lE based on the BSD Version 4.4-Lite sources.  (The
+4.4-Lite release of BSD was chosen because it is not encumbered,
+i.e., it has no licensing restrictions.)
+.LI
+An \*(lBrlogin\*(lE and \*(lBrsh\*(lE which interoperate with a
+non-DCE Kerberos V5 \*(lBrlogind\*(lE and \*(lBrshd\*(lE,
+respectively.
+.LI
+An \*(lBrlogin\*(lE and \*(lBrsh\*(lE which interoperate with a
+non-DCE Kerberos V5 KDC.
+.LI
+An \*(lBrlogind\*(lE and \*(lBrshd\*(lE which interoperate with
+a non-DCE Kerberos V5 \*(lBrlogin\*(lE and \*(lBrsh\*(lE,
+respectively.
+.LI
+An \*(lBrlogind\*(lE and \*(lBrshd\*(lE which interoperate with
+a non-DCE Kerberos V5 KDC (\*(lBrlogind\*(lE and \*(lBrshd\*(lE
+do not directly communicate with the KDC; however, they do share
+a key with the KDC).
+.LI
+An \*(lBrlogind\*(lE and \*(lBrshd\*(lE which support the
+Kerberos V5 \*(lB\&.k5login\*(lE access control mechanism.
+.LI
+DCE configuration support for seamless operation of the remote
+utilities.
+.LI
+An \*(lBrlogin\*(lE and \*(lBrsh\*(lE which can delegate the
+user's Kerberos credentials and promote them to DCE credentials
+(if applicable) on the remote host, thus avoiding the need to
+prompt for and send an unencrypted password over the network.
+.LE
+.LI
+Provide a DCE KDC that is validated to properly support
+Kerberos V5 beta 4 or 5 clients according to [RFC 1510],
+with some exceptions as described in section 7.3.
+.LE
+.P
+The following requirements are \*(iBnot\*(iE committed, but will
+be provided as time and resources permit:
+.P
+.aL
+.LI
+Support and test inter-realm authentication between a DCE KDC
+and a non-DCE KDC with some exceptions as described in section
+7.3.1.
+.LI
+An \*(lBrlogin\*(lE, \*(lBrsh\*(lE which can authenticate to a
+host in a foreign realm.
+.LI
+An \*(lBrlogind\*(lE, \*(lBrshd\*(lE which can accept and
+authenticate requests from a host in a foreign realm.
+.LE
+.P
+.H 1 "FUNCTIONAL DEFINITION"
+.P
+...\"Specifies the functional characteristics and features of the component
+...\"or subsystem.  Normally, this will be the most substantial section of
+...\"the document.
+.P
+.H 2 "Credential Cache/Keytab File Compatibility"
+.P
+A DCE 1.2.2 client will be able to coexist with a Kerberos V5
+client on the same machine, using a DCE Security Server as the
+KDC.  This requires that they be able to share keytab and
+credential cache files located on the local machine.  In order
+for a DCE application to share a credential cache or keytab file
+with a Kerberos V5 application, they must be able to write to
+the file in a format that is understandable by each other.
+.P
+There are currently 2 versions of formats for the keytab and
+credential cache files.\*(f!  Prior
+.FS
+The beta 5 release of Kerberos introduces a 3rd version; files
+created with this version are not compatible with DCE 1.2.2.
+.FE
+to DCE 1.1, the files were created in the version 1 format.
+Kerberos introduced the version 2 format with the 2nd beta
+release, but did not maintain backwards compatibility with files
+created using the version 1 format.  This bug was eventually
+fixed in the 4th beta release of Kerberos.
+.P
+DCE 1.1 is partially based on Kerberos V5 beta 4, and thus can
+read and write files created in either format.  The table below
+describes the compatibility of file versions.  In the lefthand
+column is the DCE or Kerberos release (krb5b1 denoting the first
+beta release of Kerberos V5), and in the second and third
+columns are the 2 different file formats.  A \*(qBYes\*(qE
+implies that applications built with that release can read and
+write files in the version noted, and a \*(qBNo\*(qE implies
+that it cannot.
+.P
+.dS
+.ne 11
+   Kerberos Credential Cache/Keytab
+          File Compatibility
++--------------------+--------+--------+
+| Release            | krb5v1 | krb5v2 |
++--------------------+--------+--------+
+| DCE 1.0/krb5b1     | Yes    | No     |
+| Krb5b2             | No     | Yes    |
+| Krb5b3             | No     | Yes    |
+| DCE 1.{1,2}/krb5b4 | Yes    | Yes    |
+| Krb5b5             | Yes    | Yes    |
++--------------------+--------+--------+
+.dF
+.P
+For DCE 1.2.2, users will be able to select which version their
+host will write the files in by specifying a value for the
+\*(lBkrb5_kt_vno\*(lE and \*(lBkrb5_ccache_vno\*(lE
+configuration variables.  These values are stored in the DCE
+host specific data file (see \*(lBhostdata(1M)\*(lE).  Upon
+creating a new credential cache or keytab file, DCE will read
+the value of the appropriate configuration variable to determine
+what version should be used.  If the configuration variables do
+not exist, DCE will use the default version provided by the
+Kerberos release it is based on.
+.P
+Depending on the value set, there will be some tradeoffs.  For
+example, if the \*(lBkrb5_ccache_vno\*(lE is set to 2, binary
+compatibility with DCE 1.0 applications may be affected, since
+DCE 1.0 cannot parse the version 2 format.  If the
+\*(lBkrb5_ccache_vno\*(lE is set to 1, any Kerberos V5
+applications based on beta 2 or 3 will not be able to parse a
+credential cache file created by a DCE application.  Users
+should set these variables to try to maximize their
+interoperability requirements.  DCE 1.2.2 utilities
+(\*(lBkinit\*(lE, \*(lBklist\*(lE, \*(lBkdestroy\*(lE) will be
+able to refresh, read, or destroy credential files created in
+either version 1 or 2.
+.P
+There will be a \*(lBdcecp\*(lE command to allow users to
+display or change the configuration variables; see section 8.6.
+.P
+.H 2 "Kerberos V5 Configuration File Compatibility"
+.P
+Prior to the beta 5 release of Kerberos V5, configuration of
+realms and KDC servers were specified in the files
+\*(lB/krb5/krb.realms\*(lE and \*(lB/krb5/krb.conf\*(lE.  The
+beta 5 release of Kerberos V5 combined these files into one file
+located in \*(lB/etc/krb5.conf\*(lE.  The files are not
+compatible, and since DCE is not based on Kerberos V5 beta 5, it
+does not understand the \*(lB/etc/krb5.conf\*(lE format.
+.P
+If the beta 5 release of Kerberos V5 is compiled with the
+preprocessor macro \*(lBOLD_CONFIG_FILE\*(lE defined, then the
+old configuration files will be used instead of
+\*(lB/etc/krb5.conf\*(lE.  This should be considered if the
+Kerberos V5 beta 5 applications will be run on a DCE client
+using a DCE Security Server.  The \*(lB/krb5/krb.conf\*(lE file
+is initialized during the configuration of the DCE client.  The
+\*(lB/krb5/krb.conf\*(lE is periodically checked for stale
+configuration and updated by the security validation service
+(\*(lBsecval(1m)\*(lE) of \*(lBdced(1m)\*(lE.
+.P
+If the \*(lB/etc/krb5.conf\*(lE file is used for configuration
+instead, the user or administrator will be responsible for
+setting up and maintaining the file so that the Kerberos V5
+applications can use the DCE Security Server as a KDC.
+.P
+.H 2 "KDC Interoperability"
+.P
+Section 9 of RFC 1510 defines the interoperability requirements
+which must be supported by all Kerberos V5 implementations.  For
+1.2.2, we are only supporting KDC interoperability.  Each
+requirement is noted below with a justification of whether or
+not it will be supported and tested for 1.2.2.
+.P
+.aL
+.LI
+\*(iBEncryption and checksum methods.\*(iE
+.P
+RFC 1510 states that the \*(lBDES-CBC-MD5\*(lE encryption
+mechanism must be supported.  However, the current release of
+Kerberos V5 (beta 5) does not conform to this requirement, so
+this will not be supported.
+.P
+RFC 1510 states that the following checksum methods must be
+supported: \*(lBCRC-32\*(lE, \*(lBDES-MAC\*(lE,
+\*(lBDES-MAC-K\*(lE, \*(lBDES-MD5\*(lE.  We will only support
+and test \*(lBCRC-32\*(lE, since supporting the others would
+require a full merge of DCE to the latest version of Kerberos
+V5.
+.LI
+\*(iBRealm Names.\*(iE
+.P
+RFC 1510 states that all implementations must understand
+hierarchical realms in both the Internet Domain and the X.500
+style.  RFC 1510 also states that the KDC must be able to
+determine the names of the intermediate realms between the KDC's
+realm and the requested realm when a ticket granting ticket for
+an unknown realm is requested.  The DCE 1.2.2 Security Server
+will recognize realm names in the Internet Domain style, but any
+functionality requiring hierachical trust between a DCE cell and
+a Kerberos V5 realm will not be tested or supported.
+.P
+See Section 7.3.1 for a more detailed description of the plans
+for inter-realm communication between a non-DCE KDC and a DCE
+KDC.
+.LI
+\*(iBTransited field encoding.\*(iE
+.P
+RFC 1510 states that \*(lBDOMAIN-X500-COMPRESS\*(lE must be
+supported.  Hierachical/transitive trust between a DCE cell and
+a Kerberos V5 realm will not be supported; thus the transited
+field encoding algorithms will not be tested.
+.LI
+\*(iBPre-authentication methods.\*(iE
+.P
+RFC 1510 states that the \*(lBPA-TGS-REQ\*(lE preauthentication
+method must be supported.  This will be supported by the DCE
+1.2.2 Security Server and will be tested via the Ticket-Granting
+Service (TGS) Exchange.
+.P
+RFC 1510 allows the KDC to optionally support the
+\*(lBPA-ENC-TIMESTAMP\*(lE preauthentication protocol.  The DCE
+1.2.2 Security Server will support the
+\*(lBPA-ENC-TIMESTAMP\*(lE preauthentication protocol, and this
+will be tested.
+.LI
+\*(iBMutual authentication.\*(iE
+.P
+Mutual authentication (via the \*(lBKRB_AP_REP\*(lE message)
+will be tested and supported by the DCE 1.2.2 Security Server.
+Although the server involved in mutual authentication does not
+directly communicate with the KDC, it shares a key with the KDC
+which is used in the mutual authentication protocol between the
+client and server.
+.LI
+\*(iBTicket addresses and flags.\*(iE
+.P
+Forwardable and forwarded tickets will be supported by the DCE
+1.2.2 Security Server and are required to meet the remote
+utility requirements.
+.P
+RFC 1510 states that all KDC's must pass on tickets that carry
+no addresses.  This is supported by the DCE 1.2.2 Security
+Server and will be tested.
+.P
+RFC 1510 states that proxiable tickets must be supported.  The
+DCE 1.2.2 Security Server will support proxiable tickets.
+.P
+RFC 1510 states that all implementations must recognize
+renewable and postdated tickets but need not actually implement
+them.  The DCE 1.2.2 Security Server will support renewable and
+postdated tickets and this will be tested.
+.LI
+\*(iBUser-to-user authentication.\*(iE
+.P
+User-to-user authentication (via the \*(lBENC-TKT-IN-SKEY\*(lE
+KDC option) will be tested and supported by the DCE 1.2.2
+Security Server.
+.LI
+\*(iBAuthorization data.\*(iE
+.P
+RFC 1510 states that all implementations must pass all
+authorization data subfields from ticket-granting tickets to any
+derivative tickets unless directed to suppress a subfield as
+part of the definition of that registered subfield type.
+.P
+This will be tested and supported by the DCE 1.2.2 Security
+Server.
+.LE
+.P
+Tests will be written to validate the requirements above.  These
+tests will be built against the beta 5 release of MIT Kerberos
+V5 and tested with a DCE 1.2.2 Security Server acting as the
+Kerberos KDC.  Also, manual testing will be performed with at
+least 2 Kerberos V5 products based on the beta 4 release of
+Kerberos V5.
+.P
+.H 3 "Inter-realm KDC interoperability"
+.P
+\*(iBInter-realm support between a DCE cell and a Kerberos V5
+realm is not a committed requirement for DCE 1.2.2.  However, we
+will attempt to implement the features described below as time
+and resources permit.\*(iE
+.P
+Communication between a DCE cell and a Kerberos V5 realm is
+important in order to fully utilize the interoperability
+features of DCE 1.2.2 and Kerberos V5 clients.  For DCE 1.2.2,
+the following inter-realm functionality may be supported:
+.P
+.aL
+.LI
+A client principal in a DCE cell will be able to request a
+service from a server principal in a Kerberos V5 realm.
+Conversely, a client principal in a Kerberos V5 realm will be
+able to request a service from a server principal in a DCE cell.
+This requires establishing trusted principal pairs in the DCE
+cell and the Kerberos V5 realm.  See section 7.3.1.1 for more
+specific details.
+.LI
+Only peer-to-peer inter-realm trust between a DCE cell and a
+Kerberos V5 realm may be supported.  Hierachical trust other
+than peer-to-peer will not be supported.
+.LI
+DCE \*(lBkinit\*(lE, \*(lBklist\*(lE and \*(lBkdestroy\*(lE can
+interoperate with a non-DCE Kerberos V5 KDC.  For example, users
+will be able to authenticate as a principal in a remote Kerberos
+V5 realm from a DCE client using the DCE \*(lBkinit\*(lE
+command.  In addition, the DCE \*(lBklist\*(lE and
+\*(lBkdestroy\*(lE commands can be used to list or destroy the
+user's credentials obtained from the remote realm.
+.LE
+.H 4 "Inter-realm authentication by trust peers"
+.P
+By registering the Ticket-Granting Service of each realm as a
+principal in the other realm, inter-realm authentication can be
+requested by principals in two different Kerberos V5 realms.
+For example, the following TGS principals and keys need to be
+created in order for principals in realm 1 and realm 2 to
+authenticate to each other:
+.P
+.dS
+.ne 4
+realm1                          realm2
+------                          ------
+krbtgt/realm2@realm1{keyA}      krbtgt/realm1@realm2{keyB}
+krbtgt/realm1@realm2{keyB}      krbtgt/realm2@realm1{keyA}
+.dF
+.P
+If a client in realm 1 needs to authenticate to a server in
+realm 2, the TGS request is accompanied by a TGT encrypted in
+the key of the remote TGS principal
+\*(lBkrbtgt/realm2@realm1\*(lE.  The foreign KDC recognizes the
+request to be inter-realm and decrypts it with the trusted
+inter-realm key and returns a ticket to the requested foreign
+server.  If inter-realm authentication is only required in one
+direction, just one of the trusted principal pairs needs to be
+created.
+.P
+If realm 1 is a DCE cell instead of a Kerberos V5 realm, only
+one of the principals (\*(lBkrbtgt/realm2@realm1\*(lE) can be
+created.  The DCE registry database cannot store a principal
+with a foreign realm (\*(lBkrbtgt/realm1@realm2\*(lE).  Thus,
+inter-realm communication only works in one direction (DCE to
+Kerberos).
+.P
+In order to avoid the limitations of the DCE registry, a special
+naming convention will be used to represent the foreign
+principal \*(lBkrbtgt/realm1@realm2\*(lE and allow it to be
+stored in the DCE registry database as:
+.dS
+/.../realm1/fkrbtgt/realm2
+.dF
+.P
+or equivalently as a Kerberos V5 principal:
+.dS
+fkrbtgt/realm2@realm1
+.dF
+.P
+There are a couple of cases in which DCE will need to recognize
+and convert a principal from a foreign realm specified as
+\*(lBkrbtgt/realm1@realm2\*(lE to
+\*(lBfkrbtgt/realm2@realm1\*(lE.  When a DCE KDC determines that
+a TGS request is from a principal in a foreign Kerberos V5
+realm, the DCE KDC will convert the server principal specified
+in the ticket to the format above by transposing the server and
+realm names and replacing the \*(lBkrbtgt\*(lE client name with
+\*(lBfkrbtgt\*(lE.  The DCE KDC will then retrieve the key
+stored in the DCE registry associated with this name in order to
+decrypt the ticket in the TGS request.
+.P
+In addition, the salt used in the generation of the foreign TGS
+principal's DES key from the plaintext password must be
+identical in the DCE cell and the Kerberos V5 realm.  Since the
+default salt is determined by the principal and realm names, it
+is important that the structure be the same.  Before the DCE KDC
+generates a salt for the foreign TGS account, it will convert
+the name (as represented by the \*(lBkrb5_principal\*(lE data
+structure) from \*(lBfkrbtgt/realm2@realm1\*(lE to
+\*(lBkrbtgt/realm1@realm2\*(lE so that it will be consistent
+with the Kerberos V5 realm.
+.P
+Since the Kerberos 5 convention is to capitalize realm names,
+DCE 1.2.2 will allow the realm names to be specified in capital
+letters:
+.P
+.dS
+.ne 2
+/.../realm1/fkrbtgt/REALM2
+/.../realm1/krbtgt/REALM2
+.dF
+.P
+However, creation of DCE cell names with capital letters will
+not be supported.
+.P
+The following \*(lBdcecp\*(lE commands establish the necessary
+principals and keys in the DCE cell for inter-realm
+authentication to a foreign Kerberos V5 realm (appropriately
+named \*(lBFOREIGN-REALM\*(lE):
+.P
+.dS
+.ne 12
+principal create krbtgt/FOREIGN-REALM
+principal create fkrbtgt/FOREIGN-REALM
+group add none -member krbtgt/FOREIGN-REALM
+group add none -member fkrbtgt/FOREIGN-REALM
+organization add none -member krbtgt/FOREIGN-REALM
+organization add none -member fkrbtgt/FOREIGN-REALM
+account create krbtgt/FOREIGN-REALM \e
+       -group none -organization none \e
+       -mypwd {cell_admin password} -pass {password1}
+account create fkrbtgt/FOREIGN-REALM \e
+       -group none -organization none \e
+       -mypwd {cell_admin password} -pass {password2}
+.dF
+.P
+In the Kerberos V5 realm, the matching trust accounts must be
+created with the same passwords as specified above, using the
+Kerberos V5 administration tools.  This relies on the ability of
+the administrators to securely exchange the passwords used to
+setup the trust accounts.
+.P
+Inter-cell authentication between DCE cells will not be affected
+by this functionality.
+.P
+.H 2 "Remote Utilities"
+.P
+A highly requested feature missing from DCE is secure remote
+utilities which do not expose the user's password to the
+network.  DCE 1.2.2 will provide secure versions of the BSD
+remote programs \*(lBrlogin\*(lE, \*(lBrlogind\*(lE,
+\*(lBrsh\*(lE, and \*(lBrshd\*(lE.  These remote utilities will
+be based on BSD 4.4-Lite and will provide the following security
+features (where client and server are in the same DCE cell or
+Kerberos realm):
+.aL
+.LI
+Mutual authentication between the \*(lBrlogin/rsh\*(lE client
+and \*(lBrlogind/rshd\*(lE server.
+.LI
+Authentication of the user without exposing the password to the
+network.  This is accomplished by verifying the user possesses a
+Ticket Granting Ticket and using this TGT to establish mutual
+authentication between the client and the remote host.
+.LI
+Optional delegation of the user's Ticket Granting Ticket to the
+remote host and establishment of DCE credentials allowing the
+user to fully utilize their credentials on the remote host.
+.LI
+Optional encryption of all data generated during a remote login
+session.  (The source code for this feature is only available in
+domestic source, since it provides arbitrary encryption of user
+data, which is export controlled.)
+.LI
+Simple authorization control via the \*(lB\&.k5login\*(lE access
+control file or the \*(lB/krb5/aname\*(lE translation database.
+.LI
+Interoperability with Kerberos V5 remote utilities.
+Interoperability testing will be performed using Kerberos V5
+products based on the beta 4 or 5 release from MIT.
+.LE
+.P
+The remote utilities will be built against the beta 5 release of
+Kerberos V5.  The remote utilities will be very similar to the
+Kerberos V5 based remote utilities, in order to be interoperable
+with them.
+.P
+.H 3 "Configuration Enhancements"
+.P
+\*(lBdce_config\*(lE will be enhanced to provide seamless
+integration of the remote utilities into the DCE environment.
+The following additional configuration steps will be added
+[Brez 95]:
+.aL
+.LI
+Add the \*(lBeklogin\*(lE, \*(lBklogin\*(lE, \*(lBekshell\*(lE,
+and \*(lBkshell\*(lE ports to the \*(lB/etc/services\*(lE
+configuration file (see \*(lBservices(4)\*(lE).
+.LI
+Create the \*(lBhost/\*(jBfully-qualified-hostname\*(jE\*(lE
+principal and keys required for mutual authentication between
+the remote utility client and server processes.
+.LI
+Add an entry to \*(lB/etc/inetd.conf\*(lE to automatically start
+the remote utility servers when a request for remote access is
+made (see \*(lBinetd(1M)\*(lE).
+.LE
+.P
+.H 3 "Remote login"
+.P
+BSD Remote login consists of the \*(lBrlogin\*(lE client and the
+\*(lBrlogind\*(lE server.  Listed below are the steps involved
+in authentication of the user:
+.aL
+.LI
+Mutual authentication is established between the
+\*(lBrlogin\*(lE client process and the \*(lBrlogind\*(lE server
+process via the Kerberos V5 Client/Server Authentication
+Exchange protocol.
+.LI
+If requested, \*(lBrlogin\*(lE forwards the user's
+ticket-granting ticket to the \*(lBrlogind\*(lE server.  This
+assumes the user possesses a ticket-granting ticket which is
+forwardable.  A forwardable TGT can be obtained with the
+\*(lB-f\*(lE option of \*(lBkinit\*(lE or via the
+\*(lBsec_login_forwardable\*(lE flag to
+\*(lEsec_login_stup_identity(3)\*(lE.\*(f!  The
+.FS
+The \*(lBsec_login_forwardable\*(lE functionality is not
+committed at this time.  Refer to section 9.1 for more
+information.
+.FE
+\*(lBrlogind\*(lE server receives the forwarded credentials and
+stores them in a local credential cache file.
+.LI
+Next, the \*(lBrlogind\*(lE server checks the
+\*(lB\&.k5login\*(lE access control file and the krb5
+\*(lBaname\*(lE database to determine if the user is authorized
+to access the remote machine.  The \*(lB\&.k5login\*(lE access
+control file is located in the home directory of the account
+which is being remotely logged into.
+.LI
+The \*(lBrlogind\*(lE server then promotes the forwarded
+credentials to DCE credentials by executing the
+\*(lBk5dcelogin\*(lE utility program (see section 7.3.4).  If
+the \*(lBk5dcelogin\*(lE command fails to create a DCE login
+context, the errors are ignored in order to be interoperable
+with a non-DCE KDC (requirement (6-b-v)).
+.LI
+The \*(lBrlogind\*(lE server executes the system login program
+with an option to avoid prompting for a password.
+.LI
+If requested, all remote login session data is encrypted with
+the session key established for mutual authentication.
+.LI
+If any of the steps above fail, the \*(lBrlogin\*(lE process
+falls back to the standard BSD 4.4-Lite \*(lBrlogin\*(lE.
+.LE
+.P
+See the user interface definition for \*(lBrlogin\*(lE and
+\*(lBrlogind\*(lE in section 8 for a complete list of options.
+.P
+.H 3 "Remote shell"
+.P
+BSD remote shell consists of the \*(lBrsh\*(lE client and the
+\*(lBrshd\*(lE server.  The authentication enhancements are
+identical to that of \*(lBrlogin\*(lE and \*(lBrlogind\*(lE with
+the following exceptions:
+.aL
+.LI
+There is no encryption of session data, unless the user does not
+specify a command to execute, in which case \*(lBrsh\*(lE
+executes the \*(lBrlogin\*(lE command.
+.LI
+The \*(lBrshd\*(lE server executes the specified command instead
+of the system login program.
+.LE
+.P
+See the user interface definition for \*(lBrsh\*(lE and
+\*(lBrshd\*(lE in section 8 for a complete list of options.
+.P
+.H 3 "Promotion of Kerberos credentials to DCE credentials"
+.P
+The \*(lBk5dcelogin\*(lE command will be used to promote
+Kerberos credentials to DCE credentials, so that users will be
+able to fully utilize DCE security features on the remote host.
+Listed below are the steps to accomplish this:
+.P
+.aL
+.LI
+Verify that the user possesses a ticket-granting ticket to the
+Authentication Service and store it in memory.
+.LI
+Check to see if the user possesses a DCE privilege
+ticket-granting ticket.  If found, this means that the user
+already has DCE credentials, and no further work is necessary;
+go to step (e).
+.LI
+Destroy the user's credential cache because a fresh cache will
+be created by \*(lBsec_login_setup_identity(3)\*(lE in the next
+step.
+.LI
+Setup, validate, certify and store (to disk) a DCE login
+context, but do not request an initial ticket-granting ticket.
+Instead, use the ticket-granting ticket stored in memory.
+.LI
+Execute the system login program or the command specified by the
+user.
+.LE
+.P
+Ideally, the functionality of the \*(lBk5dcelogin\*(lE should be
+contained within the \*(lBlogin\*(lE program.  However, the
+\*(lBlogin\*(lE path is vendor specific, thus
+\*(lBk5dcelogin\*(lE provides a solution which does not require
+modification of OS login source.
+.P
+.H 3 "PAM integration"
+.P
+[RFC 86.0] discusses the Pluggable Authentication Modules
+architecture and how it can be integrated with OSF-DCE.  Since
+this is not yet a DCE deliverable, the remote utilities do not
+need to be integrated with the PAM APIs.  However, the
+functional definition should not preclude the integration with
+those APIs.
+.P
+.H 1 "USER INTERFACES"
+.P
+...\"Descriptions of how users of the component will interact with the
+...\"executed code to produce the expected function.  This should include
+...\"both command line interfaces and graphic user interfaces.
+.P
+.H 2 "rlogin"
+.P
+The user interface for the \*(lBrlogin\*(lE command, based on
+the BSD 4.4-Lite version, is defined below, in manpage-like
+fashion.  Only the additional options related to authentication
+are described.\*(f!
+.FS
+The \*(lB-k\*(lE option may not be supported: see section 7.3.1.
+.FE
+.P
+\*(bBNAME\*(bE
+.iS
+\*(lBrlogin\*(lE \*(EM remote login
+.iF
+.P
+\*(bBSYNOPSIS\*(bE
+.P
+.dS
+rlogin [-8EFKLdfx] [-e char] [-k realm] [-l username] host
+.dF
+.P
+\*(bBDESCRIPTION\*(bE
+.P
+.iS
+\*(lBrlogin\*(lE starts a terminal session on the remote host
+\*(lBhost\*(lE.
+.P
+The security relevant options are as follows:
+.P
+\*(lB-k\*(lE
+.iS
+The \*(lB-k\*(lE option requests \*(lBrlogin\*(lE to obtain
+tickets for the remote host in realm \*(lBrealm\*(lE instead of
+the remote host's realm as determined by
+\*(lBkrb_realmofhost(3)\*(lE.
+.iF
+\*(lB-x\*(lE
+.iS
+The \*(lB-x\*(lE option turns on DES encryption for all data
+passed via the \*(lBrogin\*(lE session.  This may impact
+response time and CPU utilization, but provides increased
+security.  (This option is subject to export control.)
+.iF
+\*(lB-K\*(lE
+.iS
+The \*(lB-K\*(lE option turns off all Kerberos authentication.
+.iF
+\*(lB-f\*(lE
+.iS
+The \*(lB-f\*(lE option requests \*(lBrlogin\*(lE to forward the
+user's Kerberos credentials to the remote host.
+.iF
+\*(lB-F\*(lE
+.iS
+The \*(lB-F\*(lE option causes \*(lBrlogin\*(lE to forward the
+user's Kerberos credentials to the remote host and to allow the
+remote host to forward them to subsequent remote hosts.
+.iF
+.iF
+\*(bBKERBEROS AUTHORIZATION\*(bE
+.iS
+Each user may have a private authorization list in a file
+\*(lB\&.k5login\*(lE in their login directory.  Each line in
+this file should contain a Kerberos principal name of the form
+\*(lBprincipal/instance@realm\*(lE (in a DCE cell, this
+principal name is referred to as
+\*(lB/.../cell/principal/instance\*(lE, where realm is
+equivalent to cell).  If the originating user is authenticated
+to one of the principals named in \*(lB\&.k5login\*(lE, access
+is granted to the account.  The principal
+\*(lBaccountname@localrealm\*(lE is granted access if there is
+no \*(lB\&.k5login\*(lE file, and \*(lBaccountname\*(lE was
+established as a mapping from the remote user's principal name
+using the Kerberos aname database.  Otherwise a login and
+password will be prompted for on the remote machine as in
+\*(lBlogin(1)\*(lE.  To avoid some security problems, the
+\*(lB\&.k5login\*(lE file should exist on the local filesystem
+and must be owned by the remote user.
+.P
+The user must possess a ticket granting ticket which is
+forwardable in order to request the \*(lB-f\*(lE or \*(lB-F\*(lE
+options.  See \*(lBkinit(1)\*(lE for information on obtaining a
+forwardable TGT.
+.P
+If Kerberos authentication fails, a warning message is printed
+and the standard Berkeley rlogin is used instead.
+.iF
+.H 2 "rlogind"
+.P
+The user interface for the \*(lBrlogind\*(lE server, based on
+the BSD 4.4-Lite version, is defined below.  Only the additional
+options related to authentication are described.
+.P
+\*(bBNAME\*(bE
+.iS
+\*(lBrlogind\*(lE \*(EM remote login server
+.iF
+.P
+\*(bBSYNOPSIS\*(bE
+.P
+.dS
+rlogind [-aklnxK]
+.dF
+.P
+\*(bBDESCRIPTION\*(bE
+.P
+.iS
+\*(lBrlogind\*(lE is the server for the \*(lBrlogin(1)\*(lE
+program.
+.P
+The security relevant options are as follows:
+.P
+\*(lB-k\*(lE
+.iS
+Check authorization in \*(lB~/\&.k5login\*(lE.  If the Kerberos
+authorization fails, the standard Berkeley authorization is
+checked (\*(lBruserok(3M)\*(lE).  If both fail, then login
+permission is denied.
+.iF
+.P
+\*(lB-K\*(lE
+.iS
+Similar to \*(lB-k\*(lE except that the authorization check must
+succeed in order for the login to succeed.
+.iF
+.P
+\*(lB-x\*(lE
+.iS
+Create an encrypted session.  The \*(lBrlogind\*(lE will listen
+for requests on the \*(lBeklogin\*(lE port, and will decrypt all
+session data with the session key.  If the data is not encrypted
+by the client with the correct key, the output will be decrypted
+incorrectly and will be meaningless.  (This option is subject to
+export control.)
+.iF
+.iF
+...\".B "KERBEROS AUTHENTICATION"
+...\".iS
+...\".P
+...\"\*(lBrlogind\*(lE provides authenticated and authorized access to
+...\"the remote host.  In order for the authentication to succeed, the
+...\"user must have obtained an initial TGT so that a service ticket
+...\"can be obtained to access the \*(lBrlogind\*(lE daemon.  Each user
+...\"requesting remote access must be a registered principal of the
+...\"KDC.  In order for the authorization to succeed, the user must
+...\"exist in the remote system's password filekk
+...\".iF
+.P
+.H 2 "rsh"
+.P
+The user interface for the \*(lBrsh\*(lE command, based on the
+BSD 4.4-Lite version, is defined below.  Only the additional
+options related to authentication are described.\*(f!
+.FS
+The \*(lB-k\*(lE option may not be supported: see section 7.3.1.
+.FE
+.P
+\*(bBNAME\*(bE
+.iS
+\*(lBrsh\*(lE \*(EM remote shell
+.iF
+.P
+\*(bBSYNOPSIS\*(bE
+.P
+.dS
+rsh [-FKdfnx] [-k realm] [-l username] host [command]
+.dF
+.P
+\*(bBDESCRIPTION\*(bE
+.P
+.iS
+\*(lBrsh\*(lE executes \*(lBcommand\*(lE on the remote host
+\*(lBhost\*(lE.
+.P
+The security relevant options are as follows:
+.P
+\*(lB-k\*(lE
+.iS
+The \*(lB-k\*(lE option causes \*(lBrsh\*(lE to obtain tickets
+for the remote host in \*(lBrealm\*(lE instead of the remote
+host's realm as determined by \*(lBkrb_realmofhost(3)\*(lE.
+.iF
+\*(lB-x\*(lE
+.iS
+The \*(lB-x\*(lE option turns on DES encryption for all data
+exchange.  This may introduce a significant delay in response
+time.  (This option is subject to export control.)
+.iF
+.P
+\*(lB-K\*(lE
+.iS
+The \*(lB-K\*(lE option turns off all Kerberos authentication.
+.iF
+\*(lB-f\*(lE
+.iS
+The \*(lB-f\*(lE option requests \*(lBrsh\*(lE to forward the
+user's Kerberos credentials to the remote host, allowing the
+user to be authenticated without a password.
+.iF
+\*(lB-F\*(lE
+.iS
+The \*(lB-F\*(lE option causes \*(lBrsh\*(lE to forward the
+user's Kerberos credentials to the remote host and to allow the
+remote host to forward them to subsequent remote hosts.
+.iF
+.iF
+.P
+.H 2 "rshd"
+.P
+The user interface for the \*(lBrshd\*(lE server, based on the
+BSD 4.4-Lite version, is defined below.  Only the additional
+options related to authentication are described.
+.P
+\*(bBNAME\*(bE
+.iS
+\*(lBrshd\*(lE \*(EM remote shell server
+.iF
+.P
+\*(bBSYNOPSIS\*(bE
+.P
+.dS
+rshd [-aklnxKL]
+.dF
+.P
+\*(bBDESCRIPTION\*(bE
+.P
+.iS
+\*(lBrshd\*(lE is the server for the \*(lBrsh(1)\*(lE program.
+.P
+The security relevant options are as follows:
+.P
+\*(lB-k\*(lE
+.iS
+Check authorization in \*(lB~/\&.k5login\*(lE.  If the Kerberos
+authorization fails, the standard Berkeley authorization is
+checked (\*(lBruserok(3M)\*(lE).  If both fail, then login
+permission is denied.
+.iF
+.P
+\*(lB-K\*(lE
+.iS
+Similar to \*(lB-k\*(lE except that the authorization check must
+succeed in order for the login to succeed.
+.iF
+.P
+\*(lB-x\*(lE
+.iS
+Create an encrypted session.  The \*(lBrshd\*(lE will listen for
+requests on the \*(lBekshell\*(lE port, and will decrypt all
+session data with the session key.  If the data is not encrypted
+by the client with the correct key, the output will be decrypted
+incorrectly and will be meaningless.  (This option is subject to
+export control.)
+.iF
+.iF
+.H 2 "k5dcelogin"
+.P
+The user interface for the \*(lBk5dcelogin\*(lE command is
+defined below.
+.P
+\*(bBNAME\*(bE
+.iS
+\*(lBk5dcelogin\*(lE \*(EM convert \*(lBkrb5\*(lE credentials to
+DCE credentials.
+.iF
+.P
+\*(bBSYNOPSIS\*(bE
+.P
+.dS
+k5dcelogin [cmd] [...]
+.dF
+.iS
+(where \*(lB\&...\*(lE means options to \*(lBlogin(1)\*(lE or to
+\*(lBcmd\*(lE)
+.iF
+.P
+\*(bBDESCRIPTION\*(bE
+.P
+.iS
+\*(lBk5dcelogin\*(lE promotes forwarded Kerberos V5 credentials
+to a DCE login context and executes the system
+\*(lBlogin(1)\*(lE command with any options specified on the
+\*(lBk5dcelogin\*(lE command line.
+.P
+If \*(lBcmd\*(lE is specified, it is executed instead of the
+system login program.  Any options specified are passed as
+arguments to the \*(lBcmd\*(lE.
+.P
+This command is executed by the \*(lBrlogind\*(lE and
+\*(lBrshd\*(lE daemons as the last step of the authentication
+process.
+.iF
+.P
+.H 2 "dcecp"
+.P
+The user interface for displaying or modifying the
+\*(lBkrb5_ccache_vno\*(lE and the \*(lBkrb5_kt_vno\*(lE
+configuration variables is shown below.
+.P
+.aL
+.LI
+To set the credential cache version number:
+.dS
+dcecp -c hostvar set -krb5_ccache_vno \*(jBvno\*(jE
+.dF
+.LI
+To set the keytab version number:
+.dS
+dcecp -c hostvar set -krb5_kt_vno \*(jBvno\*(jE
+.dF
+.LI
+To display the credential cache version number:
+.dS
+dcecp -c hostvar show -krb5_ccache_vno
+.dF
+.LI
+To display the keytab version number:
+.dS
+dcecp -c hostvar show -krb5_kt_vno
+.dF
+.LE
+.P
+.H 1 "API'S"
+.P
+...\"Details the interfaces to the modules that will be available to users of
+...\"this component/subsystem.
+.P
+.H 2 "sec_login_setup_identity()"
+.P
+\*(iBThe following enhancements are not committed for DCE 1.1.2,
+but will be implemented if there is sufficient time in the
+schedule.\*(iE
+.P
+Three new additional flags can be passed to
+\*(lBsec_login_setup_identity()\*(lE in the flags argument to
+request a forwardable, renewable, or proxiable ticket-granting
+ticket.  These flags are of type \*(lBsec_login_flags_t\*(lE:
+.P
+.dS
+.ne 4
+/*
+ * Request a forwardable TGT.
+ */
+const unsigned32    sec_login_forwardable   = 0x20;
+
+.ne 4
+/*
+ * Request a renewable TGT.
+ */
+const unsigned32    sec_login_renewable     = 0x40;
+
+.ne 4
+/*
+ * Request a proxiable TGT.
+ */
+const unsigned32    sec_login_proxiable     = 0x80;
+.dF
+.P
+This will provide a DCE solution for requesting Kerberos V5
+ticket flags without using the DCE \*(lBkinit\*(lE utility
+program.
+...\".H 1 "RESTRICTIONS AND LIMITATIONS"
+...\".P
+...\"Notes the restrictions and limitations of this technology, including
+...\"system resource consumption limits.
+...\".P
+...\".H 1 "OTHER COMPONENT DEPENDENCIES"
+...\".P
+...\"Notes the dependencies between this and other components/subsystems.
+...\"Explicitly describe the use of any existing or proposed DCE APIs or
+...\"remote interfaces.  Describe any use or extension of existing DCE
+...\"databases, such as naming or security.
+...\".P
+.H 1 "COMPATIBILITY/INTEROPERABILITY"
+.P
+...\"Details the compatibility of this design with past designs/work.  There
+...\"should be explicit descriptions of how this component will diverge from
+...\"existing DCE 1.0/1.1 implementations.
+This section discusses the specific versions and configurations
+of DCE and Kerberos V5 which will be tested and supported.
+.P
+Interoperability of Kerberos Version 5 clients with DCE Security
+Servers prior to the 1.2.2 release will not be tested and
+therefore is not supported.
+.P
+Interoperability of Kerberos Version 5 clients based on MIT
+releases other than beta 4 or beta 5 will not be tested and
+therefore is not supported.
+.P
+There is one known interoperability restriction with a DCE 1.2.2
+Security Server.  If the well-known DCE \*(lBpre_auth_req\*(lE
+Extended Registry Attribute is attached to a principal with a
+value of 2 (\*(lBPA-ENC-THIRD-PARTY\*(lE), the principal will
+not be allowed to login from a Kerberos V5 based login
+application.  If the principal will be logging in from a
+Kerberos V5 client, system administrators should not attach the
+\*(lBpre_auth_req\*(lE ERA or attach it and set it to 0 or 1.
+.P
+Credential cache and keytab file compatibility of file version
+formats other than version 1 or version 2 will not be tested and
+therefore is not supported.
+.P
+Cross-realm/cell interoperability with DCE clients or a DCE
+Security Server prior to DCE 1.2.2 and Kerberos V5 clients or a
+Kerberos V5 KDC based on MIT releases other than beta 4 or beta
+5 will not be tested and therefore is not supported.
+.P
+...\".P
+...\".H 1 "STANDARDS"
+...\".P
+...\"Notes the standards being followed/used by this component/subsystem.
+...\".P
+...\.H 1 "OPEN ISSUES"
+...\"PUBLISH_CHECK
+...\.P
+...\"Make a list all known open issues.
+...\.aL
+...\.LI
+...\.LE
+...\.P
+...\" =========================================================================
+...\" Appendices go here, using aH macros.
+...\" =========================================================================
+...\".P
+...\".aH "<APPENDIX TITLE>"
+...\".P
+...\"<Appendix contents go here.>
+...\".P
+...\" =========================================================================
+...\" References go here, as an unnumbered heading.
+...\" =========================================================================
+.P
+.HU "REFERENCES"
+.P
+...\"List relevant documents, in a list like the following:
+.P
+.VL 12 0
+...\"PUBLISH_CHECK
+.LI "[Ande 95]"
+A. Anderson, \*(qBHewlett-Packard White Paper: Status of DCE and
+Kerberos Interoperability\*(qE, Hewlett-Packard Co., March 1995.
+.LI "[Brez 95]"
+J. Brezak, \*(qBUsing MIT Kerberos5 with the DCE Security Service\*(qE,
+slides from OSF DCE Developers Conference, August 1995.
+.LI "[John 95]"
+G.R. Johnson, C.L. Athey, D.E. Engert, J.P. Moore, J.E. Ramus,
+\*(qBFinal Report and Recommendations of the Esnet Authentication Pilot
+Project\*(qE, Pacific Northwest Laboratory, January 1995.
+.LI "[RFC 63.1]"
+R. Salz, \*(qBDCE 1.2 Contents Overview\*(qE, OSF RFC 63.1, May 1995.
+.LI "[RFC 86.0]"
+V. Samar, and R. Schemers \*(qBUnified Login with Pluggable Authentication
+Modules\*(qE, OSF RFC 86.0, October 1995.
+.LI "[RFC\ 1510]"
+J. Kohl, and C. Neuman, \*(qBThe Kerberos Network Authentication
+Service (V5)\*(qE, IETF RFC 1510, September 1993.
+...\"PUBLISH_CHECK
+.LE
+.P
+...\" =========================================================================
+...\" Author's address goes here, as unnumbered heading, at end of doc.
+...\" =========================================================================
+.P
+.ne 3+5
+.HU "AUTHOR'S ADDRESS"
+.P
+...\"PUBLISH_CHECK
+.tl $Sean Mullan$$Internet email: mullan_s@apollo.hp.com$
+.tl $Hewlett-Packard Co.$$Telephone: +1-508-436-4129$
+.tl $300 Apollo Drive$$Fax: +1-508-436-4129$
+.tl $Chelmsford, MA 01824$$$
+.tl $USA$$$
+...\" =========================================================================
+...\" Done!
+...\" =========================================================================

@@ -1,0 +1,4183 @@
+CR Number                     : 13665
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 13620
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : gds/dua/switch
+Short Description             : Error in reading Attr/Value in CDS using XDS API
+Reported Date                 : 11/13/96
+Found in Baseline             : 1.2.2b5
+Found Date                    : 11/13/96
+Severity                      : B
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : d21_cdsmis.c, d21_cdsrd.c
+Diff supplied by              : user
+Diff release                  : 1.2.2b5
+Sensitivity                   : public
+
+[11/13/96 public]
+
+
+
+Following is a description of two problems discovered in the
+XDS-CDS implementation on the IBM reference platform during the 
+development of Certification API (CAPI --a new public key component of 
+R1.2).  This OT cross-references OT 13620. OT 13620 contains fixes
+for additional problems found in the XDS-CDS implementation.
+However, only those described below are required for running
+CAPI tests.
+
+
+During the development of Certification API on the IBM reference 
+platform, we found two problems with the XDS-CDS implementation:
+
+1. Applications cannot read "attribute/values" of the CDS root 
+   directory using the X500 API (ds_read*)
+
+2. CDS Attribute  values  of type "dns_byte"  are not returned correctly 
+   from the X500 API. In this case, the function strncpy was being  used  
+   to return the value returned from CdsReadAttrValue() call. Since 
+   strncpy  will stop copying the bytes read from CDS after encountering 
+   a \0, and pad the remaining bytes with \0, the value read may not
+   match the bytes stored in CDS.  The correct solution is to use memcpy.
+
+
+In order to run the Certification API tests correctly with CDS as the 
+back-end on the IBM reference platform, it is important to apply the diffs 
+shown below to  two files ---
+(1) d21_cdsmis.c and (2) d21_cdsrd.c in directory 
+"src/directory/gds/dua/switch" in the R1.2 distribution.
+
+
+=================================================================
+Note:
+<  Indicates our fixes to the source files in the R1.2 distribution
+>  Indicates the lines in the sources in the R1.2 distribution.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+1. Diff for  src/directory/gds/dua/switch/d21_cdsmis.c:
+
+303,306c303
+<         /* mbg: DEC fix: If the value is dns_byte, then  */
+<         /* we cannot stop at the first \0 in the value; */
+<         /* therefore, strncpy needs to be replaced with memcpy */ 
+<                       memcpy ((char *)oct_value, dns_value->val_u.val_byte.byte_p, len);
+---
+>                       strncpy ((char *)oct_value, dns_value->val_u.val_byte.byte_p, len);
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+2. Diff for src/directory/gds/dua/switch/d21_cdrd.c:
+
+647,651c647
+<                 /* mbg: DEC fix..  fsLocStat can be DNS_ROOTLOST */
+<                 /* when looking up any CDS root directory attribute */
+<                 /* therefore, it is better to check whether */
+<                 /* r_code != DNS_SUCCESS as well */
+<               if ((r_code != DNS_SUCCESS) || (flags->fsLocStat == DNS_UNKNOWNENTRY)) {
+---
+>               if (flags->fsLocStat == DNS_UNKNOWNENTRY) {
+1414,1416c1410
+<                  /* mbg: DEC fix: Once again, fsLocStat can be DNS_ROOTLOST */
+<            /* therefore it is better to check r_code != DNS_SUCCESS as well */
+<               if (r_code != DNS_SUCCESS || flags->fsLocStat == DNS_UNKNOWNENTRY) {
+---
+>               if (flags->fsLocStat == DNS_UNKNOWNENTRY) {
+1423,1426d1416
+<                       
+<                         /* mbg: decfix: It is required to clearHandle */
+<                         /* before using it again for another operation */
+<                         cdsClearHandle(handle);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+CR Number                     : 13661
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : dsa
+Short Description             : DSA enforces use of obsolete signature algorithms
+Reported Date                 : 10/25/96
+Found in Baseline             : 1.2
+Found Date                    : 10/25/96
+Severity                      : B
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/25/96 public]
+The X.500 DSA currently restricts the signature algorithm used in
+certificates stored in the directory to be one of "RSA", "Square-mod-N",
+or "RSA-with-square-mod-N".  While these are the three algorithms mentioned
+in X.509 (V1, 1988), they are not suitable as certificate signature
+algorithms.  "Square-mod-N" isn't a signature algorithm, it's a hash
+function; "RSA" isn't a signature algorithm, it's an encryption algorithm.
+
+Square-mod-N is a valid signature algorithm, but it has known weaknesses,
+and has been deprecated in a more recent version of X.509.  Even if
+RSA-with-Square-mod-N were still considered a good algorithm, the
+directory should not be constraining the use of particular algorithms.
+
+
+
+CR Number                     : 13660
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : dsa
+Short Description             : ENCODING_STRING syntax not supported
+Reported Date                 : 10/25/96
+Found in Baseline             : 1.2
+Found Date                    : 10/25/96
+Severity                      : B
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/25/96 public]
+The DSA doesn't the syntax "OM_S_ENCODING_STRING" for attribute values.
+
+When instructed to set the value of an attribute in the directory, the DSA
+verifies that the presented value is of an appropriate type for the attribute.
+However, in addition to accepting structured values, the DSA should accept
+ASN.1-encoded values, specified via the syntax OM_S_ENCODING_STRING.
+Currently, it rejects the use of this syntax for attributes such as 
+"Certificate".
+
+
+
+CR Number                     : 13657
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : 
+Short Description             : DIT restricted to strict tree
+Reported Date                 : 10/18/96
+Found in Baseline             : 1.2.1
+Found Date                    : 10/18/96
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/18/96 public]
+
+The GDS uses a table (the SRT) to represent restrictions on the structure
+of valid X.500 names (part of the schema).  Each entry in this table
+specifies the constraints on a particular RDN within a name, and also 
+specifies the entry that describes the immediate superior RDN (i.e. the RDN
+to the left of the current RDN).
+
+Since the constraint entry for each RDN is restricted to having only
+a single superior RDN, this table can only describe a strict tree-structure
+of names within the DIT.
+
+The X.500 spec allows for non-tree-structured naming rules.  For
+example, X.521 (Selected Object Classes) describes name-forms
+like "/C=US/O=DEC/OU=A/OU=B/OU=C/OU=.../CN=Fred".  The repeating
+"/OU=..." portion of this name can't be represented by a tree, and
+cannot therefore be represented in GDS's schema.
+
+The only workaround we've come up with is to create additional SRT
+entries, one for each level of "/OU=..." that we need to add.  This
+is not a viable general solution.
+
+[10/18/96 public]
+I only remember the '88 version of the spec, which is what GDS
+conforms too.  In that spec DIB was used to refer to the Directory
+Information Base.  This was the total of all info.  A possible shape
+it could take was a tree, and the term DIT was used to refer to it,
+Directory Information Tree.  See X.500 (that's part 1) section 6.2:
+
+   The entries of the DIB are arranged in the form of a tree, the
+   Directory Information Tree (DIT) where the vertices represent the
+   entries.  Entries higher in the tree (nearer the root) will often
+   represent objects such as countries or organizations, while entries
+   lower in the tree will represent people or application processes.
+
+   Note - The services defined in this Recommendation operate only on a
+   tree-structured DIT.  This Recommendation does not preclude the
+   existence in the future of other structures (as the need arises).
+
+Also, I can find no such example in X.521, can you give a more
+specific reference?  I didn't think this changed in the '92 version
+but could be wrong on this.
+
+I recommend cancelling this defect or at least changing it to an
+enhancement.
+
+
+
+CR Number                     : 13655
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : gdsditadm
+Short Description             : The CDS-Cell screen restricts cell name length
+Reported Date                 : 10/8/96
+Found in Baseline             : 1.2.2
+Found Date                    : 10/8/96
+Severity                      : D
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/8/96 public]
+
+Mask 21, CDS-Cell screen for entering cell information, has a field of
+36 characters for "Root dir name". If you have a cell with a gds name
+longer than 36 characters, it wraps around and overwrites "Namespace
+UUID" field.
+.
+
+ +----------------------------------------------------------------------------+
+ |  (Mask 21)          DIRECTORY SYSTEM                 Add Object            |
+ +----------------------------------------------------------------------------+
+ |                                                                            |
+ |                                                                            |
+ |     CDS-Cell                                                               |
+ |                                                                            |
+ |                                                                            |
+ |       Namespace UUID: 007C6B54-58AD-1C2F-A096-000082690138                 |
+ |                                                                            |
+ |                                                                            |
+ |       Root dir UUID:  007C6B54-58AD-1C2F-A096-000082690138                 |
+ |                                                                            |
+ |                                                                            |
+ |       Root dir name:  /.../c=us/o=osf/ou=osfsun/__________                 |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ +----------------------------------------------------------------------------+
+
+
+
+CR Number                     : 13654
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : admin_gd
+Short Description             : Steps for setting up a GDS server
+Reported Date                 : 10/8/96
+Found in Baseline             : 1.2.2
+Found Date                    : 10/8/96
+Severity                      : D
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/8/96 public]
+
+[The current GDS admin guide has some steps missing and some important
+information missing in the section when it tells you how to configure
+a GDS server. I was asked to put down the necessary steps to set up
+a GDS server and a client here.]
+
+First, make sure that you remove old GDS installation. I was having
+problem reinstalling and configuring GDS on top of old incomplete GDS
+installation/configuration and it took me a while to finally realize that.
+
+To remove the old installtion, do:
+
+1. stop all GDS processes (from gdssysadm, type "d").
+
+2. Rm old GDS installation/configuration files:
+
+	rm -r /opt/dcelocal/var/directory/gds
+	rm -r /opt/dcelocal/var/adm/directory/gds
+	rm /opt/dcelocal/etc/gdsconfig
+
+Now use dce_config to re-install GDS. Select "4" to install GDS server.
+It will also install the client for you. It should run without any prompt.
+This stpes also pro-configure Directory 1 for you as a client-server system.
+You can check /opt/dcelocal/etc/gdsconfig file.
+
+Ceck to see if your termcap has "ya" defined, if so, which key is 
+for it. GDS configuration screen defaults "ya" for FKTMENU key to activate
+a menu.
+
+If you don't have "ya" defined, you have to edit 
+/opt/dcelocal/var/adm/directory/gds/adm/adm_term_cap file and replace "ya"
+with a defined key for FKTMENU. For example, if "k2" is defined (which is
+F2, which is often defined), you can use "k2".
+
+Now you can start the configuration steps:
+
+1. Enter "gdssysadm", type "b" to activate the system (directory 1).
+Use "f" and "i" to check the status. You should see 5 things: DUA cache
+process, C-stub process, S-stub process, DSA process, and IPC monotroing
+process. You can also use gdsdirinfo to see the status.
+
+2. Now configure to talk to directory 1. From gdssysadm, type "a". You can
+also exit gdsssyadm (by typing "^d") and start "gdsditadm".
+
+2.1 configure DUA
+
+From "Mask 1", enter "1" as directory ID, use "Anonymous" as authn.
+and "Options: Logon to the DUA Cache".
+
+From "Mask 3", select "1" for Object Administration.
+
+From "Mask 4", select "5" for Add Client Address 
+
+From "Mask 7a", enter "Client" as T-Selector, and
+"TCP/IP!internet=127.0.0.1+port=16010" as NSAP-address 1
+You can pick any unused port.
+
+From "Mask 4", select "1" for Add Object
+
+From "Mask 5", select "7" for Common-Name
+
+From "Mask 6", enter the following: (pick your own name. Doesn't matter)
+
+ +----------------------------------------------------------------------------+
+ |  (Mask 6)             DIRECTORY SYSTEM     Add Object                      |
+ +----------------------------------------------------------------------------+
+ |                                                                            |
+ |                                                                            |
+ |     Object Name                                                            |
+ |                                                                            |
+ |       Country-Name              us                                         |
+ |       Organization-Name         osf______________________                  |
+ |       Org.-Unit-Name            alphaville_______________                  |
+ |       Common-Name               dsa______________________                  |
+ |       Common-Name               dsa1_____________________                  |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |   Structural Object class: Directory-Service-Agent                         |
+ |   Auxiliary object class: NO                                               |
+ +----------------------------------------------------------------------------+
+
+(make sure you choose "Directory-Service-Agent" for Structural Object class
+(use Space key to go through all possible values)
+
+From "Mask 6d" select "DSA-Type". "Presentation-Address" is pre-selected.
+To select, move the cursor to "DSA-Type", type <CR>. <CR> key can be used
+to toggle the selection. You can make multiple selections. WHen you are done,
+type FKTMENU (F2 if you have redefined it) to get to next screen.
+
+From "Mask 7", enter "default/local'" as Value for DSA-Type.
+The trailing "'" is important.
+
+From "Mask 7a", enter the following: (again, port is up to you, IP should be
+the IP of the machine where the server is).
+
+ +----------------------------------------------------------------------------+
+ |  (Mask 7a)            DIRECTORY SYSTEM            Add Object               |
+ +----------------------------------------------------------------------------+
+ |                                                                            |
+ |  P-Selector:     ___________________________________                       |
+ |                                                                            |
+ |  S-Selector:     ___________________________________                       |
+ |                                                                            |
+ |  T-Selector:     Server_________________                                   |
+ |                                                                            |
+ |                                                                            |
+ |  NSAP-address 1: TCP/IP!internet=130.105.1.182+port=16011________________  |
+ |                                                                            |
+ |  NSAP-address 2: ________________________________________________________  |
+ |                                                                            |
+ |  NSAP-address 3: ________________________________________________________  |
+ |                                                                            |
+ |  NSAP-address 4: ________________________________________________________  |
+ |                                                                            |
+ |  NSAP-address 5: ________________________________________________________  |
+ |                                                                            |
+ +----------------------------------------------------------------------------+
+
+From "Mask 4", select 0 to exit
+
+From "Mask 3", select 0 to exit
+
+
+2.2 logon to DSA.
+
+From "Mask 1", enter 1 as directory ID. Use "Anonymous" as authn. Select
+"Options: Logon to the specific DSA". (Since the configuration of Directory 1
+allows 2 DSA processes, it does not know which one is the default. You have to
+logon to the specific one)
+
+From "Mask 2", enter the following:
+
+ +----------------------------------------------------------------------------+
+ |  (Mask 2)             DIRECTORY SYSTEM    Logon to a Specific DSA          |
+ +----------------------------------------------------------------------------+
+ |                                                                            |
+ |  DSA IDENTIFICATION:                                                       |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |    Country-Name:                us                                         |
+ |    Organization-Name:           osf______________________                  |
+ |    Org.-Unit-Name:              alphaville_______________                  |
+ |    Common-Name:                 dsa______________________                  |
+ |    Common-Name:                 dsa1_____________________                  |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |       Options: None                                                        |
+ +----------------------------------------------------------------------------+
+
+You should be in. You should see:
+
+ +----------------------------------------------------------------------------+
+ |  (Mask 3)             DIRECTORY SYSTEM           Administration            |
+ +----------------------------------------------------------------------------+
+ |                                                                            |
+ |                                                                            |
+ |     ADMINISTRATION FUNCTIONS:                                              |
+ |                                                                            |
+ |                                                                            |
+ |       0 Exit                                                               |
+ |                                                                            |
+ |       1 Object Administration                                              |
+ |                                                                            |
+ |       2 Schema Administration                                              |
+ |                                                                            |
+ |       3 Shadow Administration                                              |
+ |                                                                            |
+ |       4 Subtree Administration                                             |
+ |                                                                            |
+ |     Current DSA /C=us/O=osf/OU=alphaville/CN=dsa/CN=dsa1                   |
+ |                                                                            |
+ |                                                                            |
+ +----------------------------------------------------------------------------+
+    Which function ? 1
+
+Now you can add objects. Try add "us" (/C=us), then "us/osf" (/C=us/O=osf).
+
+That is it for configuring a GDS server/client system. 
+
+
+3. Configure a new directory
+
+If you want to use a different directory, you is what you do:
+
+Use "gdssysadm". Deactive the system first. Type "c" for configuration. 
+
+On "confpar" screen, select "Creation of configuration data".
+
+Give a new directory id. Choose whether it is just a client system, or it
+will be a Client-Server system. 
+
+Select how many clients you want to have access to the directory at the
+same time. Default is 16.
+
+For server system, select how many server processes (dsa process) you want.
+
+Then select Athentication mechanism. The default is Simple Unprotected.
+
+Now activate the system.
+
+For configuration, go back to Step 2.1. Just remember to enter the new
+directory id.
+
+
+4. Inter-cell configuration
+
+If you want to add a GDS named cell's information into the GDS, here is
+what you do. Suppose the cell name is /c=us/o=os/ou=osfsun
+
+4.1. in the cell /c=us/o=os/ou=osfsun, do "cdscp show cell /.:/ as gds". 
+you will get something like the following:
+
+$ cdscp show cell /.:/ as gds
+                        SHOW
+                        CELL   /.../c=us/o=osf/ou=osfsun
+                          AT   1993-07-01-14:31:17
+              Namespace Uuid = 007C6B54-58AD-1C2F-A096-000082690138
+          Clearinghouse Uuid = 003A23C0-58A8-1C2F-A096-000082690138
+          Clearinghouse Name = /.../c=us/o=osf/ou=osfsun/osfsun_ch
+                Replica Type =   Master  
+                       Tower = ncacn_ip_tcp:130.105.1.56[]
+                       Tower = ncadg_ip_udp:130.105.1.56[]
+$
+
+4.2. Logon to Directory 1, add object /c=us. Then add object /c=us/o=osf.
+Then add object /c=us/o=osf/ou=osfsun. For this object, you need to select
+from Mask 6d "CDS-Cell" and "CDS-Replica". Then enter the necessary 
+in the screens followed after hitting F2 key to activate menu.
+
+        Now you are in Mask 21. It asks you to enter namespace UUID, the root
+        dir UUID, and root dir name. As you may notice, there is no root dir
+        UUID from the above display. Actually, it is the same as namespace
+        UUID. It is a historical reason that it is left here. Don't worry.
+
+ +----------------------------------------------------------------------------+
+ |  (Mask 21)          DIRECTORY SYSTEM                 Add Object            |
+ +----------------------------------------------------------------------------+
+ |                                                                            |
+ |                                                                            |
+ |     CDS-Cell                                                               |
+ |                                                                            |
+ |                                                                            |
+ |       Namespace UUID: 007C6B54-58AD-1C2F-A096-000082690138                 |
+ |                                                                            |
+ |                                                                            |
+ |       Root dir UUID:  007C6B54-58AD-1C2F-A096-000082690138                 |
+ |                                                                            |
+ |                                                                            |
+ |       Root dir name:  /.../c=us/o=osf/ou=osfsun/__________                 |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ +----------------------------------------------------------------------------+
+
+(There is bug here: if you have a cell name longer than 36 characters, the
+Root dir name field does not have enough space for you! So pick a short GDS
+name for your cell.)
+
+        Hitting <CR> gets you into Mask 22 for CDS replica information.
+        This one is straight forward. Just copy the appropriate entries:
+
+ +----------------------------------------------------------------------------+
+ |  (Mask 22)          DIRECTORY SYSTEM                 Add Object            |
+ +----------------------------------------------------------------------------+
+ |                                                                            |
+ |                                                                            |
+ |     CDS-Replica                                                            |
+ |                                                                            |
+ |       Replica type :      MASTER                                           |
+ |                                                                            |
+ |       Clearinghouse UUID: 003A23C0-58A8-1C2F-A096-000082690138_________    |
+ |                                                                            |
+ |       Clearinghouse name: /.../c=us/o=osf/ou=osfsun/osfsun_ch__________    |
+ |                                                                            |
+ |       Tower 1:            ncacn_ip_tcp:130.105.1.56[]__________________    |
+ |       Tower 2:            ncadg_ip_udp:130.105.1.56[]__________________    |
+ |       Tower 3:            _____________________________________________    |
+ |       Tower 4:            _____________________________________________    |
+ |       Tower 5:            _____________________________________________    |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ +----------------------------------------------------------------------------+
+
+        From Mask 4, choose "0" to exit. Choose "3" from Mask 3 again. Then
+        Ctrl-C to get out of gdsditadm.
+
+To check, use "gdscp":
+
+$ gdscp
+gdscp> bind
+(this should bind to the default dsa for directory 1)
+gdscp> list /
+/CN=Schema /C=us
+gdscp> list /c=us
+/C=us/O=osf
+gdscp>list /c=us/o=osf
+/C=us/O=osf/OU=osfsun
+gdscp>list /c=us/o=osf/ou=osfsun
+Error: Subordinates not found.
+gdscp> show /c=us/o=osf/ou=osfsun
+(you should see a bunch of output here. Don't have a real output handy)
+
+Now follw the normal steps to set up other parts for intercell (registry
+setting).
+
+
+
+CR Number                     : 13620
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 13665
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : xds
+Short Description             : can't read attr-value of cdsroot
+Reported Date                 : 8/26/96
+Found in Baseline             : 1.2
+Found Date                    : 8/26/96
+Severity                      : C
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[girkar 8/26/96] 
+This is a problem we found with R1.2.2_b3 on the reference platform (AIX)
+with the x500 API when the back-end is CDS. Calls such as ds_read()
+in this case fail on a X500 entry that points to CDS root directory.
+Thus, the effect is that no attribute-value of the CDS root directory
+can be obtained using the ds_read() api even if we specify a specific
+attribute lookup in the ds_read() call.
+
+A further problem we noticed is that ds_read() fails on all directory
+entries of CDS when we specify within ds_read that all attribute-value
+pairs need to be returned.
+
+A closer inspection of these two problems seem to be in the 
+src/directory/gds/dua/switch layer. We have some workarounds, but
+these don't necessarily solve these two problems cleanly. The worarounds
+have to do with changing the directory/gds/dua/switch modules to 
+do some "extra" error checking when calls are made to internal
+cds API.
+
+Mahesh Girkar
+girkar@tuxedo.lkg.dec.com
+
+[8/27/96]
+
+Below are diffs of 4 files 
+(d21_cdsrd.c, d21_cdsmis.c, d21_cdsadd.c & d21_cdsmod.c)
+that I modified in src/directory/gds/dua/switch
+to get around the problem of reading cds root directory via x500 ds_read
+API, as well as reading other directory entries via the ds_read API
+(when you specify all attr/values to read). I also ended up fixing
+another weird restricton, where you could all attr/value pairs to 
+any directory other than root directory. Basically, as it was implemented
+on the reference platform, one could write attr/values to any directory
+other than root.  
+
+    Here are the problems once again:
+
+     1. Cannot read attr-values of cds root. You cannot do this
+        even if you specify specific attr types in ds_read.
+
+        Fix is in d21_cdsrd.c
+
+        This  is clearly a bug.
+
+     2. Cannot read "all" attr-values using ds_read() on any 
+        directory. You can, however, read specific attribute
+        types provided these are cds attributes that are being
+        translated in function d21_cdsval2x500val.
+
+        Fix is in d21_cdsmis.c
+
+        This, I believe is also a bug. I cannot however think
+        of a clean way of implementing this, as we can either
+        ignore cds attributes that do not have x500 equivalent
+        attributes, or just read these cds attributes as bytes
+        (if no conversion routine exists for these values).
+
+     3. Cannot add attr/values to root directory.
+
+        Fix is in d21_cdsadd.c & d21_cdsmod.c
+
+        This may or may not be a bug, depending upon whether this is 
+        a restriction documented in x500. In any case, if we cannot
+        add attr-values to root directory, we should not be able
+        to add attr-values to any directory. It does not make sense
+        to exclude the root directory.
+
+
+
+The diffs are for files  d21_cdsadd.c, d21_cdsmis.c, d21_cdsmod.c &
+d21_cdsrd.c  (diff <original-R1.2.2._b3 file> <modified-file>)
+
+========
+d21_cdsrd.c
+=========
+
+647c647,648
+< 		if (flags->fsLocStat == DNS_UNKNOWNENTRY) {
+---
+>                 /* mbg: DEC fix.. really, fsLocStat can be DNS_ROOTLOST.. */
+> 		if ((r_code != DNS_SUCCESS) || (flags->fsLocStat == DNS_UNKNOWNENTRY)) {
+1410c1411,1412
+< 		if (flags->fsLocStat == DNS_UNKNOWNENTRY) {
+---
+> 																			  /* mbg: DEC fix */
+> 		if (r_code != DNS_SUCCESS || flags->fsLocStat == DNS_UNKNOWNENTRY) {
+1416a1419,1421
+>                       
+>                         /* mbg: decfix */
+>                         cdsClearHandle(handle);
+1417a1423
+>                         /* mbg: decfix */
+1420c1426
+< 				(void *)NULL, (int *)NULL, flags)) == DNS_ERROR) {
+---
+> 				(void *)NULL, (int *)NULL, flags)) != DNS_SUCCESS) {
+
+
+
+=============
+d21_cdsmis.c
+============
+
+248c248,254
+< 	if (dns_value->val_syntax == dns_char) {
+---
+> /* mbg: DEC fix */
+>         if (dns_value->val_syntax == dns_Timeout) {
+>           len = sizeof (cds_timeout_t);
+>           if ((str_value = D27_MALLOC(svc_c_sev_warning,len)) == NULL) {
+> 			return (D2_ERROR);
+> 		}
+>         } else if (dns_value->val_syntax == dns_char) {
+255c261,270
+<     } else if (dns_value->val_syntax == dns_byte) {
+---
+>     /* mbg: DEC fix */
+>     } else if (dns_value->val_syntax == dns_byte ||
+>                dns_value->val_syntax == dns_ReplicaPointer ||
+>                dns_value->val_syntax == dns_GroupMember ||
+>                dns_value->val_syntax == dns_FullName ||
+>                dns_value->val_syntax == dns_ParentPointer ||
+>                dns_value->val_syntax == dns_CHDirectory ||
+>                dns_value->val_syntax == dns_ASN1 ||
+>                dns_value->val_syntax == dns_gdaPointer
+>               ) {
+298a314
+>     /* mbg: DEC fix */
+299a316,322
+>                 case dns_ReplicaPointer:
+>                 case dns_GroupMember:
+>                 case dns_FullName:
+>                 case dns_ParentPointer:
+>                 case dns_CHDirectory:
+>                 case dns_ASN1:
+>                 case dns_gdaPointer:
+303c326,327
+< 			strncpy ((char *)oct_value, dns_value->val_u.val_byte.byte_p, len);
+---
+>         /* mbg: DEC fix */
+> 			memcpy ((char *)oct_value, dns_value->val_u.val_byte.byte_p, len);
+305a330,338
+> 
+>           /* mbg DEC fix */
+>                 case dns_Timeout:
+> 			value_union->d2_a_rep = D2_OCTET;
+> 			value_union->d2_a_v_len = len;
+> 			memcpy ((char *)oct_value, (char *) &dns_value->val_u.val_timeout, len);
+> 			value_union->d2_at_value.d2_oct_a_v = oct_value;
+> 			break;
+> 
+331a365,379
+> 
+>                  /* mbg: DEC FIX */
+> 		case dns_small:
+> 
+> 			value_union->d2_a_rep = D2_INTEGER;
+> 			value_union->d2_at_value.d2_int_a_v = (signed32) dns_value->val_u.val_small;
+> 			break;
+> 
+> 		case dns_short:
+> 
+> 			value_union->d2_a_rep = D2_INTEGER;
+> 			value_union->d2_at_value.d2_int_a_v = (signed32) dns_value->val_u.val_short;
+> 			break;
+> 
+> 
+
+
+
+================
+d21_cdsadd.c
+===============
+
+543a544,546
+> 
+> 
+> /* mbg DEC fix */
+545c548
+< 					&dns_value, NULL_DNS_CTS, flags) == DNS_ERROR) {
+---
+> 					&dns_value, NULL_DNS_CTS, flags) != DNS_SUCCESS) {
+652a656
+> 																		/* mbg: DEC fix */
+654c658
+< 							&dns_value, NULL_DNS_CTS, flags) == DNS_ERROR) {
+---
+> 							&dns_value, NULL_DNS_CTS, flags) != DNS_SUCCESS) {
+744a749
+> 			/* mbg: DEC fix */
+746c751
+< 				== DNS_ERROR) {
+---
+> 				!= DNS_SUCCESS) {
+
+===========
+d21_cdsmod.c
+=========
+
+505c505,506
+< 			if (flags->fsLocStat == DNS_UNKNOWNENTRY) {
+---
+> 			/* mbg: DEC fix */
+> 			if ((r_code != DNS_SUCCESS) || (flags->fsLocStat == DNS_UNKNOWNENTRY)) {
+510c511,512
+< 			if (r_code == DNS_ERROR) {
+---
+> 			/* mbg: DEC fix */
+> 			if (r_code != DNS_SUCCESS) {
+511a514
+> 
+818a822
+> 				/* mbg: DEC fix */
+820c824
+<                 	== DNS_ERROR) {
+---
+>                 	!= DNS_SUCCESS) {
+
+[girkar 11/13/96] 
+
+Added Cross-reference to OT 13665. OT 13665 contains minimal changes
+needed to run Certification API tests. Also, down graded priority
+of this OT to C,3.
+
+
+
+CR Number                     : 13558
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : xom
+Short Description             : xomi.h not C++-friendly
+Reported Date                 : 7/2/96
+Found in Baseline             : 1.2.2b1,1.1,1.2.1
+Found Date                    : 7/2/96
+Severity                      : B
+Priority                      : 0
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : directory/xom/h/xomi.h
+Diff supplied by              : user
+Diff release                  : 1.2.2b1
+Sensitivity                   : public
+
+[7/2/96 public]
+
+The header file xomi.h includes function prototypes with formal
+parameters called "class".  Since "class" is a C++ reserved-word,
+a C++ compiler will barf on these declarations.  Changing the
+formal parameter names to "theClass" fixes this problem.
+
+Digital's R1.2.2 public-key work needs this file to be
+suitable for C++ use, so we will submit this change with our first
+PK drop.
+
+124c124
+<       OM_object_identifier    theClass,
+---
+>       OM_object_identifier    class,
+163c163
+<       OM_object_identifier    theClass,
+---
+>       OM_object_identifier    class,
+
+
+
+CR Number                     : 13497
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : mavros
+Short Description             : mavros doesn't detect ambiguous ASN.1
+Reported Date                 : 6/7/96
+Found in Baseline             : 1.2.1
+Found Date                    : 6/7/96
+Severity                      : B
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : directory/gds/MAVROS/mavrospro.c
+Diff supplied by              : user
+Diff release                  : 1.2.1
+Sensitivity                   : public
+
+[6/7/96 public]
+
+1) mavros would in some cases emit error messages and yet exit with a zero
+exit status indicating success.
+
+The first change below, in conjunction with the (separately filed) Makefile
+change, fixes this.
+
+2) mavros would accept ambiguous ASN.1 descriptions without
+complaint.
+
+Specifically, if you have a definition like:
+
+ASN_Abuse ::= SEQUENCE {
+	one	INTEGER OPTIONAL,
+	two	INTEGER OPTIONAL,
+}
+
+There is no way to distinguish from the incoming DER/BER stream which
+contains a single INTEGER whether it's "one" or "two".
+
+The second change detects the cases where the tags on an OPTIONAL field are
+indistinguishable from the tags on a subsequent field.
+
+These changes will be in a future HP 1.2.2 drop.
+
+*** mavrospro.c@@/main/sommerfeld_pk_kdc/0      Thu Jun  6 10:50:20 1996
+--- mavrospro.c@@/main/sommerfeld_pk_kdc/LATEST Fri Jun  7 13:48:11 1996
+***************
+*** 172,177 ****
+--- 176,182 ----
+        if (s2 == 0 || (strlen(s1) + strlen(s2)) > 252)
+                yyerror(s1);
+        else{   
++               ++ yynerrs;
+                (void)(void)fprintf(stderr,"\"%s\", line %d: %s (%s).\n", 
+                filein, last_error = linenum, s1, s2);
+                last_error = linenum;
+***************
+*** 414,419 ****
+--- 419,460 ----
+                        verify_comp(&complist[i_comp],0,i_comp);
+                }
+        }
++ 
++       /*
++        * [1996/06/06  10:51:48  sommerfeld] detect case where
++        * OPTIONAL field followed by something with exact same tag..
++        */
++       for (i_comp=0; i_comp < compindex; i_comp++)
++       {
++           struct comp *c = &complist[i_comp];
++           struct comp *d;
++           int next;
++           
++           if (c->c_optional == 1)
++           {
++               for (next = c->c_brother;
++                    next != -1;
++                    next = d->c_brother)
++               {
++                   d = &complist[next];
++                   if ((c->c_mode == d->c_mode) &&
++                       (c->c_number == d->c_number) &&
++                       (asnstruct(c) == asnstruct(d)))
++                   {
++                       char errbuf[1024];
++                       linenum = c->c_line_num;
++                       sprintf(errbuf, "Type of `%s' indistinguishable from successor `%s'",
++                               c->c_id?c->c_id:c->c_name,
++                               d->c_id?d->c_id:d->c_name);
++                       
++                       stxerr("Ambiguous OPTIONAL", errbuf);
++                   }
++                   if (d->c_optional == 0)
++                       break;
++               }
++           }
++       }
++ 
+  #ifdef DEBUGTREE
+  (void)fprintf(stderr,"All types verified!\n");
+  #endif
+
+
+
+CR Number                     : 13496
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : gds
+Subcomponent Name             : mavros/mavcod
+Short Description             : error messages nonsensical on HP-UX
+Reported Date                 : 6/7/96
+Found in Baseline             : 1.2.1
+Found Date                    : 6/5/96
+Severity                      : B
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+	directory/gds/MAVROS/Makefile
+	directory/gds/MAVCOD/Makefile
+Diff supplied by              : user
+Diff release                  : 1.2.2
+Sensitivity                   : public
+
+[6/7/96 public]
+
+The mavros and mavcod compilers are built with -DYY_ERR_MSG, which assumes
+that yyerror() takes two arguments.  on hp-ux, it only takes one argument.
+
+The net result of this is that error messages for invalid input do not
+indicate the source line in error or the identifier which caused the
+problem.
+
+Also, the makefiles have spurious dependancies on /usr/lib/lex/* and
+/usr/lib/yaccpar
+
+Makefile diffs follow; this fix will be in a future HP drop of 1.2.2.
+
+directory/gds/MAVROS/Makefile:
+
+*** Makefile@@/main/sommerfeld_pk_kdc/0 Wed Jun  5 17:07:45 1996
+--- Makefile@@/main/sommerfeld_pk_kdc/LATEST    Wed Jun  5 17:54:42 1996
+***************
+*** 91,97 ****
+  
+  EXPDIR                = /usr/bin/
+  YFLAGS                = -dv
+! HP800_CFLAGS  += -D_NO_SETLOCALE
+  CFLAGS                += -DYY_ERR_MSG -DSYS5 -DXOS
+${${TARGET_MACHINE}_CFLAGS}
+  
+  mavros_EXPDIR = /usr/bin/
+--- 98,104 ----
+  
+  EXPDIR                = /usr/bin/
+  YFLAGS                = -dv
+! HP800_CFLAGS  += -D_NO_SETLOCALE -UYY_ERR_MSG
+  CFLAGS                += -DYY_ERR_MSG -DSYS5 -DXOS
+${${TARGET_MACHINE}_CFLAGS}
+  
+  mavros_EXPDIR = /usr/bin/
+***************
+*** 102,116 ****
+                mavros.o \
+                mavrosinout.o   mavroscpy.o     mavrosbase.o \
+                mavrosprt.o     mavrosincl.o    mavroslw.o 
+- 
+  
+  .include <${RULES_MK}>
+  
+! lex.yy.c: mavros.lex /usr/lib/lex/ncform  /usr/lib/lex/nrform
+        -@: # LC_CTYPE='${LC_CTYPE:UC:S/^POSIX$/C/}'
+LC_ALL='${LC_ALL:UC:S/^POSIX$/C/}' LANG='${LANG:UC:S/^POSIX$/C/}'
+        ${LEX} ${mavros.lex:P}
+  
+! y.tab.c: mavros.gr /usr/lib/yaccpar
+        -@: # LC_CTYPE='${LC_CTYPE:UC:S/^POSIX$/C/}'
+LC_ALL='${LC_ALL:UC:S/^POSIX$/C/}' LANG='${LANG:UC:S/^POSIX$/C/}'
+        ${YACC} -dv ${mavros.gr:P}
+  
+--- 109,123 ----
+                mavros.o \
+                mavrosinout.o   mavroscpy.o     mavrosbase.o \
+                mavrosprt.o     mavrosincl.o    mavroslw.o 
+  
++ 
+  .include <${RULES_MK}>
+  
+! lex.yy.c: mavros.lex
+        -@: # LC_CTYPE='${LC_CTYPE:UC:S/^POSIX$/C/}'
+LC_ALL='${LC_ALL:UC:S/^POSIX$/C/}' LANG='${LANG:UC:S/^POSIX$/C/}'
+        ${LEX} ${mavros.lex:P}
+  
+! y.tab.c: mavros.gr
+        -@: # LC_CTYPE='${LC_CTYPE:UC:S/^POSIX$/C/}'
+LC_ALL='${LC_ALL:UC:S/^POSIX$/C/}' LANG='${LANG:UC:S/^POSIX$/C/}'
+        ${YACC} -dv ${mavros.gr:P}
+  
+
+
+directory/gds/MAVCOD/Makefile:
+*** Makefile@@/main/sommerfeld_pk_kdc/0 Wed Jun  5 17:18:57 1996
+--- Makefile@@/main/sommerfeld_pk_kdc/LATEST    Wed Jun  5 17:55:05 1996
+***************
+*** 87,93 ****
+  
+  EXPDIR                = /usr/bin/
+  YFLAGS                = -dv
+! HP800_CFLAGS  += -D_NO_SETLOCALE
+  CFLAGS                += -DYY_ERR_MSG -DSYS5 -DXOS
+${${TARGET_MACHINE}_CFLAGS}
+  LFLAGS                = -I../ASN1 -DDEBUG
+  
+--- 94,100 ----
+  
+  EXPDIR                = /usr/bin/
+  YFLAGS                = -dv
+! HP800_CFLAGS  += -D_NO_SETLOCALE -UYY_ERR_MSG
+  CFLAGS                += -DYY_ERR_MSG -DSYS5 -DXOS
+${${TARGET_MACHINE}_CFLAGS}
+  LFLAGS                = -I../ASN1 -DDEBUG
+  
+***************
+*** 98,108 ****
+  
+  .include <${RULES_MK}>
+  
+! y.tab.c: mavcod.gr /usr/lib/yaccpar
+        -@: # LC_CTYPE='${LC_CTYPE:UC:S/^POSIX$/C/}'
+LC_ALL='${LC_ALL:UC:S/^POSIX$/C/}' LANG='${LANG:UC:S
+/^POSIX$/C/}'
+        ${YACC} -dv ${mavcod.gr:P}
+  
+! lex.yy.c: mavcod.lex /usr/lib/lex/ncform  /usr/lib/lex/nrform
+        -@: # LC_CTYPE='${LC_CTYPE:UC:S/^POSIX$/C/}'
+LC_ALL='${LC_ALL:UC:S/^POSIX$/C/}' LANG='${LANG:UC:S
+/^POSIX$/C/}'
+        ${LEX} ${mavcod.lex:P}
+  
+--- 105,115 ----
+  
+  .include <${RULES_MK}>
+  
+! y.tab.c: mavcod.gr
+        -@: # LC_CTYPE='${LC_CTYPE:UC:S/^POSIX$/C/}'
+LC_ALL='${LC_ALL:UC:S/^POSIX$/C/}' LANG='${LANG:UC:S
+/^POSIX$/C/}'
+        ${YACC} -dv ${mavcod.gr:P}
+  
+! lex.yy.c: mavcod.lex
+        -@: # LC_CTYPE='${LC_CTYPE:UC:S/^POSIX$/C/}'
+LC_ALL='${LC_ALL:UC:S/^POSIX$/C/}' LANG='${LANG:UC:S
+/^POSIX$/C/}'
+        ${LEX} ${mavcod.lex:P}
+
+
+
+CR Number                     : 12983
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : gdad
+Short Description             : customer debugging enhancement
+Reported Date                 : 8/1/95
+Found in Baseline             : 1.1
+Found Date                    : 8/1/95
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/1/95 public]
+
+ The diffs included here are contributed by HAL as an enhancement
+ to gdad for aiding debugging.
+
+From spike@hal.com Mon May  8 14:35:08 1995
+
+Parul,
+
+As promised, here are my DNS debugging enhancements for gdad.  To get
+the debugging compiled in, you set the CENV environment variable to
+'-DGDA_BIND_DEBUG -DDCE_CDS_DEBUG'.
+
+Hopefully, these context diffs will work.  I had to hand-remove all
+HaL-proprietary stuff, including headers.  The diffs should work.
+
+**********Here's the context diff for src/directory/cds/gda/gda_clerk.c:*******
+
+*** gda_clerk.c	Mon May  8 10:02:23 1995
+- --- /aus2g/dce/dce11_intl_sb/src/directory/cds/gda/gda_clerk.c	Wed Aug  3 14:01:34 1994
+***************
+*** 168,182 ****
+    printf("    Towers:\n");
+    tower_p = rp_p->rp_towers;
+    cnt = GETL16(tower_p);	/* number of towers */
+! #ifdef GDA_BIND_DEBUG
+    printf("       %d towers\n", cnt);
+! #endif /* GDA_BIND_DEBUG */
+    for (/* cnt (as assigned above) */ ; cnt > 0; --cnt) 
+    {
+      len = GETL16(tower_p);      /* size of the tower */
+! #ifdef GDA_BIND_DEBUG
+      printf("       Tower[%d]: length=%d\n", cnt, len);
+! #endif /* GDA_BIND_DEBUG */
+      if ( get_binding_string ( tower_p, binding_p ))
+      {
+  	printf("        %s\n", string );
+- --- 161,179 ----
+    printf("    Towers:\n");
+    tower_p = rp_p->rp_towers;
+    cnt = GETL16(tower_p);	/* number of towers */
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+    printf("       %d towers\n", cnt);
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+    for (/* cnt (as assigned above) */ ; cnt > 0; --cnt) 
+    {
+      len = GETL16(tower_p);      /* size of the tower */
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+      printf("       Tower[%d]: length=%d\n", cnt, len);
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+      if ( get_binding_string ( tower_p, binding_p ))
+      {
+  	printf("        %s\n", string );
+***************
+*** 358,366 ****
+    cds_Name_t attname;
+    cds_Progress_t Progress;
+    error_status_t commStatus;
+- - #if defined(__haldce__) /* HaL@PORT-SOLARIS@19950116 */
+- -   error_status_t rpc_status;
+- - #endif /* __haldce__ */
+    cds_status_t  dnsStatus;
+    cds_RA_value_t value;
+    unsigned char wholeset;
+- --- 355,360 ----
+***************
+*** 542,546 ****
+  #else
+        printf("Rpc error Status %d\n", commStatus);
+  #endif /* SNI_SVR4 */
+- -   }
+  }
+- --- 536,539 ----
+*********Here's the context diff for src/directory/cds/gda/gda_bind.c:*********
+
+*** gda_bind.c	Mon May  8 10:02:23 1995
+- --- /aus2g/dce/dce11_intl_sb/src/directory/cds/gda/gda_bind.c	Wed Aug 24 15:27:45 1994
+***************
+*** 440,456 ****
+  };
+  typedef struct map map;
+  
+- - #if defined(sunos) || defined(sysvabi) /* HaL@PORT-SUNOS@19941102 */
+- -    /*
+- -     * the following are found in /usr/include/arpa/nameser.h on some machines
+- -     */
+- - #define C_HESIOD        4               /* for Hesiod name server at MIT */
+- - #ifndef C_HS
+- - #define C_HS            C_HESIOD        /* for Hesiod name server at MIT */
+- - #endif
+- - #define T_TXT           16              /* text strings */
+- - #endif /* sunos || sysvabi */
+- - 
+  map m_class[] = {
+  	"in",		C_IN,
+  	"chaos",	C_CHAOS,
+- --- 426,431 ----
+***************
+*** 512,518 ****
+  
+  #define VC_MSG_SIZE_MAX		64 * ONE_K
+  
+! #ifdef GDA_BIND_DEBUG
+  void fullname_print(cds_FullName_t* fname1_p)
+  {
+  	int i;
+- --- 487,494 ----
+  
+  #define VC_MSG_SIZE_MAX		64 * ONE_K
+  
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  void fullname_print(cds_FullName_t* fname1_p)
+  {
+  	int i;
+***************
+*** 520,526 ****
+  		fprintf(stderr, "%c", fname1_p->fn_name[i]);
+  	}
+  
+! #endif /* GDA_BIND_DEBUG */
+  
+  /*
+   * values for bind_client_server below 
+- --- 496,503 ----
+  		fprintf(stderr, "%c", fname1_p->fn_name[i]);
+  	}
+  
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  
+  /*
+   * values for bind_client_server below 
+***************
+*** 829,838 ****
+  
+  	inq_error_string[0]='\0';
+  
+! #ifdef GDA_BIND_DEBUG
+  	fprintf(stderr, "gdad: enter bindq_ext_to_int\n");
+  	dump_message(answer, answer_len, stderr);
+  #endif
+  
+  	if(!hp->qr)
+  	{
+- --- 806,817 ----
+  
+  	inq_error_string[0]='\0';
+  
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  	fprintf(stderr, "gdad: enter bindq_ext_to_int\n");
+  	dump_message(answer, answer_len, stderr);
+  #endif
++ #endif
+  
+  	if(!hp->qr)
+  	{
+***************
+*** 1380,1390 ****
+  
+                                        return(BINDQ_EXT_TO_INT_FIND_STRING_TXT);
+  				}
+! #ifdef GDA_BIND_DEBUG
+  				fprintf(stderr, "gdad: NS uuid after conversion: ");
+  				uuid_print(&rr->rr.ci.nsp_uuid);
+  				fprintf(stderr, "\n");
+  #endif
+  
+  				if(find_string_txt(&temp_cp, temp_st, &partial_len, &total_len) != OK)
+  				{
+- --- 1335,1347 ----
+  
+                                        return(BINDQ_EXT_TO_INT_FIND_STRING_TXT);
+  				}
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  				fprintf(stderr, "gdad: NS uuid after conversion: ");
+  				uuid_print(&rr->rr.ci.nsp_uuid);
+  				fprintf(stderr, "\n");
+  #endif
++ #endif
+  
+  				if(find_string_txt(&temp_cp, temp_st, &partial_len, &total_len) != OK)
+  				{
+***************
+*** 1481,1491 ****
+                                      return(BINDQ_EXT_TO_INT_FIND_STRING_TXT);
+  				}
+  
+! #ifdef GDA_BIND_DEBUG
+  				fprintf(stderr, "gdad: CH uuid after conversion: ");
+  				uuid_print(&rr->rr.ci.ch_uuid);
+  				fprintf(stderr, "\n");
+  #endif
+  				if(find_string_txt(&temp_cp, temp_st, &partial_len, &total_len) != OK)
+  				{
+                                        DCE_SVC_DEBUG((
+- --- 1438,1450 ----
+                                      return(BINDQ_EXT_TO_INT_FIND_STRING_TXT);
+  				}
+  
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  				fprintf(stderr, "gdad: CH uuid after conversion: ");
+  				uuid_print(&rr->rr.ci.ch_uuid);
+  				fprintf(stderr, "\n");
+  #endif
++ #endif
+  				if(find_string_txt(&temp_cp, temp_st, &partial_len, &total_len) != OK)
+  				{
+                                        DCE_SVC_DEBUG((
+***************
+*** 1596,1604 ****
+            svc_c_debug2,
+            " <bindq_ext_to_int: return(OK)"));
+  
+! #ifdef GDA_BIND_DEBUG
+  fprintf(stderr, "gdad: exit bindq_ext_to_int\n");
+  #endif
+        return(OK);
+  }
+  
+- --- 1555,1565 ----
+            svc_c_debug2,
+            " <bindq_ext_to_int: return(OK)"));
+  
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  fprintf(stderr, "gdad: exit bindq_ext_to_int\n");
+  #endif
++ #endif
+        return(OK);
+  }
+  
+***************
+*** 1709,1719 ****
+  
+  			dce_svc_printf(CDS_S_GDA_RECVFROM_EB_MSG, (long)errno);
+  		}
+! #ifdef GDA_BIND_DEBUG
+  		fprintf(stderr, "gdad: receiving bind response from ");
+  		dump_address(&from, stderr);
+  		fprintf(stderr, "\n");
+! #endif /* GDA_BIND_DEBUG */
+  		if((recv_answ = (list_t *)malloc(sizeof(list_t))) == NULL)
+  		{
+  		    dce_svc_printf(CDS_S_ALLOC_A_MSG);
+- --- 1670,1682 ----
+  
+  			dce_svc_printf(CDS_S_GDA_RECVFROM_EB_MSG, (long)errno);
+  		}
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  		fprintf(stderr, "gdad: receiving bind response from ");
+  		dump_address(&from, stderr);
+  		fprintf(stderr, "\n");
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  		if((recv_answ = (list_t *)malloc(sizeof(list_t))) == NULL)
+  		{
+  		    dce_svc_printf(CDS_S_ALLOC_A_MSG);
+***************
+*** 1743,1752 ****
+  		  continue;
+  	      }	
+  
+! #ifdef GDA_BIND_DEBUG
+  	      fprintf(stderr, "recv_bind(): post bindq_ext_to_int:dumping recv_answ:\n");
+  	      dump_list(recv_answ, stderr);
+! #endif /* GDA_BIND_DEBUG */
+  	      if((rr_head = (rr_el_t *)l_first_nl(recv_answ)) == NULL ||
+  		 RR_HEAD->tag_rr != e_header)
+  	      {
+- --- 1706,1717 ----
+  		  continue;
+  	      }	
+  
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  	      fprintf(stderr, "recv_bind(): post bindq_ext_to_int:dumping recv_answ:\n");
+  	      dump_list(recv_answ, stderr);
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  	      if((rr_head = (rr_el_t *)l_first_nl(recv_answ)) == NULL ||
+  		 RR_HEAD->tag_rr != e_header)
+  	      {
+***************
+*** 1804,1822 ****
+  			ques > (question_el_t *)NULL;
+  			ques = (question_el_t *)l_next((element_t *)ques))
+  		{
+! #ifdef GDA_BIND_DEBUG
+  			fprintf(stderr, "gdad: recv_bind(); comparing question \"");
+  			fullname_print(&QUES->unresolved_in_q);
+  			fprintf(stderr, "\" with answer \"");
+  			fullname_print(&RR_QUES->dname_rr);
+  			fprintf(stderr, "\"\n");
+! #endif /* GDA_BIND_DEBUG */
+  			if((status = fullname_prefix(&RR_QUES->dname_rr,
+  				&QUES->unresolved_in_q))  >= FIRST_PREFIX)
+  			{
+! #ifdef GDA_BIND_DEBUG
+  			      fprintf(stderr, "recv_bind(): in matchloop: status = %d\n", status);
+! #endif /* GDA_BIND_DEBUG */
+                                DCE_SVC_DEBUG((
+                                    cds__svc_handle,
+                                    cds_svc_gda,
+- --- 1769,1791 ----
+  			ques > (question_el_t *)NULL;
+  			ques = (question_el_t *)l_next((element_t *)ques))
+  		{
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  			fprintf(stderr, "gdad: recv_bind(); comparing question \"");
+  			fullname_print(&QUES->unresolved_in_q);
+  			fprintf(stderr, "\" with answer \"");
+  			fullname_print(&RR_QUES->dname_rr);
+  			fprintf(stderr, "\"\n");
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  			if((status = fullname_prefix(&RR_QUES->dname_rr,
+  				&QUES->unresolved_in_q))  >= FIRST_PREFIX)
+  			{
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  			      fprintf(stderr, "recv_bind(): in matchloop: status = %d\n", status);
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+                                DCE_SVC_DEBUG((
+                                    cds__svc_handle,
+                                    cds_svc_gda,
+***************
+*** 1849,1857 ****
+  			}
+  		}
+  
+! #ifdef GDA_BIND_DEBUG
+  	      fprintf(stderr, "recv_bind(): after matchloop: found = %d\n", found);
+! #endif /* GDA_BIND_DEBUG */
+                DCE_SVC_DEBUG((
+                    cds__svc_handle,
+                    cds_svc_gda,
+- --- 1818,1828 ----
+  			}
+  		}
+  
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  	      fprintf(stderr, "recv_bind(): after matchloop: found = %d\n", found);
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+                DCE_SVC_DEBUG((
+                    cds__svc_handle,
+                    cds_svc_gda,
+***************
+*** 1884,1892 ****
+  
+  		if(!found)
+  		{
+! #ifdef GDA_BIND_DEBUG
+  		      fprintf(stderr, "recv_bind(): Error: Answer received to non-existent question\n");
+! #endif /* GDA_BIND_DEBUG */
+                        DCE_SVC_DEBUG((
+                            cds__svc_handle,
+                            cds_svc_gda,
+- --- 1855,1865 ----
+  
+  		if(!found)
+  		{
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  		      fprintf(stderr, "recv_bind(): Error: Answer received to non-existent question\n");
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+                        DCE_SVC_DEBUG((
+                            cds__svc_handle,
+                            cds_svc_gda,
+***************
+*** 1906,1914 ****
+  			continue;
+  		}
+  
+! #ifdef GDA_BIND_DEBUG
+  	      fprintf(stderr, "recv_bind(): Before mutex lock\n");
+! #endif /* GDA_BIND_DEBUG */
+                DCE_SVC_DEBUG((
+                    cds__svc_handle,
+                    cds_svc_gda,
+- --- 1879,1889 ----
+  			continue;
+  		}
+  
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  	      fprintf(stderr, "recv_bind(): Before mutex lock\n");
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+                DCE_SVC_DEBUG((
+                    cds__svc_handle,
+                    cds_svc_gda,
+***************
+*** 1939,1947 ****
+  		    continue;
+  		  }
+  
+! #ifdef GDA_BIND_DEBUG
+  	      fprintf(stderr, "recv_bind(): After mutex lock\n");
+! #endif /* GDA_BIND_DEBUG */
+                DCE_SVC_DEBUG((
+                    cds__svc_handle,
+                    cds_svc_gda,
+- --- 1914,1924 ----
+  		    continue;
+  		  }
+  
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  	      fprintf(stderr, "recv_bind(): After mutex lock\n");
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+                DCE_SVC_DEBUG((
+                    cds__svc_handle,
+                    cds_svc_gda,
+***************
+*** 2720,2737 ****
+  			nameser->rr.adns.auth = 1;
+  			nameser->rr.adns.used = 0;
+  			nameser->rr.adns.path = DATAGRAM;
+! #ifdef GDA_BIND_DEBUG 
+  			fprintf(stderr,"gdad: init_server: adding nameserver \"");
+- - 			/* fullname_print(nameser->dname_rr);
+- - 			fprintf(stderr,"\"");
+- - 			dump_address(nameser->rr.adns.mach_addr,stderr); */
+- - 			/*
+  			fullname_print(&AD->dname_rr);
+  			fprintf(stderr,"\"");
+  			dump_address(&AD->rr.ad.mach_addr,stderr);
+- - 			*/
+  			fprintf(stderr,"\n");
+  #endif
+  
+  			l_insert_nl((char **)&nameser, &nameser_list,
+  				(element_t *)NULL);
+- --- 2697,2711 ----
+  			nameser->rr.adns.auth = 1;
+  			nameser->rr.adns.used = 0;
+  			nameser->rr.adns.path = DATAGRAM;
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  			fprintf(stderr,"gdad: init_server: adding nameserver \"");
+  			fullname_print(&AD->dname_rr);
+  			fprintf(stderr,"\"");
+  			dump_address(&AD->rr.ad.mach_addr,stderr);
+  			fprintf(stderr,"\n");
+  #endif
++ #endif
+  
+  			l_insert_nl((char **)&nameser, &nameser_list,
+  				(element_t *)NULL);
+***************
+*** 2751,2756 ****
+- --- 2725,2731 ----
+  static int 
+  init_server (void)
+  {
++     
+  #ifdef 	AD
+  #undef	AD
+  #endif
+***************
+*** 2759,2765 ****
+  #undef	NS
+  #endif
+  #define	NS	LIST_REF(rr_el_t, ns)
+- -     
+  	char	domain[MAXDNAME];
+  	char	origin[MAXDNAME];
+  	register FILE 	*fp;
+- --- 2734,2739 ----
+***************
+*** 3124,3132 ****
+            cds_svc_gda,
+            svc_c_debug2,
+            " >init_bind"));
+! #ifdef GDA_BIND_DEBUG
+  fprintf(stderr, "gdad: enter init_bind\n");
+  #endif
+  
+  	if(pthread_mutex_init(&id_mutex, pthread_mutexattr_default))
+  	{
+- --- 3098,3108 ----
+            cds_svc_gda,
+            svc_c_debug2,
+            " >init_bind"));
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  fprintf(stderr, "gdad: enter init_bind\n");
+  #endif
++ #endif
+  
+  	if(pthread_mutex_init(&id_mutex, pthread_mutexattr_default))
+  	{
+***************
+*** 4741,4752 ****
+  				query_id;
+  			element->cd_q.bind.who[element->cd_q.bind.num_who].ad_ns = best;
+  			element->cd_q.bind.num_who = element->cd_q.bind.num_who + 1;
+! #ifdef GDA_BIND_DEBUG
+  			fprintf(stderr, "gdad: sending bind query to ");
+  			dump_address(&BEST->rr.adns.mach_addr, stderr);
+  			fprintf(stderr, "\n");
+  			dump_message(buf, length, stderr);
+! #endif /* GDA_BIND_DEBUG */
+  			if (sendto(bind_dg_sock, buf, length, 0,
+  				(struct sockaddr *)&BEST->rr.adns.mach_addr,
+  				sizeof(struct sockaddr_in)) < 0)
+- --- 4684,4697 ----
+  				query_id;
+  			element->cd_q.bind.who[element->cd_q.bind.num_who].ad_ns = best;
+  			element->cd_q.bind.num_who = element->cd_q.bind.num_who + 1;
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  			fprintf(stderr, "gdad: sending bind query to ");
+  			dump_address(&BEST->rr.adns.mach_addr, stderr);
+  			fprintf(stderr, "\n");
+  			dump_message(buf, length, stderr);
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  			if (sendto(bind_dg_sock, buf, length, 0,
+  				(struct sockaddr *)&BEST->rr.adns.mach_addr,
+  				sizeof(struct sockaddr_in)) < 0)
+***************
+*** 4800,4814 ****
+  		dealloc answer
+  */
+  
+! #ifdef GDA_BIND_DEBUG
+  		fprintf(stderr, "bind_process(): About to look at answers\n");
+! #endif /* GDA_BIND_DEBUG */
+  		if(element->cd_q.bind.answer == (list_t *)NULL ||
+  			(head = (rr_el_t *)l_first_nl(element->cd_q.bind.answer)) == NULL)
+  		{
+! #ifdef GDA_BIND_DEBUG
+  		      fprintf(stderr, "bind_process(): Error: bind.answer list null\n");
+! #endif /* GDA_BIND_DEBUG */
+                        DCE_SVC_DEBUG((
+                            cds__svc_handle,
+                            cds_svc_gda,
+- --- 4745,4763 ----
+  		dealloc answer
+  */
+  
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  		fprintf(stderr, "bind_process(): About to look at answers\n");
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  		if(element->cd_q.bind.answer == (list_t *)NULL ||
+  			(head = (rr_el_t *)l_first_nl(element->cd_q.bind.answer)) == NULL)
+  		{
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  		      fprintf(stderr, "bind_process(): Error: bind.answer list null\n");
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+                        DCE_SVC_DEBUG((
+                            cds__svc_handle,
+                            cds_svc_gda,
+***************
+*** 4821,4829 ****
+  		{
+  			if(HEAD->tag_rr != e_header)
+  			{
+! #ifdef GDA_BIND_DEBUG
+  			    fprintf(stderr, "bind_process(): Error: header not on front of bind.answer list\n");
+! #endif /* GDA_BIND_DEBUG */
+  			    DCE_SVC_DEBUG((
+                                  cds__svc_handle,
+                                  cds_svc_gda,
+- --- 4770,4780 ----
+  		{
+  			if(HEAD->tag_rr != e_header)
+  			{
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  			    fprintf(stderr, "bind_process(): Error: header not on front of bind.answer list\n");
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  			    DCE_SVC_DEBUG((
+                                  cds__svc_handle,
+                                  cds_svc_gda,
+***************
+*** 4897,4905 ****
+  			}
+  		}
+  
+! #ifdef GDA_BIND_DEBUG
+  		fprintf(stderr, "bind_process(): About to look at head list\n");
+! #endif /* GDA_BIND_DEBUG */
+  	      for(truncated = 0, rr = (rr_el_t *)l_next_nl((element_t *)head);
+  		  rr > (rr_el_t *)NULL;
+  		  rr = (rr_el_t *)l_next_nl((element_t *)head))
+- --- 4848,4858 ----
+  			}
+  		}
+  
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  		fprintf(stderr, "bind_process(): About to look at head list\n");
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  	      for(truncated = 0, rr = (rr_el_t *)l_next_nl((element_t *)head);
+  		  rr > (rr_el_t *)NULL;
+  		  rr = (rr_el_t *)l_next_nl((element_t *)head))
+***************
+*** 4909,4917 ****
+  		    
+  		    if(!truncated)
+  			{
+! #ifdef GDA_BIND_DEBUG
+                          fprintf(stderr, "bind_process(): in trucate test loop;tag_rr=%d\n", RR->tag_rr);
+! #endif /* GDA_BIND_DEBUG */
+  			switch (RR->tag_rr) {
+  		       case e_addr:
+  			  break;
+- --- 4862,4872 ----
+  		    
+  		    if(!truncated)
+  			{
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+                          fprintf(stderr, "bind_process(): in trucate test loop;tag_rr=%d\n", RR->tag_rr);
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  			switch (RR->tag_rr) {
+  		       case e_addr:
+  			  break;
+***************
+*** 4920,4928 ****
+  			      rr1 > (rr_el_t *)NULL;
+  			      rr1 = (rr_el_t *)l_next_nl((element_t *)rr1))
+  			      {
+! #ifdef GDA_BIND_DEBUG
+  				fprintf(stderr, "bind_process(): in e_nameserver;tag_rr=%d\n", RR1->tag_rr);
+! #endif /* GDA_BIND_DEBUG */
+  				switch (RR1->tag_rr) {
+  				case e_addr:
+  				  if(fullname_cmp(&RR->rr.ns.mach_name, &RR1->dname_rr) == EQUAL)
+- --- 4875,4885 ----
+  			      rr1 > (rr_el_t *)NULL;
+  			      rr1 = (rr_el_t *)l_next_nl((element_t *)rr1))
+  			      {
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  				fprintf(stderr, "bind_process(): in e_nameserver;tag_rr=%d\n", RR1->tag_rr);
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  				switch (RR1->tag_rr) {
+  				case e_addr:
+  				  if(fullname_cmp(&RR->rr.ns.mach_name, &RR1->dname_rr) == EQUAL)
+***************
+*** 4988,5005 ****
+  			      rr1 > (rr_el_t *)NULL;
+  			      rr1 = (rr_el_t *)l_next_nl((element_t *)rr1))
+  			      {
+! #ifdef GDA_BIND_DEBUG
+  				fprintf(stderr, "bind_process(): in e_cds_cell_info_txt;tag_rr=%d\n", RR1->tag_rr);
+! #endif /* GDA_BIND_DEBUG */
+  				switch (RR1->tag_rr) {
+  				      case e_addr:
+! #ifdef GDA_BIND_DEBUG
+  				  fprintf(stderr, "bind_process(): in e_cds_cell_info_txt/e_addr: n1=\"");
+  				  fullname_print(&RR->rr.ci.mach_name);
+  				  fprintf(stderr,"\";n2=\"");
+  				  fullname_print(&RR1->dname_rr);
+  				  fprintf(stderr,"\"\n");
+! #endif /* GDA_BIND_DEBUG */
+  				  if(fullname_cmp(&RR->rr.ci.mach_name, &RR1->dname_rr)
+  				     == EQUAL)
+  				      {
+- --- 4945,4966 ----
+  			      rr1 > (rr_el_t *)NULL;
+  			      rr1 = (rr_el_t *)l_next_nl((element_t *)rr1))
+  			      {
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  				fprintf(stderr, "bind_process(): in e_cds_cell_info_txt;tag_rr=%d\n", RR1->tag_rr);
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  				switch (RR1->tag_rr) {
+  				      case e_addr:
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  				  fprintf(stderr, "bind_process(): in e_cds_cell_info_txt/e_addr: n1=\"");
+  				  fullname_print(&RR->rr.ci.mach_name);
+  				  fprintf(stderr,"\";n2=\"");
+  				  fullname_print(&RR1->dname_rr);
+  				  fprintf(stderr,"\"\n");
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  				  if(fullname_cmp(&RR->rr.ci.mach_name, &RR1->dname_rr)
+  				     == EQUAL)
+  				      {
+***************
+*** 5047,5055 ****
+  			  
+  			  if(ci != NULL && ci->rr.ci.num_addr > 0)
+  			      {
+! #ifdef GDA_BIND_DEBUG
+  				fprintf(stderr, "bind_process(): Truncation free\n");
+! #endif /* GDA_BIND_DEBUG */
+  				l_insert_nl((char **)&ci, 
+  					    &element->cd_q.bind.answers,
+  					    (element_t *)NULL);
+- --- 5008,5018 ----
+  			  
+  			  if(ci != NULL && ci->rr.ci.num_addr > 0)
+  			      {
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  				fprintf(stderr, "bind_process(): Truncation free\n");
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  				l_insert_nl((char **)&ci, 
+  					    &element->cd_q.bind.answers,
+  					    (element_t *)NULL);
+***************
+*** 5056,5064 ****
+  			      }
+  			  else
+  			      {
+! #ifdef GDA_BIND_DEBUG
+  				fprintf(stderr, "bind_process(): Truncation found\n");
+! #endif /* GDA_BIND_DEBUG */
+  				/* The message might have been truncated without having
+  				   the tc bit set.  The doaddinfo routine may not have
+  				   been able to add all of the data that could have
+- --- 5019,5029 ----
+  			      }
+  			  else
+  			      {
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  				fprintf(stderr, "bind_process(): Truncation found\n");
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  				/* The message might have been truncated without having
+  				   the tc bit set.  The doaddinfo routine may not have
+  				   been able to add all of the data that could have
+***************
+*** 5148,5166 ****
+  				}
+  				else
+  				{
+! #ifdef GDA_BIND_DEBUG
+  					fprintf(stderr, "bind_process(): seemingly, a match was found; elem:");
+  					fullname_print(&element->unresolved_in_q);
+  					fprintf(stderr, "\"\n");
+  					fprintf(stderr,"NS uuid: ");
+  					uuid_print(&RR->rr.ci.nsp_uuid);
+- - 					fprintf(stderr, "\nCH name: ");
+- - 			                fullname_print(&RR->rr.ci.ch_name);
+  					fprintf(stderr, "\nCH uuid: ");
+  					uuid_print(&RR->rr.ci.ch_uuid);
+  					fprintf(stderr, "\n");
+  
+! #endif /* GDA_BIND_DEBUG */
+  					found = 1;
+  					answ = RR;
+  					num_memslots = 0;
+- --- 5113,5131 ----
+  				}
+  				else
+  				{
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  					fprintf(stderr, "bind_process(): seemingly, a match was found; elem:");
+  					fullname_print(&element->unresolved_in_q);
+  					fprintf(stderr, "\"\n");
+  					fprintf(stderr,"NS uuid: ");
+  					uuid_print(&RR->rr.ci.nsp_uuid);
+  					fprintf(stderr, "\nCH uuid: ");
+  					uuid_print(&RR->rr.ci.ch_uuid);
+  					fprintf(stderr, "\n");
+  
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  					found = 1;
+  					answ = RR;
+  					num_memslots = 0;
+***************
+*** 5206,5214 ****
+                            svc_c_debug5,
+                            "bind_process: answer was found"));
+  
+! #ifdef GDA_BIND_DEBUG
+  		      fprintf(stderr, "bind_process(): an answer was found\n");
+! #endif /* GDA_BIND_DEBUG */
+  			/*
+  			 * an answer was found, format return parameters 
+  			 */
+- --- 5171,5181 ----
+                            svc_c_debug5,
+                            "bind_process: answer was found"));
+  
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  		      fprintf(stderr, "bind_process(): an answer was found\n");
+! #endif /* SNI_INTENSE_GDA_DEBUG */
+! #endif /* SNI_SVR4 */
+  			/*
+  			 * an answer was found, format return parameters 
+  			 */
+***************
+*** 5386,5394 ****
+  			element->unresolved_out_q.fn_length += cds_suffix.fn_length;
+  		}
+  
+! #ifdef GDA_BIND_DEBUG
+  fprintf(stderr, "gdad: Error: bind_process:DNS_UNKNOWNENTRY\n");
+  #endif
+                DCE_SVC_DEBUG((
+                    cds__svc_handle,
+                    cds_svc_gda,
+- --- 5353,5363 ----
+  			element->unresolved_out_q.fn_length += cds_suffix.fn_length;
+  		}
+  
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  fprintf(stderr, "gdad: Error: bind_process:DNS_UNKNOWNENTRY\n");
+  #endif
++ #endif
+                DCE_SVC_DEBUG((
+                    cds__svc_handle,
+                    cds_svc_gda,
+***************
+*** 5406,5413 ****
+  			element->unresolved_out_q.fn_length += cds_suffix.fn_length;
+  		}
+  
+! #ifdef GDA_BIND_DEBUG
+  fprintf(stderr, "gdad: Error: bind_process:DNS_NAMESERVERERRORS\n");
+  #endif
+                DCE_SVC_DEBUG((
+                    cds__svc_handle,
+- --- 5375,5384 ----
+  			element->unresolved_out_q.fn_length += cds_suffix.fn_length;
+  		}
+  
+! #ifdef SNI_SVR4
+! #ifdef SNI_INTENSE_GDA_DEBUG
+  fprintf(stderr, "gdad: Error: bind_process:DNS_NAMESERVERERRORS\n");
++ #endif
+  #endif
+                DCE_SVC_DEBUG((
+                    cds__svc_handle,
+
+**********Here's the source for src/directory/cds/gda/gda_debug.c:************
+
+/*
+ * @OSF_COPYRIGHT@
+ * COPYRIGHT NOTICE
+ * Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+ * ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+ * the full copyright text.
+ */
+/*
+ * HISTORY
+ * $Log:	c012983,v $
+# Revision 1.1  95/08/01  17:59:55  root
+# new CR
+# 
+ * Revision 1.1.6.5  1994/08/03  19:01:36  mccann
+ * 	include file cleanup
+ * 	[1994/07/19  17:53:51  mccann]
+ *
+ * Revision 1.1.6.4  1994/06/23  18:30:01  mccann
+ * 	sams cleanup drop1
+ * 	[1994/06/22  19:27:31  mccann]
+ * 
+ * Revision 1.1.6.3  1994/06/09  18:38:03  devsrc
+ * 	cr10871 - expand copyright
+ * 	[1994/06/09  18:10:12  devsrc]
+ * 
+ * Revision 1.1.6.2  1994/05/12  21:11:13  peckham
+ * 	Change _DNS_DEFAULT_STACK_ reference to _CDS_DEFAULT_STACK_
+ * 	[1994/05/12  19:14:52  peckham]
+ * 
+ * Revision 1.1.6.1  1994/03/12  22:01:35  peckham
+ * 	DEC serviceability and i18n drop
+ * 	[1994/03/12  14:08:52  peckham]
+ * 
+ * Revision 1.1.4.3  1992/12/30  13:27:05  zeliff
+ * 	Embedding copyright notices
+ * 	[1992/12/29  22:43:38  zeliff]
+ * 
+ * Revision 1.1.4.2  1992/09/29  19:12:31  devsrc
+ * 	SNI/SVR4 merge.  OT 5373
+ * 	[1992/09/11  15:12:06  weisman]
+ * 
+ * Revision 1.1  1992/01/19  15:24:20  devrcs
+ * 	Initial revision
+ * 
+ * $EndLog$
+ */
+/*
+ * COPYRIGHT (c) DIGITAL EQUIPMENT CORPORATION 1991-1994. ALL RIGHTS RESERVED.
+ *
+ * THIS SOFTWARE IS FURNISHED UNDER A LICENSE AND MAY BE USED AND  COPIED
+ * ONLY  IN  ACCORDANCE  WITH  THE  TERMS  OF  SUCH  LICENSE AND WITH THE
+ * INCLUSION OF THE ABOVE COPYRIGHT NOTICE.  THIS SOFTWARE OR  ANY  OTHER
+ * COPIES  THEREOF MAY NOT BE PROVIDED OR OTHERWISE MADE AVAILABLE TO ANY
+ * OTHER PERSON.  NO TITLE TO AND OWNERSHIP OF  THE  SOFTWARE  IS  HEREBY
+ * TRANSFERRED.
+ *
+ * THE INFORMATION IN THIS SOFTWARE IS SUBJECT TO CHANGE  WITHOUT  NOTICE
+ * AND  SHOULD  NOT  BE  CONSTRUED  AS  A COMMITMENT BY DIGITAL EQUIPMENT
+ * CORPORATION.
+ *
+ * DIGITAL ASSUMES NO RESPONSIBILITY FOR THE USE OR  RELIABILITY  OF  ITS
+ * SOFTWARE ON EQUIPMENT THAT IS NOT SUPPLIED BY DIGITAL.
+ */
+
+#include <gda.h>
+#include <dce/cds_basic_types.h>
+
+#if defined(DCE_CDS_DEBUG)
+
+#include <dce/assert.h>
+#include <gda_main.h>
+#include <sys/time.h>
+#include <dce/utc.h>
+#include <errno.h>
+
+/*
+ * local prototypes
+ */
+static void
+print_memstat(
+	      utc_t *);
+
+static void 
+memstat (
+	 void);
+
+
+struct memory_stat	mem_stat;
+pthread_mutex_t		memstat_mutex;
+pthread_cond_t		memstat_cond;
+
+#endif /* if defined(DCE_CDS_DEBUG) */
+
+int			memstat_interval = 120;
+
+#if defined(DCE_CDS_DEBUG)
+
+#define INIT_COUNTER(X) \
+	{ \
+		int looper; \
+		mem_stat.X.total = 0; \
+		for(looper = 0; looper < COUNTER_MAX; \
+			mem_stat.X.allocd[looper] = 0, \
+			looper++); \
+		for(looper = 1; looper < COUNTER_MAX; \
+			mem_stat.X.freed[looper] = 0, \
+			looper++); \
+		if(pthread_mutex_init(&mem_stat.X.mutex, \
+			pthread_mutexattr_default)) \
+		{ \
+		      dce_svc_printf(CDS_S_PTHREADMUTEXINIT_MSG, (long)errno); \
+                      error_exit(-1);		\
+		} \
+	}
+
+#define PRINT_MEM_STAT(X, Y, Z, A) \
+	{ \
+		int	looper; \
+		char	buf[2048]; \
+		char	*cp = buf; \
+		if(pthread_mutex_lock(&mem_stat.X.mutex)) \
+		{ \
+		      dce_svc_printf(CDS_S_PTHREADMUTEXLOCK_MSG, (long)errno);	\
+                      error_exit(-1);		\
+		} \
+		sprintf(cp,"\n%s alloc %ld free %ld total %ld", \
+			A, \
+			mem_stat.X.allocd[0], \
+			mem_stat.X.freed[0], \
+			mem_stat.X.total); \
+		cp += strlen(cp); \
+		sprintf(cp, "\nALLOC,"); \
+		cp += strlen(cp); \
+		for(looper = 1; looper <= Y; \
+			sprintf(cp, "%ld,", \
+				mem_stat.X.allocd[looper]), \
+				cp += strlen(cp), \
+				looper++); \
+		sprintf(cp, "\nFREE,"); \
+		cp += strlen(cp); \
+		for(looper = 1; looper <= Z; \
+			sprintf(cp, "%ld,", \
+				mem_stat.X.freed[looper]), \
+				cp += strlen(cp), \
+				looper++); \
+		sprintf(cp, ""); \
+		cp += strlen(cp); \
+		DCE_SVC_DEBUG(( 	\
+		    cds__svc_handle, 	\
+		    cds_svc_gda, 	\
+		    svc_c_debug7, 	\
+		    "print_mem_stat : %s",	\
+                    buf)); \
+		if(pthread_mutex_unlock(&mem_stat.X.mutex)) \
+		{ \
+		      dce_svc_printf(CDS_S_PTHREADMUTEXUNLOCK_MSG, (long)errno);	\
+                      error_exit(-1);		\
+		} \
+	}
+
+static void
+print_memstat(utc_t *utc_time)
+{
+    char	buf[128];
+
+
+    DCE_SVC_DEBUG((
+        cds__svc_handle,
+        cds_svc_gda,
+        svc_c_debug2,
+	" >print_memstat"));
+
+    strcpy(buf, "\nMEM_STAT struct ");
+    if (0 <= utc_asclocaltime(&buf[17], sizeof(buf)-17, utc_time))
+    {
+	DCE_SVC_DEBUG((
+            cds__svc_handle,
+            cds_svc_gda,
+            svc_c_debug5,
+	    "print_memstat: %s",
+	    buf));
+    }
+    
+    PRINT_MEM_STAT(rr_el_t,8,7,"rr_el_t")
+    PRINT_MEM_STAT(list_t,4,9,"list_t")
+    PRINT_MEM_STAT(sendbuf,1,3,"sendbuf")
+    PRINT_MEM_STAT(replicas_q,1,1,"replicas_q")
+    PRINT_MEM_STAT(realloc_replicas_q,1,0,"realloc_replicas_q")
+    PRINT_MEM_STAT(ss_cds_ReplicaPointer_t,1,0,"ss_cds_ReplicaPointer_t")
+    PRINT_MEM_STAT(debug_el_t,1,1,"debug_el_t")
+    PRINT_MEM_STAT(element_t,2,2,"element_t")
+    PRINT_MEM_STAT(ss_cds_Set_t,1,0,"ss_cds_Set_t")
+    PRINT_MEM_STAT(question_el_t,1,1,"question_el_t")
+    PRINT_MEM_STAT(cds_FullName_t,1,1,"cds_FullName_t")
+
+    DCE_SVC_DEBUG(( 
+        cds__svc_handle, 
+        cds_svc_gda, 
+        svc_c_debug2,
+	" <print_memstat"));
+}
+
+
+static void 
+memstat (void)
+{
+      utc_t 	utc_time;
+      int 	status;
+
+      DCE_SVC_DEBUG((
+          cds__svc_handle,
+          cds_svc_gda,
+          svc_c_debug2,
+          " >memstat"));
+
+	/*
+	 * initialize the thread specific data 
+	 */
+	if(pthread_setspecific(thread_num, (pthread_addr_t)&memstat_th_num))
+	{
+	    dce_svc_printf(CDS_S_PTHREADSETSPECIFIC_MSG, (long)errno);
+	    error_exit(-1);
+	}
+
+	if(pthread_mutex_lock(&memstat_mutex))
+	{
+	    dce_svc_printf(CDS_S_PTHREADMUTEXLOCK_MSG, (long)errno);
+	    error_exit(-1);
+	}
+
+        status = utc_gettime(&utc_time);
+        dce_assert(cds__svc_handle, (0 <= status));
+
+	for(;;)
+	{		
+	        timespec_t time, inacc;
+		long tdf;
+		int temp;
+
+		temp = utc_bintime(&time, &inacc, &tdf, &utc_time);
+		dce_assert(cds__svc_handle,
+			   (0 <= temp));
+	        time.tv_sec += memstat_interval;
+
+		if(pthread_cond_timedwait(&memstat_cond,
+			&memstat_mutex, &time) && errno != EAGAIN)
+		{
+		    dce_svc_printf(CDS_S_PTHREADCONDTIMEDWAIT_MSG, (long)errno); 		
+		    error_exit(-1);
+		}
+
+
+                status = utc_gettime(&utc_time);
+		dce_assert(cds__svc_handle, (0 <= status));
+
+                print_memstat(&utc_time);
+	}
+	
+      DCE_SVC_DEBUG((
+          cds__svc_handle,
+          cds_svc_gda,
+          svc_c_debug2,
+          " <memstat"));
+}
+
+void
+init_memstat (void)
+{
+	pthread_t	memstat_th;
+	pthread_attr_t  pattr;
+
+
+	DCE_SVC_DEBUG((
+            cds__svc_handle,
+            cds_svc_gda,
+            svc_c_debug2,
+            " >init_memstat"));
+
+	INIT_COUNTER(rr_el_t)
+	INIT_COUNTER(list_t)
+	INIT_COUNTER(sendbuf)
+	INIT_COUNTER(replicas_q)
+	INIT_COUNTER(realloc_replicas_q)
+	INIT_COUNTER(ss_cds_ReplicaPointer_t
+
+CR Number                     : 12967
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : gdsditadm
+Short Description             : Mask7 does not allow input of
+long 'Description" attribute
+Reported Date                 : 7/23/95
+Found in Baseline             : 1.1
+Found Date                    : 7/23/95
+Severity                      : D
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/23/95 public]
+
+
+I report the ticket as received.   I have tried to find a way to input
+a long 'Description' in Mask 7 to no avail.  In the documentaion there
+is no mention of how this can be done either.  Yet, in appendix C the
+'Description' attribute is specified to have an upper bound of 1024
+characters.  The problem seem to affect all interactive tools that use
+Mask 7 (tried with gdsditadm and gdssysadm).
+
+
+Here is the ticket.
+
+> 
+> To: dce-defect@osf.org
+> Cc: chen@ssaws.yk.fujitsu.co.jp
+> Sender: yas@ace.yk.fujitsu.co.jp
+> Date: Tue, 18 Jul 1995 21:31:54 +0900
+> From: Chen Xiao Liang (CEC) <chen@ssaws.yk.fujitsu.co.jp>
+> 
+> I am Chen.
+> 
+> I have a question about how to input attribute value of "Description(DSC)"
+> at
+>  gdsditadm in the mask as below.
+>  +----------------------------------------------------------------------------+
+>  |  (Mask 7)             DIRECTORY SYSTEM               Add Attributes
+>  |
+>  +----------------------------------------------------------------------------+
+>  |
+>  |
+>  |
+>  |
+>  |     Attributes:
+>  |
+>  |
+>  |
+>  |       Name :  Description
+>  |
+>  |       Value:  _____________________________________________
+>  |
+>  |               _____________________________________________
+>  |
+>  |
+>  |
+>  |       Name :  _________________________
+>  |
+>  |       Value:  _____________________________________________
+>  |
+>  |               _____________________________________________
+>  |
+>  |
+>  |
+>  |       Name :  _________________________
+>  |
+>  |       Value:  _____________________________________________
+>  |
+>  |               _____________________________________________
+>  |
+>  |
+>  |
+>  |
+>  |
+>  |
+>  |
+>  +----------------------------------------------------------------------------+
+>  
+>  I can't input Description more than 91bytes in above mask..
+> 
+>  How can I input it? Please teach me! 
+> 
+> (p.s.) 
+> Refering to GDS Admin.Guide and Refference Appendix C, Description(DSC)'s
+> Upper
+>  bound is 1024 bytes.
+> 
+> Some such long attributes exist too. For example, ARL,CRL,and so on. 
+> 
+> Thanks.
+> 
+> Chen
+> ----------------------------------------------------------------------------
+>   Fujitsu Limited, OPEN SOFTWARE DIVISION 5th DEVELOPMENT DEPT.
+>   Chen, Xiao-liang (CEC)
+>   TEL:+81-45-474-1926
+>   FAX:+81-45-473-3709
+>   E-mail Address: chen@ssaws.yk.fujitsu.co.jp
+>   NIFTY-Serve ID: KYL00167
+> ----------------------------------------------------------------------------
+>
+
+
+
+CR Number                     : 12903
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : gds_admin_gdref
+Short Description             : Search_Guide not
+implemented in administration
+Reported Date                 : 6/2/95
+Found in Baseline             : 1.1
+Found Date                    : 5/18/95
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : GDS Admin Guide and Reference
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[6/2/95 public]
+
+Within the GDS code, it states that the D2_GUIDE is not implemented 
+in administration. 
+
+$DCESRC/directory/gds/adm/admin/d20displst.c:make_attr_list()
+3287                  /* skip attribute with D2_GUIDE syntax since it is */
+3288                  /* not implemented in administration.              */
+3289                  if (oct_ent->may_attr[i]->at.att_syntax == D2_GUIDE)
+3290                          continue;
+
+This should be mentioned in the DCE GDS Administration Guide and
+Reference.  See below.
+
+Mail from Chen at Fujitsu is attached below:
+
+I am reading the documentation named
+"OSF GDS Administration Guide and Reference, Revision 1.1,October 24,1994".
+
+Say in other words, my question is simple.
+
+I execute gdsditadm and want to add the attribute Search-Guide to Cuntry-Name
+Object, but Search-Guide is not appeared in Mask 6d.
+ +----------------------------------------------------------------------------+
+ |  (Mask 6d)            DIRECTORY SYSTEM     Add Attributes                  |
+ +----------------------------------------------------------------------------+
+ |                                                                            |
+ | CDS-Cell                                                                   |
+ | CDS-Replica                                                                |
+ | Description                                                                |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ |                                                                            |
+ +----------------------------------------------------------------------------+
+
+Why it is losted? 
+
+According to the documentation specified as above, it must be a optional
+attribute of Cuntry-Name Object.
+
+Reference to [Appendix B. Object Class Table, TABLE B-1. OCT Entries] in B-1.
+
+[5/17/96 public]
+
+Assigned to HP.
+
+
+
+CR Number                     : 12711
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : gds
+Subcomponent Name             : xds
+Short Description             : XDS accepts typeless global cell names
+Reported Date                 : 10/24/94
+Found in Baseline             : 1.0.3
+Found Date                    : 10/24/94
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/24/94 public]
+
+IBM reported the following problem:
+
+"
+   If an application passes to XDS interface the following directory
+   name :
+
+          /.../85.4.6 = 'dcecell'/cdsname
+
+   the XDS interface correctly recognizes this name as a CDS name,
+   as it has a typeless portion, and calls CDSPI to process the
+   request. The resulting CDS name is '/.../c=dcecell/cdsname'.
+
+   If, on another hand, an application passes to XDS interface the
+   name:
+
+         /.../43.22.1.2.2 = 'c=dcecell'/cdsname
+
+   the XDS interface strips the typeless OID 43.22.1.2.2 and calls
+   the CDSPI with the same CDS name '/.../c=dcecell/cdsname'.
+   In this scenario, we have a global cell name (typed) passed to
+   XDS subsystem as an untyped name, and recognized by CDS as a
+   typed cell name again. Even though the name is resolved correctly
+   this is not a valid way of passing a typed cell name to CDS.
+
+Proposed Solution:
+
+   A user should not be able to specify a global name with typeless
+   OID specifier.
+
+"
+
+I think what happens is that since 43.22.1.2.2 means Typeless-RDN-for-CDS,
+XDS assumes that the rest name is part of CDS and calls CDSPI.
+
+I will let experts to decide what we want to do here: whether to disallow
+such practice, or make it s doc note, or sth else.
+
+
+
+CR Number                     : 12695
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : dsa
+Short Description             : chained ADD doesn't work
+Reported Date                 : 10/21/94
+Found in Baseline             : 1.1
+Found Date                    : 10/21/94
+Severity                      : B
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : gds/dsa/addob.c
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/21/94 public]
+
+You can't add an object via DSP.
+To verify this use the gds configuration as it is used in the FVT
+and run the following gdscp script:
+
+bind -dirid 2 -dsa /C=de/O=dbp/OU=dap11/CN=dsa/CN=dsa-m2
+x500svc modify -preferchain TRUE -chainingprohibited FALSE
+create /C=de/O=dbp/OU=dap11/CN=jochen -attr OCL=ORP SN=abc
+
+
+DSA on dirid 2 will dump core.
+The fix is very easy - just move a line "free (sm_in)" (in addob.c)
+from line 555 to some lines later.
+
+[10/25/94 public]
+This is the "diff addob.c.new addob.c.old":
+
+544a545
+>   free(sm_in);
+565d565
+<   free(sm_in);
+
+[10/25/94 public]
+This is "diff -C 10 addob.c.new addob.c.old":
+
+
+*** /project/dce/build/dce1.1/src/directory/gds/dsa/addob.c	Wed Oct  5 09:00:06 1994
+--- addob.c	Tue Oct 25 15:34:41 1994
+***************
+*** 545,565 ****
+  			       (byte **) a_out,
+  			       &rem_len,sup_exact_name, attr, sup_oct_idx,
+  			       acl_sup, &mk_sup, &rec,&record, &al_flag, &i);
+  
+  if                                  /*  search was not successful     */
+     ((search_ret_val != D2_NOERROR && op_id > D2_ADM_OPID) ||
+      (op_id < D2_ADM_OPID && (search_ret_val != D2_NOERROR &&
+  				 search_ret_val != D2_REF_ERROR)))
+  
+  {                                   /*  unlock used files             */
+-   free(sm_in);
+    if                /*  no result present                         */
+       (search_ret_val == D2_REF_ERROR)
+    {                 /*  write the error referrals                 */
+      if (nm_compl)
+      {
+        d26_referral->d26_new_rdn = (D2_name_string) obj_name;
+      }
+      if              /*  hard error from writing referrals         */
+        (d26_u63_write_error_referral(a_out,length, &rem_len,  d26_referral) !=
+  								D2_NO_ERR)
+--- 545,564 ----
+***************
+*** 566,585 ****
+--- 565,585 ----
+      {               /*  set  error apdu                           */
+         d27_010_set_error_apdu((D23_rserror *)*a_out,D2_TEMP_ERR,
+  			      D2_REM_ERR,D2_UNWILLING,&meslen);
+         rem_len = *length - meslen;
+       }               /*                                            */
+     }                 /*                                            */
+    d26_u41_free_referrals();
+    d26_i14_unlock();
+    *length -= rem_len;
+    DCE_SVC_LOG((GDS_S_EXIT_FUNCTION_MSG,function,D26_ERROR - 15));
++   free(sm_in);
+    return(D26_ERROR);
+  } else if                               /*  superior is alias entry       */
+        (al_flag == TRUE)
+  {                                   /*  set error message             */
+  				    /*  return(D26_ERROR)             */
+    d27_010_set_error_apdu((D23_rserror *) *a_out, D2_CALL_ERR, D2_PAR_ERR,
+  			 D2_NAMING_VIOLATION, length);
+  				    /*  unlock used files             */
+    d26_i14_unlock();
+    DCE_SVC_LOG((GDS_S_EXIT_FUNCTION_MSG,function,D26_ERROR - 16));
+
+
+
+CR Number                     : 12690
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 12389
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : gds
+Subcomponent Name             : gdscp
+Short Description             : gdscp not showing cell information in a readable way
+Reported Date                 : 10/20/94
+Found in Baseline             : 1.1b23
+Found Date                    : 10/20/94
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/20/94 public]
+
+        I used gdssysadm/gdsditadm to add a cell's information into a dsa.
+        Then I used gdscp to look at it, here is what I got:
+
+gdscp> bind -dirid 2 -dsa /c=us/o=osf/ou=syseng/cn=dsa/cn=dsa-1
+gdscp> show /c=us/o=osf/ou=syseng/cn=down
+/C=us/O=osf/OU=syseng/CN=down {OCL=ORP;PER;TOP} CN=down SN=wang {CDC='\x33\x65\x
+66\x30\x66\x62\x38\x31\x2d\x65\x62\x38\x61\x2d\x31\x31\x63\x64\x2d\x39\x64\x36\x
+35\x2d\x30\x30\x30\x30\x63\x30\x33\x35\x37\x31\x34\x37\x00\x33\x65\x66\x30\x66\x
+62\x38\x31\x2d\x65\x62\x38\x61\x2d\x31\x31\x63\x64\x2d\x39\x64\x36\x35\x2d\x30\x
+30\x30\x30\x63\x30\x33\x35\x37\x31\x34\x37\x00\x2f\x2e\x2e\x2e\x2f\x63\x3d\x75\x
+73\x2f\x6f\x3d\x6f\x73\x66\x2f\x6f\x75\x3d\x73\x79\x73\x65\x6e\x67\x2f\x6f\x75\x
+3d\x64\x6f\x77\x6e\x00'} {CDR='\x01\x33\x64\x36\x61\x35\x66\x66\x34\x2d\x65\x62\
+x38\x61\x2d\x31\x31\x63\x64\x2d\x39\x64\x36\x35\x2d\x30\x30\x30\x30\x63\x30\x33\
+x35\x37\x31\x34\x37\x00\x2f\x2e\x2e\x2e\x2f\x63\x3d\x75\x73\x2f\x6f\x3d\x6f\x73\
+x66\x2f\x6f\x75\x3d\x73\x79\x73\x65\x6e\x67\x2f\x6f\x75\x3d\x64\x6f\x77\x6e\x2f\
+x64\x6f\x77\x6e\x5f\x63\x68\x00\x20\x20\x35\x36\x6e\x63\x61\x63\x6e\x5f\x69\x70\
+x5f\x74\x63\x70\x3a\x31\x33\x30\x2e\x31\x30\x35\x2e\x31\x2e\x37\x35\x5b\x5d\x00\
+x6e\x63\x61\x64\x67\x5f\x69\x!
+ 70\x5f\x75\x64\x70\x3a\x31\x33\x30\x2e\x31\x30\x35\x2e\x31\x2e\x37\x35\x5b\x5d\
+x00'}
+gdscp> show /c=us/o=osf/ou=syseng/cn=down -pretty
+ 1) /C=us/O=osf/OU=syseng/CN=down
+    Object-Class : Organizational-Person
+                 : Person
+                 : Top
+    Common-Name  : down
+    Surname      : wang
+    CDS-Cell     : \x33\x65\x66\x30\x66\x62\x38\x31\x2d\x65\x62\x38\x61\x2d\x31\
+x31\x63\x64\x2d\x39\x64\x36\x35\x2d\x30\x30\x30\x30\x63\x30\x33\x35\x37\x31\x34\
+x37\x00\x33\x65\x66\x30\x66\x62\x38\x31\x2d\x65\x62\x38\x61\x2d\x31\x31\x63\x64\
+x2d\x39\x64\x36\x35\x2d\x30\x30\x30\x30\x63\x30\x33\x35\x37\x31\x34\x37\x00\x2f\
+x2e\x2e\x2e\x2f\x63\x3d\x75\x73\x2f\x6f\x3d\x6f\x73\x66\x2f\x6f\x75\x3d\x73\x79\
+x73\x65\x6e\x67\x2f\x6f\x75\x3d\x64\x6f\x77\x6e\x00
+    CDS-Replica  : \x01\x33\x64\x36\x61\x35\x66\x66\x34\x2d\x65\x62\x38\x61\x2d\
+x31\x31\x63\x64\x2d\x39\x64\x36\x35\x2d\x30\x30\x30\x30\x63\x30\x33\x35\x37\x31\
+x34\x37\x00\x2f\x2e\x2e\x2e\x2f\x63\x3d\x75\x73\x2f\x6f\x3d\x6f\x73\x66\x2f\x6f\
+x75\x3d\x73\x79\x73\x65\x6e\x67\x2f\x6f\x75\x3d\x64\x6f\x77\x6e\x2f\x64\x6f\x77\
+x6e\x5f\x63\x68\x00\x20\x20\x35\x36\x6e\x63\x61\x63\x6e\x5f\x69\x70\x5f\x74\x63\
+x70\x3a\x31\x33\x30\x2e\x31\x30\x35\x2e\x31\x2e\x37\x35\x5b\x5d\x00\x6e\x63\x61\
+x64\x67\x5f\x69\x70\x5f\x75\x64\x70\x3a\x31\x33\x30\x2e\x31\x30\x35\x2e\x31\x2e\
+x37\x35\x5b\x5d\x00
+
+        Showing CDS-Cell and CDS-Replica in hex format does not help mcuh in
+        seeing what is there.
+
+[10/20/94 public]
+I was able to reproduce this with binaries from NB1010 (BL22?).
+
+[10/21/94 public]
+You are right. If you use gdsditadm to display CDS Cell and Replica
+you will get a correct CDS Replica but in CDS Cell only Namespace UUID
+is displayed - Root dir UUID and Root dir name are not there.
+The reason for this is OT 12389 - x500_str_to_cell (provided by CDS -
+cds/library/x500_name_utils.c) doesn't work correctly.
+
+The fix for your problem would be to integrate the functions
+x500_str_to_cell and x500_str_to_replica into gdscp.
+A workaround is to use gdsditadm.
+If you need a fix for x500_str_to_cell (OT 12389) please give me a call -
+I have fixed this in our environment.
+
+
+
+CR Number                     : 12580
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : gds
+Subcomponent Name             : dsa
+Short Description             : add_entry37v causes DSA to
+dump core
+Reported Date                 : 10/11/94
+Found in Baseline             : 1.1
+Found Date                    : 10/11/94
+Severity                      : C
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/11/94 public]
+
+Bits: nightly build of 10/05:
+
+While running the XDS FVT on the HP, the single-threaded valid testcase 
+
+	add_entry37v
+
+caused the DSA to dump core.
+
+This was reproduced in Munich as well
+
+Here's the stack trace:
+
+xdb -s -l ALL /opt/dcelocal/bin/gdsdsa core
+
+>t
+ 0 free@libc + 0x00000008 (hp-ux export stub)
+ 1 asn1_alloc_free@libdce + 0x000001d8 (0x400b86d0, 0x7aff0400, 0x30, 0x7b034a78)
+ 2 dua_Tstring_free + 0x00000034 (0x7aff0400, 0, 0x30, 0x7b034a78)
+ 3 pthread_mutex_unlock@libdce + 0x00000038 (0x4002fe70, 0x3, 0x7b0352f8, 0x7b034a78)
+ 4 cma_lib_free@libdce + 0x00000148 (0x400b8558, 0x1, 0x7b035080, 0)
+ 5 asn1_alloc_free@libdce + 0x0000011c (0x400b8558, 0x1, 0x3231385f, 0x6432615f)
+ 6 duaCertListUnsigned_free + 0x00000088 (0x7b035150, 0x7b035080, 0x7b035150, 0x40136010)
+ 7 duaCertList_free + 0x00000030 (0x7b035150, 0x6432615f, 0x76616c75, 0x6174745f)
+ 8 dua_att_value1_free + 0x00000758 (0x7b03514c, 0x7b035080, 0x7b035080, 0x7b034cc8)
+ 9 d2a106_ids_atval_to_atval + 0x0000132c (0x400b8510, 0x3f1, 0x401365f0, 0x401365f2)
+10 d2a060_mk_att_apdu + 0x0000031c (0x400b8328, 0x7b034f10, 0x7b034cc4, 0x7b034cc8)
+11 d2a076_ids_add_arg_apdu + 0x000002cc (0x7b034d80, 0x7b034cc4, 0x7b034cc8, 0x7b034e5c)
+12 d2a074_asn_add_arg_apdu + 0x00000164 (0x7b034d80, 0x7b034cc4, 0x7b034cc8, 0x7b034cb8)
+13 d2a001_asn1_apdu + 0x000014d4 (0x40000006, 0x2, 0x7b034cc4, 0x7b034cc8)
+14 d26_m07_work (atsvpb = 0x40001ba8, argc = 5, argv = 0x7b034c4c)    [../../../../../src/directory/gds/dsa/d26dsa.c: 874]
+15 main (argc = 13, argv = 0x7b034a90)    [../../../../../src/directory/gds/dsa/d26dsa.c: 1701]
+
+[10/12/94 public]
+I tested it several times: I doesn't happen any more.
+I checked the addresses which are freed - they have really been allocated
+before. 
+I have no idea why this dumps core some times.
+I need a malloc debug library (for cma_lib_malloc, ...).
+
+[10/12/94 public]
+I couldn't reproduce it today.  I'm dropping the priority and marking this
+'defer.'
+
+
+
+CR Number                     : 12577
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : local_TET.admin
+Short Description             : script doesn't parse TET
+scenarios correctly
+Reported Date                 : 10/11/94
+Found in Baseline             : 1.1
+Found Date                    : 10/11/94
+Severity                      : C
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : local_TET.admin
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/11/94 public]
+
+When selecting the 'all_no_gds_sec_gds_setup' TET scenario, local_TET.admin
+only ran 'gds_sec'
+
+This is because the test driver simply searches for the string 'gds_sec' in
+the TET scenario name.  If it finds this it runs gds_sec, otherwise it runs
+the scenario specified in the command line.
+
+This means the following tet scenarios are unusable:
+
+		all_no_gds_sec
+		all_no_gds_sec_gds_setup
+		all_no_gds_sec_gds_setup_gdscp
+		all_no_gds_sec_gdscp
+
+
+
+CR Number                     : 12418
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 12419
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : fvt
+Short Description             : Cells should have unique names
+Reported Date                 : 9/29/94
+Found in Baseline             : 1.1
+Found Date                    : 9/29/94
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : see below
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[9/29/94 public]
+
+A number of the GDS FVTs have cell names hard-coded in the tests.  The
+problem is that it is a "Bad Thing" to have two DCE cells with the same
+name, so if you run the test on more than one machine at the same time one
+or more of your cells may become confused.
+
+The machine names, then, should be created during the test execution.  I
+suggest adding the hostname.  E.g., instead of:
+
+	/c=ie/o=digital
+
+Use
+
+	/c=ie/o=<hostname>
+or
+	/c=ie/o=digital/ou=<hostname>
+
+Here are a list of tests which have this problem:
+
+	gds_sec
+	switch_*
+
+Files which must be changed:
+
+gds/tools/local_TET.admin
+gds/ts/config/dsa11_init.bat
+gds/ts/config/dsa11_objects.tcl
+gds/ts/config/dsa12_init.bat
+gds/ts/config/dsa12_objects.tcl
+gds/ts/lib/shfuncs
+xds/tools/local_TET.api
+xds/ts/lib/shfuncs
+xds/ts/switch/switch_mt
+xds/ts/switch/switch_st
+xds/ts/switch/switch_DNS
+xds/ts/switch/lib/*
+
+[09/30/94 public]
+It is not that easy.
+It's easy to follow your proposal for the gds_sec tests but not for
+the switch tests. The switch tests use xt_test which includes
+xt_parms.h. The cell_names are hardcoded in xt_parms.h
+and are used for adding, reading, ...from CDS and to compare
+expected and received result.
+So: Do you want to have a fix for the gds_sec tests?
+For xt_tests it's too difficult and too late, I guess.
+
+[9/30/94 public]
+Don't spend any time on this (hence, the priority.)  This will have to wait
+until 1.2.
+
+[9/30/94 public]
+Adding pointer to ot12419, which concerns adding Porting & Testing Guide
+documentation to explain these problems.
+
+
+
+CR Number                     : 12373
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 12389
+Project Name                  : dce
+H/W Ref Platform              : i486,hppa
+S/W Ref Platform              : osf1,hpux
+Component Name                : gds
+Subcomponent Name             : gdsditadm
+Short Description             : missing values in mask 21
+Reported Date                 : 9/27/94
+Found in Baseline             : 1.1
+Found Date                    : 9/27/94
+Severity                      : D
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[9/27/94 public]
+
+Mask 21 does not display the value of the CDS attributes 'root dir UUID'
+and 'root dir name' after they have been entered.
+
+[09/28/94 public]
+Sorry - not reproducable here. 
+What I did was:
+gdsditadm
+
+- bind to default DSA
+- add (structure rule 2) C=dd
+- select attributes CDS-Cell and CDS-Replica
+- enter: 
+
+Namespace UUID: 1
+Root dir UUID: 2
+Root dir name: 3
+
+Replica type :      MASTER 
+Clearinghouse UUID: 4
+Clearinghouse name: 5
+Tower 1: 6
+Tower 2: 7
+Tower 3: 8
+Tower 4: 9
+Tower 5: 10
+
+Adding and displaying this object works here on RIOS.
+I'll check on HP and AT386.
+
+[9/28/94 public]
+Here are the values I used on the 486:
+
+Namespace UUID:		1af95b54-da3d-11cd-bee1-0800092543e8
+Root dir UUID:		1af95b54-da3d-11cd-bee1-0800092543e8
+Root dir name:		/.../c=ie/o=paddys/ou=cork
+
+Replica type:		MASTER
+Clearinghouse UUID:	1a4d8b08-da3d-11cd-bee1-0800092543e8
+Clearinghouse name:	/.../c=ie/o=paddys/ou=cork/prague_ch
+Tower 1:		ncacn_ip_tcp:130.105.5.41[]
+Tower 2:		ncadg_ip_udp:130.105.5.41[]
+<rest of towers blank>
+
+I also entered your values for Namespace and rootdir UUIDS, and root dir
+name, since on the phone we discussed some problem causes.  I again
+encountered the problem that Root dir UUID and root dir name are not
+displayed.
+
+I then deleted the CDS-cell attribute and re-added it.  Same problem.
+
+This seems to be confined to the CDS-Cell attribute, and not the
+CDS-Replica.
+
+[09/28/94 public]
+You are right - it fails on HP and AT386. It works on RIOS.
+Unbelievable.
+
+[9/28/94 public]
+The interesting question is:  is this simply that the mask won't redisplay
+the data (my initial assumption) or is the data not being stored?
+
+[09/28/94 public]
+The data is stored. I've switched on dua logging
+
+D2_LOG_LEVEL=7
+SVC_GDS_DBG="gds:*.$D2_LOG_LEVEL:BINFILE.1.100000:$D2_LOG_DIR/log%d"
+
+and saw in the logfile that the same encoded octet string has been returned
+as it has been entered:
+
+43.12.2.1107.1.3.4.13 Maximum number of values: 1 representation: OctetString
+attribute value, length: 6, offset: 8, representation: OctetString
+     0  31 00 32 00 33 00                                   |1 2 3           |
+
+But the interesting question is: Is the error in gdsditadm (which means 
+that just the attribute isn't displayed right) or in CDS?
+If it is in CDS then probably intercell can't work.
+I'll debug this now.
+
+[09/28/94 public]
+Opened OT 12389 (for cds): x500_str_to_cell returns
+
+  cell->root_uuid = NULL;
+  cell->root_name = NULL;
+
+[09/28/94 public]
+Sorry, Rich: I forgot to mention that I used a version of 08/20 on RIOS.
+This version used the old str_to_cell function (in gds/gda) which
+is defuncted now. So, of course: It also doesn't work on RIOS.
+
+
+
+CR Number                     : 12069
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : 
+Short Description             : bad error message for login to non-existing cache-dir-id
+Reported Date                 : 9/7/94
+Found in Baseline             : 1.1
+Found Date                    : 9/7/94
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[9/7/94 public]
+
+Do the following:
+
+- activate gds
+- call gdsditadm
+- login to the cache of a non-existing dir. id
+- try an arbitrary operation (i.e. Display Local and Default DSA)
+
+You will get:
+
+ERROR: Operation effects multiple DSAs (which is prohibited) !             
+           To continue press <CR> !
+
+This doesn't seem to make much sense.
+
+
+
+CR Number                     : 12046
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : svc
+Short Description             : program names not in svc logs
+Reported Date                 : 9/6/94
+Found in Baseline             : 1.1
+Found Date                    : 9/6/94
+Severity                      : E
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[9/6/94 public]
+
+John Bowe reports:
+
+GDS progs would produce more useful logs if they set the progname
+(dce_svc_set_progname())?  Currently, the logs say "PID#7678" (or
+whatever)...
+
+[09/06/94 public]
+Actually: almost all gds processes call d27_001_svc_init (gds/d27svc.c)
+which calls dce_svc_set_progname.
+The exceptions:
+
+1.) dua (gds/dua/d21log.c): the dua is linked to an application - libdua
+can't know what's the name of the application.
+(It could set "application", of course ...)
+
+2.) gdsdistcmd (gds/adm/usradmin/d20distcmd.c): could be done very easily
+
+Rich: shall I change gds/adm/usradmin/d20distcmd.c ?? I don't want to
+change gds/dua/d21log.c.
+
+
+
+CR Number                     : 12045
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : rtros
+Short Description             : RTROS conformance and interworking problems
+Reported Date                 : 9/6/94
+Found in Baseline             : 1.1
+Found Date                    : 9/6/94
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : some files in gds/rtros
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[9/6/94 public]
+
+While testing gds for conformance and interworking with other X.500
+implementations (ICL, Paradise) we have found several
+RTROS problems (session, presentation).
+This should be fixed in DCE 1.1 - otherwise we don't have
+a fully X.500 conformant GDS 1.1.
+
+[9/6/94 public]
+Please provide a list of files.
+
+[09/06/94 public]
+This is a sublist:
+
+./directory/gds/rtros/com/routil/routila.c
+./directory/gds/rtros/incl/roendeco.h
+./directory/gds/rtros/incl/rospm00.h
+./directory/gds/rtros/incl/rouply0.h
+./directory/gds/rtros/ros/roincl/rospm01.h
+./directory/gds/rtros/ros/roincl/rospm02.h
+./directory/gds/rtros/ros/roincl/rospm03.h
+./directory/gds/rtros/ros/roincl/rospm05.h
+./directory/gds/rtros/ros/roincl/rospm06.h
+./directory/gds/rtros/ros/roincl/rospm07.h
+./directory/gds/rtros/ros/rosepm/rospm00.c
+./directory/gds/rtros/ros/rosepm/rospm01.c
+./directory/gds/rtros/ros/rosepm/rospm02.c
+./directory/gds/rtros/ros/rosepm/rospm03.c
+./directory/gds/rtros/ros/rosepm/rospm04.c
+./directory/gds/rtros/ros/rosepm/rospm05.c
+./directory/gds/rtros/ros/rosepm/rospm06.c
+./directory/gds/rtros/ros/rosepm/rospm07.c
+
+
+It's only a sublist because the tests are still in progress.
+(This sublist is what has changed until 8/31.)
+We hope that all will be OK in the end of this week.
+
+[9/28/94 public]
+I understand that this work is still in progress.  I'm dropping this to a 2
+because it seems likely that this will come in late enough to have to go
+into the unintegrated tree for the 1.1 release.
+
+[10/12/94 public]
+We don't want to change the RTROS code now. So I defer this
+to DCE 1.2.
+
+
+
+CR Number                     : 11992
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : fvt
+Short Description             : tests should use dcecp
+Reported Date                 : 9/1/94
+Found in Baseline             : 1.1
+Found Date                    : 9/1/94
+Severity                      : E
+Priority                      : 4
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[9/1/94 public]
+GDS and XDS test scripts and testcases should use 'dcecp' for all cell
+configuration and maniuplation.  cdscp and rgy_edit should not be used.
+
+
+
+CR Number                     : 11314
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : gds
+Subcomponent Name             : xoms
+Short Description             : xoms_MT fails partially
+Reported Date                 : 7/14/94
+Found in Baseline             : 1.1
+Found Date                    : 7/14/94
+Severity                      : C
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : unknown
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[7/14/94 public]
+
+Running xoms_MT tests on HP800 I get:
+
+pass 12  tfail 0t.  .  .  .  T10extract1v
+pass 12  tfail 0t.  .  .  .  T10extract_attr1v
+pass 12  tfail 0t.  .  .  .  T10obj_to_str009v
+pass 12  tfail 0t.  .  .  .  T10str_to_attr007v
+pass 2  tfail 10t.  .  .  .  T10str_to_filter007v
+pass 12  tfail 0t.  .  .  .  T10str_to_filter033v
+pass 12  tfail 0t.  .  .  .  T10str_to_name003v
+pass 12  tfail 0t.  .  .  .  T10str_to_name016v
+pass 12  tfail 0t.  .  .  .  T10str_to_rdn004v
+
+I switched off the removal of the logfiles of the testcases;
+here is T10str_to_filter007v.milo.log:
+
+Directory tester: threads version 4.0t [Jul 13 1994  23:50:24]
+       arguments:  -c  -t  T10str_to_filter007v  -s  100000 
+[1]main thread: old interval.it_interval.tv_sec was 0
+[1]main thread: old interval.it_interval.tv_usec was 100000
+[1]main thread: new interval.it_interval.tv_sec was 0
+[1]main thread: new interval.it_interval.tv_usec was 100000
+[1]STARTstr_to_filter007v(startup): INITIALIZE returned OK
+[1]STARTstr_to_filter007v(startup): VERSION returned OK
+
+[1]Testcase STARTstr_to_filter007v(startup) passed
+[4]BODYstr_to_filter007v: 	(ERROR) expected and received OM_return_code from omX_string_to_object differ
+[4]BODYstr_to_filter007v: 	omX_string_to_object expected OM_SUCCESS
+[4]BODYstr_to_filter007v: 	omX_string_to_object returned OM_TEMPORARY_ERROR
+[4]BODYstr_to_filter007v:  Func xt_run : Function call FAILED
+[4]BODYstr_to_filter007v: STRING_TO_OBJECT returned ERROR
+
+[4]Testcase [4]BODYstr_to_filter007v failed
+[5]BODYstr_to_filter007v: 	(ERROR) expected and received OM_return_code from omX_string_to_object differ
+[5]BODYstr_to_filter007v: 	omX_string_to_object expected OM_SUCCESS
+[5]BODYstr_to_filter007v: 	omX_string_to_object returned OM_TEMPORARY_ERROR
+[5]BODYstr_to_filter007v:  Func xt_run : Function call FAILED
+[5]BODYstr_to_filter007v: STRING_TO_OBJECT returned ERROR
+
+[5]Testcase [5]BODYstr_to_filter007v failed
+[6]BODYstr_to_filter007v: 	(ERROR) expected and received OM_return_code from omX_string_to_object differ
+[6]BODYstr_to_filter007v: 	omX_string_to_object expected OM_SUCCESS
+[6]BODYstr_to_filter007v: 	omX_string_to_object returned OM_TEMPORARY_ERROR
+[6]BODYstr_to_filter007v:  Func xt_run : Function call FAILED
+[6]BODYstr_to_filter007v: STRING_TO_OBJECT returned ERROR
+
+[6]Testcase [6]BODYstr_to_filter007v failed
+[7]BODYstr_to_filter007v: 	(ERROR) expected and received OM_return_code from omX_string_to_object differ
+[7]BODYstr_to_filter007v: 	omX_string_to_object expected OM_SUCCESS
+[7]BODYstr_to_filter007v: 	omX_string_to_object returned OM_TEMPORARY_ERROR
+[7]BODYstr_to_filter007v:  Func xt_run : Function call FAILED
+[7]BODYstr_to_filter007v: STRING_TO_OBJECT returned ERROR
+
+[7]Testcase [7]BODYstr_to_filter007v failed
+[8]BODYstr_to_filter007v: 	(ERROR) expected and received OM_return_code from omX_string_to_object differ
+[8]BODYstr_to_filter007v: 	omX_string_to_object expected OM_SUCCESS
+[8]BODYstr_to_filter007v: 	omX_string_to_object returned OM_TEMPORARY_ERROR
+[8]BODYstr_to_filter007v:  Func xt_run : Function call FAILED
+[8]BODYstr_to_filter007v: STRING_TO_OBJECT returned ERROR
+
+[8]Testcase [8]BODYstr_to_filter007v failed
+[9]BODYstr_to_filter007v: 	(ERROR) expected and received OM_return_code from omX_string_to_object differ
+[9]BODYstr_to_filter007v: 	omX_string_to_object expected OM_SUCCESS
+[9]BODYstr_to_filter007v: 	omX_string_to_object returned OM_TEMPORARY_ERROR
+[9]BODYstr_to_filter007v:  Func xt_run : Function call FAILED
+[9]BODYstr_to_filter007v: STRING_TO_OBJECT returned ERROR
+
+[9]Testcase [9]BODYstr_to_filter007v failed
+[10]BODYstr_to_filter007v: 	(ERROR) expected and received OM_return_code from omX_string_to_object differ
+[10]BODYstr_to_filter007v: 	omX_string_to_object expected OM_SUCCESS
+[10]BODYstr_to_filter007v: 	omX_string_to_object returned OM_TEMPORARY_ERROR
+[10]BODYstr_to_filter007v:  Func xt_run : Function call FAILED
+[10]BODYstr_to_filter007v: STRING_TO_OBJECT returned ERROR
+
+[10]Testcase [10]BODYstr_to_filter007v failed
+[11]BODYstr_to_filter007v: 	(ERROR) expected and received OM_return_code from omX_string_to_object differ
+[11]BODYstr_to_filter007v: 	omX_string_to_object expected OM_SUCCESS
+[11]BODYstr_to_filter007v: 	omX_string_to_object returned OM_TEMPORARY_ERROR
+[11]BODYstr_to_filter007v:  Func xt_run : Function call FAILED
+[11]BODYstr_to_filter007v: STRING_TO_OBJECT returned ERROR
+
+[11]Testcase [11]BODYstr_to_filter007v failed
+[12]BODYstr_to_filter007v: 	(ERROR) expected and received OM_return_code from omX_string_to_object differ
+[12]BODYstr_to_filter007v: 	omX_string_to_object expected OM_SUCCESS
+[12]BODYstr_to_filter007v: 	omX_string_to_object returned OM_TEMPORARY_ERROR
+[12]BODYstr_to_filter007v:  Func xt_run : Function call FAILED
+[12]BODYstr_to_filter007v: STRING_TO_OBJECT returned ERROR
+
+[12]Testcase [12]BODYstr_to_filter007v failed
+[13]BODYstr_to_filter007v: 	(ERROR) expected and received OM_return_code from omX_string_to_object differ
+[13]BODYstr_to_filter007v: 	omX_string_to_object expected OM_SUCCESS
+[13]BODYstr_to_filter007v: 	omX_string_to_object returned OM_TEMPORARY_ERROR
+[13]BODYstr_to_filter007v:  Func xt_run : Function call FAILED
+[13]BODYstr_to_filter007v: STRING_TO_OBJECT returned ERROR
+
+[13]Testcase [13]BODYstr_to_filter007v failed
+[1]SHUTDOWNstr_to_filter007v(shutdown): SHUTDOWN returned OK
+
+[1]Testcase SHUTDOWNstr_to_filter007v(shutdown) passed
+
+
+If I run the test single - by hand - it works.
+
+I switched on XDS_LOG=1 and deleted some lines in TET 
+(which unset XDS_LOG if set - why, Leo ???) and did run TET again -
+now all worked fine.
+
+I checked xoms/xos.c : OM_TEMPORARY_ERROR is only returned if
+xos__invoke_xoi_initialize fails.
+
+Any idea, Naik or Chris? May be we need another mutex??
+
+[07/19/94 public]
+Now I could reproduce this problem with XDS_LOG=1 
+on thread_af/T10str_to_rdn011i: here is log_xds<pid>:
+
+[1] ==========================================================================
+[1] Tue Jul 19 12:22:16          PROCESS-ID: 9686          USER-ID: root
+[1] 
+[1] --------------------------------------------------------------------------
+[1] -> ds_initialize()
+[1] 
+[1]    NOTICE: default DSA name:   85.4.6^Cde^A85.4.10^Cdbp^A85.4.11^Cdap11^A85
+.4.3^Cdsa^A85.4.3^Cdsa-m1
+[1]    NOTICE: workspace 0 has been initialized
+[1] 
+[1] <- ds_initialize()
+[1] 
+[1] --------------------------------------------------------------------------
+[1] -> ds_version()
+[1] 
+[1]    INPUT ARGUMENTS:
+[1] 
+[1] feature_list = {
+[1]   { DS_BASIC_DIR_CONTENTS_PKG, OM_TRUE },
+[1]   { DS_MHS_DIR_USER_PKG, OM_TRUE },
+[1]   { DSX_GDS_PKG, OM_TRUE },
+[1] }; /* feature_list */
+[1] 
+[1]    NOTICE: Basic Directory Contents Package activated
+[1]    NOTICE: MHS Directory User Package activated
+[1]    NOTICE: Global Directory Service Package activated
+[1]    NOTICE: default-session is a DSX_C_GDS_SESSION object
+[1]    NOTICE: default-context is a DSX_C_GDS_CONTEXT object
+[1] 
+[1] <- ds_version()
+[1] 
+[1] --------------------------------------------------------------------------
+[1] -> ds_initialize()
+[1] 
+[1]    NOTICE: default DSA name:   85.4.6^Cde^A85.4.10^Cdbp^A85.4.11^Cdap11^A85
+.4.3^Cdsa^A85.4.3^Cdsa-m1
+[1]    NOTICE: workspace 1 has been initialized
+[1] 
+[1] <- ds_initialize()
+[1] 
+[1] --------------------------------------------------------------------------
+[1] -> ds_version()
+[1] 
+[1]    INPUT ARGUMENTS:
+[1] 
+[1] feature_list = {
+[1]   { DSX_GDS_PKG, OM_TRUE },
+[1]   { DS_BASIC_DIR_CONTENTS_PKG, OM_TRUE },
+[1] }; /* feature_list */
+[1] 
+[1]    NOTICE: Global Directory Service Package activated
+[1]    NOTICE: default-session is a DSX_C_GDS_SESSION object
+[1]    NOTICE: default-context is a DSX_C_GDS_CONTEXT object
+[1]    NOTICE: Basic Directory Contents Package activated
+[1] 
+[1] <- ds_version()
+[1] 
+[4]    ERROR: Invalid XOM object info schema File </opt/dcelocal/var/adm/direct
+ory/gds/adm/xoischema> - Error <-24>  Line No.<185>
+[1] --------------------------------------------------------------------------
+[1] -> ds_shutdown()
+[1] 
+[1]    NOTICE: workspace 1 has been shutdown
+[1] 
+[1] <- ds_shutdown()
+[1] 
+
+It doesn't happen always - sometimes all testcases do run, sometimes
+T10str_to_rdn011i is failing, sometimes another one is dumping core, ...
+
+[8/24/94 public]
+Didn't see this when running FVT against BL16.  I'll try running this
+repetitively overnight.
+
+[8/25/94 public]
+Haven't been able to reproduce this.
+
+[9/1/94 public]
+Closing this because I haven't seen it.  Will reopen if it turns up during
+later testing.
+
+[10/12/94 public]
+Reopened. See 12581. Same behaviour.
+We tested this some months ago. Sometimes just the testcase was failong -
+sometimes it dumped core with exactly the stack shown in 12581.
+We have no idea what the problem really is. All we know is that
+sometimes the sscanf fails when the xoi_schema file is read.
+
+[10/12/94 public]
+Dropping this to C1 for the following reasons:  even though it results in a
+core dump, which is usually an A, this seems to happen so rarely that an
+acceptable workaround really is 'run the test again.'  Also, this isn't a 0
+because it isn't the highest priority defect to work on right now.
+
+
+
+CR Number                     : 11226
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486,hppa
+S/W Ref Platform              : osf1,hpux
+Component Name                : gds
+Subcomponent Name             : gds_admin_gdref
+Short Description             : system resources should be documented
+Reported Date                 : 7/8/94
+Found in Baseline             : 1.1
+Found Date                    : 7/8/94
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[7/8/94 public]
+The following tests failed:
+
+GDSSETUP: TEST CASE begin.setup -> FAILED 
+GDSSETUP: TEST CASE sv_domdef4 -> FAILED 
+GDSSETUP: TEST CASE sv_domdef4.cleanup -> FAILED 
+GDSSETUP: TEST CASE sv_nodom4 -> FAILED 
+GDSSETUP: TEST CASE sv_nodom4.cleanup -> FAILED 
+
+Here's information from the output logs:
+
+  ---> Start of  valid.begin.setup.log
+  
+  sleep
+  gdssysadm -fd
+  gdssysadm -fA
+  sleep
+  sleep
+  sleep
+  sleep
+  Error: Some part of the directory is currently not available.
+    
+
+
+
+---> Start of  valid.sv_domdef4.cleanup.log
+
+Error: The specified name does not match the name of any object in the directory.
+
+---> Start of  valid.sv_domdef4.log
+
+ERROR
+gc_t_read /C=de/O=dbp/OU=dap11/CN=dsa/CN=dsa-m8
+    The DSA is unable to perform the request as directed.
+ERROR
+CONFIGURATION of GDS ...
+INITIALISATION and ADMINISTRATION of GDS ...
+Sleep for 60 sec.
+Sleep for 60 sec.
+
+---> Start of  valid.sv_nodom4.cleanup.log
+
+Error: The specified name does not match the name of any object in the directory.
+
+---> Start of  valid.sv_nodom4.log
+
+/C=de/O=dbp/OU=dap11/CN=dsa/CN=dsa-m1 already exists and overwrite not sets. Attributes will remain unchange
+d.
+/C=de already exists and overwrite not sets. Attributes will remain unchanged.
+ERROR
+gc_t_read /C=de/O=dbp/OU=dap11/CN=dsa/CN=dsa-m8
+    The DSA is unable to perform the request as directed.
+ERROR
+CONFIGURATION of GDS ...
+INITIALISATION and ADMINISTRATION of GDS ...
+Sleep for 60 sec.
+Sleep for 60 sec.
+
+[07/11/94 public]
+I tried to reproduce this on HP800: of course it worked fine for me.
+All passed.
+
+[7/11/94 public]
+Reran the test on OSF, HP, RIOS:
+
+	OSF:	failed, details below
+	HP:	failed, details below
+	RIOS:	passed
+
+I'll update the results of HP and RIOS tomorrow.
+
+On OSF a different set of tests did not pass.  (I've removed the *cleanup
+test cases under the assumption that they failed because the test failed.)
+
+GDSSETUP: TEST CASE begin.setup -> FAILED 
+  Error: Some part of the directory is currently not available.
+
+GDSSETUP: TEST CASE sv_domdef4 -> FAILED 
+  ERROR
+  gc_t_read /C=de/O=dbp/OU=dap11/CN=dsa/CN=dsa-m8
+      The DSA is unable to perform the request as directed.
+  ERROR
+    
+GDSSETUP: TEST CASE sv_domnodef1 -> FAILED 
+Gdssetup: TEST CASE sv_domnodef2 -> FAILED 
+GDSSETUP: TEST CASE sv_domnodef4 -> FAILED 
+GDSSETUP: TEST CASE sv_domnodef5 -> FAILED 
+GDSSETUP: TEST CASE sv_domnodef6 -> FAILED 
+GDSSETUP: TEST CASE sv_init2 -> FAILED 
+GDSSETUP: TEST CASE sv_init4 -> FAILED 
+GDSSETUP: TEST CASE sv_init5 -> FAILED 
+GDSSETUP: TEST CASE sv_init6 -> FAILED 
+GDSSETUP: TEST CASE sv_nodom1 -> FAILED 
+GDSSETUP: TEST CASE sv_nodom2 -> FAILED 
+GDSSETUP: TEST CASE sv_nodom3 -> FAILED 
+GDSSETUP: TEST CASE sv_nodom4 -> FAILED 
+GDSSETUP: TEST CASE sv_nodom5 -> FAILED 
+GDSSETUP: TEST CASE sv_nodom6 -> FAILED 
+(all of the above had the same error):
+
+  ERROR
+  File /opt/dcelocal/var/directory/gds/dsa/dir3/dsaname could not be opened.
+
+And, indeed:
+  root@gemini gds/outdir.gemini$ \ls -1F /opt/dcelocal/var/directory/gds/dsa
+  asn1_attr
+  attr0.dat
+  attr0.idx
+  attr1.dat
+  attr1.idx
+  attr2.dat
+  attr2.idx
+  conf
+  dir1/
+  dir2/
+  dir4/
+  dir5/
+  dir6/
+  dir7/
+  dir8/
+  dversion
+  objects0.dat
+  objects0.idx
+  schema_ib
+
+[7/12/94 public]
+Details of the HP failure.  Testcases failing:
+
+	sv_domdef1
+	sv_domnodef5
+	sv_domnodef6
+	sv_init4
+	sv_nodom2
+	sv_nodom5
+
+The failures all seemed to encounter the following problem:
+
+---> Start of  valid.sv_domdef1.cleanup.log
+
+1994-07-11-18:21:08.271-04:00I----- PID#28132 FATAL gds ipc d23util.c 104 0x7affc1f0
+Semaphore operation failed (operation = -1, errno = 28).
+1994-07-11-18:21:08.288-04:00I----- PID#28132 FATAL gds ipc d23bind.c 100 0x7affc1f0
+Synchronisation of IPC-shared memory access failed
+1994-07-11-18:21:08.563-04:00I----- PID#28132 FATAL gds ipc d23util.c 104 0x7affc1f0
+Semaphore operation failed (operation = -1, errno = 28).
+1994-07-11-18:21:08.568-04:00I----- PID#28132 FATAL gds ipc d23bind.c 100 0x7affc1f0
+Synchronisation of IPC-shared memory access failed
+Error: Some part of the directory is currently not available.
+1994-07-11-18:21:08.736-04:00I----- PID#28132 FATAL gds ipc d23util.c 104 0x7affc1f0
+Semaphore operation failed (operation = -1, errno = 28).
+1994-07-11-18:21:08.747-04:00I----- PID#28132 FATAL gds ipc d23cdetach.c 77 0x7affc1f0
+Synchronisation of IPC-shared memory access failed
+
+---> Start of  valid.sv_domdef1.log
+
+1994-07-11-18:21:02.755-04:00I----- PID#27840 FATAL gds ipc d23util.c 104 0x7affc1f0
+Semaphore operation failed (operation = -1, errno = 28).
+1994-07-11-18:21:02.770-04:00I----- PID#27840 FATAL gds ipc d23bind.c 100 0x7affc1f0
+Synchronisation of IPC-shared memory access failed
+1994-07-11-18:21:03.615-04:00I----- PID#27840 FATAL gds ipc d23util.c 104 0x7affc1f0
+Semaphore operation failed (operation = -1, errno = 28).
+1994-07-11-18:21:03.621-04:00I----- PID#27840 FATAL gds ipc d23bind.c 100 0x7affc1f0
+Synchronisation of IPC-shared memory access failed
+ERROR
+ gc_t_modify43.12.2.1107.1.3.4.10=CLIENT -attribute PSA={TS=Server,NA='TCP/IP!internet=127.0.0.1+port=31010'} 
+A miscellaneous error occurred while interacting with the Directory Service.
+ERROR
+1994-07-11-18:21:03.841-04:00I----- PID#27840 FATAL gds ipc d23util.c 104 0x7affc1f0
+Semaphore operation failed (operation = -1, errno = 28).
+1994-07-11-18:21:03.852-04:00I----- PID#27840 FATAL gds ipc d23cdetach.c 77 0x7affc1f0
+Synchronisation of IPC-shared memory access failed
+
+[07/14/94 public]
+There are several problems:
+1.) 
+
+File /opt/dcelocal/var/directory/gds/dsa/dir3/dsaname could not be opened.
+
+You get this when you stop tests in a critical status (i.e. when configuring
+of dir. id 3 is in progress) and rerun them after this. 
+
+2.)
+
+Semaphore operation failed (operation = -1, errno = 28).
+
+This happens if too much processes try to work with Semaphores.
+Usually it happens if you hab=ven't started the tests from
+a clean gds.
+A fix for this is promised for the next submit - hopefully today.
+
+We'll rerun the gdssetup tests ; we'll see what happens.
+
+[07/20/94 public]
+The system resource for the semaphore undo operation is too low.
+A new kernel with a higher value must be built. On SVR4 we
+have the following values:
+	SEMMNU  200 (maximal number og processes with undo's)
+	SEMUME   20 (maximal number of undo's per process)
+
+[07/20/94 public]
+It must be documented, that the final DCE product has to rebuild the
+kernel during installation with the increased resource values
+for the semaphores.
+
+[7/22/94 public]
+I don't agree that this is a doc issue and I don't agree that the solution
+is to rebuild the kernel.  I would like to know why the solution is not in
+the code.
+
+[08/03/94 public]
+This is my opinion:
+
+A normal gds configuration (let's say 5 directory id's with the default
+Client/Server configuration) works on all known UNIX machines -
+nobody has to rebuild the kernel because of semaphores, ...
+All gds testcases should run with the normal machine setup.
+
+If somebody wants to use i.e. all 20 dir. id's each of them with
+256 clients and 256 servers he probably can't do it with the
+default setup. You have to change both : gds setup and machine
+setup. gdssetup means i.e. IPC setup
+(/opt/dcelocal/var/adm/directory/gds/adm/ipcconf - gdsipcinit
+is started with the parameters from ipcconf - this is documented,
+as far as I know). Machine setup means number of processes per user,
+semaphore stuff, ...
+
+So: my opinion: We should document what machine ressources are needed
+per directory id, per client, per server, ... 
+
+I repeat: All gds testcases should run with the normal machine setup.
+I hope they really do.
+OK, Rich?
+
+[08/18/94 public]
+All testcases do work now.
+So it's a doc issue.
+
+[08/18/94 public]
+Reassigned to writer Rich Nollman.
+
+[10/17/94 public]
+All test cases now run with the normal machine setup. However, it should
+be documented what system resources are required by various GDS
+configurations. This cannot be done before the doc tree gets frozen.
+Therefore deferred.
+
+[7/12/96 public]
+
+Assigned to HP. For some reason I missed the (obsolete) assignment to
+Nollman until now.
+
+[9/18/96 public]
+Changed priority of GDS bug.
+
+
+
+CR Number                     : 11208
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : ASN1
+Short Description             : asn1.h should be more portable
+Reported Date                 : 7/8/94
+Found in Baseline             : 1.1
+Found Date                    : 7/8/94
+Severity                      : E
+Priority                      : 4
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[7/8/94 public]
+In particular, a lot of lines are spent setting WORD and REALWORD for each
+platform.  WORD is the number of bytes per word, REALWORD appears to be the
+byte size.  This extended nested-if could be condensed such that WORD could
+be calculated using WORD_BIT which is provided in limits.h.  I suppose we
+could assume that bytes are always octets and let those few remaining
+platforms that have different bytes sizes handle the calculations as a
+special case.
+
+[10/17/94 public]
+Deferred for 1.2.
+
+
+
+CR Number                     : 11047
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : gdsdirinfo
+Short Description             : alarming message from gdsdirinfo
+Reported Date                 : 6/22/94
+Found in Baseline             : 1.1
+Found Date                    : 6/22/94
+Severity                      : E
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[6/22/94 public]
+If you invoke gdsdirinfo and GDS is not running, you get the following
+message:
+
+  root@gemini gds/ts$ gdsdirinfo 
+  A shmget system call has failed (key = 1141200052, access mode = 666,
+errno = 2). 
+
+Which is rather alarming.  Formerly, gdsdirinfo would simply exit quietly
+if GDS was not running.
+
+This occurs on HP and 486.
+
+[06/23/94 public]
+This is OK. If exception logging is switched off exception logging
+is put to stderr (see gds/util/d27svc.c: function d27_001_svc_init, line 161).
+(d27_001_svc_init is called by gdsdirinfo: gds/ipc/d23dirinfo.c, line 129.)
+
+You can avoid to get these messages by setting 
+SVC_FATAL=FILE:/dev/null.
+
+"errno = 2" means: all is OK. If you get other errno:
+Something is wrong, and probably you can't activate.
+I.e. "errno = 22" normally means that some gds processes are still running
+(esp. attached to IPC). The right action is :
+
+ps -ef|grep gds
+kill -9 ...
+gdssysadm -fA
+
+[6/23/94 public]
+So how is it that a message which means everything is okay is logged as a
+fatal SVC message?
+
+[07/07/94 public]
+gdsdirinfo calls a ipc function (let's say d23_xxx) which is used 
+not only by gdsdirinfo. d23_xxx calls shmget; if this fails
+an exception is traced. This happens in d23_xxx - of course
+independent on who called this function.
+
+The "alarming message" is documented in the man page
+for "gdsdirinfo". So I think this defect should be cancelled.
+
+[7/7/94 public]
+Yes, it is documented.  That's why it's an E3.  It is still, in my opinion,
+a defect.
+
+
+
+CR Number                     : 10300
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 11252
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : gds
+Subcomponent Name             : libs
+Short Description             : GDS builds libraries unnecessarily
+Reported Date                 : 4/5/94
+Found in Baseline             : 1.1
+Found Date                    : 4/5/94
+Severity                      : E
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[4/5/94 public]
+When building GDS with libdce, some individual libraries which are
+components of GDS are built despite the fact that they are in libdce.
+(Hence, they shouldn't be used independently.)
+
+They are:	libasn1.a
+		libdua.a
+		libdua_r.a
+		libd21sw.a
+		libslog.a
+		libXDS.a
+		libXOM.a
+		libxoms.a
+
+[04/06/94 public]
+
+We want to build these libraries because:
+
+In the phase of developing and testing you often need to debug.
+Debuggers like xdb (HP) and dbx (RIOS) have difficulties with
+debugging shared libraries (libdce). So many developers
+link there processes with the static libraries (in there sandbox).
+That means that the libraries should be built in the common backing tree.
+
+I propose that we change the Makefiles (dua, xds, ...) just before the
+code freeze. I will take responsibility for that.
+
+[6/20/94 public]
+A licensee has requested that there be an option to build either static
+libraries or use the dynamic APIs in libdce.so.
+
+[07/11/94 public]
+Opened OT 11252 to get the option Rich has described above.
+
+
+
+CR Number                     : 9905
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : gds
+Subcomponent Name             : bld
+Short Description             : libNDS.so is created twice
+Reported Date                 : 2/8/94
+Found in Baseline             : 1.1
+Found Date                    : 2/8/94
+Severity                      : B
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[2/8/94 public]
+During build on OSF/1 system, the libNDS.so is removed and created two times,
+causing an error, when build tries to overwrite the existing lib.
+
+
+
+CR Number                     : 9358
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : gdsstub gdscstub
+Short Description             : stubs die under stress
+Reported Date                 : 11/4/93
+Found in Baseline             : 1.0.3
+Found Date                    : 11/4/93
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : gds/stub/d25revent.c
+					     gds/stub/d25uaction.c
+					     gds/h/d27util.h
+					     gds/ros/step/d27loga.c
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[11/4/93 public]
+During a run of the gds_xds_str_001 system test, all of the C-stub 
+processes on the non-initial DSA's are observerd to die, and the S-stub
+on the initial dsa dies.  Further, on the 486 client, an attempt to bind
+to the default (remote) DSA results in the C-stub exiting.
+
+The configuration was as follows:
+
+ Machine     Platform   DSA-Name  Dir-Id  GDS-Type  Default-DSA  Initial-DSA  
+----------   --------   --------  ------  --------  -----------  -----------
+ dce2        HP-UX       dsa-m1     1     cli-srv    dsa-m1      dsa-m1        
+                                    2     client     dsa-m2            
+
+ ironman     486/OSF1    dsa-m2     1     cli-srv    dsa-m1      dsa-m1        
+                                    2     cli-srv    dsa-m2
+
+ darkman     HP-UX       darkman    1     cli-srv    dsa-m1      dsa-m1
+                                    2     client     dsa-m2            
+
+ soldier     HP-UX       soldier    1     cli-srv    dsa-m1      dsa-m1
+                                    2     client     dsa-m2            
+                    
+
+ dce2 and ironman were running two xt_test clients each, and 
+ darkman and soldier were running 1 xt_test client each. 
+
+ Each xt_test client was spawning 10 threads to perform various
+ combinations of binds/reads/searches/unbinds.
+
+ Jochen has trace logs and is looking into the problem.
+
+[11/08/93 public]
+The current state of this defect is as follows:
+ 
+  The gds_xds_str_001 test causes the S-Stub and C-Stubs to exit after a 
+  short (< 4 hour) period of time.  This behavior is observed if the test
+  is run in the following scenarios:
+
+       3 machines, 2 clients/machine, 10 threads per client = 60 threads
+       4 machines, 6 total clients, 10 threads per client =   60 threads
+       4 machines, 1 client/machine, 10 threads/client    =   40 threads
+       4 machines, 1 client/machine, 8 threads/client     =   32 threads
+
+  The problem (according to Jochen Keutel) seems to be related to
+  contention for IPC resources.  In line with this reasoning, I ran the 
+  test with 60, 40 and 32 threads after configuring the directory system 
+  on each machined involved in the test for 256 client processes with no
+  improvement in the test results.
+
+  The question has arisen as to the fairness of the test; ie: can GDS be
+  reasonably expected to handle this leve of stress?  Does this bear any
+  resemblence to the stress/load we expect for GDS in actual usage?  
+
+  The answer to the second question is almost impossible to answer with 
+  any level of certainty.  The application of GDS ranges from the 
+  lookup system for a mail system (very stressful), to a respository of 
+  global names that is only referred if local name searches fail (barely
+  stressful).  There are few if any case studies of GDS installations that
+  might contribute data to an answer for this question.
+
+  With regard to the first question, Dave Lounsebury has made the command 
+  decision that the implemetation MUST pass at the following levels:
+     1. MUST pass with a total of 16 threads
+     2. SHOULD pass with as many as 32 threads.
+
+  I will be re-running to get results for the 16 thread run today.
+
+[11/10/93 public]
+Stubs don't die any more, if resources are low.
+
+[11/10/93 public]
+Lowered priority and rolled over to 1.1 so we can continue to track this.
+
+[7/11/94 public]
+Increased priority.  This should be resolved in 1.1
+
+[8/18/94 public]
+We believe this has been fixed by other submissions -- it certainly has in
+the FVTs.  Dropping priority to 2 until the fix is verified by the system
+test suite.
+
+[10/12/94 public]
+Just as a closing note from DCE1.1:  the system tests were never run during
+the final parts of the DCE1.1 endgame cycle so we don't know whether this
+defect occurs or not.  I encourage the next GDS component owner to look
+into this.
+
+
+

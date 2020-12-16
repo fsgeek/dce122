@@ -1,0 +1,1372 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: threads.gpsml,v $
+...\" Revision 1.1.2.11  1995/06/27  17:04:33  buckler
+...\" 	1.1 edits and Prentice Hall reformat
+...\" 	[1995/06/27  17:02:56  buckler]
+...\"
+...\" 	More 1.1 edits.
+...\" 	[1995/06/23  13:45:46  buckler]
+...\"
+...\" Revision 1.1.2.10  1995/06/19  20:14:02  rcb
+...\" 	edited 1.1 version, PRENTICE HALL reformat
+...\" 	[1995/06/19  20:10:25  rcb]
+...\" 
+...\" Revision 1.1.2.9  1994/11/15  20:48:06  neilson
+...\" 	Converted book title references to macro form.
+...\" 	[1994/11/15  18:58:13  neilson]
+...\" 
+...\" Revision 1.1.2.8  1994/11/15  16:22:49  weir
+...\" 	Indexing added
+...\" 	[1994/11/15  16:22:08  weir]
+...\" 
+...\" Revision 1.1.2.7  1994/10/19  20:48:27  weir
+...\" 	Review comments
+...\" 	[1994/10/19  20:47:37  weir]
+...\" 
+...\" Revision 1.1.2.6  1994/10/19  16:02:59  weir
+...\" 	Review comments and edits
+...\" 	[1994/10/19  16:02:16  weir]
+...\" 
+...\" Revision 1.1.2.5  1994/10/11  14:05:55  weir
+...\" 	Updates
+...\" 	[1994/10/11  14:05:05  weir]
+...\" 
+...\" Revision 1.1.2.4  1994/09/23  19:57:53  weir
+...\" 	Updates for review
+...\" 	[1994/09/23  19:57:06  weir]
+...\" 
+...\" Revision 1.1.2.3  1994/08/17  20:56:33  weir
+...\" 	First set of updates
+...\" 	[1994/08/17  20:55:47  weir]
+...\" 
+...\" Revision 1.1.2.2  1994/06/13  18:22:41  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  18:20:07  devobj]
+...\" 
+...\" Revision 1.1.2.1  1994/03/11  23:05:17  rom
+...\" 	{enh, 10129, R1.1}
+...\" 	Initial split of App Dev Guide into three books and creation of
+...\" 	Intro and Style Guide.
+...\" 	[1994/03/11  23:01:59  rom]
+...\" 
+...\" $EndLog$
+...\" 
+...\" 
+...\" 
+...\" /********************************************************************/
+...\" 
+...\" 
+.nr H1 1
+...\" ----------------------------------------------------------------------
+.H 1 "Threads"
+...\" ----------------------------------------------------------------------
+.P
+Threads as used specifically in DCE applications raise several obvious policy
+issues which may be summarized, roughly, as follows:
+.ML
+.LI
+When to use multiple threads
+.LI
+How many threads to use
+.LI
+What scheduling and priority attributes to apply
+.LE
+.P
+These issues are covered in Section 2.1.
+.P
+Beyond these obvious policy questions, however, threads raise a tricky
+issue for a programming policy guide because it is not always clear where
+the line between mechanism and policy lies.  Multithreaded programming in
+general requires a number of practices that are likely to be unfamiliar and
+unintuitive to many programmers, and errors arising from failure to follow
+these practices can be obscure, infrequent, and difficult to reproduce.  One
+result is that an incorrect program can easily appear to be correct.
+.P
+A typical case is a program that performs the following sequence of steps:
+.iX "\*Lpthread_create(\|)\*O"
+.iX "\*Lpthread_setprio(\|)\*O"
+.oS
+pthread_create(&thread . . .);
+pthread_setprio(thread . . .);
+.oE
+.P
+From the point of view of a single thread, this may seem like a logical
+sequence of steps, yet it contains a fundamental error: the spawned thread
+may well have begun to execute, or even have terminated, by the time the
+call to \*Lpthread_setprio(\|)\*O occurs.  The result is a program whose
+behavior is indeterminate, and which may fail unpredictably.  The correct
+procedure is to use a thread attributes object to set the thread's
+.iX "threads" "attributes object"
+priority when it is created.
+.P
+Strictly speaking, this is really a programming \*Emechanism\*O issue,
+since the failure to follow the rule results in an incorrect program.
+However, errors of this type can be obscure: in fact, the resulting
+program might never fail due to this error.  There are many such error
+possibilities in a multithreaded program that can result in all kinds
+of deadlocks, race conditions, and data corruption.  Yet these errors
+can sometimes be so obscure as to be extremely difficult to analyze
+\*Ea priori\*O, and failures may occur so rarely as to be virtually
+unreproducible.
+.P
+As a result, correct use of threads mechanisms requires following a set of
+general rules designed to avoid errors that may or may not occur in specific
+cases.  For example, locks must be taken and released in the same strict order.
+Rules like this are in not enforced by the thread programming mechanisms,
+and failure to follow them will not always result in program failures.  In
+fact, failure to obey these rules may not always be a programming error:
+depending on the program, it is certainly possible that there is no possible
+execution path where failure to follow a rule would result in an error
+(although this might be difficult to establish \*Ea priori\*O).
+.P
+As a result, such rules have in some sense the flavor of policy
+recommendations: they are a set of disciplines for avoiding certain
+classes of problems which threads programmers can assume to exist, in
+general, even though they might not arise in specific cases.  Because of
+this, and because these rules may be unfamiliar to many programmers, it
+seems wise to repeat them in summary form in this policy guide.  Moreover,
+because DCE client and server applications are implicitly multithreaded,
+even when the application itself makes no thread related calls, it is also
+important to identify when application code must be thread safe.  These
+issues are covered in Section 2.2.
+.P
+The remaining sections of this chapter cover a variety of specific policy
+and usage issues relating to DCE threads.  Thread handles and thread-private
+data are discussed in Sections 2.3.1 and 2.3.2.
+.P
+.ne 3
+Cancels and signals introduce
+a number of specific semantic issues that applications must be aware of when
+programming in a multithreaded environment.  These are covered in Sections
+2.3.3 and 2.3.4 respectively.  Finally, DCE introduces the concept of an RPC
+thread.  This is intended to extend the semantics of a local thread of
+execution across two address spaces in the course of an RPC.  However, the
+extension is not entirely transparent, and applications need to be aware of
+the semantic peculiarities of RPC threads.  These are covered in Section 2.4.
+...\" ----------------------------------------------------------------------
+.H 2 "Thread Use Policy"
+...\" ----------------------------------------------------------------------
+.P
+Thread use policy questions arise in the following two ways:
+.ML
+.iX "multithreadedness" "in servers"
+.iX "multithreadedness" "in clients"
+.LI
+Server manager code is multithreaded by default, and applications can
+specify the degree of multithreading.
+.LI
+Client code can be made multithreaded by making threads API calls.
+.LE
+...\" ----------------------------------------------------------------------
+.H 3 "Choosing to Thread"
+...\" ----------------------------------------------------------------------
+.iX "multithreadedness" "advantages and disadvantages of"
+.iX "multithreadedness" "and single processors"
+.iX "multithreadedness" "and multiprocessors"
+.iX "DCE threads" "user-space implementation"
+.iX "multithreadedness" "and blocking"
+.P
+The choice of multithreading is really a question of specific application design,
+and only general guidelines can be supplied here.  Application programmers need to
+be aware that, depending on the threads implementation and the underlying hardware,
+concurrency may be more apparent than real for many applications.  If threads are
+being time-sliced on a single processor, nonblocking activites will not go any
+faster because they are multithreaded.  In fact, given the extra overhead of a
+given threads implementation, they may be slower.  Even on a multiprocessor, with
+the DCE user-space threads implementation, all threads in a single process contend
+for the same processor.
+.P
+On the other hand, if multiple threads are carrying out activities that may 
+block\(emand this includes making RPCs to remote hosts\(emthen 
+multithreading will
+probably be beneficial.  For example, multiple concurrent RPCs to several hosts may
+allow a local client to achieve true parallelism.  Note however, that concurrent RPCs
+to a single server instance may not be any more efficient if the server itself
+cannot get any real benefit from multithreading of the manager code.
+.P
+RPC servers are multithreaded by default, since multithreading is an obvious way
+for servers to simultaneously handle multiple calls.
+...\" Big question: do you really have a choice? that is, does requesting a
+...\"   nondefault 1 thread really get you just one manager thread, or is
+...\"   this just a hint?
+.iX "threads" "scheduling policies"
+Even if the manager code and underlying implementation do not permit true parallelism,
+manager multithreading may at least allow a fairer distribution of processing time
+among competing clients.  For example, a client that makes a call that can complete in
+a short time may not have to wait for a client that is using a lot of processor time
+to complete.  For this to occur, threads must make use of one of the time-sliced
+scheduling policies (including the default policy).  On the other hand, if all calls
+make use of approximately similar resources, then multithreading may become simply
+an additional, possibly expensive, form of queueing unless the application or the
+environment permits real parallelism.
+.P
+In summary, the developer must consider the following questions in order to
+decide whether an application will benefit from multithreading:
+.ML
+.iX "multithreadedness" "questions to consider when adding to applications"
+.LI
+Are the threaded operations likely to block, for example, because they make blocking
+I/O calls or RPCs? If so, then multithreading is likely to be beneficial in any
+implementation or hardware environment.
+.LI
+Can the underlying hardware and RPC implementation support threads on more than
+one processor within a single process? If not, then multithreading cannot achieve
+real parallelism for processor intensive operations.  The DCE user-space threads
+implementation restricts all threads of a single process to contend for a single
+processor and so cannot provide real parallelism for processor intensive operations.
+.LI
+Even if the answer to both of the first two questions is yes, will the use of
+a time-slicing thread scheduling policy permit fairer distribution of server resources
+among contending clients? If so, then server manager multithreading may be beneficial.
+.LE
+.iX "multithreadedness" "complexity cost of"
+.P
+Even if, according to these criteria, multithreading is likely to benefit an
+application, the programmer still needs to consider the cost, in terms of
+additional complexity, of writing multithreaded code.  In general, most server
+manager code will probably benefit from multithreading, which is provided by
+default by DCE.  Most server applications will therefore choose to be
+multithreaded
+...\" [do you really have a choice?]
+and incur the extra costs of creating thread-safe code.  Whether client code
+will find the extra complexity of multithreading worthwhile really depends
+on a careful assessment of the listed criteria for each program design.  There
+is no way to predict what a ``typical'' client will do.
+...\" ----------------------------------------------------------------------
+.H 3 "Specifying the Number of Threads"
+...\" ----------------------------------------------------------------------
+.iX "threads" "specifying the number of in server"
+.P
+The RPC runtime allows server applications to specify the number of manager
+threads available to handle concurrent RPCs via the \*Vmax_calls_exec\*O
+.iX "incoming RPCs" "specifying maximum concurrency of"
+.iX "buffer" "incoming RPC call request"
+.iX "\*Lrpc_server_listen(\|)\*O"
+parameter of the \*Lrpc_server_listen(\|)\*O routine.  The runtime also allows
+applications to specify the number of unhandled calls that can be queued via the
+\*Vmax_call_requests\*O parameters of the 
+\*Lrpc_\%server_\%use_\%\*V*\*Lprotseq\*V*\*L(\|)\*O routines.
+In theory, these two values should be set in conjunction, but in practice, the
+interpretation of the \*Vmax_calls_requests\*O parameter is highly dependent on
+protocol and implementation.  
+.P
+For example, in a connection-oriented protocol based on Berkeley sockets, the
+socket backlog\(emthe number of connections which may be queued on a socket
+pending acceptance\(emtypically has a value of five.
+...\" Therefore such a runtime
+...\" can provide multiples of five queued connection requests by providing additional
+...\" sockets.  However, this scheme is limited by the fact that only one socket can
+...\" be created per endpoint.  Hence, an application that listens on a well-known
+...\" endpoint is limited to five queued connections.
+.P
+Portable applications should therefore not rely on \*Vmax_calls_requests\*O as
+anything more than a hint to the runtime about the number of queued calls 
+desired.  Note well that the \*Vmax_call_requests\*O parameter \*Edoes not 
+set\*O the number of calls that can be handled concurrently.  That is strictly 
+a function of the number of call threads, as specified by 
+\*Vmax_calls_exec\*O.  The \*Vmax_call_requests\*O parameter simply specifies 
+(as a hint) the number of calls that can be queued prior to being picked up 
+by call threads.
+...\" [Anybody have any data on the effect of different numbers of call
+...\" threads on throughput for busy servers?]
+...\" ----------------------------------------------------------------------
+.H 3 "Scheduling Policies"
+...\" ----------------------------------------------------------------------
+.iX "threads" "default scheduling policy of"
+.P
+The default thread scheduling policy provides round robin time-slicing and
+guarantees that even low priority threads will get to run.  For servers, this
+policy will provide at least the benefit of fair access to server processing
+time for multiple callers, even when no real parallelism is provided by multiple
+threads of execution.
+...\" [What can we say about nondefault policies?  Does choosing another
+...\" policy or a nondefault priority run the risk of tangling with
+...\" nonmanager threads, such as timer threads, in the runtime?]
+...\" ----------------------------------------------------------------------
+.H 2 "Thread Safety"
+...\" ----------------------------------------------------------------------
+.iX "threads" "behavior of when blocked"
+.P
+Thread safety involves two issues. The first is \*Eblocking behavior\*O.  
+Blocking I/O should block just the thread doing the I/O, not the entire
+process.  The following scenario illustrates the kind of problem that can
+occur when an application fails to observe this rule:
+.AL
+.LI
+The client side of the application executes a blocking I/O call such as a
+\*Lread(\|)\*O from the keyboard.
+.LI
+The \*Lread(\|)\*O sleeps for an indeterminate amount of time.  All threads
+in the client process are blocked.
+.LI
+A timer thread in the client RPC runtime, which manages the client side of
+the RPC protocol, is among the blocked threads.  Eventually the server side
+times the connection out, even though the client application is still running.
+.LE
+.iX "reentrancy"
+.P
+The second thread safety issue is \*Ereentrancy\*O.  Routines that operate on
+shared objects must have appropriate locking in place.  A typical reentrancy
+problem is as follows:
+.AL
+.iX "\*Lmalloc(\|)\*O"
+.LI
+The application invokes a nonreentrant \*Lmalloc(\|)\*O.
+.LI
+DCE threads interrupts the \*Lmalloc(\|)\*O and the interrupt handler executes
+a properly reentrant \*Lmalloc(\|)\*O.  The reentrant \*Lmalloc(\|)\*O examines
+a lock and incorrectly infers that nobody else is currently doing a \*Lmalloc(\|)\*O.
+.LI
+Global data governing memory allocation for the process becomes corrupted.
+.LE
+.P
+These thread safety issues arise in the following two contexts for 
+DCE applications:
+.ML
+.iX "threadsafeness" "of library routines"
+.LI
+Even when application code is not itself multithreaded (for example, client
+code that does not make any explicit \*Lpthread\*O API calls), both client
+and server applications are still multithreaded as a result of threads created
+by the RPC runtime.  While such single-threaded application code need not itself
+be reentrant, it must still avoid blocking the entire process, and it must take
+care that any library routines that it calls, which may also be called by
+runtime-created threads, are reentrant.
+.LI
+.ne 3
+When application code is itself multithreaded (which is the default for server
+manager code), it must, in addition to obeying the rules above), 
+also be reentrant; all access to shared objects must be protected by locks.
+.LE  
+.P
+Obviously, providing for the second condition in explicitly multithreaded code is
+the application's responsibility.  The \*Lpthread\*O 
+API provides a set of facilities
+that can be used for this purpose.  To provide for the first condition, which applies
+to all application code, DCE implementations provide a mechanism to make system and
+library calls thread-safe.  This may be implemented either by providing a set of
+\*Ewrappers\*O for unsafe calls or by providing reentrant libraries and a
+.iX "threads" "wrappers"
+nonblocking kernel threads implementation.  Applications must always be built
+using either the appropriate wrapped calls or linked to the appropriate reentrant
+libraries.
+.P
+DCE implementations provide, at the least, via wrappers or some other 
+mechanism, the set of thread-safe calls shown in Table 2-1.
+.iX "threadsafe routines provided by DCE"
+...\" ----------------------------------------------------------------------
+.P
+Applications should not assume that a call to any routine not on this
+list is necessarily thread-safe.  Whether other routines are safe to
+call from a DCE applications depends on the following factors:
+.iX "threadsafeness" "criteria for routines"
+.ML
+.LI
+Application code that is single threaded (that has not explicitly created
+any application threads via calls to the \*Lpthread\*O API) need not concern
+itself about reentrancy of routines not on this list, since all library and
+system calls made by RPC created threads are included in this list.  However,
+such application code must still take care that no calls it makes will block
+the entire process.
+.LI
+Application code that is multithreaded must exercise caution when making any
+.iX "reentrancy" "non-reentrant library calls"
+call not on this list.  Non-reentrant library calls may be wrapped by the
+application using \*Lpthread_lock_global_np(\|)\*O, although this practice is
+.iX "\*Lpthread_lock_global_np(\|)\*O"
+discouraged since this call is not portable.  The global lock
+can be used only in limited circumstances; the approach will work only if all
+threads in an application follow the same rule.
+...\" This approach is not safe for
+...\" kernel routines: it must be used only with library routines.
+Failure to observe
+these restrictions can lead to deadlocks.  Note also that this approach will not
+work with any call that could block the whole process, for example by making a
+blocking I/O call.
+.LE
+.P
+.ne 4i
+.TB "Thread-Safe Calls"
+.TS
+center, box, tab(#);
+lB | lB | lB | lB.
+_sleep(\|)#accept(\|)#atfork(\|)#calloc(\|)#
+catclose(\|)#catgets(\|)#catopen(\|)#cfree(\|)#
+close(\|)#connect(\|)#creat(\|)#ctermid(\|)#
+cuserid(\|)#dup(\|)#dup2(\|)#fclose(\|)#
+fcntl(\|)#fdopen(\|)#fflush(\|)#fgetc(\|)#
+fgets(\|)#fopen(\|)#fork(\|)#fprintf(\|)#
+fputc(\|)#fputs(\|)#fread(\|)#free(\|)#
+freopen(\|)#fscanf(\|)#fseek(\|)#ftell(\|)#
+fwrite(\|)#getc(\|)#getchar(\|)#gets(\|)#
+getw(\|)#isatty(\|)#malloc(\|)#mktemp(\|)#
+open(\|)#pclose(\|)#pipe(\|)#popen(\|)#
+printf(\|)#putc(\|)#putchar(\|)#puts(\|)#
+putw(\|)#read(\|)#readv(\|)#realloc(\|)#
+recv(\|)#recvfrom(\|)#recvmsg(\|)#rewind(\|)#
+scanf(\|)#select(\|)#send(\|)#sendmsg(\|)#
+sendto(\|)#setbuf(\|)#setbuffer(\|)#setlinebuf(\|)#
+setvbuf(\|)#sigaction(\|)#sigwait(\|)#sleep(\|)#
+socket(\|)#socketpair(\|)#sprintf(\|)#sscanf(\|)#
+system(\|)#tempnam(\|)#tmpfile(\|)#tmpnam(\|)#
+ttyname(\|)#ttyslot(\|)#vfprintf(\|)#vprintf(\|)#
+vsprintf(\|)#write(\|)#writev(\|)#
+.TE
+.P
+What follows is a summary of the thread-safety rules that should be followed
+when using the \*Lpthread\*O facilities.  The list is by no means comprehensive;
+it describes the places where multithreaded applications most frequently go
+wrong.
+...\" For a complete discussion of thread-safe programming practices, see XX.
+.ML
+.iX "mutexes"
+.iX "global lock"
+.LI
+Access to all shared objects should be protected by the appropriate synchronization
+mechnisms.  The pthread global lock is not appropriate for such synchronization.
+.LI
+Mutexes should be used only 
+to protect resources held for a short period of time.
+In particular, note that \*Lpthread_mutex_lock(\|)\*O is 
+\*Enot\*O a cancellation
+.iX "\*Lpthread_mutex_lock(\|)\*O"
+point.  Resources needing to be held exclusively for a long time should be protected
+by condition variables rather than mutexes, as this will not inhibit 
+cancelability
+.iX "threads" "cancelability"
+.iX "condition variables"
+(see Section 2.3.3.2).
+.nL
+.ne 10
+.LI
+.iX "mutexes" "and shared objects"
+A shared object should be protected by only one mutex.
+.LI
+.iX "threads" "wrappers and \*Lpthread.h\*O"
+.iX "reentrancy" "reentrant libraries"
+Be sure to use the available thread-safe library calls.  These may be available as
+wrapped routines, via the \*Lpthread.h\*O header file, or your implementation may
+supply reentrant libraries which must be linked with DCE applications.
+.LI
+.iX "\*Lwait(\|)\*O"
+Avoid nonwrapped process-blocking system calls, such as \*Lwait(\|)\*O.
+.LI
+.iX "mutexes" "and locking sequences"
+When threads need to acquire more than one mutex at a time, create a locking sequence
+and require that all threads follow the sequence.
+.LI
+Do not make any assumptions about the atomicity of operations, as these are unlikely
+to be portable.
+.LI
+.iX "threads" "avoiding priority inversions"
+In general, to avoid priority inversion, when three or more threads of different
+priorities access a lock, associate a priority with the lock and force any thread
+to raise its priority to the lock priority before acquiring the lock.  Note that
+.iX "threads" "default scheduling policy of"
+the default scheduling policy (\*LSCHED_OTHER\*O) mitigates the effects of priority
+inversion by giving low-priority threads a chance to execute (and thus release held
+locks) even when higher-priority threads are eligible to run.
+.LI
+You may be able to use the global locking call 
+\*Lpthread_\%lock_\%global_\%np(\|)\*O when
+.iX "\*Lpthread_lock_global_np(\|)\*O"
+.iX "multithreadedness" "and unsafe libraries"
+calling into libraries not known to be thread safe.
+...\" Note the cautions listed in Section XXX.
+...\" [above]
+.LI
+Use the \*Latfork(\|)\*O routine to keep the state of mutexes consistent across
+.iX "\*Latfork(\|)\*O"
+calls to \*Lfork(\|)\*O.  Note, however, that this routine is not considered 
+.iX "\*Lfork(\|)\*O"
+portable.  Try to create threads rather than processes whenever possible.
+.LI
+Call \*Lpthread_cond_wait(\|)\*O from within a predicate loop, as in the
+following example:
+.iX "\*Lpthread_cond_wait(\|)\*O"
+.oS
+while (test_condition)
+    pthread_cond_wait();
+.oE
+.LI
+.iX "threads" "attributes object"
+Set thread attributes via a \*Lthread attributes object\*O before thread creation.
+Changes to a thread attribute object after a thread has been created
+will not affect the thread's attributes.  A thread can straightforwardly change its
+own scheduling attributes by calling \*Lpthread_set_scheduler(\|)\*O and
+.iX "\*Lpthread_set_scheduler(\|)\*O"
+\*Lpthread_set_prio(\|)\*O, but cannot reliably change the attributes of another
+.iX "\*Lpthread_set_prio(\|)\*O"
+thread once it has been created.
+...\" .LI
+...\" Changing the mutex attributes type in a mutex attributes object does not affect
+...\" any mutexes that were previously created using the attributes object.
+.LE
+.P
+.ne 2
+See Sections 2.3.3 and 2.3.4 
+for specific guidelines relating to cancels and signals.
+...\" ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+...\" ----------------------------------------------------------------------
+.H 2 "Threads Programming Topics"
+...\" ----------------------------------------------------------------------
+.P
+The subsections that follow contain discussions of the following aspects of
+multithreaded DCE application development:
+.ML
+.LI
+Thread handles and their use
+.LI
+Storage for thread specific data
+.LI
+Canceling threads
+.LI
+Signals
+.LE
+...\" ----------------------------------------------------------------------
+.H 3 "Thread Handles"
+...\" ----------------------------------------------------------------------
+.iX "threads" "handles"
+.P
+The \*Lpthread\*O package provides thread handles to identify threads; these are
+returned as the \*Vthread\*O argument to \*Lpthread_create(\|)\*O.  Applications
+supply thread handles as thread identifiers to the routines \*Lpthread_join(\|)\*O,
+.iX "\*Lpthread_join(\|)\*O"
+.iX "\*Lpthread_detach(\|)\*O"
+.iX "\*Lpthread_cancel(\|)\*O"
+.iX "\*Lpthread_equal(\|)\*O"
+\*Lpthread_detach(\|)\*O, and \*Lpthread_cancel(\|)\*O.  Thread handles should be
+treated as opaque data; they may be compared by calling \*Lpthread_equal(\|)\*O,
+but any other operations on thread handles are likely to be nonportable and are
+thus discouraged.
+...\" ----------------------------------------------------------------------
+.H 3 "Storage for Thread Specific Data"
+...\" ----------------------------------------------------------------------
+.iX "threads" "specific global storage"
+.P
+The \*Lpthread\*O package provides the ability to allocate per-thread global
+storage using per-thread data keys.  That is, an application can create storage
+that has global scope within a thread but which is private to each instance of
+that thread.  To do this, the application creates a global data key by calling
+\*Lpthread_keycreate(\|)\*O.  Each thread then typically allocates storage of
+.iX "\*Lpthread_keycreate(\|)\*O"
+the required type and associates this instance with with the global key by calling
+\*Lpthread_setspecific(\|)\*O.  Routines that need to access the per-thread storage
+.iX "\*Lpthread_setspecific(\|)\*O"
+do so by calling \*Lpthread_getspecific(\|)\*O, which returns the address of the
+.iX "\*Lpthread_getspecific(\|)\*O"
+thread's private instance.
+.P
+.ne 6
+The following code fragments show a sample model of per-thread-data key use:
+.nL
+.ps 11
+.vs 13
+.oS
+/* Declare global data key storage */
+
+pthread_key_t key;
+
+main()
+{
+          .
+          .
+          .
+
+    /* Create exactly one instance of the key.  You could also use  */
+    /*   a pthread_once() routine...                                */
+
+    status = pthread_keycreate(&key, (pthread_destructor_t) destroy);
+          . 
+          .
+          .
+    /* Start some threads...                                        */
+          .
+          . 
+          . 
+}
+
+/* The following routines are called in each of the threads.        */
+/*  They access the thread's private instance of the "global"       */
+/*  value.                                                          */
+
+/* The following routine sets the value to a thread-specific        */
+/*  value...                                                        */
+
+void write_global(mytype value)
+{
+
+    mytype *global_var;
+
+    global_var = (mytype*) malloc(sizeof(mytype));
+    pthread_setspecific(key, (pthread_addr_t)global_var);
+    *global_var = value;
+}
+
+.ne 14
+/* The following routine returns the thread-specific value ...      */
+
+mytype read_global()
+{
+
+    mytype *global_var;
+
+    /* Note the extra indirection; pthread_getspecific() returns    */
+    /*  the address of the thread's private instance of the         */
+    /*  storage...                                                  */
+
+    pthread_getspecific(key, (pthread_addr_t*)&global_var);
+    return (*global_var);   
+}
+.oE
+.ps 12
+.vs 14
+...\" ----------------------------------------------------------------------
+.H 3 "Canceling Threads"
+...\" ----------------------------------------------------------------------
+.iX "threads" "canceling"
+.P
+In order to program correctly for cancels, applications must be aware of the
+precise semantics of cancels in a DCE threads environment.  The DCE threads package
+provides for per thread cancellation.  Thread cancellation allows a thread to
+attempt to terminate a thread in the same process in an orderly manner.  The basic
+model is that a cancel is generated for a thread at an unpredictable time as a
+result of some external event (typically, another thread calling
+\*Lpthread_cancel(\|)\*O).  Whether and when the canceled thread acts on a
+.iX "\*Lpthread_cancel(\|)\*O"
+generated cancel depends on the the thread's cancelability state, which may
+be one of the following:
+.P
+.iX "threads" "cancelability state"
+.VL 1.5i
+.LI "\*Ldisabled\*O"
+No cancellation takes place.
+.LI "\*Ldeferred\*O"
+Cancellation is deferred to cancellation points.
+.LI "\*Lasynchronous\*O"
+Cancellation may occur at any time.
+.LE
+.P
+The default action for DCE threads on cancellation is that the thread calls any
+cancel cleanup routines that have been established and then terminates.
+.iX "threads" "canceling" "and exceptions"
+In DCE threads a canceled thread receives a cancel as an exception, so a thread
+may establish a nondefault action by providing an exception handler.  
+.P
+.ne 7
+However,
+this behavior is not recommended for two reasons.  First, the exception handling
+mechanism is not itself portable.  Second, the cancel mechanism is intended to
+.iX "threads" "termination"
+provide for orderly thread termination.  It is not designed as a generalized
+thread synchronization mechanism. (There is, for example, only one kind of cancel.)
+Threads should use condition variables for this purpose. (For the same 
+reason, the
+use of \*Lpthread_\%signal_\%to_\%cancel_\%np(\|)\*O is not recommended.)
+.iX "\*Lpthread_signal_to_cancel_np(\|)\*O"
+...\" ----------------------------------------------------------------------
+.H 4 "Cancelability State"
+...\" ----------------------------------------------------------------------
+.iX "threads" "cancelability state"
+.iX "general cancelability of threads"
+.iX "asynchronous" "cancelability of threads"
+.P
+A thread's cancelability state is determined by the combination 
+of two substates: \*Egeneral cancelability\*O and \*Easynchronous 
+cancelability\*O.  These substates can be set to either 
+\*LCANCEL_ON\*O or \*LCANCEL_OFF\*O by calls to the routines 
+\*Lpthread_setcancel(\|)\*O and \*Lpthread_setasynccancel(\|)\*O respectively. 
+.iX "\*Lpthread_setasynccancel(\|)\*O"
+.iX "\*Lpthread_setcancel(\|)\*O"
+A thread's cancelability state is determined by its general and asynchronous
+cancelability substates, as shown in Table 2-2.
+.P
+.TB "Cancelability State"
+.TS 
+tab(#) center box;
+lB | lB | lB
+lB | lB | lB
+lB | lB | lB.
+General#Asynchronous#Cancelability 
+Cancelability#Cancelability#State
+=
+CANCEL_OFF#CANCEL_OFF#disabled
+_
+CANCEL_OFF#CANCEL_ON#disabled
+_
+CANCEL_ON#CANCEL_OFF#deferred
+_
+CANCEL_ON#CANCEL_ON#asynchronous
+.TE
+.P
+One awkwardness introduced by this mechanism for setting cancelability state is
+that threads cannot easily determine their current cancelability state, although
+\*Lpthread_setcancel(\|)\*O and \*Lpthread_setasynccancel(\|)\*O return the previous
+substates.  When a thread is created, the default cancelability state is 
+\*Ldeferred\*O
+(general cancelability set to \*LCANCEL_ON\*O, asynchronous cancelability set to
+\*LCANCEL_OFF\*O).  A thread that needs to discover its current cancelability state
+should explicitly maintain this state in some place where it can be easily queried.
+...\" ----------------------------------------------------------------------
+.H 4 "Cancellation Points"
+...\" ----------------------------------------------------------------------
+...\" Note to reviewers: this and the following sections on cancel
+...\" semantics contain a lot of very specific detail that would typically
+...\" be specified for implementors.  I believe, however, that application
+...\" programmers do need to understand the semantic details if they really
+...\" want to know how cancels are going to work in their programs.  This
+...\" section could really use a few examples!
+.iX "threads" "cancellation points"
+.P
+Applications need to be aware of where cancellation may actually occur when
+cancelability state is set to \*Ldeferred\*O.  Cancellation points are points
+inside certain functions where a thread must act upon any pending cancellation
+request when cancelability state is \*Ldeferred\*O if the function would block
+indefinitely.  If cancelability state is \*Lasynchronous\*O, then every point is
+a cancellation point; that is, the thread may be canceled at any time.
+.P
+If cancelability state is \*Ldeferred\*O then cancellation may occur at the
+following points:
+.ML
+.LI
+While waiting on a condition variable; that is, within
+\*Lpthread_\%cond_\%wait(\|)\*O or \*Lpthread_cond_timedwait(\|)\*O.
+.iX "\*Lpthread_cond_timedwait(\|)\*O"
+.iX "\*Lpthread_cond_wait(\|)\*O"
+.LI
+While awaiting the termination of another thread (within \*Lpthread_join(\|)\*O.)
+.iX "\*Lpthread_join(\|)\*O"
+.LI
+When \*Lpthread_testcancel(\|)\*O is called.
+.iX "\*Lpthread_testcancel(\|)\*O"
+.LI
+When \*Lsigwait(\|)\*O is called.
+.iX "\*Lsigwait(\|)\*O"
+.LI
+When a thread is waiting within \*Lpthread_delay_np(\|)\*O (not a portable
+.iX "\*Lpthread_delay_np(\|)\*O"
+routine).
+.LI
+During the timeslice interruption.
+.iX "threads" "timeslice interruption of"
+.LI
+.iX "threads" "wrappers as cancellation points"
+Within the DCE threads I/O wrappers for system calls that block.  These are
+as follows:
+.ML
+.LI
+.iX "\*Lread(\|)\*O"
+\*Lread(\|)\*O
+.LI
+.iX "\*Lreadv(\|)\*O"
+\*Lreadv(\|)\*O
+.LI
+.iX "\*Lselect(\|)\*O"
+\*Lselect(\|)\*O
+.LI
+.iX "\*Lwrite(\|)\*O"
+\*Lwrite(\|)\*O
+.LI
+.iX "\*Lwritev(\|)\*O"
+\*Lwritev(\|)\*O
+.LI
+.iX "\*Laccept(\|)\*O"
+\*Laccept(\|)\*O
+.LI
+.iX "\*Lconnect(\|)\*O"
+\*Lconnect(\|)\*O
+.LI
+.iX "\*Lrecv(\|)\*O"
+\*Lrecv(\|)\*O
+.LI
+.iX "\*Lrecvmsg(\|)\*O"
+\*Lrecvmsg(\|)\*O
+.LI
+.iX "\*Lrecvfrom(\|)\*O"
+\*Lrecvfrom(\|)\*O
+.LI
+.iX "\*Lsend(\|)\*O"
+\*Lsend(\|)\*O
+.LI
+.iX "\*Lsendmsg(\|)\*O"
+\*Lsendmsg(\|)\*O
+.LI
+.iX "\*Lsendto(\|)\*O"
+\*Lsendto(\|)\*O
+.LE
+.LI
+When \*Lpthread_setasynccancel(\|)\*O is called, and either of the following
+apply:
+.iX "\*Lpthread_setasynccancel(\|)\*O"
+.ML
+.LI
+It has set the cancelability state to \*Lasynchronous\*O (general cancelability
+and asynchronous cancelability are both enabled), it hasn't yet returned, and a
+cancel is pending.
+.LI
+It was called to disable \*Lasynchronous\*O cancelability state, but hasn't
+yet done so, and a cancellation request has been asynchronously delivered.
+.LE
+.LE
+.P
+One important blocking routine that is not a cancellation point is
+\*Lpthread_mutex_lock(\|)\*O, as this would create a domino effect so that every
+.iX "\*Lpthread_mutex_lock(\|)\*O"
+.iX "mutexes" "when they should be used"
+.iX "condition variables" "when they should be used"
+routine calling it would also become a cancellation point.  Thus, mutexes should
+be used only to protect resources held for a short period of time so that
+noncancelability will not be a problem.  Resources needing to be held exclusively
+should be protected by condition variables rather than mutexes, as this will not
+inhibit cancelability.
+.P
+If a thread has not set \*Ldisabled\*O cancelability state, a cancellation request
+.iX "threads" "disabling cancellation state"
+.iX "\*Lpthread_testcancel(\|)\*O"
+has been made to that thread, and the thread executes \*Lpthread_testcancel(\|)\*O,
+the cancellation request must be acted upon.  Similarly, if a thread has not set
+\*Ldisabled\*O cancelability state, a cancellation request has been made to that
+thread, and the thread is blocked at a cancellation point waiting for an event to
+occcur, then that thread must act upon the cancellation request.  However, if a
+thread is suspended at a cancellation point and the event for which it is waiting
+has completed before a cancellation request is received and acted upon, the thread
+may resume normal execution and the cancellation request remains pending.
+...\" ----------------------------------------------------------------------
+.H 4 "Cancellation Side Effects"
+...\" ----------------------------------------------------------------------
+.iX "threads" "side effects of cancellation"
+.P
+Cancellation ordinarily involves cleanup in order to leave resources in an orderly
+state.  Any side effects of acting upon a cancellation request occur before the first
+cleanup routine is called.
+.P
+There are no side effects of acting upon a cancellation request while executing
+\*Lpthread_join(\|)\*O.
+.iX "\*Lpthread_join(\|)\*O"
+.P
+.iX "threads" "cancellation and condition variables"
+.iX "condition variables" "and threads cancellation"
+The side effects of acting upon a cancellation request while in a condition
+variable wait are as follows:
+.ML
+.LI
+.iX "mutexes" "and threads cancellation"
+The mutex is reacquired before calling the first cleanup routine.
+.LI
+In addition, while the thread is no longer considered to be waiting for the
+condition, no signals directed at the condition variable are consumed by the
+target thread if there are other threads blocked on the condition variable.
+.LE
+...\" zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+...\" ----------------------------------------------------------------------
+.H 5 "Using \*Lpthread_cancel(\|)\*O to Terminate a Thread"
+...\" ----------------------------------------------------------------------
+.P
+The \*Lpthread_cancel(\|)\*O routine allows a thread to cancel itself or
+.iX "\*Lpthread_cancel(\|)\*O"
+another thread.  The routine is fully described in the
+\*Lpthread_cancel(3thr)\*O reference page.  
+Its use is straightforward, but if you use it to
+cancel a thread that makes use of mutexes or condition variables, you should
+keep in mind the following aspect of its operation.
+.P
+The canceled thread receives the cancel in the form of an exception. If the
+thread has not disabled its cancelability by a call to
+\*Lpthread_setcancel(\|)\*O, its effect is to immediately terminate the thread.
+.iX "\*Lpthread_setcancel(\|)\*O"
+.iX "global lock" "and threads cancellation"
+.iX "mutexes" "and threads cancellation"
+However, if the thread happens to have acquired a mutex (including the global
+lock) when it is canceled, the mutex will remain in its locked state and no
+other thread will be able to acquire it.  Moreover, the data that was protected
+by the mutex may be in an inconsistent state as a result of the thread's having
+been canceled in the middle of its operation on the data.
+.P
+.iX "threads" "cancellation and exception-handling block"
+The easiest way to prevent this is simply to disable cancels before entering
+code for which access has been restricted by a mutex.  If this is undesirable,
+you can explicitly handle a cancel by coding an exception-handling block.
+...\" The DCE Threads exception handling interface is described in Chapter XXX
+...\" of this guide.
+.P
+.ne 3
+.iX "condition variables" "and threads cancellation"
+This same possibility exists with condition variables, since the variable is
+protected by a mutex.  An example of handling a cancel (or any other exception)
+while using a condition variable follows.
+...\" It is substantially the same example that appears in Part 2 of this guide.
+.iX "\*Lpthread_mutex_lock(\|)\*O"
+.iX "\*LTRY\*O macro"
+.iX "\*LFINALLY\*O macro"
+.iX "\*LENDTRY\*O macro"
+.iX "\*Lpthread_mutex_unlock(\|)\*O"
+.nL
+.ps 11
+.vs 13
+.oS
+#include <pthread_exc.h>
+
+    <...>
+
+/* First, lock the mutex that protects the condition variable  */
+/*      and the predicate...                                   */
+pthread_mutex_lock(some_object.mutex);
+
+/* Add this thread to the total number of threads waiting for  */
+/*      the condition...                                       */
+some_object.num_waiters = some_object.num_waiters + 1;
+
+/* Enter the exception handling block...                       */
+TRY
+
+    /* Test the predicate condition...                         */
+    while (! some_object.data_available)
+
+	/* If the desired condition is not yet true, wait for  */
+	/*    it to become true.  This next call also auto-    */
+	/*    matically releases the mutex...                  */
+	pthread_cond_wait(some_object.condition, some_object.mutex);
+
+    /* Code to access data_available goes here */
+
+    <...>
+
+/* If a "cancel" exception occurs during the call to           */
+/*	pthread_cond_wait(), the thread will resume            */
+/*	execution in the FINALLY block following...            */
+FINALLY
+
+    /* Remove this thread from the total number of threads     */
+    /*    waiting for the condition...                         */
+    some_object.num_waiters = some_object.num_waiters - 1;
+
+    /* Release the mutex, and then continue with the           */
+    /*    exception --that is, cancel ...                      */
+    pthread_mutex_unlock(some_object.mutex);
+ENDTRY
+.oE
+.ps 12
+.vs 14
+...\" RERAISE_THIS_CATCH ? (Rich Salz).
+.P
+.ne 3
+.iX "threads" "cancellation and exception-handling block"
+Note that in order to handle the cancel as an exception, you must
+\*L#include\*O the \*Lpthread_exc.h\*O header file rather than
+\*Lpthread.h\*O; this allows you to use the DCE Threads exception
+interface.
+...\" .P
+...\" Further information on mutexes can be found in Part 2 of this guide, and in
+...\" the \*VOSF DCE Application Development Reference\*O.
+...\" zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+...\" ----------------------------------------------------------------------
+.H 4 "Thread Cleanup"
+...\" ----------------------------------------------------------------------
+.iX "threads" "cancellation cleanup"
+.P
+Each thread maintains a list of cleanup routines (handlers). The routines are
+placed on and removed from the list by the \*Lpthread_cleanup_push(\|)\*O and
+.iX "\*Lpthread_cleanup_push(\|)\*O"
+\*Lpthread_cleanup_pop(\|)\*O functions, respectively.  These functions must
+.iX "\*Lpthread_cleanup_pop(\|)\*O"
+appear as statements and in pairs within the same lexical scope.
+.P
+When a cancellation request is acted upon, the routines on the list are invoked
+in the last in, first out (LIFO) order with cancellation disabled (cancelability
+state of \*Ldeferred\*O) until the last cleanup routine returns.  When the last
+cleanup routine returns, thread execution is terminated.  If other routines are
+joining with the target of the cancellation, a status of \*L(void*)\*O\ -1 is made
+available to them.
+.P
+Cleanup routines are also invoked when the thread calls \*Lpthread_exit(\|)\*O.
+.iX "\*Lpthread_exit(\|)\*O"
+.iX "\*Llongjmp(\|)\*O"
+.iX "\*Lsiglongjmp(\|)\*O"
+Cleanup routines should never exit via \*Llongjmp(\|)\*O or \*Lsiglongjmp(\|)\*O.
+...\" ----------------------------------------------------------------------
+.H 4 "Asynchronous Cancel Safety"
+...\" ----------------------------------------------------------------------
+.iX "asynchronous" "cancelability of threads"
+.P
+A function is said to be \*Easynchronous cancel safe\*O if it is written in
+such a way that entering the function with the cancelability state of
+\*Lasynchronous\*O will not cause any invariants to be violated if cancellation
+should occur at any (arbitrary) instruction.  Such functions are often written in
+such a manner that they need acquire no resources, and variables which they write
+that are visible outside their process are strictly limited.
+.P
+Any routines that acquire a resource can not be made asynchronous safe. This
+unfortunately includes most routines that do useful work.  The only function
+that is guaranteed to be asysnchronous cancel safe is \*Lpthread_cancel(\|)\*O.  In
+.iX "\*Lpthread_cancel(\|)\*O"
+general, no other library functions should be called with cancelability state
+set to asynchronous.
+...\" ----------------------------------------------------------------------
+.H 4 "Cancel Rules Summary"
+...\" ----------------------------------------------------------------------
+.iX "threads" "rules for cancellation"
+.P
+The following summarizes a set of cancel-related rules that should always be
+adhered to when programming with cancels:
+.ML
+.LI
+Applications should not use cancels as a synchronization mechanism.
+Condition variables should be used instead.
+.LI
+\*Lpthread_mutex_lock(\|)\*O is \*Enot\*O a cancellation point.  Resources needing
+.iX "\*Lpthread_mutex_lock(\|)\*O"
+.iX "threads" "cancellation and mutexes"
+to be held exclusively for a long time should be protected by condition variables
+rather than mutexes, as this will not inhibit cancelability. 
+.LI
+.iX "threads" "cancellation and condition variables"
+A condition wait (via \*Lpthread_cond_wait(\|)\*O or 
+\*Lpthread_\%cond_\%timedwait(\|)\*O)
+.iX "\*Lpthread_cond_timedwait(\|)\*O"
+.iX "\*Lpthread_cond_wait(\|)\*O"
+is a cancellation point.  A side effect of acting on a cancellation request while in a
+condition wait is that the mutex is (in effect) reacquired.  The effect is as if the
+thread were unblocked, allowed to execute up to the point of returning from the wait,
+but at that point notices the cancellation request and handles it instead of returning.
+.LI
+In general, most library calls cannot be assumed to be asynchronous cancel safe, and
+hence must \*Enot\*O be called with cancelability state set to \*Lasynchronous\*O.
+.LI
+Cleanup routines should never exit via \*Llongjmp(\|)\*O or
+.iX "\*Llongjmp(\|)\*O"
+.iX "\*Lsiglongjmp(\|)\*O"
+\*Lsiglongjmp(\|)\*O.
+.LE
+.P
+In addition to the material covered in this section, Section 2.4 covers the
+additional semantics of cancels as applied to RPC threads.
+...\" ----------------------------------------------------------------------
+.H 3 "Signals"
+...\" ----------------------------------------------------------------------
+.iX "signals" "handling of in a multithreaded environment"
+.P
+Application developers must be aware of significant differences in the handling of
+signals between DCE threads and typical single-threaded environments.  In DCE threads,
+some signals are handled on a per-process basis, and some are handled on a per-thread
+basis.  This section explains the semantic details of DCE thread signal handling.
+.P
+A signal is said to be \*Egenerated\*O for a process or thread when the event that
+causes the signal first occurs.  Each process or thread has an action to be taken in
+response to each signal supported by the system or implementation.  A signal is said
+to be \*Edelivered\*O when the appropriate signal action for the process or thread
+is taken.  A signal can be \*Eblocked\*O or (\*Emasked\*O) by a thread or process by
+.iX "signals" "blocking of"
+establishing a \*Esignal mask\*O containing the signal to be blocked.  
+.P
+.ne 4
+The delivery of
+a blocked signal is deferred until it is unblocked. (Note that if the action specified
+for a signal is to ignore it, the signal effectively remains blocked.) During the time
+between its generation and delivery a signal is said to be \*Epending\*O.
+.P
+Signals can be classified into the following two types, with differing
+semantics:
+.iX "signals" "semantics of"
+.ML
+.LI
+.iX "signals" "synchronous"
+\*ESynchronous signals\*O are generated by a specific thread and delivered to the same
+thread.  Threads can establish nondefault per-thread signal handlers for sychronous
+signals by calling \*Lsigaction(\|)\*O.  Synchronous signals can be blocked on a
+.iX "\*Lsigaction(\|)\*O"
+per-thread basis by establishing per-thread signal masks.
+.LI
+.iX "signals" "asynchronous"
+\*EAsynchronous signals\*O are generated by external events, not identifiable with a single
+thread.  Asynchronous signals are handled on a per-process basis.  An asynchronous
+signal is delivered exactly once to some thread in a process.  All threads in a
+process share the same signal mask.  Per-process handling of asynchronous signals
+.iX "\*Lsigwait(\|)\*O"
+can be established by calling \*Lsigwait(\|)\*O.
+.LE
+.P
+DCE threads applications must handle synchronous and asynchronous signals differently.
+...\" ----------------------------------------------------------------------
+.H 4 "Signal Masking"
+...\" ----------------------------------------------------------------------
+.P
+.iX "signals" "masking of"
+Signal masks can be examined and changed with the \*Lsigprocmask(\|)\*O function.
+.iX "\*Lsigprocmask(\|)\*O"
+When a synchronous signal is masked via a call to \*Lsigprocmask(\|)\*O it is masked
+for the calling thread.  When an asynchronous signal is masked via a call to
+\*Lsigprocmask(\|)\*O it is masked for the entire process.
+.P
+Care must be taken when a thread unblocks an asynchronous signal. If another thread
+has blocked and is, or is will be, waiting for the same signal, the results can be
+unpredictable and may result in the other thread waiting forever.  This problem can be
+avoided by having all handling of asynchronous signals occur in a single thread, as
+described in Section 2.3.4.3.
+...\" ----------------------------------------------------------------------
+.H 4 "Synchronous Signal Handling"
+...\" ----------------------------------------------------------------------
+.iX "signals" "synchronous"
+.P
+Threads should call \*Lsigaction(\|)\*O to establish per-thread handlers for
+synchronous signals.  The DCE Threads \*Lsigaction(\|)\*O function only modifies
+the signal action behavior for the calling thread and only works for synchronous
+signals.  Threads must not use \*Lsigaction(\|)\*O for asynchronous signals.
+.iX "\*Lsigaction(\|)\*O" "should not be used for asynchronous signals"
+.P
+Signal handlers should be careful in the actions they perform. In general,
+synchronous signal handlers should attempt to clean up and allow the thread
+to terminate.  It is not advisable to attempt to continue after errors such as
+a segment violation, illegal instruction, and the like.  
+.P
+In general, the threads routines cannot safely be called within a signal handler.
+Furthermore, runtime libraries cannot reliably be used in signal handlers. 
+...\" ----------------------------------------------------------------------
+.H 4 "Asynchronous Signal Handling"
+...\" ----------------------------------------------------------------------
+.iX "signals" "asynchronous"
+.P
+Applications should handle asynchronous signals by having one thread (or possibly
+a few specific threads) call \*Lsigwait(\|)\*O.  The waited-for signals must be
+.iX "\*Lsigwait(\|)\*O"
+blocked before waiting.  The recommended procedure is to establish a 
+``signal catcher''
+thread that calls \*Lsigprocmask(\|)\*O to establish the per-process mask for
+.iX "\*Lsigprocmask(\|)\*O"
+asynchronous signals and then calls \*Lsigwait(\|)\*O to wait for the set of blocked
+signals.  The following code fragment shows an 
+example of a signal catcher thread
+start routine:
+.nL
+.ps 11
+.vs 13
+...\" /********************************************************************/
+.oS
+.ne 47
+/* 
+ *  This is run by the signal catcher thread to handle async signals.
+ *  We don't use sigaction() here because it won't work with
+ *  async signals.  Note that signals must be blocked prior to being 
+ *  waited for.
+ */
+
+void signal_catcher(char *arg)
+{
+    sigset_t signals;
+    int sig;
+
+    sigemptyset(&signals);
+
+.ne 10
+    /* In this sample, we'll catch only SIGINT...                   */
+
+    sigaddset(&signals, SIGINT);
+    sigprocmask(SIG_BLOCK, &signals, NULL);*/
+    while(1)
+    {
+        sig = sigwait(&signals);
+        switch(sig)
+        {
+            case SIGINT:
+
+                /* SIGINT specific actions here.                     */
+                             .
+                             .
+                             .
+                break;
+            default:
+                /* Not reached.  If we were waiting on other         */ 
+                /*  signals. this would establish a default action   */
+                /*  to exit ...                                      */
+           continue;
+        }
+        break;
+    }
+    sigprocmask(SIG_UNBLOCK, &signals, NULL);
+
+    /* Do termination clean up here.                                 */ 
+                .
+                .
+                .
+    exit(1);
+}
+.oE
+...\" ----------------------------------------------------------------------
+.H 4 "Signal Rules"
+...\" ----------------------------------------------------------------------
+.iX "signals" "rules for handling in multithreaded programs"
+.P
+The following rules summarize correct signal handing practices for multithreaded
+programs.
+.ML
+.LI
+Signals must be blocked prior to being waited for.  The \*Lsigwait(\|)\*O 
+.iX "\*Lsigwait(\|)\*O"
+routine waits for blocked (masked) signals.
+.LI
+In order to avoid unpredictable behavior, all asynchronous signal handling should
+be confined to one signal catcher thread.  This may be extended to a set of signal
+catcher threads.
+.LI
+The \*Lpthread_cond_signal(\|)\*O routine
+cannot safely be used in a signal handler that is
+.iX "\*Lpthread_cond_signal(\|)\*O"
+invoked asynchronously.  In general, mutexes and condition variables are not
+suitable for releasing a waiting thread in response to a signal handler.  When a
+thread must wait for an asynchronous signal, use \*Lsigwait(\|)\*O instead.
+.LI
+Signal handlers should not call the \*Lpthread\*O routines.  In general, runtime
+libraries cannot reliably be used in signal handlers.
+.LE
+...\" zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+...\" ----------------------------------------------------------------------
+.H 3 "Forking in a Threaded Application"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+The \*Lfork(\|)\*O system call causes the creation of an exact clone of the
+.iX "\*Lfork(\|)\*O"
+caller's address space, resulting in the execution by two address spaces of
+the same code.  In order to avoid the problems that would arise in a threaded
+environment when one thread, possibly without the others' knowledge, executes
+a \*Lfork(\|)\*O, the POSIX model defines \*Lfork(\|)\*O to result in the
+propagation of the calling thread only.  Any other active threads are
+immediately terminated without notice.
+.P
+The abrupt destruction of the other threads means that any mutexes they may
+have been holding at the time of the \*Lfork(\|)\*O will persist in the locked
+(and therefore unacquirable) state.  On the other hand, assuming that the call
+to \*Lfork(\|)\*O is followed by a call to \*Lexec(\|)\*O, then the outstanding
+.iX "\*Lexec(\|)\*O"
+mutexes will remain so only until \*Lexec(\|)\*O is called, when the new process
+space will be reinitialized.
+.P
+.ne 7
+Thus, ``out-of-state'' mutexes are a problem for the forked thread only in the
+interval between the \*Lfork(\|)\*O and the \*Lexec(\|)\*O.  Even so, as long
+as no calls occur here to routines outside the application, you can determine
+whether the thread is going to encounter any mutexes that could have been
+locked by the destroyed threads.  However, it is impossible to be sure of this
+if calls into other libraries, which may have hidden interdependencies, occur
+in this interval.
+.P
+Aside from these considerations, there is also the question of what happens
+when \*Lexec(\|)\*O fails and execution returns to the original
+forking (and now lone) thread, which is left with an address space that may
+contain out-of-state mutexes (as well as an inconsistent state in the data
+protected by the mutexes) as a result of the \*Lfork(\|)\*O.
+.P
+DCE does not support the ``simple'' \*Lfork(\|)\*O; it supports only the
+\*Lfork(\|)\*O and \*Lexec(\|)\*O sequence.  For cases where forking
+in the presence of threads is felt to be necessary, DCE threads provides a
+mechanism, the \*Latfork(\|)\*O call, which allows you to install ``fork
+.iX "\*Latfork(\|)\*O"
+handler'' routines for an application or a library.  These routines will be
+automatically run as follows:
+.ML
+.LI
+A routine that will be run just prior to the fork in the parent process;
+that is, just before all of the other threads are terminated
+.LI
+A routine that will be run in the child process just after the fork occurs;
+that is, just after all the other threads are terminated
+.LI
+A routine that will be run in the parent process just after the fork occurs;
+that is, just before the parent (forking) thread resumes execution
+.LE
+...\" .P
+...\" Further information about \*Latfork(\|)\*O can be found in Part 2 of this
+...\" guide, and in the \*VOSF DCE Application Development Reference\*O.
+...\" zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+...\"
+...\" zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+...\" ----------------------------------------------------------------------
+...\" .H 3 "Restrictions on Software Interrupts and Exceptions"
+...\" ----------------------------------------------------------------------
+...\" .P
+...\" From a portability point of view, it is unspecified in which thread (on which
+...\" stack) a software interrupt handler will run.  It is also unspecified what
+...\" happens if an exception propagates out of a software interrupt handler.
+...\" .P
+...\" As a consequence, a software interrupt handler must not allow an exception
+...\" to propagate out of it.  The reason is that the exception could be caught
+...\" by some random exception handler in some thread and result in strange
+...\" behavior.
+...\" .P
+...\" Thus, it is best to avoid complicated coding in a software interrupt routine.
+...\" If you must write a software interrupt handler, ideally you should just
+...\" release a waiting thread using the previously mentioned signal or enqueue functions.
+...\" Note that this has the advantage of minimizing the code in the software
+...\" interrupt, which benefits the application by reducing the latency and
+...\" increasing the throughput for such interrupts.
+...\" zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+...\" ----------------------------------------------------------------------
+.H 2 "RPC Threads and RPC Cancel Semantics"
+...\" ----------------------------------------------------------------------
+.iX "RPC" "threads"
+.P
+Each RPC occurs in the context of a thread. A \*Ethread\*O is a single sequential
+flow of control with one point of execution at any instant.  When an application
+thread extends across client and server execution contexts via the DCE RPC mechanism,
+the local execution contexts are joined by an abstraction known as an \*ERPC thread\*O.
+The RPC thread attempts to extend local thread semantics to the situation in which
+execution is extended over two or more local contexts.  Specifically, the the RPC
+mechanism tries to make RPC cancels look to the application as much like local cancels
+as possible.
+.iX "RPC" "threads" "cancel semantics of"
+.P
+.ne 7
+The semantics of cancels across RPCs are slightly different from the semantics
+across local (procedure) calls.  The differences can be summed up as follows:
+.AL
+.LI 
+If the cancel state is \*Ldisabled\*O when an RPC is made, then, regardless
+of what is done to the cancellation state on the remote procedure, no
+cancels will be seen by the remote procedure.
+.P
+.ne 8
+This is because a cancel must be noticed in the client-side runtime in order
+for it to be forwarded to the server.  However, if the cancellation state has
+been set to \*Ldisabled\*O when an RPC is issued, then since the client-side
+runtime does not enable cancels, the client-side runtime will never notice if
+a cancel has been issued against the calling thread; subsequently, the cancel
+remains pending and unnoticed by the client-side runtime, even if the server
+side has changed the cancellation state (for instance, to \*Ldeferred\*O).
+.P
+Furthermore, since lexical scoping of changes to the cancellation state is
+enforced by RPC, the cancellation state in effect at the time of the RPC call
+is restored upon completion of the call.  Thus, any state changes made on the
+server side of the call are lost.  Any issued cancels remain pending as the
+server-side state change is ``undone'' by the client-side runtime prior to
+returning to the calling thread.  In this instance, if a cancel arrives after
+the callee returns, the cancel will not be acted upon.
+.P
+This behavior contrasts with the local procedure call case: if cancel state is
+\*Ldisabled\*O when a local procedure call is made, and the callee sets the
+cancellation state to \*Ldeferred\*O, then if a cancel arrives and the callee
+hits a cancellation point, the cancel will be acted upon.  Furthermore, if the
+cancel arrives after the callee returns, the cancel will be acted upon when a
+cancellation point is arrived at in the caller.
+.LI
+.ne 9
+If cancelability state is \*Ldeferred\*O, then cancellation requests will be sent
+to the server where they will be handled according to the server's setting of the
+cancelability state for the application thread extension (that is, the call thread)
+in the server.  If ignored at the server, the client side would then effect the
+cancel upon return from the RPC, so the cancel would not be lost or incorrectly
+handled.  In particular, the timeslice interrupt (context switch) is a cancellation
+point in DCE threads, so that even if a cancel were ignored by the server side,
+when the RPC returns, the thread will be at a cancellation point.
+.LI
+.ne 5
+If cancelability state is \*Lasynchronous\*O, then cancellation can happen at
+any time.  In general, this state is not recommended across the scope of an RPC
+in line with the rule that most routines that do useful work are not asynchronous
+cancel safe and thus should not be called with asynchronous cancelability state.
+.LE

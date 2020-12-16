@@ -1,0 +1,2717 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: nameservice.gpsml,v $
+...\" Revision 1.1.4.1  1996/03/21  17:06:33  wardr
+...\" 	{edit R1.2.1}
+...\" 	Release Edits
+...\" 	[1996/03/21  17:05:44  wardr]
+...\"
+...\" Revision 1.1.2.12  1995/06/27  17:04:15  buckler
+...\" 	1.1 edits and Prentice Hall reformat
+...\" 	[1995/06/27  17:03:04  buckler]
+...\" 
+...\" Revision 1.1.2.11  1994/11/22  16:46:26  neilson
+...\" 	Replaced book cross references with standard macros.
+...\" 	[1994/11/22  16:46:06  neilson]
+...\" 
+...\" Revision 1.1.2.10  1994/11/22  15:41:35  weir
+...\" 	Some index work done
+...\" 	[1994/11/22  15:40:33  weir]
+...\" 
+...\" Revision 1.1.2.9  1994/11/15  16:25:49  weir
+...\" 	No change
+...\" 	[1994/11/15  16:25:11  weir]
+...\" 
+...\" Revision 1.1.2.8  1994/10/20  20:56:22  weir
+...\" 	Fixed a few typos
+...\" 	[1994/10/20  20:55:54  weir]
+...\" 
+...\" Revision 1.1.2.7  1994/10/19  20:48:18  weir
+...\" 	Review comments
+...\" 	[1994/10/19  20:47:27  weir]
+...\" 
+...\" Revision 1.1.2.6  1994/10/19  16:02:53  weir
+...\" 	Review comments and edits
+...\" 	[1994/10/19  16:02:07  weir]
+...\" 
+...\" Revision 1.1.2.5  1994/10/11  14:05:50  weir
+...\" 	Updates
+...\" 	[1994/10/11  14:04:57  weir]
+...\" 
+...\" Revision 1.1.2.4  1994/09/23  19:57:47  weir
+...\" 	Updates for review
+...\" 	[1994/09/23  19:56:57  weir]
+...\" 
+...\" Revision 1.1.2.3  1994/08/17  20:56:27  weir
+...\" 	First set of updates
+...\" 	[1994/08/17  20:55:43  weir]
+...\" 
+...\" Revision 1.1.2.2  1994/08/11  20:36:45  jhh
+...\" 	expand copyright
+...\" 	[1994/08/11  19:58:54  jhh]
+...\" 
+...\" Revision 1.1.2.1  1994/07/06  20:56:18  weir
+...\" 	Initial submit
+...\" 	[1994/07/06  20:55:50  weir]
+...\" 
+...\" $EndLog$
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 1 "Using the DCE Name Service"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Correct use of the DCE RPC Name Service Interface (NSI) is essential to the
+operation of a distributed application, since NSI is the medium through
+which the application's distributed parts must find each other.  NSI
+works with named database entries which are hierarchically organized into
+subdirectories and referenced by the familiar pathname convention.
+...\" 
+...\" 
+...\" 
+...\"
+...\"
+...\" ----------------------------------------------------------------------
+.H 2 "Introduction to Using NSI"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+...\"
+.P
+.iX "names" "difference of from objects"
+.iX "object" "difference of from names"
+It is important to remember that names and objects are separate things in DCE.
+Consider, for example, these two DCE names:
+...\" 
+.iS
+/.../tinseltown.org/dce/printers/macmillan
+
+/.../tinseltown.org/dce/employees/goethe
+.iE
+...\" 
+.P
+.ne 10
+These strings are \*Enot\*O filenames or file directory names; if you attempt
+to execute the \*Lls\*O command on them, you will only get an error message.
+They are pathnames that identify entries in the DCE Directory Service, which
+.iX "namespace" "defined"
+is DCE's database for storing distributed information.  This database is often
+informally referred to as the \*Enamespace\*O.
+.P
+The most important type of distributed information stored in the namespace
+is information that enables RPC clients to rendezvous with RPC servers; it is
+called \*Ebinding information\*O.  The directory service can be used to hold
+other kinds of data too, but the main subject of the following discussions
+will be its use as a binding repository.
+.P
+The set of binding name entries is like a huge data structure of pointers from
+object names to object locations, and the directory service is used mostly as
+a public DCE locational database, enabling servers to advertise themselves and
+the objects and resources that they manage, and clients in turn to find and
+access them.  You should never confuse objects with their names; the two are
+separate things.  In particular, the directory service data associated with a
+name is held in one place (namely, the directory server's database), while the
+data associated with the object named is held in other place (namely, the object
+server's database).
+.P
+How then, you might ask, are filenames represented in DCE? Here are two examples
+.iX "filenames" "representation of in DCE"
+of remote filenames:
+...\" 
+.iS
+/.../tinseltown.org/fs/doc/jones/app.gd/chap2.ps
+
+/.../tinseltown.org/fs/doc/tolstoy/novels/war_and_peace/chap2.ps
+.iE
+...\" 
+.P
+As you may have guessed, these too are namespace entries, but the entries
+in this case refer to remote files, and the entry name as a whole is the
+remote filename.  What makes these names different from the other
+two names given earlier is their third element, \*Lfs/\*O,
+which identifies a \*Ejunction\*O from the DCE Directory Service's namespace
+into the DCE Distributed File Service's own, separately maintained, namespace.
+.P
+.ne 15
+What happens is that \*L/.../tinseltown.org/fs\*O
+is the DFS file server's DCE namespace entry, and any attempt by a file service
+client to access a file object whose name begins with
+\*L/.../tinseltown.org/fs\*O
+will implicitly bind to this server, which will then be responsible for finding,
+in its own namespace, the file object referred to by
+\*Ldoc/jones/app.gd/chap2.ps\*O or
+\*Ldoc/tolstoy/novels/war_and_peace/chap2.ps\*O
+and performing the requested operations on it.
+...\"
+...\"
+...\"
+...\"
+...\"
+...\" ----------------------------------------------------------------------
+.H 3 "The UUID"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+Thus, it is a mistake to suppose that a name is identical to an object. The
+name merely points in the direction of the object it names.  Objects do,
+however, have identifiers.  These are the 128-bit universal unique identifier
+(UUID) data structures, which are the identities that the DCE components
+recognize.  They are not usually seen by users, although they play a part in
+the object-finding process.
+.P
+UUIDs are used within DCE to identify all sorts of things. From the
+standpoint of the application programmer, they have two main uses: to
+identify objects and to identify interfaces. 
+...\" 
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.H 3 "Object UUIDs"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+Although \*Eobject\*O is necessarily a rather vague term, a reasonable
+definition would be the following: an object is any DCE entity that can be
+accessed by a client, and which can be represented by a namespace entry and
+identified therein by a UUID.  This category can include servers, devices,
+and other resources.  UUIDs that are used in this way are called \*Eobject
+UUIDs\*O in order to distinguish them from the other main use of UUIDs, namely
+to identify interfaces (\*Einterface UUIDs\*O).  The difference between these
+two uses consists only in the way the UUIDs are interpreted by the name
+service and RPC runtime.  Note that it follows from this discussion that an
+interface is usually \*Enot\*O an object.  Clients do not normally access an
+interface as such; the interface is rather a description of the rules of
+access.
+.P
+.ne 10
+As far as the DCE RPC and name service mechanisms are concerned, it is enough
+if a client is brought into contact with some server, as long as that server
+offers the service the client is looking for; in other words, as long as
+the server offers the interface the client wants to use.  To accomplish this
+rendezvous, interface UUIDs are sufficient.  They are also mandatory.  There
+cannot be a client/server relationship without an interface, and the entire RPC
+runtime mechanism is dependent on the concept of interfaces.
+.P
+Object UUIDs are different. The RPC runtime usually does not care if they
+are present or not.  But if they are present, they activate various runtime
+mechanisms that allow clients and servers to be much more specific (always
+within the bounds of a given interface) about what servers are bound to,
+and/or what resources the servers will use to fulfill the clients' requests.
+How this works is explained later in this chapter.
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.H 3 "Interface UUIDs"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+Every IDL-compiled interface specification has its own UUID associated with
+it, and the IDL-generated stub routines include this interface UUID with
+every operation request or return sent over the network by clients and
+servers.  In this way receiving stubs ensure that they and the sending stubs
+are sharing exactly the same interface.  If the interface UUIDs are different,
+or are not present, then the remote call will not be completed.  But
+interface UUIDs, although they are required, play only a secondary role in a
+client's finding the interface (that is, finding a server that offers
+the interface); the main tool for this is NSI,
+which makes use of the DCE Directory Service, as explained later in
+this part of the chapter.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Summary: Names and UUIDs"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+Both names and UUIDs identify objects. But names are separable from the
+objects they identify, and are only as trustworthy as the binding information
+their entries contain.  UUIDs, on the other hand, are inalienable identifiers.
+Once the desired binding information for an interface or an interface/object
+combination has been found and used, the name that was used to retrieve it
+can be forgotten; it is of no further use.  This is not true of either interface
+or object UUIDs.
+.P
+Note that names become completely unnecessary only if clients have some other
+means of obtaining valid binding information for the desired service, such as
+string bindings.
+...\" 
+...\" 
+.P
+The following figure illustrates how the information a client finds through a
+name is turned into network contact with the object named.
+...\" 
+...\" ------------------------------------
+...\" ----------------------------------------------------------------------
+...\" Figure : to illustrate the hierarchy of identifiers
+...\" ----------------------------------------------------------------------
+...\" ------------------------------------
+...\" pix/figobj.pic
+.P
+.ne 2.9i
+.FG "How a Name Turns into an Object"
+.sp .5
+.PS
+.in +.5i
+scale = 1.5
+.ps 12
+box at 1.042i,3.458i wid 0.917i ht 0.417i;
+box at 1.042i,5.708i same;
+box at 1.042i,6.292i wid 0.917i ht 0.250i;
+box at 1.042i,4.292i same;
+box at 1.042i,4.583i wid 0.917i ht 0.333i;
+box at 3.042i,3.458i wid 0.917i ht 0.417i;
+box at 3.042i,5.708i same;
+box at 3.042i,6.292i wid 0.917i ht 0.250i;
+box at 4.958i,3.458i wid 0.917i ht 0.417i;
+box at 4.958i,6.292i wid 0.917i ht 0.250i;
+box dotted at 4.958i,5.708i wid 0.917i ht 0.417i;
+"\fR\s8client\s0\fP" at 1.042i,3.458i;
+"\fR\s8client\s0\fP" at 3.042i,3.458i;
+"\fR\s8client\s0\fP" at 4.958i,3.458i;
+"\fR\s8name\s0\fP" at 1.042i,4.292i;
+"\fR\s8binding\s0\fP" at 1.042i,4.583i;
+"\fR\s8server\s0\fP" at 1.042i,5.708i;
+"\fR\s8server\s0\fP" at 3.042i,5.708i;
+"\fR\s8object\s0\fP" at 1.042i,6.292i;
+"\fR\s8object\s0\fP" at 3.042i,6.292i;
+"\fR\s8object\s0\fP" at 4.958i,6.292i;
+line -> from 1.042i,3.667i to 1.042i,4.167i;
+line -> from 1.042i,4.750i to 1.042i,5.500i;
+line -> dashed from 1.042i,5.917i to 1.042i,6.167i;
+line -> from 3.042i,5.500i to 3.042i,3.667i;
+line dashed from 3.042i,5.917i to 3.042i,6.167i;
+line -> from 4.958i,3.667i to 4.958i,6.167i;
+"\fR\s8\fIserver\s0\fP" at 4.958i,5.708i;
+"\fR\s82: make contact\s0\fP" ljust at 2.458i,3.042i;
+"\fR\s81: find object\s0\fP" ljust at 0.542i,3.042i;
+"\fR\s83: access object\s0\fP" ljust at 4.417i,3.042i;
+line -> from 4.958i,6.167i to 4.958i,3.667i;
+.in
+.PE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Binding to an Object"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The difference between, for example, reading a local file on a single machine
+and performing the same read on a remote file in DCE is like the difference
+between reading information from a phone book yourself and dialing an operator
+for the same information.  The remote operation requires the addition of another
+active entity that can be requested to perform it, since you cannot.  Associated
+with every piece of remote data available on a network is a remote server to
+manage that data and make it available.  The user may not see the server; even
+the client may be unaware of it, but it is there.
+.P
+.ne 10
+The DCE documentation often speaks of ``binding to an object.'' In reality,
+clients can bind only to servers, which then may be requested to perform
+operations on objects that are under their management.  However, it is possible
+for a server to put bindings into namespace entries that are named for the
+objects that it manages.  Furthermore, these exported bindings can be tagged with
+object UUIDs in such a way that incoming remote calls from clients can be
+applied by the server to the object whose name entry the binding was read from
+(the details of this technique are described later in this chapter).  When an
+application uses this kind of binding model, it is reasonable to say that the
+client is logically bound to the object, although it is physically always bound
+to the server that manages the object.
+...\"
+...\"  Note that the server could in fact be the
+...\"  object.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Junctions"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+...\" 
+...\" 
+.P
+Namespace junctions are another example of the hidden server effect. The
+following remote filename was discussed earlier:
+...\" 
+.iS
+/.../tinseltown.org/fs/doc/jones/app.gd/chap2.ps
+.iE
+...\" 
+.P
+There it was explained that
+\*Ldoc/jones/app.gd/chap2.ps\*O
+is an entry in DCE DFS's own namespace, while
+\*L/.../tinseltown.org/fs\*O
+is a DCE namespace entry. Suppose a user enters the following:
+...\" 
+.iS
+ls -l /.../tinseltown.org/fs/doc/jones/app.gd
+.iE
+...\" 
+.P
+The clerk agent program (called as a result of the user's entering \*Lls\*O)
+will bind to the remote file server via its
+\*L/.../tinseltown.org/fs\*O
+DCE namespace entry, and pass to it the residual DFS entry name
+\*Ldoc/jones/app.gd\*O
+along with other parameters. The \*Lls\*O command behaves this way because
+the underlying (VFS+ layer) system calls are coded that way.  The DFS server
+then performs the request (note that the details of interaction within DFS
+are somewhat more complex than implied by this description).  The user only
+types the command line; the rest is done by DCE, and a directory listing
+appears on the user's screen.
+.P
+.ne 10
+Because the VFS+ system routines, which are used by all possible clients of
+DFS services (for example, commands like \*Lls\*O and \*Lrm\*O, library
+routines like \*Lfopen(\|)\*O and \*Lfclose(\|)\*O), know about the remote
+file server at
+\*L/.../tinseltown.org/fs\*O
+and bind to it correctly, the transition from the DCE to the DFS namespace
+is completely transparent to users.  And this is how junctions work.  As long
+as all possible clients behave correctly with a name that includes a junction,
+the junction will not be perceptible to the clients' users.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "A Junction Example"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The next figure illustrates the principle of junctions. A junction server,
+which is reached normally through binding information in the DCE namespace,
+maintains its own namespace of named objects.  The junction server's clients
+allow users to refer to these objects by actually concatenating the server's
+entry name and an object's internal name.  The client then in effect breaks
+this string apart by contacting the server named in the first part of the
+string, and passing to it the second part, which is a valid name within the
+server's namespace.  The client's user seems to access the object directly.
+...\" 
+...\" 
+...\" ------------------------------------
+...\" ----------------------------------------------------------------------
+...\" Figure : to illustrate junctions
+...\" ----------------------------------------------------------------------
+...\" ------------------------------------
+...\" pix/figjunc.pic
+.P
+.ne 3i
+.FG "A Namespace Junction"
+.sp .5
+.PS
+.in +.5i
+scale = 1.5
+.ps 12
+box at 3.125i,3.115i wid 0.917i ht 0.417i;
+"\fR\s8client\s0\fP" at 3.125i,3.115i;
+box at 4.208i,6.115i wid 0.917i ht 0.250i;
+box at 5.292i,6.115i same;
+"\fR\s8name\s0\fP" at 4.208i,6.115i;
+"\fR\s8name\s0\fP" at 5.292i,6.115i;
+box at 2.042i,6.115i same;
+box at 0.958i,6.115i same;
+"\fR\s8name\s0\fP" at 0.958i,6.115i;
+"\fR\s8name\s0\fP" at 2.042i,6.115i;
+box at 3.125i,6.115i same;
+"\fR\s8name\s0\fP" at 3.125i,6.115i;
+box dotted at 3.125i,5.365i wid 0.917i ht 0.417i;
+box dotted at 3.125i,4.115i wid 0.917i ht 0.583i;
+line dotted from 2.667i,4.115i to 3.583i,4.115i;
+line -> dashed from 3.125i,3.323i to 3.125i,3.823i;
+line -> dashed from 3.125i,4.406i to 3.125i,5.156i;
+line -> dashed from 3.125i,5.573i to 2.042i,5.990i;
+line -> dotted from 3.125i,5.573i to 3.125i,5.990i;
+line -> dotted from 3.125i,5.573i to 4.208i,5.990i;
+line -> dotted from 3.125i,5.573i to 5.292i,5.990i;
+line -> dotted from 3.125i,5.573i to 0.958i,5.990i;
+"\fR\s8\fIjunction\s0\fP" at 3.115i,5.469i;
+"\fR\s8\fIserver\s0\fP" at 3.115i,5.323i;
+"\fR\s8\fIname\s0\fP" at 3.115i,3.979i;
+"\fR\s8\fIbinding\s0\fP" at 3.115i,4.271i;
+box at 0.958i,6.448i wid 0.917i ht 0.417i;
+box at 2.042i,6.448i same;
+box at 3.125i,6.448i same;
+box at 4.208i,6.448i same;
+box at 5.292i,6.448i same;
+"\fR\s8object\s0\fP" at 0.958i,6.448i;
+"\fR\s8object\s0\fP" at 2.042i,6.448i;
+"\fR\s8object\s0\fP" at 3.125i,6.448i;
+"\fR\s8object\s0\fP" at 4.208i,6.448i;
+"\fR\s8object\s0\fP" at 5.292i,6.448i;
+line -> from 3.125i,3.323i to 1.760i,6.229i;
+.in
+.PE
+...\" 
+...\" 
+.P
+.ne 10
+The dashed lines in the above figure show the progress of the client's efforts
+to get access to the desired object, which involves acquiring a binding to the
+junction server, making contact with it, and passing to it the object's name.
+The solid line shows the apparent direct access to the object that the
+client's user seems to enjoy.  The dotted lines show other possible paths of
+access to the other objects that the server manages.
+.P
+Junction protocol is generally a private matter between an application's
+clients and servers.  However, the \*Lacl_edit\*O command uses a generalized
+protocol.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Junctions and the ACL Editor"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+The binding routines that \*Lacl_edit\*O uses are discriminating enough to
+detect a junction anywhere in an entry name that is passed to it.  This allows
+a distributed application to have its own namespace for objects with ACLs on
+them, rather than burdening the DCE namespace by separately exporting binding
+information for every one of these objects.  The separate objects have to be
+made publicly accessible somehow because entities should be able to access
+ACLs directly, regardless of whether they happen to already be in contact with
+the server that manages the ACL'ed object, and indeed regardless of whether or
+not they happen to be a client of the particular server to which the objects
+belong.
+.P
+Suppose, for example, a user enters
+the following
+in order to interactively edit the ACL for the printer object \*Lcotta\*O,
+where the namespace entry for a print server is
+\*L/.../tinseltown.org/dce/dce_print\*O,
+and there is no
+\*L/.../tinseltown.org/dce/dce_print/cotta\*O
+entry in the DCE namespace: 
+...\"
+...\"
+.iS
+acl_edit\ \ /.../tinseltown.org/dce/dce_print/cotta
+.iE
+.P
+The binding routine, \*Lsec_acl_bind(\|)\*O, which
+is called internally by \*Lacl_edit\*O, receives an error when it tries to bind
+to the object \*Lcotta\*O.  However, the DCE Directory Service also tells it
+how much of the name it passed is valid.  The \*Lsec_acl_bind(\|)\*O routine then
+retries the binding operation, this time through the valid entry name
+\*L/.../tinseltown.org/dce/dce_print\*O
+and passes the residual part of the name (\*Lcotta\*O) as a parameter. Now it
+is up to the application ACL manager to interpret the residual name correctly
+and find the requested ACL.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Name Service Terminology"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+DCE RPC NSI is an RPC-based interface that uses the DCE Cell Directory
+Service (CDS) as its database.  The NSI routines do not constitute a general
+interface into CDS as such; they are a set of specialized routines whose
+purpose is simply to provide ways for RPC servers to advertise themselves
+to RPC clients, and for clients to find and bind to them.
+.P
+In fact there is no public general application programming interface (API)
+to CDS.  There is a general CDS interface that is used internally by the DCE
+components, but applications normally access CDS through NSI.  Applications
+can get full access to CDS, if necessary, by using the XDS interface.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "CDS Entries"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+NSI uses a subset of the many possible kinds of CDS entry in order to
+accomplish its tasks.  CDS entries are characterized by the CDS attributes
+they have; each entry can have one or more such attributes.  Each separate
+attribute defines that entry's ability to contain one or more items of a
+particular kind of simple or complex information.
+...\" 
+...\" 
+.P
+The name service creates and uses CDS entries that use only the following
+four attributes:
+...\" 
+...\" 
+.VL
+.LI "\*Lbinding\*O"
+The entry has a field that can contain one or more sets of binding information.
+When the field is read, a binding handle that contains the necessary
+information from one of these sets is returned, in no particular order.
+...\" 
+...\"
+...\"
+.LI "\*Lobject\*O"
+The entry has a field that can contain one or more object UUIDs.  When the
+field is read, one of the UUIDs is returned, in no particular order.
+...\" 
+...\" 
+...\" 
+.LI "\*Lgroup\*O"
+The entry has a field that can contain a pool of one or more references to
+other (independently existing) NSI entries; each time the field is read, one
+of these entries is returned.  Different entries are returned on successive
+reads, but the order of return is undefined.  
+.PP
+.ne 10
+Note that the other NSI
+entries referred to in the group can themselves be server or group entries.
+As a result, the act of reading from a group attribute can, depending on
+the actual API routine called, lead to a series of nested operations.
+Any nesting is transparent to the client application, however, which seems
+to perform a simple read and to receive the contents of a single entry in
+return.
+...\" 
+...\" 
+...\" 
+.LI "\*Lprofile\*O"
+The entry has a field that can contain one or more prioritized elements, each of
+which consists of a reference to another (independently existing) NSI entry.
+When the field is read, the elements are read in a specified order.  The entry
+referred to in the element may itself be a server or a group or a profile.  As
+a result, any element may in fact, depending on the actual API routine called,
+resolve on access to a nested path of referred-to entries.  As with group entries,
+this is transparent to the client application.
+.LE
+...\" 
+...\" 
+.P
+Although a single entry could contain both group and profile attributes
+(and for that matter, binding and object attributes as well), it is not
+a good idea to mix attributes in this way because the results of importing
+(reading) from such an entry are too indeterminate.
+.P
+The typical name service entries are as follows:
+...\" 
+.VL
+.LI "\*Lserver\ entry\*O"
+.nL
+Contains a binding and an object attribute, making it suitable for containing
+the necessary binding information for a single server.
+.LI "\*Lgroup\ entry\*O"
+.nL
+Contains a group attribute.
+.LI "\*Lprofile\ entry\*O"
+.nL
+Contains a profile attribute.
+.LE
+...\" 
+.P
+There are no official names for hybrid entries that contain other combinations
+of attributes, which is perhaps another reason for not creating such entries.
+.P
+The general name for entries that contain any of these attributes is \*ENSI
+entries\*O, since they are a by-product and tool of the NSI DCE RPC library
+routines.
+...\"
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "CDS Entry Attributes"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Within the DCE Directory Service, entry attributes such as the four previously
+described attributes are identified by object identifiers (OIDs).  This is an
+exception to the general rule that things in DCE are identified by UUID.
+.P
+OIDs are not seen by applications that restrict themselves to using only the
+name service routines (\*Lrpc_ns_\*V*\*L(\|)\*O), but these identifiers are
+important for applications that use the X/Open Directory Services (XDS)
+interface to create new attributes for use with namespace entries.
+.P
+As was seen in the immediately preceding sections, the name service makes
+use of only four different entry attributes in various application-specified
+or administrator-specified combinations.  CDS, however, contains definitions
+for many more than these, and attributes from this supply of already existing
+ones can be added by applications to NSI entries through the XDS interface.
+Attributes that already exist are already properly identified, so applications
+that use these attributes do not have to concern themselves with the OIDs,
+except to the extent of making sure that they handle them properly.
+.P
+A further possibility is that an application requires new attributes for
+use with namespace entries.  Such attributes can be created using the XDS
+interface.  When it creates new attributes, the application is responsible
+for tagging them with new, properly allocated OIDs.
+.P
+Unlike UUIDs, OIDs are not generated by command or function call.  They
+originate from the International Organization for Standardization (ISO), which
+allocates them in hierarchically organized blocks to recipients. 
+Each recipient (typically an organization of some kind) is then responsible
+for ensuring that the OIDs it received are used uniquely.
+.P
+For example, the following OID
+identifies the NSI profile entry attribute. This number was assigned by the
+Open Software Foundation out of a block of numbers, beginning with the digits
+\*L1.3.22\*O, which was allocated to it by ISO, and OSF is responsible for
+making sure that \*L1.3.22.1.1.4\*O is not used to identify any other attribute.
+...\" 
+.iS
+1.3.22.1.1.4
+.iE
+...\" 
+.P
+.ne 10
+When applications have occasion to handle OIDs, they do so directly, since the
+numbers do not change and should not be reused.  However, for users' convenience,
+CDS also maintains a file (whose name is
+\*L/opt/dcelocal/etc/cds_attributes\*O) that
+lists string equivalents for all the OIDs in use in a cell, in entries like the
+following:
+...\" 
+.iS
+1.3.22.1.1.4        RPC_Profile     byte
+.iE
+...\" 
+.P
+This allows users to see \*LRPC_Profile\*O in output, rather than the
+mysterious \*L1.3.22.1.1.4\*O.  Further details about the \*Lcds_attributes\*O
+file and OIDs can be found in the \*(Ac.
+.P
+Broadly speaking, the procedure you should follow to create new attributes 
+on CDS entries consists therefore of three steps:
+...\" 
+.AL
+.LI
+Request and receive, from your locally designated authority, OIDs for the
+attributes you intend to create.
+.LI
+Update the \*Lcds_attributes\*O file with the new attributes' OIDs and
+labels; that is, if you want your application to be able to use string
+name representations for OIDs in output.
+.LI
+Using XDS, write the routines to create, add, and access the attributes.
+.LE
+...\" 
+.P
+Non-NSI attributes on NSI entries can be very useful, even though you
+cannot access the extra attributes through the name service routines
+but must use XDS instead.
+...\" 
+...\"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Binding"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+In order to highlight the essentials of name lookup and storage and the
+management of binding information, many details of DCE RPC operation are
+either greatly simplified in the following descriptions or omitted altogether.
+...\" 
+...\" 
+.P
+A binding is a package of information that describes how a client can contact
+and communicate with a particular server.  Although the underlying protocol
+that implements the communication can be connectionless or connection-oriented,
+the relationship itself is still expressed as a binding.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Importing and Exporting Bindings"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The name service exists to store server binding information into the cell
+namespace, and to retrieve that information for clients.  Using NSI, servers
+export their binding information to be stored under meaningful names, and clients
+import these bindings by looking up those names.  Thus, the locations of the servers
+can change, but clients can continue to use the same names to get bindings to the
+servers.  The following figure shows how client and server use the name service.
+...\"
+.P
+.ne 2.75i
+.FG "Client and Server Use of the Name Service"
+.sp .5
+...\" ------------------------------------
+...\" ----------------------------------------------------------------------
+...\" Figure 04: showing server exporting, client importing, binding info.
+...\" ----------------------------------------------------------------------
+...\" ------------------------------------
+...\" pix/fig02.pic
+.PS
+.in +.5i
+scale = 1.5
+.ps 12
+box at 0.792i,4.875i wid 0.917i ht 0.917i;
+box at 3.375i,4.875i same;
+box at 0.792i,4.167i wid 0.917i ht 0.500i;
+box at 3.375i,4.167i same;
+box at 2.083i,2.469i wid 3.500i ht 0.729i;
+"\fR\s8RPC\s0\fP" at 0.792i,4.292i;
+"\fR\s8Runtime\s0\fP" at 0.792i,4.146i;
+"\fR\s8RPC\s0\fP" at 3.375i,4.312i;
+"\fR\s8Runtime\s0\fP" at 3.375i,4.167i;
+"\fR\s8Client\s0\fP" at 0.792i,5.083i;
+"\fR\s8Server\s0\fP" at 3.375i,5.083i;
+line -> from 1.646i,2.833i to 0.792i,3.917i;
+line -> from 3.375i,3.917i to 2.521i,2.833i;
+"\fR\s8export bindings\s0\fP" ljust at 3.083i,3.417i;
+"\fR\s8import binding\s0\fP" ljust at 1.292i,3.417i;
+"\fR\s8CDS Namespace\s0\fP" at 2.083i,2.469i;
+.in
+.PE
+...\"
+...\"
+...\"
+.sp .5
+.P
+When a prospective client attempts to import binding information from a
+namespace entry that it looks up by name, the binding is checked by NSI
+for compatibility with the client.  This is done by comparing interface
+UUIDs.  The client presents an interface UUID when it begins the binding
+import operation; the UUID of the interface being offered is exported to
+the name entry, but not in the binding handle itself, by the server.  If
+these interface UUIDs match, then the binding handle contained in the
+entry is considered compatible by the RPC runtime and is returned to the
+client.  If more than one handle is contained in the entry (this is often
+the case), they are returned one by one on successive imports.  NSI also
+checks for protocol compatibility.
+.P
+The import routines will return only client-compatible bindings, but a
+client can sift through the returned bindings and make its own choice
+as to which ones to use, based on its own criteria.  The technique by which
+this is done consists of converting the bindings into string bindings,
+and then inspecting (or comparing) the strings.
+...\" 
+...\" 
+.P
+Note that binding handles do \*Enot\*O include an interface UUID. Binding
+handles do contain a host address, an endpoint, and an optional object UUID,
+among other things.  The interface UUID is associated with the interface's
+stub code, which inserts it into outgoing RPCs and checks it in incoming
+ones, thus guaranteeing client/server operational compatibility.  This allows
+binding handles to be used very flexibly: once a client has successfully
+bound to a server, it can utilize any of the interfaces that server offers,
+simply by making the desired remote call.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Summary"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The mapping from name to server that occurs when bindings are imported from
+the namespace is indirect because binding is a two-step process: first the
+binding handle is obtained by lookup from a named entry, and then the handle
+is used to reach a server.  The crucial point is that the imported handle
+will not usually contain a complete binding to a specific server (namely,
+the one that happened to export it).  Completion of the partial binding
+occurs later, when the client makes its first remote procedure call;
+the RPC runtime uses UUIDs, not names, to determine how it should complete
+a binding.
+...\"
+...\"
+...\" ----------------------------------------------------------------------
+.H 2 "Partial Binding and the Endpoint Mapper"
+...\" ----------------------------------------------------------------------
+...\"
+...\" 
+.P
+Binding handles imported by clients from the namespace normally contain only
+partial binding information.  The exported binding information is sufficient
+to locate the DCE host daemon on the server's host (the machine the server
+resides on), but it does not yet include a specific endpoint (UDP or TCP port
+number) for the desired service on that host. 
+...\"
+...\" The exception to this statement is interfaces that contain
+...\"	well-known endpoints.
+...\"
+.P
+The reason for omitting dynamic endpoint information in exported binding handles
+is to avoid unnecessary multiplication of accesses to the namespace.  Since
+dynamically generated endpoints are necessarily reassigned every time a server
+starts up, entering them into the namespace (and thus forcing CDS to propagate
+the new information throughout the various directory replicas) would greatly
+increase namespace housekeeping chores.
+.P
+Thus, the last step in the binding process is obtaining an endpoint. The step
+is performed transparently as far as the client is concerned.  It is accomplished
+by the endpoint mapper service of the DCE host daemon, \*Ldced\*O, when the client
+makes its first call to the partially bound-to server.  The endpoint mapper service
+manages its own private database of server endpoints for the host on which it is
+located.  The endpoints are registered by the servers as part of their startup
+routine.
+.P
+The binding information that accompanies a prospective client's first remote
+procedure call takes that call to the well-known endpoint of \*Ldced\*O on the
+exporting server's host machine.  The endpoint mapper now takes over.  It looks up
+a valid endpoint for the requested service, copies it into the binding handle,
+and transfers the call to that endpoint.  Subsequent calls from the client, which
+now has a binding with one of the server's endpoints, will bypass the endpoint
+mapper.
+.P
+The endpoint mapper picks an appropriate endpoint for an incoming partial binding
+by matching interface UUIDs by default.  Any endpoint that has been registered under
+an interface UUID that matches the incoming interface UUID, which identifies the
+interface requested by the prospective client, is eligible for selection.  This
+mapping process is called \*Eforwarding\*O when it occurs with connectionless
+protocols, and \*Emapping\*O when it occurs with connection-oriented protocols.
+.P
+The following figure shows the endpoint mapper service completing a binding.
+...\"
+...\"
+.P
+.ne 2.75i
+.FG "The Endpoint Mapper Service Completes a Binding"
+.sp .5
+...\" ------------------------------------
+...\" ----------------------------------------------------------------------
+...\" Figure 05: showing endpoint mapper operation
+...\" ----------------------------------------------------------------------
+...\" ------------------------------------
+...\" pix/fig03.pic
+.PS
+.in +.5i
+scale = 1.5
+.ps 12
+box at 2.792i,6.458i wid 0.917i ht 0.917i;
+box at 5.292i,6.458i same;
+box at 2.792i,5.750i wid 0.917i ht 0.500i;
+box at 5.292i,5.750i same;
+"\fR\s8RPC\s0\fP" at 2.792i,5.875i;
+"\fR\s8Runtime\s0\fP" at 2.792i,5.729i;
+"\fR\s8RPC\s0\fP" at 5.292i,5.896i;
+"\fR\s8Runtime\s0\fP" at 5.292i,5.750i;
+"\fR\s8Client\s0\fP" at 2.792i,6.667i;
+"\fR\s8Server\s0\fP" at 5.292i,6.667i;
+box dotted at 2.833i,5.833i wid 1.500i ht 2.833i;
+box dotted at 5.250i,5.833i same;
+box at 5.292i,4.844i wid 0.917i ht 0.531i;
+"\fR\s8Endpoint\s0\fP" at 5.292i,5.000i;
+"\fR\s8Mapper\s0\fP" at 5.292i,4.854i;
+"\fR\s8(dced)\s0\fP" at 5.292i,4.708i;
+line -> from 3.250i,5.750i to 4.833i,5.750i;
+line -> from 2.792i,5.500i to 4.833i,4.844i;
+line -> from 5.292i,5.104i to 5.292i,5.500i;
+"\fR\s8subsequent\s0\fP" at 3.750i,5.833i;
+"\fR\s8calls\s0\fP" at 3.740i,5.677i;
+"\fR\s8first\s0\fP" ljust at 4.083i,5.167i;
+"\fR\s8call\s0\fP" rjust at 4.375i,4.906i;
+"\fR\s8Client's Machine\s0\fP" at 2.833i,4.302i;
+"\fR\s8Server's Machine\s0\fP" at 5.240i,4.292i;
+.in
+.PE
+...\" 
+...\" 
+...\" 
+.P
+.ne 10
+There is an exception to this scheme.  Some servers are designed to
+occupy well-known addresses.  The DCE host daemon itself, \*Ldced\*O,
+is reached in this way, making its accessibility independent of whether
+or not the namespace is accessible.  The endpoint(s) of a well-known
+address do not change; they are usually specified in the application's
+interface specification (contained in its \*L\&.idl\*O file).
+...\" 
+...\"  see Step A3 in Chapter 1, Section 1.5.3, of this guide).
+...\" 
+Bindings to servers that use well-known endpoints are already complete at the
+time of import; the endpoint mapper never sees these bindings.
+...\" 
+...\"
+...\"
+...\"
+...\" ----------------------------------------------------------------------
+.H 2 "Interface Ambiguity and Partial Bindings"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+The interface UUID, which was generated by the IDL compiler, uniquely
+identifies the set of operations that the client will access through that
+interface.  In short, it identifies the interface.  An interface UUID may also
+happen to identify a server which offers that interface.  But if more
+than one server on the same host offers the same interface (which could
+easily be the case), the interface UUID alone will not be sufficient to
+identify a \*Especific\*O server.  The result is that if a remote call comes
+in with such an ambiguous interface and a partial binding, the endpoint
+mapper will have to randomly choose any one of its eligible registered
+endpoints, complete the binding with it, and send the call on to that server.
+.P
+Imagine several print servers residing on the same machine (see Figure 5-5).
+Each server manages a group of printers that share a common physical location.
+All the printers in room A are managed by the A print server, all the
+printers in room B by the B print server, and so on.  Now suppose each
+of these servers has a separate entry in the namespace.  The following figure
+shows the sequence of events that occurs.
+.PP
+...\" .ne 40
+...\" .nP
+.ne 4.5i
+.FG "Print Server Entries in Namespace"
+.sp .5
+...\" ------------------------------------
+...\" ----------------------------------------------------------------------
+...\" Figure 06: showing undistinguished print server entries
+...\" ----------------------------------------------------------------------
+...\" ------------------------------------
+...\" pix/fig04.pic
+.PS
+.in +.5i
+scale = 1.5
+.ps 12
+box at 0.792i,4.875i wid 0.917i ht 0.917i;
+box at 0.792i,4.167i wid 0.917i ht 0.500i;
+"\fR\s8RPC\s0\fP" at 0.792i,4.292i;
+"\fR\s8Runtime\s0\fP" at 0.792i,4.146i;
+"\fR\s8Client\s0\fP" at 0.792i,5.083i;
+box dotted at 0.938i,4.250i wid 1.625i ht 3.000i;
+"\fR\s8Client's Machine\s0\fP" at 0.896i,2.604i;
+box at 3.031i,3.167i wid 0.917i ht 0.500i;
+"\fR\s8Endpoint\s0\fP" at 3.010i,3.292i;
+"\fR\s8Mapper\s0\fP" at 3.010i,3.146i;
+box at 2.417i,4.625i wid 0.667i ht 1.417i;
+box at 3.333i,4.625i same;
+box at 4.250i,4.625i same;
+box at 5.167i,4.625i same;
+box dotted at 3.875i,4.250i wid 3.750i ht 3.000i;
+"\fR\s8Print\s0\fP" at 2.385i,5.094i;
+"\fR\s8Server\s0\fP" at 2.385i,4.948i;
+"\fR\s8A\s0\fP" at 2.385i,4.802i;
+"\fR\s8Print\s0\fP" at 3.323i,5.104i;
+"\fR\s8Server\s0\fP" at 3.323i,4.958i;
+"\fR\s8B\s0\fP" at 3.323i,4.812i;
+"\fR\s8Print\s0\fP" at 4.250i,5.104i;
+"\fR\s8Server\s0\fP" at 4.250i,4.958i;
+"\fR\s8C\s0\fP" at 4.250i,4.812i;
+"\fR\s8Print\s0\fP" at 5.167i,5.104i;
+"\fR\s8Server\s0\fP" at 5.167i,4.958i;
+"\fR\s8D\s0\fP" at 5.167i,4.812i;
+"\fR\s8Servers' Machine\s0\fP" at 3.760i,2.625i;
+line -> dashed from 3.031i,3.417i to 2.417i,3.917i;
+line -> dashed from 3.031i,3.417i to 3.333i,3.917i;
+line -> dashed from 3.031i,3.417i to 4.250i,3.917i;
+line -> dashed from 3.031i,3.417i to 5.167i,3.917i;
+line -> from 2.417i,2.083i to 0.792i,3.917i;
+line -> from 1.021i,3.917i to 2.573i,3.167i;
+"\fR\s8?\s0\fP" rjust at 2.635i,3.635i;
+"\fR\s8?\s0\fP" rjust at 3.125i,3.677i;
+"\fR\s8?\s0\fP" rjust at 3.552i,3.698i;
+"\fR\s8?\s0\fP" ljust at 3.875i,3.552i;
+"\fR\s81\s0\fP" at 1.250i,3.083i;
+"\fR\s82\s0\fP" at 1.833i,3.333i;
+"\fR\s83\s0\fP" at 2.917i,3.750i;
+ellipse at 1.250i,3.083i wid 0.167i ht 0.167i;
+ellipse at 1.833i,3.333i same;
+ellipse at 2.917i,3.750i same;
+box at 2.417i,1.208i wid 0.667i ht 1.750i;
+box at 3.333i,1.208i same;
+box at 4.250i,1.208i same;
+box at 5.167i,1.208i same;
+"\fR\s8\"A\"\s0\fP" at 2.417i,1.917i;
+"\fR\s8\"B\"\s0\fP" at 3.333i,1.917i;
+"\fR\s8\"C\"\s0\fP" at 4.250i,1.917i;
+"\fR\s8\"D\"\s0\fP" at 5.167i,1.917i;
+line from 2.083i,1.833i to 2.750i,1.833i;
+line from 3.000i,1.833i to 3.667i,1.833i;
+line from 3.917i,1.833i to 4.583i,1.833i;
+line from 4.833i,1.833i to 5.500i,1.833i;
+"\fR\s8inter-\s0\fP" at 2.417i,1.667i;
+"\fR\s8face\s0\fP" at 2.417i,1.521i;
+"\fI\s8Printer\s0\fP" at 2.417i,1.375i;
+"\fR\s8inter-\s0\fP" at 3.333i,1.667i;
+"\fR\s8face\s0\fP" at 3.333i,1.521i;
+"\fI\s8Printer\s0\fP" at 3.333i,1.375i;
+"\fR\s8inter-\s0\fP" at 4.250i,1.667i;
+"\fR\s8face\s0\fP" at 4.250i,1.521i;
+"\fI\s8Printer\s0\fP" at 4.250i,1.375i;
+"\fR\s8inter-\s0\fP" at 5.167i,1.667i;
+"\fR\s8face\s0\fP" at 5.167i,1.521i;
+"\fI\s8Printer\s0\fP" at 5.167i,1.375i;
+"\fR\s8Server\s0\fP" at 2.417i,1.000i;
+"\fR\s8A\s0\fP" at 2.417i,0.854i;
+"\fR\s8partial\s0\fP" at 2.417i,0.708i;
+"\fR\s8binding\s0\fP" at 2.417i,0.562i;
+"\fR\s8Server\s0\fP" at 3.333i,1.000i;
+"\fR\s8B\s0\fP" at 3.333i,0.854i;
+"\fR\s8partial\s0\fP" at 3.333i,0.708i;
+"\fR\s8binding\s0\fP" at 3.333i,0.562i;
+"\fR\s8Server\s0\fP" at 4.250i,1.000i;
+"\fR\s8C\s0\fP" at 4.250i,0.854i;
+"\fR\s8partial\s0\fP" at 4.250i,0.708i;
+"\fR\s8binding\s0\fP" at 4.250i,0.562i;
+"\fR\s8Server\s0\fP" at 5.167i,1.000i;
+"\fR\s8D\s0\fP" at 5.167i,0.854i;
+"\fR\s8partial\s0\fP" at 5.167i,0.708i;
+"\fR\s8binding\s0\fP" at 5.167i,0.562i;
+box at 3.792i,1.167i wid 3.917i ht 1.833i;
+line -> from 1.500i,1.833i to 1.667i,1.833i;
+line -> from 1.500i,0.333i to 1.667i,0.333i;
+line -> from 1.500i,2.083i to 1.667i,2.083i;
+line from 1.500i,2.083i to 1.500i,1.833i;
+line from 1.500i,1.958i to 1.250i,1.958i;
+"\fR\s8Names of\s0\fP" rjust at 1.167i,2.000i;
+"\fR\s8Entries\s0\fP" rjust at 1.167i,1.854i;
+line from 2.083i,1.208i to 2.750i,1.208i;
+line from 3.000i,1.208i to 3.667i,1.208i;
+line from 3.917i,1.208i to 4.583i,1.208i;
+line from 4.833i,1.208i to 5.500i,1.208i;
+line from 1.500i,1.833i to 1.500i,0.333i;
+line -> from 1.500i,1.208i to 1.667i,1.208i;
+line from 1.500i,1.458i to 1.250i,1.458i;
+line from 1.500i,0.833i to 1.250i,0.833i;
+"\fR\s8Identical\s0\fP" rjust at 1.167i,1.583i;
+"\fR\s8Exported\s0\fP" rjust at 1.167i,1.438i;
+"\fR\s8Interfaces\s0\fP" rjust at 1.167i,1.292i;
+"\fR\s8Identical\s0\fP" rjust at 1.167i,1.000i;
+"\fR\s8Exported\s0\fP" rjust at 1.167i,0.854i;
+"\fR\s8Partial\s0\fP" rjust at 1.167i,0.708i;
+"\fR\s8Bindings\s0\fP" rjust at 1.167i,0.562i;
+"\fR\s8Namespace\s0\fP" at 3.792i,0.167i;
+.in
+.PE
+...\"
+...\"
+.sp .5
+.P
+The following steps describe the sequence of events shown in the above
+figure:
+...\" 
+.AL
+.LI
+The client imports a partial binding to the \*Vprinter\*O interface from
+the entry A in the namespace.
+.LI
+The client makes its first call with the binding it imported from A.
+.LI
+The endpoint mapper at print server A's host, when it receives the call
+from the client, has no way of knowing which of the four print servers
+it should map the call to, since all four servers have registered their
+endpoints under the same interface.  It therefore picks one at random
+to complete the binding.
+.LE
+...\" 
+.P
+The entry names are different, but the partial binding information contained
+in the entries is identical, since the servers' host machine is the same.
+The interface UUID included in the call is no help, since that same interface
+is offered by all the servers.  A client seeking a print server may not care
+to which server (and thus to which printer) its request goes, but then again,
+it may care.  If it does, there is a way it can specify a server so that the
+endpoint mapper can select an appropriate endpoint to complete the partial
+binding.
+...\" 
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.H 2 "Using Object UUIDs to Avoid Binding Ambiguity"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+Binding handles can contain, besides host address and endpoint information,
+an object UUID as well.  The endpoint mapper will try to match an object
+UUID contained in a binding handle with one of the object UUIDs associated
+with its map of registered endpoints.  This allows even a partial binding to
+specify a target more precisely than just by host machine.  Since object UUIDs
+are generated by the \*Luuid_create(\|)\*O function call (see the
+\*(Dr), servers can create as many of them as
+they need.
+...\" 
+...\" 
+...\" 
+...\" 
+.P
+For the print server example discussed in the previous section, the namespace
+entries for the servers could be set up as shown in the following figure.
+.P
+.ne 4.6i
+.FG "Print Server Name Entries with Object UUIDs"
+.sp .5
+...\" ------------------------------------
+...\" ----------------------------------------------------------------------
+...\" Figure 07: showing print server entries with object UUIDs
+...\" ----------------------------------------------------------------------
+...\" ------------------------------------
+...\" pix/fig05.pic
+.PS
+.in +.5i
+scale = 1.5
+.ps 12
+box at 0.792i,6.219i wid 0.917i ht 0.917i;
+box at 0.792i,5.510i wid 0.917i ht 0.500i;
+"\fR\s8RPC\s0\fP" at 0.792i,5.635i;
+"\fR\s8Runtime\s0\fP" at 0.792i,5.490i;
+"\fR\s8Client\s0\fP" at 0.792i,6.427i;
+box dotted at 0.938i,5.594i wid 1.625i ht 3.000i;
+"\fR\s8Client's Machine\s0\fP" at 0.896i,3.948i;
+box at 3.031i,4.510i wid 0.917i ht 0.500i;
+"\fR\s8Endpoint\s0\fP" at 3.010i,4.635i;
+"\fR\s8Mapper\s0\fP" at 3.010i,4.490i;
+box at 2.417i,5.969i wid 0.667i ht 1.417i;
+box at 3.333i,5.969i same;
+box at 4.250i,5.969i same;
+box at 5.167i,5.969i same;
+box dotted at 3.875i,5.594i wid 3.750i ht 3.000i;
+"\fR\s8Print\s0\fP" at 2.385i,6.438i;
+"\fR\s8Server\s0\fP" at 2.385i,6.292i;
+"\fR\s8A\s0\fP" at 2.385i,6.146i;
+"\fR\s8Print\s0\fP" at 3.323i,6.448i;
+"\fR\s8Server\s0\fP" at 3.323i,6.302i;
+"\fR\s8B\s0\fP" at 3.323i,6.156i;
+"\fR\s8Print\s0\fP" at 4.250i,6.448i;
+"\fR\s8Server\s0\fP" at 4.250i,6.302i;
+"\fR\s8C\s0\fP" at 4.250i,6.156i;
+"\fR\s8Print\s0\fP" at 5.167i,6.448i;
+"\fR\s8Server\s0\fP" at 5.167i,6.302i;
+"\fR\s8D\s0\fP" at 5.167i,6.156i;
+"\fR\s8Servers' Machine\s0\fP" at 3.760i,3.969i;
+line -> from 2.417i,3.427i to 0.792i,5.260i;
+line -> from 1.021i,5.260i to 2.573i,4.510i;
+"\fR\s81\s0\fP" at 1.250i,4.427i;
+"\fR\s82\s0\fP" at 1.833i,4.677i;
+"\fR\s83\s0\fP" at 2.917i,5.094i;
+ellipse at 1.250i,4.427i wid 0.167i ht 0.167i;
+ellipse at 1.833i,4.677i same;
+ellipse at 2.917i,5.094i same;
+"\fR\s8\"A\"\s0\fP" at 2.417i,3.260i;
+"\fR\s8\"B\"\s0\fP" at 3.333i,3.260i;
+"\fR\s8\"C\"\s0\fP" at 4.250i,3.260i;
+"\fR\s8\"D\"\s0\fP" at 5.167i,3.260i;
+line from 2.083i,3.177i to 2.750i,3.177i;
+line from 3.000i,3.177i to 3.667i,3.177i;
+line from 3.917i,3.177i to 4.583i,3.177i;
+line from 4.833i,3.177i to 5.500i,3.177i;
+"\fR\s8inter-\s0\fP" at 2.417i,3.010i;
+"\fR\s8face\s0\fP" at 2.417i,2.865i;
+"\fI\s8Printer\s0\fP" at 2.417i,2.719i;
+"\fR\s8inter-\s0\fP" at 3.333i,3.010i;
+"\fR\s8face\s0\fP" at 3.333i,2.865i;
+"\fI\s8Printer\s0\fP" at 3.333i,2.719i;
+"\fR\s8inter-\s0\fP" at 4.250i,3.010i;
+"\fR\s8face\s0\fP" at 4.250i,2.865i;
+"\fI\s8Printer\s0\fP" at 4.250i,2.719i;
+"\fR\s8inter-\s0\fP" at 5.167i,3.010i;
+"\fR\s8face\s0\fP" at 5.167i,2.865i;
+"\fI\s8Printer\s0\fP" at 5.167i,2.719i;
+"\fR\s8Server\s0\fP" at 2.417i,2.344i;
+"\fR\s8A\s0\fP" at 2.417i,2.198i;
+"\fR\s8partial\s0\fP" at 2.417i,2.052i;
+"\fR\s8binding\s0\fP" at 2.417i,1.906i;
+"\fR\s8Server\s0\fP" at 3.333i,2.344i;
+"\fR\s8B\s0\fP" at 3.333i,2.198i;
+"\fR\s8partial\s0\fP" at 3.333i,2.052i;
+"\fR\s8binding\s0\fP" at 3.333i,1.906i;
+"\fR\s8Server\s0\fP" at 4.250i,2.344i;
+"\fR\s8C\s0\fP" at 4.250i,2.198i;
+"\fR\s8partial\s0\fP" at 4.250i,2.052i;
+"\fR\s8binding\s0\fP" at 4.250i,1.906i;
+"\fR\s8Server\s0\fP" at 5.167i,2.344i;
+"\fR\s8D\s0\fP" at 5.167i,2.198i;
+"\fR\s8partial\s0\fP" at 5.167i,2.052i;
+"\fR\s8binding\s0\fP" at 5.167i,1.906i;
+line -> from 1.500i,3.177i to 1.667i,3.177i;
+line -> from 1.500i,3.427i to 1.667i,3.427i;
+line from 1.500i,3.427i to 1.500i,3.177i;
+line from 1.500i,3.302i to 1.250i,3.302i;
+"\fR\s8Names of\s0\fP" rjust at 1.167i,3.344i;
+"\fR\s8Entries\s0\fP" rjust at 1.167i,3.198i;
+box at 2.417i,2.250i wid 0.667i ht 2.333i;
+box at 3.333i,2.250i same;
+box at 4.250i,2.250i same;
+box at 5.167i,2.250i same;
+line from 1.500i,3.177i to 1.500i,1.083i;
+line -> to 1.667i,1.083i;
+"\fR\s8+\s0\fP" at 2.417i,1.750i;
+"\fR\s8Server\s0\fP" at 2.417i,1.604i;
+"\fR\s8A's\s0\fP" at 2.417i,1.458i;
+"\fR\s8object\s0\fP" at 2.417i,1.312i;
+"\fR\s8UUID\s0\fP" at 2.417i,1.167i;
+"\fR\s8+\s0\fP" at 3.333i,1.750i;
+"\fR\s8Server\s0\fP" at 3.333i,1.604i;
+"\fR\s8B's\s0\fP" at 3.333i,1.458i;
+"\fR\s8object\s0\fP" at 3.333i,1.312i;
+"\fR\s8UUID\s0\fP" at 3.333i,1.167i;
+"\fR\s8+\s0\fP" at 4.250i,1.750i;
+"\fR\s8Server\s0\fP" at 4.250i,1.604i;
+"\fR\s8C's\s0\fP" at 4.250i,1.458i;
+"\fR\s8object\s0\fP" at 4.250i,1.312i;
+"\fR\s8UUID\s0\fP" at 4.250i,1.167i;
+"\fR\s8+\s0\fP" at 5.167i,1.750i;
+"\fR\s8Server\s0\fP" at 5.167i,1.604i;
+"\fR\s8D's\s0\fP" at 5.167i,1.458i;
+"\fR\s8object\s0\fP" at 5.167i,1.312i;
+"\fR\s8UUID\s0\fP" at 5.167i,1.167i;
+"\fR\s8Contents of\s0\fP" rjust at 1.167i,1.969i;
+"\fR\s8partial\s0\fP" rjust at 1.167i,1.823i;
+"\fR\s8bindings are\s0\fP" rjust at 1.167i,1.677i;
+"\fR\s8differentiated\s0\fP" rjust at 1.167i,1.531i;
+"\fR\s8by object\s0\fP" rjust at 1.167i,1.385i;
+"\fR\s8UUIDs\s0\fP" rjust at 1.167i,1.240i;
+box at 3.792i,2.167i wid 3.917i ht 2.500i;
+line -> from 2.802i,4.760i to 2.417i,5.260i;
+line from 2.083i,2.583i to 2.750i,2.583i;
+line from 3.000i,2.583i to 3.667i,2.583i;
+line from 3.917i,2.583i to 4.583i,2.583i;
+line from 4.833i,2.583i to 5.500i,2.583i;
+line -> from 1.500i,2.583i to 1.667i,2.583i;
+line from 1.250i,1.917i to 1.500i,1.917i;
+line from 1.500i,2.917i to 1.250i,2.917i;
+"\fR\s8Interface\s0\fP" rjust at 1.167i,2.917i;
+"\fR\s8UUIDs\s0\fP" rjust at 1.167i,2.771i;
+"\fR\s8Namespace\s0\fP" at 3.792i,0.781i;
+.in
+.PE
+...\"
+...\"
+.P
+.ne 10
+The following steps describe the sequence of events shown in the preceding
+figure:
+...\" 
+.AL
+.LI
+The client imports a partial binding to the \*Vprinter\*O interface from
+the entry A in the namespace.
+.LI
+The client makes its first call with the binding it imported from A.
+.LI
+This time the endpoint mapper at print server A's host is able to match
+the call with A's registered endpoints, because the endpoints have been
+registered with both the \*Vprinter\*O interface and print server A's
+object UUID, and the incoming call's partial binding also contains print
+server A's object UUID.
+.LE
+...\" 
+.P
+Each server has exported a set of partial bindings that differs from all
+other servers' by its object UUID (which thus becomes, in effect, a server
+ID).  If, for example, server A has properly registered its endpoints with
+the same object UUID as the one it exported its bindings with, the endpoint
+mapper will make sure that a partial binding exported from server A's name
+entry will result in a full binding to server A.
+...\"
+...\"
+.P
+Now suppose that each print server sets up a separate namespace entry for
+each printer it manages.  The printers themselves would, in effect, be
+identified by their own object UUIDs.  The following figure illustrates this.
+...\" 
+.PP
+.ne 6.5i
+.FG "Separate Printer Name Entries"
+.sp .5
+...\" ------------------------------------
+...\" ----------------------------------------------------------------------
+...\" Figure 08: showing printer entries with object UUIDs
+...\" ----------------------------------------------------------------------
+...\" ------------------------------------
+...\" pix/fig06.pic
+.PS
+.in +.5i
+scale = 1.5
+.ps 12
+box at 1.073i,4.000i wid 0.917i ht 0.500i;
+"\fR\s8Endpoint\s0\fP" at 1.052i,4.125i;
+"\fR\s8Mapper\s0\fP" at 1.052i,3.979i;
+box at 2.417i,5.458i wid 0.667i ht 1.417i;
+box at 3.333i,5.458i same;
+box at 4.250i,5.458i same;
+box at 5.167i,5.458i same;
+"\fR\s8Print\s0\fP" at 2.385i,5.927i;
+"\fR\s8Server\s0\fP" at 2.385i,5.781i;
+"\fR\s8A\s0\fP" at 2.385i,5.635i;
+"\fR\s8Print\s0\fP" at 3.323i,5.938i;
+"\fR\s8Server\s0\fP" at 3.323i,5.792i;
+"\fR\s8B\s0\fP" at 3.323i,5.646i;
+"\fR\s8Print\s0\fP" at 4.250i,5.938i;
+"\fR\s8Server\s0\fP" at 4.250i,5.792i;
+"\fR\s8C\s0\fP" at 4.250i,5.646i;
+"\fR\s8Print\s0\fP" at 5.167i,5.938i;
+"\fR\s8Server\s0\fP" at 5.167i,5.792i;
+"\fR\s8D\s0\fP" at 5.167i,5.646i;
+box dotted at 2.958i,4.917i wid 5.583i ht 3.167i;
+box at 0.625i,7.542i wid 0.917i ht 0.417i;
+box at 0.625i,6.958i same;
+box at 2.125i,7.542i same;
+box at 2.125i,6.958i same;
+box at 3.958i,7.542i same;
+box at 3.625i,6.958i same;
+box at 5.375i,7.542i same;
+box at 5.708i,6.958i same;
+line from 2.083i,5.458i to 1.083i,6.958i;
+line from 3.104i,6.177i to 2.583i,7.542i;
+line from 4.146i,6.167i to 3.917i,6.740i;
+line from 5.167i,6.167i to 5.021i,7.333i;
+line from 5.167i,6.167i to 5.438i,6.740i;
+line from 4.312i,7.333i to 4.135i,6.177i;
+line from 2.583i,6.958i to 3.104i,6.177i;
+line from 1.083i,7.542i to 2.083i,5.458i;
+"\fR\s8Servers' Machine\s0\fP" ljust at 0.302i,3.219i;
+line -> from 2.417i,4.750i to 2.417i,2.917i;
+line -> from 3.333i,4.750i to 3.333i,2.917i;
+line -> from 4.250i,4.750i to 4.250i,2.917i;
+line -> from 5.167i,4.750i to 5.167i,2.917i;
+"\fR\s8Printer\s0\fP" at 0.583i,7.667i;
+"\fR\s8\"Thorpe\"\s0\fP" at 0.583i,7.521i;
+"\fR\s8Printer\s0\fP" at 2.125i,7.667i;
+"\fR\s8\"Field\"\s0\fP" at 2.125i,7.521i;
+"\fR\s8Printer\s0\fP" at 2.083i,7.083i;
+"\fR\s8\"Ridler\"\s0\fP" at 2.083i,6.938i;
+"\fR\s8Printer\s0\fP" at 3.917i,7.667i;
+"\fR\s8\"Batey\"\s0\fP" at 3.917i,7.521i;
+"\fR\s8Printer\s0\fP" at 3.625i,7.083i;
+"\fR\s8\"Milford\"\s0\fP" at 3.625i,6.938i;
+"\fR\s8Printer\s0\fP" at 5.333i,7.667i;
+"\fR\s8\"Cotta\"\s0\fP" at 5.333i,7.521i;
+"\fR\s8Printer\s0\fP" at 5.667i,7.083i;
+"\fR\s8\"Tonson\"\s0\fP" at 5.667i,6.938i;
+box at 2.208i,1.667i wid 0.917i ht 2.500i;
+box at 3.292i,1.667i same;
+box at 4.375i,1.667i same;
+box at 5.458i,1.667i same;
+"\fR\s8\"Thorpe\"\s0\fP" at 2.167i,2.750i;
+"\fR\s8\"Field\"\s0\fP" at 3.250i,2.750i;
+"\fR\s8\"Batey\"\s0\fP" at 4.333i,2.750i;
+"\fR\s8\"Cotta\"\s0\fP" at 5.458i,2.750i;
+line from 1.750i,2.667i to 2.667i,2.667i;
+line from 2.833i,2.667i to 3.750i,2.667i;
+line from 3.917i,2.667i to 4.833i,2.667i;
+line from 5.000i,2.667i to 5.917i,2.667i;
+"\fR\s8Server A\s0\fP" at 2.167i,2.500i;
+"\fR\s8binding,\s0\fP" at 2.167i,2.354i;
+"\fR\s8\"Thorpe\"'s\s0\fP" at 2.167i,2.208i;
+"\fR\s8object\s0\fP" at 2.167i,2.062i;
+"\fR\s8UUID\s0\fP" at 2.167i,1.917i;
+"\fR\s8Server B\s0\fP" at 3.250i,2.500i;
+"\fR\s8binding,\s0\fP" at 3.250i,2.354i;
+"\fR\s8\"Field\"'s\s0\fP" at 3.250i,2.208i;
+"\fR\s8object\s0\fP" at 3.250i,2.062i;
+"\fR\s8UUID\s0\fP" at 3.250i,1.917i;
+"\fR\s8Server C\s0\fP" at 4.333i,2.500i;
+"\fR\s8binding,\s0\fP" at 4.333i,2.354i;
+"\fR\s8\"Batey\"'s\s0\fP" at 4.333i,2.208i;
+"\fR\s8object\s0\fP" at 4.333i,2.062i;
+"\fR\s8UUID\s0\fP" at 4.333i,1.917i;
+"\fR\s8Server D\s0\fP" at 5.417i,2.500i;
+"\fR\s8binding,\s0\fP" at 5.417i,2.354i;
+"\fR\s8\"Cotta\"'s\s0\fP" at 5.417i,2.208i;
+"\fR\s8object\s0\fP" at 5.417i,2.062i;
+"\fR\s8UUID\s0\fP" at 5.417i,1.917i;
+line from 1.750i,1.792i to 2.667i,1.792i;
+line from 2.833i,1.792i to 3.750i,1.792i;
+line from 3.917i,1.792i to 4.833i,1.792i;
+line from 5.000i,1.792i to 5.917i,1.792i;
+"\fR\s8Printer\s0\fP" at 0.583i,7.083i;
+"\fR\s8\"Murray\"\s0\fP" at 0.583i,6.938i;
+"\fR\s8\"Murray\"\s0\fP" at 2.208i,1.667i;
+"\fR\s8\"Ridler\"\s0\fP" at 3.292i,1.667i;
+"\fR\s8\"Milford\"\s0\fP" at 4.375i,1.667i;
+"\fR\s8\"Tonson\"\s0\fP" at 5.458i,1.667i;
+line from 1.750i,1.583i to 2.667i,1.583i;
+line from 2.833i,1.583i to 3.750i,1.583i;
+line from 5.000i,1.583i to 5.917i,1.583i;
+"\fR\s8Server A\s0\fP" at 2.167i,1.417i;
+"\fR\s8binding,\s0\fP" at 2.167i,1.271i;
+"\fR\s8\"Murray\"'s\s0\fP" at 2.167i,1.125i;
+"\fR\s8object\s0\fP" at 2.167i,0.979i;
+"\fR\s8UUID\s0\fP" at 2.167i,0.833i;
+"\fR\s8Server B\s0\fP" at 3.250i,1.417i;
+"\fR\s8binding,\s0\fP" at 3.250i,1.271i;
+"\fR\s8\"Ridler\"'s\s0\fP" at 3.250i,1.125i;
+"\fR\s8object\s0\fP" at 3.250i,0.979i;
+"\fR\s8UUID\s0\fP" at 3.250i,0.833i;
+line from 3.917i,1.583i to 4.833i,1.583i;
+"\fR\s8Server C\s0\fP" at 4.375i,1.417i;
+"\fR\s8binding,\s0\fP" at 4.375i,1.271i;
+"\fR\s8\"Milford\"'s\s0\fP" at 4.375i,1.125i;
+"\fR\s8object\s0\fP" at 4.375i,0.979i;
+"\fR\s8UUID\s0\fP" at 4.375i,0.833i;
+"\fR\s8Server D\s0\fP" at 5.458i,1.417i;
+"\fR\s8binding,\s0\fP" at 5.458i,1.271i;
+"\fR\s8\"Tonson\"'s\s0\fP" at 5.458i,1.125i;
+"\fR\s8object\s0\fP" at 5.458i,0.979i;
+"\fR\s8UUID\s0\fP" at 5.458i,0.833i;
+line -> from 1.417i,2.917i to 1.583i,2.917i;
+line -> from 1.417i,2.667i to 1.583i,2.667i;
+line -> from 1.417i,1.792i to 1.583i,1.792i;
+line -> from 1.417i,1.583i to 1.583i,1.583i;
+line -> from 1.417i,0.417i to 1.583i,0.417i;
+line from 1.417i,2.917i to 1.417i,0.417i;
+"\fR\s8Entry names\s0\fP" rjust at 1.292i,2.792i;
+"\fR\s8Entry names\s0\fP" rjust at 1.292i,1.708i;
+"\fR\s8Partial bindings\s0\fP" rjust at 1.292i,2.250i;
+"\fR\s8Partial bindings\s0\fP" rjust at 1.292i,1.167i;
+box at 3.833i,1.625i wid 4.333i ht 2.583i;
+"\fR\s8export\s0\fP" at 2.833i,4.083i;
+"\fR\s8partial\s0\fP" at 2.833i,3.938i;
+"\fR\s8bindings\s0\fP" at 2.833i,3.792i;
+"\fR\s8export\s0\fP" at 3.792i,4.083i;
+"\fR\s8partial\s0\fP" at 3.792i,3.938i;
+"\fR\s8bindings\s0\fP" at 3.792i,3.792i;
+"\fR\s8export\s0\fP" at 4.708i,4.083i;
+"\fR\s8partial\s0\fP" at 4.708i,3.938i;
+"\fR\s8bindings\s0\fP" at 4.708i,3.792i;
+"\fR\s8Namespace\s0\fP" at 3.833i,0.208i;
+.in
+.PE
+...\"
+...\"
+.sp .5
+.P
+Now a client will be able to access a specific printer by importing
+a binding handle from that printer's name entry.  The endpoint mapper
+at the target host would compare the object UUID in the partial binding
+with the object UUIDs registered by the print servers, and select an
+...\"
+...\" ...these having been registered at the same time as the endpoints
+...\"	were registered.
+...\"
+appropriate server.  The server in turn would also use the object UUID to
+select the correct printer for the request, if it managed more than one
+printer.  A namespace set up in this way with a separate entry that contains
+a unique object UUID for each accessible service resource is called
+an \*Eobject-oriented\*O namespace.
+...\" 
+...\"
+...\"
+...\" ----------------------------------------------------------------------
+.H 2 "An Object-Oriented Namespace"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+\*EObject-specific entries\*O are namespace entries that each contain binding
+information only for one specific object or resource, as demonstrated in the
+last printer service shown in the last previous figure. \*EObject\*O can mean
+any of several things, depending on what kind of service the application's
+servers are offering.  Here are some examples.
+...\"
+...\" 
+...\" 
+...\"
+.PP
+.TB "Some Examples of Objects"
+.ad l
+.TS
+center,box,tab(@);
+cB | cB
+l | l.
+Service@Object(s)
+=
+.TH
+Printing@A specific printer
+Process Server@A specific server
+Queue Service@T{
+The print queue,the kill
+queue, the backup queue
+T}
+.TE
+.ad b
+...\"
+...\" 
+.P
+Thus, for a client that wants to have a file printed, it is natural to allow
+it to specify a printer as a destination.  Therefore, the client would bind to
+the print server through a name entry that specifies a printer.  To send
+something to a different printer, the client would import a binding from the
+name entry for that other printer.  The server may (or may not) be identical,
+but the object UUID in the binding handle returned would uniquely specify the
+one printer represented by that entry.
+.P
+On the other hand, consider an application that returns statistics about the
+processes currently active on a group of machines.  In this case it would be
+reasonable to regard the server as the object.  In the namespace entries for
+such an application, each entry would uniquely represent one server.  A client
+would import a binding from the name entry for the server it wanted to work
+with.
+.P
+In other words, \*Eobject\*O is a handy way of saying ``the thing that clients
+will want to access'' in order to accomplish the task set for the application.
+If the namespace is organized correctly, clients will be able to import
+bindings from these objects' entries.
+...\" 
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.H 2 "Setting Up an Object-Oriented Namespace"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+Once you have distinguished the objects your application uses, you must decide
+on an appropriate set of names for the entries themselves.  The entries can be
+created either by the application (server), if it has the necessary privileges,
+or by a system administrator using the \*Lrpccp\*O command interface.
+...\" 
+...\" 
+.P
+After the entries have been created, each server must do the following:
+...\" 
+.AL
+.LI
+Create an object UUID for each object managed by the server under an interface,
+insert it into the binding handle(s) for that object, and export the handle(s)
+for each object to a separate entry in the namespace.
+.P
+Note that the object UUID should be generated and exported in general \*Eonly
+once\*O per created namespace entry, and not each time the server starts up
+(see the example that follows of how to do this).  When a newly restarted
+server exports its partial bindings, nothing actually happens in the namespace
+because the partial binding information remains the same (unless the server
+has moved to a different machine).  However, if the object UUIDs are regenerated,
+then the change in exported information will force needless update activity in
+CDS, which is where the entries exist.
+.LI
+Register with the endpoint mapper the full bindings (including endpoints)
+obtained for the interface; \*Lrpc_ep_register(\|)\*O performs this operation.
+.LE
+...\"
+.P
+One way of avoiding unnecessary regeneration of object UUIDs would be to have a
+restarted server check the namespace for the presence of its previously exported
+object UUIDs, as demonstrated in the following code fragment.  Refer to the
+\*(Dr for further information on the function
+calls.
+...\" 
+.nL
+.ne 3.5i
+.oS
+have_object = false;
+
+/* Create an inquiry context for inspecting the object  */
+/* 	UUIDs exported to "my_entry_name"...            */
+rpc_ns_entry_object_inq_begin(my_entry_name_syntax,
+                              my_entry_name,
+                              &context, &st);
+
+/* If we successfully created context, look at          */
+/*	object UUIDs...                                 */
+if (st == rpc_s_ok)
+{
+    /* Try to get one object UUID from the entry...     */
+    rpc_ns_entry_object_inq_next(context, &obj, &st);
+
+    /* If an object UUID is there already, we don't     */
+    /*	need to generate another one...                 */
+    have_object = (st == rpc_s_ok)
+
+    /* Delete the inquiry context...                    */
+    rpc_ns_entry_object_inq_done(&context, &st);
+    
+
+/* If there were no object UUIDs in the entry,          */
+/*	generate one now...                             */
+if (! have_object)
+{
+    uuid_create(&obj, &st);
+
+    /* Put it in an object UUID vector...               */
+    objvec.count = 1;
+    objvec.id[0] = &uuid;
+}
+
+/* Export bindings.  If an object UUID was generated,    */
+/*	export it too...                                 */
+rpc_ns_binding_export( my_entry_name_syntax,
+                       my_entry_name,
+                       my_interface_spec,
+                       my_bindings,
+                       have_object ? NULL : &objvec, &st);
+.oE
+...\" 
+.P
+.ne 10
+Whenever you want to offer more than one instance of the same interface on the
+same host, you \*Emust\*O distinguish by object UUID the binding information
+in the name entries exported by the servers, if it is important to distinguish
+among the servers when binding to them.  Otherwise, the endpoint mapper's
+selection of an endpoint with which to complete the binding from among all the
+servers on that host that offer the appropriate interface will be random.
+.P
+The next figure illustrates what such an object-oriented namespace should look
+like.
+.P
+.ne 5.7i
+.FG "Object-Oriented Namespace Organization"
+.sp .5
+...\" ------------------------------------
+...\" ----------------------------------------------------------------------
+...\" Figure 09: showing recommended namespace organization
+...\" ----------------------------------------------------------------------
+...\" ------------------------------------
+...\" pix/fig07.pic
+.PS
+.in +.5i
+scale = 1.5
+.ps 12
+box at 1.073i,4.417i wid 0.917i ht 0.500i;
+"\fR\s8Endpoint\s0\fP" at 1.052i,4.542i;
+"\fR\s8Mapper\s0\fP" at 1.052i,4.396i;
+box at 2.417i,5.875i wid 0.667i ht 1.417i;
+box at 3.333i,5.875i same;
+box at 4.250i,5.875i same;
+"\fR\s8Server\s0\fP" at 2.385i,6.198i;
+"\fR\s8A\s0\fP" at 2.385i,6.052i;
+"\fR\s8Server\s0\fP" at 3.323i,6.208i;
+"\fR\s8B\s0\fP" at 3.323i,6.062i;
+"\fR\s8Server\s0\fP" at 4.250i,6.208i;
+"\fR\s8C\s0\fP" at 4.250i,6.062i;
+box dotted at 2.958i,5.333i wid 5.583i ht 3.167i;
+box at 0.625i,7.958i wid 0.917i ht 0.417i;
+box at 0.625i,7.375i same;
+box at 2.125i,7.958i same;
+box at 2.125i,7.375i same;
+box at 3.625i,7.958i same;
+box at 3.625i,7.375i same;
+box at 5.708i,7.958i same;
+box at 5.708i,7.375i same;
+line from 2.083i,5.875i to 1.083i,7.375i;
+line from 3.104i,6.594i to 2.583i,7.958i;
+line from 2.583i,7.375i to 3.104i,6.594i;
+line from 1.083i,7.958i to 2.083i,5.875i;
+"\fR\s8Servers' Machine\s0\fP" ljust at 0.302i,3.635i;
+line -> from 2.417i,5.167i to 2.417i,3.333i;
+line -> from 3.333i,5.167i to 3.333i,3.333i;
+line -> from 4.250i,5.167i to 4.250i,3.333i;
+box at 2.958i,1.958i wid 5.583i ht 2.750i;
+line from 4.083i,7.375i to 4.458i,6.583i;
+line to 4.083i,7.958i;
+"\fR\s8Object A.1\s0\fP" at 0.625i,7.958i;
+"\fR\s8Object A.2\s0\fP" at 0.625i,7.375i;
+"\fR\s8Object B.1\s0\fP" at 2.125i,7.958i;
+"\fR\s8Object B.2\s0\fP" at 2.125i,7.375i;
+line from 5.250i,7.375i to 4.458i,6.583i;
+line to 5.250i,7.958i;
+"\fR\s8Object C.1\s0\fP" at 3.625i,7.958i;
+"\fR\s8Object C.2\s0\fP" at 3.625i,7.375i;
+"\fR\s8Object C.3\s0\fP" at 5.708i,7.958i;
+"\fR\s8Object C.4\s0\fP" at 5.708i,7.375i;
+box at 5.292i,1.958i wid 0.917i ht 2.750i;
+box at 4.375i,1.958i same;
+box at 3.438i,1.958i wid 0.958i ht 2.750i;
+box at 2.479i,1.958i same;
+"\fR\s8Server A\s0\fP" at 2.417i,3.167i;
+"\fR\s8binding,\s0\fP" at 2.417i,3.021i;
+"\fR\s8Object A.1\s0\fP" at 2.417i,2.875i;
+"\fR\s8UUID\s0\fP" at 2.417i,2.729i;
+line from 2.000i,2.583i to 5.750i,2.583i;
+line from 2.000i,1.833i to 5.750i,1.833i;
+"\fR\s8Server A\s0\fP" at 2.458i,2.417i;
+"\fR\s8binding,\s0\fP" at 2.458i,2.271i;
+"\fR\s8Object A.2\s0\fP" at 2.458i,2.125i;
+"\fR\s8UUID\s0\fP" at 2.458i,1.979i;
+"\fR\s8Server B\s0\fP" at 3.417i,3.167i;
+"\fR\s8binding,\s0\fP" at 3.417i,3.021i;
+"\fR\s8Object B.1\s0\fP" at 3.417i,2.875i;
+"\fR\s8UUID\s0\fP" at 3.417i,2.729i;
+"\fR\s8Server B\s0\fP" at 3.417i,2.417i;
+"\fR\s8binding,\s0\fP" at 3.417i,2.271i;
+"\fR\s8Object B.2\s0\fP" at 3.417i,2.125i;
+"\fR\s8UUID\s0\fP" at 3.417i,1.979i;
+"\fR\s8Server C\s0\fP" at 4.333i,3.167i;
+"\fR\s8binding,\s0\fP" at 4.333i,3.021i;
+"\fR\s8Object C.1\s0\fP" at 4.333i,2.875i;
+"\fR\s8UUID\s0\fP" at 4.333i,2.729i;
+"\fR\s8Server C\s0\fP" at 4.333i,2.417i;
+"\fR\s8binding,\s0\fP" at 4.333i,2.271i;
+"\fR\s8Object C.2\s0\fP" at 4.333i,2.125i;
+"\fR\s8UUID\s0\fP" at 4.333i,1.979i;
+"\fR\s8Server C\s0\fP" at 5.250i,3.167i;
+"\fR\s8binding,\s0\fP" at 5.250i,3.021i;
+"\fR\s8Object C.3\s0\fP" at 5.250i,2.875i;
+"\fR\s8UUID\s0\fP" at 5.250i,2.729i;
+"\fR\s8Server C\s0\fP" at 5.250i,2.417i;
+"\fR\s8binding,\s0\fP" at 5.250i,2.271i;
+"\fR\s8Object C.4\s0\fP" at 5.250i,2.125i;
+"\fR\s8UUID\s0\fP" at 5.250i,1.979i;
+box at 1.542i,1.958i wid 0.917i ht 2.750i;
+line from 2.000i,1.833i to 0.167i,1.833i;
+line from 2.000i,2.583i to 0.167i,2.583i;
+line from 5.750i,1.083i to 0.167i,1.083i;
+"\fR\s8export\s0\fP" ljust at 2.500i,4.500i;
+"\fR\s8bindings\s0\fP" ljust at 2.500i,4.354i;
+"\fR\s8export\s0\fP" ljust at 3.417i,4.500i;
+"\fR\s8bindings\s0\fP" ljust at 3.417i,4.354i;
+"\fR\s8export\s0\fP" ljust at 4.333i,4.500i;
+"\fR\s8bindings\s0\fP" ljust at 4.333i,4.354i;
+line from 4.250i,5.167i to 4.500i,4.583i;
+line -> from 4.667i,4.167i to 5.042i,3.333i;
+"\fR\s8Namespace\s0\fP" at 2.948i,0.448i;
+.in
+.PE
+...\"
+...\" 
+...\" 
+...\"
+.sp .5
+.P
+Each entry has a name denoting the object represented, although the names are
+not shown in this figure.
+...\" 
+...\" 
+.P
+Under this model, clients bind to servers via named objects in the namespace,
+each of which contains enough specific information in its partial binding to
+allow the endpoint mapper at the destination host to choose an appropriate
+endpoint for the incoming RPC.
+.P
+.ne 8
+By setting a namespace up this way, however, you do not necessarily restrict
+yourself to this one model for accessing binding information.  Through the use
+of two other types of entry, groups and profiles, which can be superimposed on
+the simple object model, you can set up models where clients bind to abstractions
+such as services, or directly to the servers themselves.  These techniques are
+described in the next section.
+.P
+Nevertheless, at this point you have enough information to set up a namespace
+that consists of an entirely flat expanse of separate resource entries.
+Bindings can be imported by clients by looking up specific names.  If the client
+has no specific name to look up, or if the lookup on the name(s) it has fails,
+it has no alternative way of binding to a server.
+...\"
+...\"
+...\" ----------------------------------------------------------------------
+.H 2 "Groups and Profiles"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Name lookups can be made more flexible with two other types of entry; namely,
+groups and profiles. 
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.H 3 "Group Entries"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+A group entry consists essentially of multiple independent other entries whose
+names are also associated under the group name.  These other entries can be
+simple (single-name) entries, or they may themselves be group entries.  Doing an
+import from the group entry will return the contents (the binding handles) of
+its included entries (which are called \*Emembers\*O), but the selection is made by
+the DCE RPC runtime, and from the client's point of view is undefined and
+implementation dependent.
+.P
+.ne 10
+In practice, the way this works with the usual binding import operations is as
+follows.  Clients normally import bindings by first calling 
+\*Lrpc_\%ns_\%binding_\%import_\%begin(\|)\*O to 
+set up an import context.  Once this
+is done, successive calls to \*Lrpc_ns_binding_import_next(\|)\*O will return
+binding handles from namespace entries until the handles have all been returned
+or the client decides to stop; the client decides which handle(s) to use based
+on its own criteria.  When it is finished importing, it calls
+\*Lrpc_\%ns_\%binding_\%import_\%done(\|)\*O to free the context.
+...\" 
+...\" 
+.P
+The kind of entry the information is returned from is usually unknown to the
+client, which needs to know only a name to look up and the interface UUID by
+which it wants to bind.  If the name is that of a simple server entry, then the
+bindings contained in that entry only will be returned.  If the name is of a
+group entry, then bindings will be returned from members (single entries) of
+the group, selected (by the RPC runtime) in an undefined order.  If one or more
+members of the group are themselves groups, then the same thing happens
+recursively whenever these lower-level groups are accessed.
+.P
+Note that the group entry and its members are separate things. The group
+entry can be deleted, but its former members will continue to exist as
+independent entries, unless they too are explicitly deleted.  Thus, you can
+implement a namespace organization where the same bindings can be imported
+through individual simple entries or through group entries, depending on how
+the client is coded.
+...\" 
+...\"
+...\"
+...\"
+...\" ----------------------------------------------------------------------
+.H 3 "Profiles"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+A profile entry specifies a search path or hierarchy of search paths to be
+followed through the namespace in order to obtain a binding to a server that
+offers a specified interface.
+.P
+When a client imports from an entry that happens to be a profile, successive
+imports (accomplished by calling \*Lrpc_ns_binding_import_next(\|)\*O) return
+the contents of entries that are read as a result of following the specified
+path through the namespace.  All this is transparent to the client, which sees
+only the bindings returned.  Profiles can be used to set up default paths and
+groups of paths for users.  The \*LRPC_DEFAULT_ENTRY_NAME\*O environment
+variable, which is the default entry name used by the name service in import
+operations, usually contains the name of a profile.
+.P
+.ne 10
+As with groups, the entries contained in profiles, which are called \*Eelements\*O,
+exist independently of the profile entry itself.
+.P
+A very important property of profiles is that they allow clients to know
+little or nothing about the organization of the namespace itself.  Using
+the default case as an example, consider the following: if the profile at
+\*LRPC_DEFAULT_ENTRY_NAME\*O has been set up with elements containing entries
+for all possible active servers for a particular application, clients can
+simply import from this name and trust the profile mechanism to walk through the
+various compatible possibilities and return binding handles via successive calls
+to \*Lrpc_ns_binding_import_next(\|)\*O. (Note that a profile entry is not limited
+to containing entries for just one interface; thus, \*LRPC_DEFAULT_ENTRY_NAME\*O
+could be set up to contain \*Eall\*O the defaults for a cell.)
+...\" 
+...\" 
+...\"
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.H 3 "Summary of Namespace Entry Types"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Clients access binding information in the namespace by looking up (by name)
+one of three different kinds of entry:
+...\" 
+.ML
+.LI
+A server entry
+.LI
+A group entry, which contains other entries whose contents are returned to the
+caller when it reads the group entry
+.LI
+A profile entry, which specifies a path of entries to be searched whose contents
+are returned to the caller when it reads the profile entry
+.LE
+...\" 
+.P
+Lookups behave differently depending on the kind of entry read. If an entry is a
+simple server entry, then the search begins and ends right there, whether successful
+or not.  If the entry is a group, then the lookup is more complicated.  A binding will
+be returned from among those that are found to be compatible by the name service,
+but within that category the selection is undefined.  If the entry is a profile, then
+a specified path of entries is searched.  The entries in this path may themselves be
+other profiles, or groups, or simple entries.  The search continues until either a
+compatible binding is found, or the entire path has been unsuccessfully traversed.
+...\"
+...\"
+...\"
+...\" ----------------------------------------------------------------------
+.H 2 "Three Models for Accessing Binding Information"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+By adding groups and profiles to the object-specific namespace organization
+originally described, you can implement any or all of the following three
+basic models for accessing binding information:
+...\" 
+.ML
+.LI
+Clients bind to services
+.LI
+Clients bind to servers
+.LI
+Clients bind to resources or objects
+.LE
+...\" 
+.P
+Each of the three models is described in the following sections.
+...\" 
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.H 3 "Access By Services"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Servers have separate namespace entries; each server distinguishes the bindings
+it exports with its own identifier; that is, an object UUID that it generates
+for itself \*Ethe first time it starts up\*O.  These separate server entries are
+also members of group namespace entries, which represent services.  The criterion
+for membership in a service group is that all the servers in it export the
+interface that identifies that service. (They may happen to export
+other interfaces as well.)
+.P
+Clients, in effect, bind to services by importing their binding handles from
+the group entries.  Note, however, that the server-specific entries still exist
+independently and are accessible to lookup.
+.P
+This model is appropriate for applications where clients do not care which
+server they happen to bind to or where that server is located as long as it
+offers the desired service.  The eligible servers are pooled into a group entry
+from which bindings to one of them are selected in an undefined order and
+returned whenever a client performs an import operation from the group entry.
+...\" 
+...\"
+...\"
+...\" ----------------------------------------------------------------------
+.H 3 "Access By Servers"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+In this model, distinct servers have separate and distinct name entries, and
+clients import bindings directly from the server entries.  Hence, an application
+using this kind of binding model will own just as many simple entries in
+the namespace as there are active servers.
+.P
+Since the client in this model is looking for a specific server, imports will
+be done directly from the server entries.  The only exception to this rule would
+be where two or more instances of a server were active on the same host, and it
+was indifferent to the client as to which one it is bound to.  The entries for
+the multiple same-host servers then could be put into a group entry, and
+binding imports done from the group.
+...\"
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Access By Objects"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Servers operate on or manage multiple objects. Clients use these objects
+(via the servers) as resources.  For each such resource, the server creates
+a separate namespace entry and exports its binding information there,
+distinguishing each object entry with its (the object's) own object UUID.
+.P
+An example of this model is the printer service that was previously described.
+Clients will import directly from the name entry of the resource they want to
+use.  For this kind of application, there will generally be more namespace
+entries than active servers, since each server presumably manages more than
+one object.  If the name entries have been set up correctly and the servers
+have properly registered the object UUIDs they created, there will be no
+difficulty in routing any partial binding to the correct server (namely, the
+server that manages the object or resource specified).
+...\" 
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.H 3 "Summary of Binding Models"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Although the name service allows other approaches, we recommend that whenever
+possible you use the object-oriented scheme to organize your namespace entries.
+There are at least two good reasons for doing so.  First, it is easy to
+administer; at the simple entry level, things really are simple.  Second, this
+is the most flexible foundation for building other more complicated access
+models using group entries and profiles.
+.P
+The separate name entries in your namespace should contain bindings that will
+unambiguously resolve to specific server instances.  Since interface UUIDs are
+often offered by more than one server, more information than just an interface
+UUID is needed in order to give an RPC with a partial binding the required
+specificity.  Object UUIDs provide this extra information.  When using object
+UUIDs to distinguish bindings in this way, servers must take care to preserve
+their uniqueness across name entries.
+.P
+Finally, profile entries allow clients to walk through a specified search path
+of namespace entries and yet be completely ignorant of the actual names
+themselves.  While name independence may not be desirable for an object-based
+or resource-based distributed application, it can be a powerful mechanism when
+used with other models.
+.P
+As you are setting up the namespace organization for your application, remember
+that there is not a direct exact mapping from names to bound servers.  Different
+names, once imported from, may resolve to identical bindings if the partial
+bindings were exported on the same interface, from the same host, and not
+otherwise distinguished from each other by object UUIDs.  It is the application
+developer's responsibility to tailor an application's export and import
+procedures so that this mapping behaves as intended.
+...\"
+...\" ...in other words, you could say that the mapping from name ->
+...\"	binding is discontinuous.
+...\"
+...\" ----------------------------------------------------------------------
+.H 2 "Models Based on Non-CDS Databases"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The three models previously described are not mutually exclusive; if the
+namespace is set up correctly, all three can coexist at the same time.  All
+three of the models are implemented through the functionality of the DCE RPC
+name service.
+.P
+Although the emphasis in this discussion has been placed on the storage and
+retrieval of binding information, the namespace entries can be used to store
+additional states for objects.  In order to do this, an application would have
+to create additional attributes on the CDS entries it intended to use because
+the name service recognizes only the four NSI attributes: \*Lbinding\*O,
+\*Lobject\*O, \*Lgroup\*O, and \*Lprofile\*O.
+.P
+Such additional entry attributes would be created and accessed through XDS.
+However, whenever you find yourself contemplating extending the name service
+in this manner, you should carefully consider whether the name service (and,
+consequently, CDS) is the best mechanism for doing what you want to do.
+...\" 
+...\" 
+.P
+In the preceding example, where an object-oriented namespace containing
+separate entries for individual printers was described, only the identifier
+for the printer (the object UUID) and the binding for the server that managed
+it were stored in the CDS entry.  Other information, such as what jobs are
+currently queued for the printer, who owns the jobs, and so on, was maintained
+by the server.  This data could be stored in CDS only by creating new attributes
+to put it in, but it would be changing too quickly for CDS to efficiently keep
+up with it anyway.  The performance of both the application and CDS would suffer
+from such an arrangement.
+.P
+It is possible to imagine distributed applications whose resources (the objects
+they are managing) are of such a nature that they could be more efficiently
+managed through a private application-implemented database.  Suppose the number
+of managed objects is very large, or that the state of the objects is volatile.
+It would certainly be a bad idea to try to use CDS to store this kind of
+information, which would be changing much more rapidly than CDS's ability to
+propagate the updates.
+...\" 
+...\"
+...\"
+...\" ----------------------------------------------------------------------
+.H 3 "Example of a Privately Managed Database"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+As an example of such a privately managed database, consider a print service
+where jobs are submitted not to individual printers, but rather to a generic
+printer service.  The client, \*Llpr\*O, binds (probably through a group entry)
+to some certain print server, and sends the job to be printed to that server,
+which then, after some thought, sends the job to one of the printers that it
+manages.
+.P
+Consider, for example, what happens if a user invokes the client \*Lcancel\*O
+sometime later to stop
+a job.  If, for example, the original command was
+...\" 
+.iS
+lpr War_and_Peace.ps
+.iE
+...\" 
+.P
+and the subsequent request to cancel is
+...\" 
+.iS
+cancel War_and_Peace.ps
+.iE
+...\" 
+.P
+then how does the server that \*Lcancel\*O binds to find the right job to
+delete? There is no guarantee that \*Lcancel\*O will bind to the same server
+that happened to receive the original print request, so having each print
+server keep track of its own jobs would not be the answer.
+.P
+One way to keep track of jobs queued would be to have a dedicated \*Ejob
+location server\*O as part of the application.  Each time a print server queued
+a job to a printer it would record the fact (with all the pertinent details)
+with the location server.  Whenever a job completed, the server would again
+notify the location server to remove its record of that job from its database.
+A client \*Lcancel\*O then binds first to the location service, where it
+receives the name of the print server associated with the job it wants to
+cancel.  It then looks up that name, binds to the right print server, and
+sends the cancel request.  In effect, the location server has become a name
+service for \*Lcancel\*O.
+.P
+This method of organizing activity results in a split-model database. The
+print servers' binding information is managed through CDS, as usual, and the
+location server manages other more volatile information associated with those
+same servers.
+.P
+Another way a server could maintain its own database of named objects would
+be by implementing a junction.
+...\" 
+...\" 
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.H 3 "Combining Models"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+In designing a binding access model for an application, consider also whether
+it may be appropriate to combine some of the models previously discussed.  In
+the print service application, it may be desirable for servers to also offer
+a management interface to specific servers rather than to specific objects;
+for example, \*Llpr\*O, \*Llpq\*O, and \*Llprm\*O are generic application
+clients, so it is appropriate for them to bind to printer objects, but if
+\*Llpr_mgmt\*O is supposed to manage characteristics of a whole service, then
+it should bind to servers. 
+...\"
+...\" or: ACL on printer distinct from the ACL on
+...\"     the printer manager. 
+...\"
+...\"
+...\"
+...\" ----------------------------------------------------------------------
+.H 2 "An Object-Oriented Model with Grouped Binding Information"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+The following variation on the object-oriented binding model shows how the
+group attribute can be used in object entries.  In this model, each of the
+object entries contains, as before, an object UUID that will uniquely identify
+(either to the endpoint mapper on the exporting server's machine, and/or to the
+server itself) the object referred to by that entry.  However, the object entries
+do not contain any binding information.  Instead, a group attribute in each
+object entry refers clients' import operations back to the server's own separate
+entry, which contains the binding information for that server.
+.P
+The namespace ingredients of this model are the following:
+...\" 
+.ML
+.LI
+A single namespace entry for the server, which contains a binding attribute
+and, possibly, an object attribute.  Thus, this entry contains all the binding
+information that is exported to the namespace by the server.
+.LI
+One namespace entry for each object that the server offers.  Each entry
+contains an object attribute that contains that object's UUID, and a
+group attribute that refers back to the exporting server's namespace
+entry.
+.LE
+...\" 
+.P
+Note that the object entries consist of a combination of attributes not
+encountered before (object and group).  Although unorthodox combinations
+of attributes are not generally recommended, they can sometimes be useful,
+as in this example.
+.P
+The advantages of this scheme are twofold:
+...\" 
+.ML
+.LI
+It greatly reduces the amount of server-provoked export activity into the
+namespace.
+.LI
+It allows the server application to associate a people-readable name (that
+is, the name of each object's namespace entry) with a UUID.
+.LE
+...\" 
+.P
+When the server is first activated it creates all the namespace entries,
+exports the objects' UUIDs into the object entries, and initializes the group
+attributes to refer to the server entry.  It exports its binding information
+into the server entry only.  From then on, whenever it is restarted, all the
+server needs to do is reexport its binding information into the single server
+entry.  Everything else remains the same; that is, the objects' UUIDs have not
+changed, nor has the name of the server entry to which the object entries'
+group attributes refer.
+...\" 
+...\" (Note however that, depending on the probability
+...\" of more than one server's managing some common set of objects, it may be
+...\" advisable for the server to verify the UUIDs it intends to export to the
+...\" server entry against the UUIDs in the already-existing CDS objects it will
+...\" be managing.)
+...\" 
+Thus, instead of exporting bindings to every one of
+its object entries on subsequent startups, the server exports to only one
+entry.
+.P
+Of course, if the system were restarted or the namespace reinitialized, then
+the original start-up process would have to be repeated.
+.P
+The slight disadvantage of this scheme occurs on the client side, where the
+import process becomes somewhat more complicated than it would be if all
+necessary information (both binding and object UUID) could be read
+in from the same entry.
+...\"
+...\"
+...\" ----------------------------------------------------------------------
+.H 2 "Server and Client Steps"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+.P
+The following subsections describe in detail, from both the server's and the
+client's side, how this model works.
+...\"
+...\" ----------------------------------------------------------------------
+.H 3 "Server Export"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+This section lists the steps that the server must perform to set up and
+initialize its namespace.  Each step consists of the NSI function that must be
+called to perform the operation.
+...\" 
+...\" 
+.AL
+.LI
+\*Luuid_create(\|)\*O
+.P
+To create an object UUID for each object that the server intends to export.
+.LI
+\*Lrpc_server_register_if(\|)\*O
+.P
+To register interface(s) and EPVs with the RPC
+runtime. (This is also where manager types, if any, are registered.)
+.LI
+\*Lrpc_server_use_all_protseqs(\|)\*O
+.P
+To request bindings from the RPC runtime for each object.
+.LI
+\*Lrpc_server_inq_bindings(\|)\*O
+.P
+To get the binding handles for each object.
+.LI
+\*Lrpc_ns_binding_export(\|)\*O
+.P
+To export the binding information of the objects' common server and the object
+UUIDs for each of the namespace objects to the server's own separate name entry.
+This step is performed \*Eonly once\*O for each collection of objects managed
+by the same server.
+...\" 
+...\" 
+.P
+The final three steps set up the grouped collection of service objects. Note
+that the next two steps are executed once for each object managed by the
+server:
+...\" 
+...\" 
+.LI
+\*Lrpc_ns_binding_export(\|)\*O
+...\" 
+...\" Change (1) for CR7254: make the following one paragraph (previously
+...\"  "A NULL" began a second paragraph...
+...\" 
+.P
+To export each object's object UUID to its own name entry. A NULL
+is passed as the \*Vbinding_vec\*O parameter to specify that only an object UUID,
+and no bindings are being exported.
+.P
+Note that each object UUID must be exported to \*Eboth\*O the object name
+entry and the server entry; hence the need for this export operation in
+addition to the operation described in Step 5 above.
+...\"
+...\" This is necessary because, when a client imports
+...\" a binding through an object's group entry, it will have already read
+...\" the object's UUID from its entry.  That object UUID will then be contained
+...\" in the handle structure which the client presents...
+...\"
+...\"
+...\" 
+.LI
+\*Lrpc_ns_group_mbr_add(\|)\*O
+.P
+To add the server's name entry (created in the first step) as the sole member
+of an NSI group attribute in each of the separate objects' name entries created
+in the second step.
+.nL
+.ne 10
+.LI
+\*Lrpc_ep_register(\|)\*O
+...\" 
+...\" Change (2) for CR7254: make clear that this routine is only called once...
+...\"  
+...\" 
+.P
+To register each object's UUID with the server's host machine's endpoint mapper.
+Note that \*Lrpc_ep_register(\|)\*O takes an object UUID vector as an argument,
+and generates from this all the necessary relationsips between UUIDs and bindings;
+thus the call is made only once.
+...\" 
+...\" 
+.P
+The point of this step is to make sure that when presented with an object UUID in an
+incoming RPC, the endpoint mapper can look that UUID up in its database and find an
+endpoint that has been registered with it.  Registering the server's bindings
+(that is, endpoints) with all object UUIDs will accomplish this.
+.LE
+...\" 
+...\" 
+.P
+Step 6 above is made necessary by the way the ACL editor's binding
+mechanism works. (Applications gain access to the ACLs that
+an application maintains on its objects through the client agent \*Lacl_edit\*O,
+which uses a standard DCE-wide interface for ACL operations.) The \*Lacl_edit\*O
+mechanism contains code that allows it to bind to the server that implements
+the ACL manager responsible for the object whose ACL is desired.  However,
+these generalized binding routines necessarily conform to certain fixed ways
+of doing things.  If the \*Lacl_edit\*O binding mechanism obtains an exported
+object's object UUID from the object entry, it will use that object UUID in
+its subsequent import through the group attribute.
+.P
+Thus, the object UUID will be contained in the handle structure that the
+client presents to the \*Lrpc_ns_binding_import_next(\|)\*O call, expecting
+it to be filled in with binding information.  However, the RPC runtime always
+tries to match such an input object UUID with a UUID contained in the entry
+that the caller is trying to import from.  If no matching object UUID is found,
+no binding information will be returned.  Thus, \*Eall\*O the single object
+UUIDs separately exported to the object entries must be exported to the server
+entry as well, if the exported objects are to have ACLs accessible through the
+\*Lacl_edit\*O mechanism.
+...\" 
+...\"
+...\" 
+.P
+The following figure illustrates the resulting namespace arrangement.
+...\"
+...\"
+...\" ------------------------------------
+...\" ----------------------------------------------------------------------
+...\" Figure: showing hybrid-entry binding model with group attributes
+...\"		on export.
+...\" ----------------------------------------------------------------------
+...\" ------------------------------------
+...\" pix/fighybexp.pic
+.PP
+...\" .ne 30
+.ne 4.5i
+.FG "The Export Operation in a Model with Grouped Bindings"
+.sp .5
+.PS
+.in +.5i
+scale = 1.5
+.ps 12
+box at 0.917i,2.344i wid 0.917i ht 0.500i;
+"\fR\s8Endpoint\s0\fP" at 0.896i,2.469i;
+"\fR\s8Mapper\s0\fP" at 0.896i,2.323i;
+box at 1.688i,3.667i wid 0.667i ht 1.417i;
+"\fR\s8Server\s0\fP" at 1.656i,3.990i;
+box at 0.510i,5.333i wid 0.917i ht 0.417i;
+box at 0.510i,4.750i same;
+box at 0.510i,4.188i same;
+box at 0.510i,3.604i same;
+"\fR\s8A\s0\fP" at 0.510i,5.333i;
+"\fR\s8B\s0\fP" at 0.510i,4.750i;
+"\fR\s8C\s0\fP" at 0.510i,4.188i;
+"\fR\s8D\s0\fP" at 0.510i,3.604i;
+box at 3.260i,3.208i wid 0.667i ht 1.167i;
+box at 4.094i,3.208i same;
+box at 4.927i,3.208i same;
+box at 5.760i,3.208i same;
+box at 4.510i,5.542i wid 1.167i ht 0.667i;
+line from 3.927i,5.542i to 5.094i,5.542i;
+"\fR\s8Server\s0\fP" at 4.510i,5.427i;
+"\fR\s8bindings\s0\fP" at 4.510i,5.281i;
+"\fR\s8Server\s0\fP" at 3.240i,3.688i;
+"\fR\s8group\s0\fP" at 3.240i,3.542i;
+"\fR\s8Server\s0\fP" at 4.083i,3.667i;
+"\fR\s8group\s0\fP" at 4.083i,3.521i;
+"\fR\s8Server\s0\fP" at 4.906i,3.677i;
+"\fR\s8group\s0\fP" at 4.906i,3.531i;
+"\fR\s8Server\s0\fP" at 5.729i,3.677i;
+"\fR\s8group\s0\fP" at 5.729i,3.531i;
+line from 2.927i,3.208i to 3.594i,3.208i;
+line from 3.760i,3.208i to 4.427i,3.208i;
+line from 4.594i,3.208i to 5.260i,3.208i;
+line from 5.427i,3.208i to 6.094i,3.208i;
+"\fR\s8\"A\"\s0\fP" at 3.240i,3.083i;
+"\fR\s8object\s0\fP" at 3.240i,2.938i;
+"\fR\s8UUID\s0\fP" at 3.240i,2.792i;
+"\fR\s8\"B\"\s0\fP" at 4.073i,3.083i;
+"\fR\s8object\s0\fP" at 4.073i,2.938i;
+"\fR\s8UUID\s0\fP" at 4.073i,2.792i;
+"\fR\s8\"C\"\s0\fP" at 4.906i,3.083i;
+"\fR\s8object\s0\fP" at 4.906i,2.938i;
+"\fR\s8UUID\s0\fP" at 4.906i,2.792i;
+"\fR\s8\"D\"\s0\fP" at 5.750i,3.094i;
+"\fR\s8object\s0\fP" at 5.750i,2.948i;
+"\fR\s8UUID\s0\fP" at 5.750i,2.802i;
+"\fR\s8attrib\s0\fP" at 3.229i,3.365i;
+"\fR\s8attrib\s0\fP" at 4.073i,3.344i;
+"\fR\s8attrib\s0\fP" at 4.896i,3.344i;
+"\fR\s8attrib\s0\fP" at 5.719i,3.344i;
+"\fR\s8Server entry\s0\fP" at 4.490i,5.708i;
+line -> from 5.760i,4.042i to 5.760i,3.792i;
+line -> from 3.260i,4.042i to 3.260i,3.792i;
+line -> from 4.094i,4.042i to 4.094i,3.792i;
+line -> from 4.927i,4.042i to 4.927i,3.792i;
+box dotted at 4.427i,3.917i wid 3.833i ht 4.250i;
+"\fR\s8namespace\s0\fP" at 4.375i,1.635i;
+box dotted at 1.083i,3.917i wid 2.167i ht 4.250i;
+line from 2.042i,4.042i to 5.760i,4.042i;
+line from 1.354i,3.667i to 0.969i,3.604i;
+line from 1.333i,3.792i to 0.969i,4.188i;
+line from 1.333i,3.958i to 0.969i,4.750i;
+line from 1.333i,4.208i to 0.969i,5.333i;
+line -> from 1.688i,4.375i to 3.927i,5.542i;
+"\fR\s8server's host machine\s0\fP" at 0.958i,1.656i;
+"\fR\s8export server binding information to\s0\fP" ljust at 3.073i,5.010i;
+"\fR\s8one (server) entry\s0\fP" ljust at 3.073i,4.865i;
+"\fR\s8create object entries for service objects\s0\fP" ljust at 2.646i,4.135i;
+.in
+.PE
+...\" 
+...\" 
+.sp .5
+.P
+This generic server manages four objects, called simply A, B, C,
+and D.  One entry is created for each of these objects, and a separate entry
+is created for the server itself, where the binding information is held.
+.P
+The result of all this is that there is now one more namespace entry for a
+given service instance than there would have been with the object-oriented
+model discussed earlier.  The group attribute in each entry is a level of
+indirection that allows the server to dispense with exporting many copies of
+the same thing.
+.P
+If a directory with the proper permissions has been set up for it in the
+namespace by the system administrator, a server should be able to create the
+object entries simply by making the calls described here.
+...\"
+...\"
+...\" ----------------------------------------------------------------------
+.H 3 "Client Import"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+To bind to an object managed by the server as previously described, a client
+performs the following series of library calls:
+...\" 
+...\"
+.ML
+.LI
+\*Lrpc_ns_entry_object_inq_begin(\|)\*O
+.P
+To set up an object inquiry context; the client application here specifies
+the name of the desired namespace object entry.
+.nL
+.ne 8
+.LI
+\*Lrpc_ns_entry_object_inq_next(\|)\*O
+.P
+To return the object UUID that the server exported to the object's entry.
+...\" 
+...\" CR7254 change (3): Make clear that the returned object UUID is passed
+...\"   to rpc_ns_binding_import_begin(); it does not have to be manually
+...\"   inserted into the binding handle.
+...\" 
+.P
+This UUID (which will be passed to the \*Lrpc_\%ns_\%binding_\%import_\%begin(\|)\*O
+routine, below) will enable the server host's endpoint mapper to accurately map
+the incoming remote procedure call to the server that exported this entry.
+.P
+The UUID may also be used by the server itself to determine which object
+the client wants to access.  Note that although this set of library routines
+is designed to accommodate schemes in which multiple object UUIDs have been
+exported to the same entry, the model described here requires that \*Eonly
+one\*O object UUID (the unique identifier of the object to bind to) be
+exported.
+...\" 
+...\" 
+.LI
+\*Lrpc_ns_entry_object_inq_done(\|)\*O
+.P
+To delete the object inquiry context.
+.LI
+\*Lrpc_ns_binding_import_begin(\|)\*O
+.P
+To set up a binding import context.
+.P
+Note that the object UUID that was returned by the call to
+\*Lrpc_ns_entry_object_inq_next(\|)\*O must be passed to
+\*Lrpc_\%ns_\%binding_\%import_\%begin(\|)\*O; as a result of this the import
+operation (\*Lrpc_\%ns_\%binding_\%import_\%next(\|)\*O) will return only a binding
+with that object UUID.
+.P
+An alternative to using the binding import routines would be to use the group
+member inquiry (\*Lrpc_ns_group_mbr_inq_\*V*\*L(\|)\*O) routines to learn the name
+of the entry referred to in the group attribute, and then to do a direct import
+from that entry.
+.P
+The reason for using the \*Lrpc_ns_group_mbr_inq_\*V*\*L(\|)\*O routines, rather
+than the normal import functions (\*Lrpc_ns_binding_\*V*\*L(\|)\*O), would be to
+make sure that the group (and not some other) attribute in the entry is read.
+The \*Lrpc_ns_binding_import_next(\|)\*O routine is defined to successively
+exhaust the contents of an entry's
+...\" 
+.ML
+.LI
+\*Lbinding\*O attribute
+.LI
+\*Lgroup\*O attribute
+.LI
+\*Lprofile\*O attribute
+.LE
+...\" 
+.P
+.ne 8
+Since the model described here employs object entries with only group attributes
+and no binding or profile attributes, using the normal import routine should work
+fine.
+...\" 
+...\" 
+...\" 
+.LI
+\*Lrpc_ns_binding_import_next(\|)\*O
+.P
+To read the entry's group attribute.
+.P
+The name service's access to (and return of the binding handle from) the entry's
+group attribute is transparent and unerring because there is only one set of
+binding information associated with a given entry in this scheme, and that
+information is found only in the group attribute.  Note that if there had been
+more than one member in the group, which in fact is generally the case when
+group attributes are used, then the order of return would be random.  Or if there
+had been binding information associated with \*Eboth\*O attributes, then here also
+the order in which binding handles would be returned would be random; that is, the
+caller might get a handle from the simple name attribute first, and then the
+handles exported to the group members, or it might get one or more of the group's
+member's handles, then one or more of the simple entry's handles, and so on.
+...\"
+...\"
+.LI
+\*Lrpc_ns_binding_import_done(\|)\*O
+.P
+To delete the binding import context.
+...\" .LI "7."
+...\" \*Lrpc_binding_set_object(\|)\*O
+...\" .P
+...\" To insert the object's object UUID into the imported binding handle.
+.LE
+...\" 
+...\" 
+.P
+The next figure illustrates this activity.
+...\" 
+...\" 
+...\" 
+...\" ------------------------------------
+...\" ----------------------------------------------------------------------
+...\" Figure: showing hybrid-entry binding model with group attributes
+...\"		on import.
+...\" ----------------------------------------------------------------------
+...\" ------------------------------------
+...\" pix/fighybimp.pic
+...\" 
+...\" .ne 40
+.PP
+.ne 5.5i
+.FG "Importing from a Model That Uses Grouped Bindings"
+.sp .5
+.PS
+.in +.5i
+scale = 1.5
+.ps 12
+box at 1.042i,3.833i wid 0.917i ht 0.500i;
+"\fR\s8Endpoint\s0\fP" at 1.021i,3.958i;
+"\fR\s8Mapper\s0\fP" at 1.021i,3.812i;
+box at 1.760i,5.229i wid 0.667i ht 1.417i;
+"\fR\s8Server\s0\fP" at 1.729i,5.552i;
+box at 0.552i,6.917i wid 0.917i ht 0.417i;
+box at 0.552i,6.333i same;
+box at 0.562i,5.771i same;
+box at 0.562i,5.188i same;
+"\fR\s8A\s0\fP" at 0.552i,6.917i;
+"\fR\s8B\s0\fP" at 0.552i,6.333i;
+"\fR\s8C\s0\fP" at 0.562i,5.771i;
+"\fR\s8D\s0\fP" at 0.562i,5.188i;
+box at 3.125i,4.771i wid 0.667i ht 1.167i;
+box at 3.958i,4.771i same;
+box at 4.792i,4.771i same;
+box at 5.625i,4.771i same;
+box at 4.375i,7.104i wid 1.167i ht 0.667i;
+line from 3.792i,7.104i to 4.958i,7.104i;
+"\fR\s8Server\s0\fP" at 4.375i,6.990i;
+"\fR\s8bindings\s0\fP" at 4.375i,6.844i;
+"\fR\s8Server\s0\fP" at 3.104i,5.250i;
+"\fR\s8group\s0\fP" at 3.104i,5.104i;
+"\fR\s8Server\s0\fP" at 3.948i,5.229i;
+"\fR\s8group\s0\fP" at 3.948i,5.083i;
+"\fR\s8Server\s0\fP" at 4.771i,5.240i;
+"\fR\s8group\s0\fP" at 4.771i,5.094i;
+"\fR\s8Server\s0\fP" at 5.594i,5.240i;
+"\fR\s8group\s0\fP" at 5.594i,5.094i;
+line from 2.792i,4.771i to 3.458i,4.771i;
+line from 3.625i,4.771i to 4.292i,4.771i;
+line from 4.458i,4.771i to 5.125i,4.771i;
+line from 5.292i,4.771i to 5.958i,4.771i;
+"\fR\s8\"A\"\s0\fP" at 3.104i,4.646i;
+"\fR\s8object\s0\fP" at 3.104i,4.500i;
+"\fR\s8UUID\s0\fP" at 3.104i,4.354i;
+"\fR\s8\"B\"\s0\fP" at 3.938i,4.646i;
+"\fR\s8object\s0\fP" at 3.938i,4.500i;
+"\fR\s8UUID\s0\fP" at 3.938i,4.354i;
+"\fR\s8\"C\"\s0\fP" at 4.771i,4.646i;
+"\fR\s8object\s0\fP" at 4.771i,4.500i;
+"\fR\s8UUID\s0\fP" at 4.771i,4.354i;
+"\fR\s8\"D\"\s0\fP" at 5.615i,4.656i;
+"\fR\s8object\s0\fP" at 5.615i,4.510i;
+"\fR\s8UUID\s0\fP" at 5.615i,4.365i;
+"\fR\s8attrib\s0\fP" at 3.094i,4.927i;
+"\fR\s8attrib\s0\fP" at 3.938i,4.906i;
+"\fR\s8attrib\s0\fP" at 4.760i,4.906i;
+"\fR\s8attrib\s0\fP" at 5.583i,4.906i;
+"\fR\s8Server entry\s0\fP" at 4.354i,7.271i;
+box dotted at 4.292i,5.479i wid 3.833i ht 4.250i;
+"\fR\s8namespace\s0\fP" at 4.240i,3.198i;
+box at 3.458i,2.146i wid 1.333i ht 0.583i;
+"\fR\s8Client\s0\fP" at 3.458i,2.146i;
+line -> dashed from 3.125i,5.354i to 4.073i,6.771i;
+line -> dashed from 3.958i,5.354i to 4.375i,6.771i;
+line -> dashed from 4.792i,5.354i to 4.583i,6.760i;
+line -> dashed from 5.625i,5.354i to 4.760i,6.771i;
+line -> from 3.948i,6.771i to 3.010i,5.354i;
+line -> from 3.125i,4.188i to 3.458i,2.438i;
+"\fR\s8import binding information\s0\fP" ljust at 3.542i,2.750i;
+"\fR\s8for object \"A\"\s0\fP" ljust at 3.542i,2.604i;
+box dotted at 1.104i,5.479i wid 2.125i ht 4.250i;
+line -> from 2.792i,2.146i to 1.042i,3.583i;
+line -> from 1.042i,4.083i to 1.760i,4.521i;
+line -> dotted from 1.760i,5.938i to 1.010i,6.917i;
+"\fR\s8call through to server\s0\fP" rjust at 2.104i,2.583i;
+"\fR\s8server's host\s0\fP" at 0.635i,3.271i;
+"\fR\s8  machine\s0\fP" at 0.635i,3.125i;
+box dotted at 4.042i,2.292i wid 3.333i ht 1.167i;
+"\fR\s8client's machine\s0\fP" at 3.938i,1.594i;
+.in
+.PE
+...\" 
+...\" 
+.sp .5
+.P
+The client shown in the figure imports a binding for object A.  This
+becomes (through the group attribute) a referral back to the server's entry
+where the bindings are held, and a binding is indirectly imported from the
+server entry.  The object UUID for A is read, in a separate operation,
+directly from the object's entry.  With this information in its binding
+handle, the client makes its first remote call through the server's
+interface.  The call finds its way to the endpoint mapper via the partial
+binding information, and the endpoint mapper completes the binding by
+looking up the object UUID, which was registered there by the server.
+...\" 
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.H 2 "Global Organization of the Namespace"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+Since DCE is designed to support very large namespaces, it uses a hierarchical
+service for binding.  The global scale is separated into cells whose boundaries
+are administratively defined.  For example, a company using DCE might have a cell
+containing its employees and local services.  The cell namespace administrator
+could decide to put all the service entries in a single directory if the cell
+were small.
+.P
+Both the import and export name service operations support default values derived
+from environment variables; for example, 
+\*LRPC_\%DEFAULT_\%ENTRY_\%NAME\*O.  The
+environment variables can be set by start-up files to the name of a well-known
+directory within the cell.  The only remaining decision then will be how to name
+the actual entries within the directory.  One easy method is to use mnemonic names,
+or names of interfaces such as \*Lbinop\*O, \*Lspm_library\*O, and so on.  If these
+entries are only being accessed by clients through profiles, their names will not
+be directly visible to the client anyway.
+.P
+But now imagine a larger organization. The administrator will want to define some
+naming hierarchy based on geography, organization, or other criteria.  Somewhere
+within this hierarchy some writable directories (or parent directories) would be
+created, which could contain server entries, profiles, and so on.  If clients are
+using only profiles to access bindings, then this organization will still be
+transparent to them.  If clients want to bind to specific servers or objects, then
+more attention must be paid to the names given the servers' or objects' entries.
+The names should in some way reflect the organization, geography, or other relevant
+aspects of the server or object.
+...\" 
+.P 
+In summary, the important points to keep in mind are the following:
+...\" 
+.ML
+.LI
+The model should be appropriate for the organization and permit efficient
+administration of the namespace.
+.LI
+There should be simple guidelines for naming objects and services so that
+users have a good chance of guessing the right answer.
+.LE

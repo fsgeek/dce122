@@ -1,0 +1,5084 @@
+CR Number                     : 13682
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : secd
+Short Description             : PK preauth memory corruption (aka. Hitachi can't config)
+Reported Date                 : 12/13/96
+Found in Baseline             : 1.2.2
+Found Date                    : 12/13/96
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : src/security/krb5/kdc/kdc_pk_preauth.c
+Diff supplied by              : provider
+Diff release                  : 1.2.2
+Sensitivity                   : public
+
+[12/13/96 public]
+Hitachi Japan was not able to configure DCE 1.2.2 international code on
+AIX. The dce_login during dce_config was failing with:
+
+1996-12-12-18:01:09.459-06:00I----  dce_login ERROR sec login preauth.c \
+1276 0x2044ca00 krb5_obtain_dce_tp_preauth failed; errno text: Generic \
+preauthentication failure (dce / krb)
+
+The KDC (in secd) logged the following to syslog:
+
+Dec 10 14:13:56 dfamrs6s secd[16123]: AS_REQ; ENCODE_KDC_REP: host \
+20a7604e-524c-11d0-bc22-10005afa0c50@ncacn_ip_tcp:202.216.113.49[1038], \
+cell_admin@6s.cell for krbtgt/6s.cell@6s.cell failed: Unknown code DCE:krb \
+185 (336761017)
+
+This was traced to memory corruption in the PK preauth code. The reply_keyP
+contents in krb5_pkinit_sign_as_rep was being free()'ed by mistake. Random
+chance decided if the memory pointed to by reply_keyP was to be corrupted
+before using the key. The fix is to not free reply_key at the end of the
+routine.
+
+*** kdc_pk_preauth.c@@/main/DCE_1.2.2/jrr_122_8/0       Fri Dec 13 13:20:01
+1996
+--- kdc_pk_preauth.c@@/main/DCE_1.2.2/jrr_122_8/1       Fri Dec 13 13:40:14
+1996
+***************
+*** 8,13 ****
+--- 8,17 ----
+  /*
+   * HISTORY
+   * Log: kdc_pk_preauth.c,v 
++  * Revision /main/DCE_1.2.2/jrr_122_8/1  1996/12/13  18:40 UTC  jrr
++  *    Do not free reply_key before returning it in reply_keyP
++  *    in krb5_pkinit_sign_as_rep().
++  * 
+   * Revision /main/DCE_1.2.2/4  1996/11/05  19:59 UTC  aha
+   *    CHFts20610: free reply_key contents only if bad status; modify
+   *    reply_keyP only if good status.
+***************
+*** 314,320 ****
+             krb5_free_keyblock(reply_key);
+      } else {
+         *reply_keyP = reply_key;
+-        free(reply_key);
+      }
+      if (tmpkey)
+         krb5_free_keyblock(tmpkey);
+--- 318,323 ----
+
+[12/13/96 public]
+
+OT test.
+
+[12/14/96 public]
+
+More cleanup. Sigh.
+
+
+
+CR Number                     : 13651
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : PK Login
+Short Description             : PK Login policy is not implemented
+Reported Date                 : 10/4/96
+Found in Baseline             : 1.2.2
+Found Date                    : 10/4/96
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : security/krb5/include/krb5/kdb.h
+Diff supplied by              : provider
+Diff release                  : 1.2.2
+Sensitivity                   : public
+
+[10/4/96 public]
+
+Policy control to require users to log in using Public Key Login
+has not yet been implemented.  Policy control will be included
+in the BL05 drop.
+
+[11/13/96 public]
+Support for policy control is included in the BL05 drop.  This
+uses the existing "pre_auth_req" ERA to specify which protocols
+a user is allowed to use.
+
+
+
+CR Number                     : 13644
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : sec_login
+Short Description             : validate ID errcodes have changed
+Reported Date                 : 10/02/96
+Found in Baseline             : 1.2.2
+Found Date                    : 10/27/96
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : sec_login_pvt.c,do_as_req.c,kdc_preauth.c
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : private
+
+[10/3/96 private]
+Error codes for certain validate ID cases have been changed.  This
+affects interoperability and tests.  Basically raw Kerberos error
+codes are being returned (dce / krb).
+
+Sec API failures:
+---------------------------------------------------------------
+Routine Tested:   login_test
+Tested For:       2 login_validate_identity test: invalid password
+
+Trace Message:    sec_login_setup_identity (flintstone 0.. ), status; Successf
+
+l completion (dce / svc)
+Trace Message:    sec_login_validate_identity ( .. ), status; status 0x1412901
+
+ (dce / krb)
+Trace Message:    Reset Login flag is true, AuthSrc is Network
+Failure Message:  sec_login_validate_identity
+Failure Message:  failure set by the function under test
+Trace Message:    sec_login_purge_context ( .. ), status; Successful completio
+
+ (dce / svc)
+Test Status:      Test FAILED
+Status Returned:  30146561
+Status Text:      test failed
+
+sec_psm_open failed: 1712207a...
+Registry object not found (dce / sec)
+
+[11/13/96 public]
+This defect has been fixed in the BL05 drop.  All tests now pass.
+
+
+
+CR Number                     : 13643
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : secd
+Short Description             : Third-Party pre-authentication does not work
+Reported Date                 : 10/02/96
+Found in Baseline             : 1.2.2
+Found Date                    : 10/27/96
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : do_as_req.c,kdc_preauth.c
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : private
+
+[10/3/96 private]
+The Third-Party Pre-authentication protocol introduced in OSF DCE
+1.1 does not work in the BL04 release of OSF DCE 1.2.2.  The code
+has been #ifdef 0 until it can be merged into the new authentication
+framework from KRB5 Beta6 used for public key login.
+
+Sec TET failures:
+
+520|4 1 11576 16 1|Login for testlogin passed after 300 seconds, account succes
+sfully reset
+520|4 1 11576 16 2|PASSED: Login activity 3: reset account, good login
+220|4 1 1 12:03:55|FAIL
+410|4 3 1 12:03:55|IC End
+520|4 0 11576 1 1|DCE invalid login tests done, cleanup begun on client ibm_l4
+80|4 0 12:04:01|TC End
+10|5 /ts/client/login/preauth/preauth-tc 12:04:01|TC Start, scenario ref 76-1
+15|5 1.9 1|TCM Start
+510|5|warning: illegal entry 13 in TET_SIG_IGN ignored
+400|5 1 1 12:04:09|IC Start
+200|5 1 12:04:09|TP Start
+520|5 1 14718 1 1|DCE Preauthentication test purpose 1: successful login
+520|5 1 14718 1 2|\texpecting THIRD PARTY preauth
+520|5 1 14718 1 3|FAILED: preauth_tp1: see tp1_errors file
+220|5 1 1 12:04:14|FAIL
+410|5 1 1 12:04:14|IC End
+80|5 0 12:04:17|TC End
+
+[10/3/96 public]
+The BL05 drop includes full support for OSF DCE Third-Party
+Pre-Authentication as well as Public Key Pre-Authentication.
+
+
+
+CR Number                     : 13637
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : sec_pvtkey_switch
+Short Description             : Keystore entry 1 is corrupt
+Reported Date                 : 10/1/96
+Found in Baseline             : 1.2.2
+Found Date                    : 10/1/96
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : sec_pvtkey_registered_keystores.c
+Diff supplied by              : user
+Diff release                  : 1.2.2
+Sensitivity                   : public
+
+[10/1/96 public]
+I configured a fresh cell using the BL04 binaries from the Sept 27
+release build on miney (HP-UX).
+
+After completion of configuration, the following error was in 
+/opt/dcelocal/var/svc/error.log:
+1996-10-01-11:35:38.429-04:00I----- secd ERROR psm psm_psm \
+ sec_pvtkey_switch.c 417 0x7aff35f8 Keystore entry 1 is corrupt
+
+As this is not a debuggable libdce, I cannot provide more information.
+
+[10/01/96 public]
+Problem is that when HP conditionalized sec_pvtkey_registered_keystores.c
+(since PKSS would not build on HPUX), we left the SEC_PVTKEY_SWITCH_FLAG_TERMINATE
+flag off the last entry in installed_keystore[].
+
+[10/04/96 public]
+Fix submitted with international BL04.
+Diffs:
+*** /vob/dce/src/security/psm/domestic/sec_pvtkey_registered_keystores.c@@/main/DCE_1.2.2/2	Mon Sep 23 17:36:14 1996
+--- /vob/dce/src/security/psm/domestic/sec_pvtkey_registered_keystores.c@@/main/DCE_1.2.2/aha_pk9_5/1	Tue Oct  1 13:53:08 1996
+***************
+*** 5,10 ****
+--- 5,14 ----
+   *
+   * HISTORY
+   * $Log:	c013637,v $
+# Revision 1.3  96/10/04  16:51:11  root
+# changed fields: Status  Fix By Baseline  Fixed In Baseline  Affected File(s)  Diff supplied by  Diff release   new/changed/deleted note(s) [aha 10/04/96 public]
+# 
++  * Revision /main/DCE_1.2.2/aha_pk9_5/1  1996/10/01  17:53 UTC  aha
++  * 	Add TERMINATE flag to last HPUX installed_keystore entry.  Change
++  * 	is conditionalized for HPUX only.
++  * 
+   * Revision /main/DCE_1.2.2/2  1996/09/23  21:36 UTC  arvind
+   * 	Conditionalize  HP build not to use pkss/pkc
+   * 	[1996/09/10  18:32 UTC  arvind  /main/arvind_pkss/3]
+***************
+*** 55,60 ****
+--- 59,65 ----
+  keystore_epv installed_keystore[MAX_KEYSTORES] = {
+      {SEC_PVTKEY_KEYSTORE_MAGIC,
+       SEC_PVTKEY_SWITCH_FLAG_ENABLED
++      | SEC_PVTKEY_SWITCH_FLAG_TERMINATE
+       | SEC_PVTKEY_SWITCH_FLAG_MATCHALL,
+       &sec_psm_file_mechanism,
+       "Local file",
+
+
+
+CR Number                     : 13564
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : sec_login_pvt_synch_refresh_context()
+Short Description             : Memory leak in sec_login_pvt_synch_refresh_context()
+Reported Date                 : 7/9/96
+Found in Baseline             : 1.2.1
+Found Date                    : 7/9/96
+Severity                      : C
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : src/security/client/login/sec_login_pvt.c
+Diff supplied by              : provider
+Diff release                  : 1.2.1
+Sensitivity                   : public
+
+[7/9/96 public]
+
+Will be dropped in next DCE 1.2.2 baselevel.
+
+Memory leak when refreshing credentials. dced is leaking memory. Each 
+context refresh in the key management thread leaks approx. 1000 bytes.
+
+In sec_login_pvt_synch_refresh_context(), free the TGT data in the
+caller's login context before filling in the refreshed data.
+
+(line numbers may be off)
+
+***************
+*** 4787,4792 ****
+--- 4790,4804 ----
+                  1, &db_entry, stp);
+      if (dfn)
+          free(dfn);
+      if (BAD_STATUS(stp)) {
+          return;
+      }
++ 
++     /* 
++      * Free the TGT data in the login context before we stomp it with 
++      * the contents of the refresh context.
++      */
++     free_krb_request_info(&KRB_REQUEST_INFO(lcp));
+
+
+
+CR Number                     : 13479
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : keymgmt
+Short Description             : races to create keytab before principal exists on read-only replica
+Reported Date                 : 5/23/96
+Found in Baseline             : 1.1
+Found Date                    : 5/23/96
+Severity                      : B
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : security/client/key_mgmt/keymgmt.c
+Diff supplied by              : user
+Diff release                  : 1.1
+Sensitivity                   : public
+
+[5/23/96 public]
+
+There is window in which account can not be seen on the readonly.
+Adding keys to the local keytab file will fail in this window because
+sec_key_mgmt_get_next_kvno() works with the default registry.
+
+Fix:
+
+File: security/client/key_mgmt/keymgmt.c
+*** 12.2        1994/12/05 19:46:39
+--- 12.3        1995/07/12 20:02:39
+***************
+*** 2,7 ****
+--- 2,17 ----
+   * @TRANSARC_COPYRIGHT@
+   *
+   * $TALog: keymgmt.c,v $
++  * Revision 12.3  1995/07/12  20:02:39  aswini
++  * Bug: There is window in which account can not be seen on the readonly.
++  * Adding keys to the local keytab file will fail in this window because
++  * sec_key_mgmt_get_next_kvno() works with the default registry.
++  * Fix: If the account lookup fails in the default registry retry the lookup
++  * in the master registry.
++  *
++  * See above.
++  * [from r12.2 by delta aswini-15858-sec-client-keymgmt-kta-local-try-master-if-default-fails, r1.1]
++  *
+   * Revision 12.2  1994/12/05  19:46:39  aswini
+   * [merge of changes from 11.1 to 11.2 into 12.1]
+   *
+***************
+*** 11,17 ****
+   */
+  
+  #if !defined(_NOIDENT) && !defined(lint)
+! static char *TARCSId = "$Id: c013479,v 1.2 96/05/23 18:02:03 root Exp $
+";
+  #endif
+  
+  /*
+--- 21,27 ----
+   */
+  
+  #if !defined(_NOIDENT) && !defined(lint)
+! static char *TARCSId = "$Id: c013479,v 1.2 96/05/23 18:02:03 root Exp $
+";
+  #endif
+  
+  /*
+***************
+*** 671,676 ****
+--- 681,697 ----
+      sec_rgy_cursor_reset(&cursor);
+      sec_rgy_acct_lookup(rgy_h, &name_in, &cursor, &name_out, NULL, NULL,
+                               NULL, &user_part, NULL, err);
++     if(BAD_STATUS(err) && (*err == sec_rgy_object_not_found)) {
++         sec_rgy_site_close(rgy_h, &lerr);
++         sec_key_mgmt__bind_rgy(principal_name, auth_type, lc,
++                                name_in.pname, NULL, true, &rgy_h, err);
++         if (BAD_STATUS(err)) {
++             return;
++         }
++         sec_rgy_cursor_reset(&cursor);
++         sec_rgy_acct_lookup(rgy_h, &name_in, &cursor, &name_out, NULL, NULL,
++                                  NULL, &user_part, NULL, err);
++     }
+      sec_rgy_site_close(rgy_h, &lerr);
+  
+      if (GOOD_STATUS(err)) {
+
+[5/23/96 public]
+Was differently fixed in 1.2.1.
+
+
+
+CR Number                     : 13472
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : secd
+Short Description             : sec_rgy_attr_update() causes
+leak in secd
+Reported Date                 : 5/13/96
+Found in Baseline             : 1.1
+Found Date                    : 5/13/96
+Severity                      : C
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : security/server/rsdb/balanced_trees.c
+Sensitivity                   : public
+
+[5/13/96 public]
+
+Running a testcase that repeatedly makes calls to sec_rgy_attr_update()
+attempting to update the same attribute with the same value will cause the
+security daemon to grow without bound.  The server end of
+sec_rgy_attr_update(), (rsdb_attr_update()) in secd makes no attempt to update
+pre-existing attributes, instead it deletes the previous attribute and creates
+a new one ... which would cause secd memory to grow indefinitely.
+
+It appears as thought OSF's design for rsdb_attr_update() was intended to be
+used only as a very simplistic write-once/read-many semantic, not as a
+write-many/read-many semantic as the customer requires.
+
+Unfortunately the testcase supplied by the customer is non-trivial enough to
+not include it in this OT but I will be glad to supply what I have with
+whomever ends up working this problem.
+
+PauL
+phighley@austin.ibm.com
+
+[5/15/96 public]
+This is not an attribute specific problem.  All of secd (since the beginning
+of time, or at least DCE1.0) has had the limitation that if something was
+replaced or deleted, the memory was kept around (someone had intended on
+finishing the reuse feature at some point).  As of DCE1.2.1, secd now correctly
+malloc()s and free()s memory as it's needed, which should fix the above problem.
+As such, I'm marking the above as 'fix'ed in 1.2.1.  Try it, I'm sure you'll
+like it a *lot* better than the 1.1 secd.
+
+
+
+CR Number                     : 13455
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : admin_gd
+Short Description             : event-id vs. class-id
+Reported Date                 : 4/25/96
+Found in Baseline             : 1.2.1
+Found Date                    : 4/25/96
+Severity                      : B
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : admin_gd/security/security/14_audit.gpsml
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Status               : open
+
+[4/25/96 public]
+In the section called Event Class Number Formats, the text discusses
+class-id, but in the figure this same entity seems to be referred to
+as event-id.  Of the two, class-id is probably more correct and should
+be used consistently between the text and the figure.
+Added field Transarc Deltas with value `' 
+Added field Transarc Status with value `open'
+
+[5/16/96 public]
+
+Not sure whom to assign this to right now, so I'm just adding
+Norm to the Interest list and leaving it at that for the
+moment.
+
+[8/15/96 public]
+The suggestion was to change "event-id" in the figure to "class-id"
+in order to match exactly the references in the text explanation.
+Unfortunately, the figure is in the form of a PostScript file and
+I cannot find the text strings in question to order to make the change.
+So instead I changed the references to "class ID" in the text to "class
+event ID", and just before the figure added a parenthesis to the
+effect that "event-id" in the figure was the same as "class event ID"
+in the text. If this is unacceptable, let me know.
+
+But meanwhile, I am marking this CR "fix".
+
+
+
+CR Number                     : 13439
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : sec_salvage_db
+Short Description             : sec_salvage_dp -print failure
+if 10+ attributes
+Reported Date                 : 4/19/96
+Found in Baseline             : 1.1
+Found Date                    : 4/19/96
+Severity                      : A
+Priority                      : 3
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : sec_svg_prt.c
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[4/19/96 public]
+
+Running sec_salvage_db with the -print option will fail if there
+are more than 10 attribute instances attached to a principal.
+To verify this, try doing a "sec_salvage_db -print" after you've
+run the test/functional/security/ts/client/rca/sec_rgy_attr test.
+This test creates 11 attribute instances for "root".
+
+The reason for this failure is that the pgo extraction logic in
+print_pgo does a single rsdb fetch into an arry of type
+rsdb_max_attr_list_t, which only holds 10 attribute instances.  
+Either there's an easy way to get print_pgo to fetch the remaining 
+attribute instances, or the logic will have to be reworked somehow.  
+I don't think you want to bump up RSDB_MAX_ATTR_LIST_SIZE to be 
+arbitrarily large, but this would fix it.
+
+You might want to check around and see if there are other places
+rsdb_max_attr_list_t is used incorrectly and where the code needs to
+be able to handle more than 10 entries.
+
+[6/18/96 public]
+Fixed in 1.2.2 for next drop to OSF.
+
+
+
+CR Number                     : 13436
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : admin_gd
+Short Description             : event number example is missing lines
+Reported Date                 : 4/18/96
+Found in Baseline             : 1.2.1
+Found Date                    : 4/18/96
+Severity                      : B
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : admin_gd/security/security/14_audit.gpsml
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Status               : open
+
+[4/18/96 public]
+On page 42-13 of the Admin Guide-Core, section 42.4.2, Administrator
+Tasks, Step 2, the following lines are missing from the description of
+the account_balance_operations file:
+	# Event class number of account_balance_operations
+	ECN = 0xC0000007
+Added field Transarc Deltas with value `' 
+Added field Transarc Status with value `open'
+
+[8/15/96 public]
+
+Fixed. I made the change indicated, as indicated.
+
+
+
+CR Number                     : 13416
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : 
+Short Description             : rs_attr_lookup_by_id fails to return list of accessible attributes
+Reported Date                 : 3/29/96
+Found in Baseline             : 1.1
+Found Date                    : 3/29/96
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : src/security/server/rs/rs_attr.c
+Diff supplied by              : provider
+Diff release                  : 1.2.2
+Sensitivity                   : public
+
+[3/29/96 public]
+
+In the documentation for sec_rgy_attr_lookup_by_id() there is a claim that
+when especifying the argument for num_attrs=0 the api would return a list
+of all the attributes to which the user has "access".  This is not the 
+case.  The code actually gets a list of all the attributes on the object
+and then proceeds to check the authorization of the caller against each.
+If any of these checks fails, the api returns an error code of "not
+authorized".  The expected behavior would be that the code would skip
+the attribute that inhibits access and continue to check the next attribute.
+
+This checks occur at the rs_attr_lookup_by_id() and rs_attr_lookup_no_expand().
+
+[4/1/96 public]
+
+
+Following is a possible solution to this problem. 
+I have tested this successfully, and it fixes the problem described in this OT.
+I have used the sch_list->entries[j].flags.deleted  as a marker for unauthorized
+schemas.   The only concern I have is that this use of this flag would not
+conflict with the designed use for it.
+
+In rs_attr_lookup_by_id() and rs_attr_lookup_no_expand() (rs_attr.c) I did
+the following:
+
+                                   *
+                                   *
+                                   *
+        /* Check if caller is authorized for queries of each attr type */
+        for(i = 0; STATUS_OK(st_p) && i < sch_list->count; i++) {
+            rs_attr_util_get_permset(&rgy_obj_info,
+                &(sch_list->entries[i].sch_entry),
+                rs_attr_op_query, &requested_perms, st_p);
+            if(STATUS_OK(st_p)) {
+                rs_attr_util_is_auth(h, &rgy_obj_info,
+                    requested_perms, component_name, st_p);
+            }
+#if defined(IBMOS2) || defined(AIX_PROD)        /*  CMVC 21266  */       
+
+           if ( *st_p == sec_attr_unauthorized )                         <
+           {                                                       <
+              sch_list->entries[i].flags.deleted = 1;               <
+              CLEAR_STATUS(st_p);                                    <
+           }                                                       <
+#endif                                       /*  CMVC 21266  */
+        }
+
+        if(STATUS_OK(st_p)) {
+            rsdb_attr_lookup_by_uuid(&rgy_obj_info, cursor,
+                space_avail, sch_list,
+                rpc_ss_allocate, num_returned, attrs,
+                num_left, st_p);
+        }
+
+                                 *
+                                 *
+
+                                 *
+
+
+
+In rsdb_attr_llokup_by_uuid() (rsdb_attr.c) I did the following:
+
+
+                                 *
+                                 *
+                                 *
+                                 *
+
+    while (cursor->list != END_OF_LIST) {
+        if(!(rsdb_attr_list_get_by_id(cursor->list, &list))) {
+            dce_svc_printf(SEC_ATTR_CANT_GET_ATTRLIST_MSG);
+        }
+        for(i = cursor->entry; i < list.total_count; i++) {
+            if(*num_returned < space_avail) {
+                if(!list.attr[i].inst_id.deleted) {
+                    for(j = 0; j < sch_list->count; j++) {
+#if defined(IBMOS2) || defined(AIX_PROD)        /*  CMVC 21266  */
+                       if((list.attr[i].type_id == sch_list->entries[j].sch_entry_id)  <
+                           && (sch_list->entries[j].flags.deleted != 1)) {             <
+
+#else
+                       if(list.attr[i].type_id ==                          <   OLD CODE
+                            sch_list->entries[j].sch_entry_id) {           <
+#endif                                       /*  CMVC 21266  */
+
+                            attr_inst_id = list.attr[i].inst_id.id;
+                            rsdb_attr_get_by_id_and_export(attr_inst_id,
+                                allocator, &attrs[*num_returned], st_p);
+                            if(BAD_STATUS(st_p)) {
+                                dce_svc_printf(DCE_SVC(sec_svc_handle, ""),
+                                           sec_s_rs_rsdb,
+                                           svc_c_sev_fatal | svc_c_action_abort,
+                                           *st_p);
+                            }
+                                 *
+                                 *
+
+                                 *
+                                 *
+                                 *
+
+
+
+Actually, I just looked at the code of other similar functions, and I 
+discovered that rpriv_attr_get_effective() and rsdb_attr_get_effective()
+work similarly to the code described above.  Therefore, I assume I have not
+been doing a terrible hack.
+
+[4/3/96 public]
+
+
+While trying to fix this problem in our code,  I came into a problem
+with the setting of the return status when processing a partially or
+fully unauthorized attribute schema list.
+
+The behavior that we would propose is that the error status be set to
+"unauthorized" only if all of the schemas in the list denied access.  If
+the returned attribute list is partial, a status OK would be returned.
+It would be up to the caller to verify that he got the list that he
+requested.
+
+Please attach to this OT what would be HP's approach.  Thanks.
+
+[4/24/96 public]
+I spoke to Anne Hopkins regarding this issue. The lookup routines should
+always return success in this case. Even if the number of entries that the
+caller is authorized to lookup is zero.
+
+[7/25/96 public]
+Merged fix to DCE 1.2.2 code. Will be part of next drop. DIFFs:
+
+*** /vob/dce/src/security/server/rs/rs_attr.c@@/main/DCE_1.2.2/1        Thu Jul
+18 13:34:27 1996
+--- /vob/dce/src/security/server/rs/rs_attr.c@@/main/DCE_1.2.2/2        Thu Jul
+25 15:09:01 1996
+***************
+*** 8,13 ****
+--- 8,20 ----
+  /*
+   * HISTORY
+   * $Log:	c013416,v $
+# Revision 1.5  96/07/25  15:16:34  root
+# changed fields: Status  Fixed In Baseline  Diff supplied by  Diff release  Responsible Engr.  Resp. Engrs Company   new/changed/deleted note(s) [psn 7/25/96 public]
+# 
++  * Revision /main/DCE_1.2.2/2  1996/07/25  19:09 UTC  psn
++  *    Modify rs_attr_lookup_by_id() and rs_attr_lookup_no_expand() to
++  *    return all entries that the caller is authorized to get. Do not
++  *    fail if entries are found that the caller is not auth'ed to get.
++  *    Return success even if 0 entries are returned.
++  *    [1996/05/17  17:36 UTC  jrr  /main/HPDCE02/jrr_davis_3/1]
++  *
+   * Revision /main/DCE_1.2.2/1  1996/07/18  17:34 UTC  aha
+   *    Merge Registry support for KDC private key storage
+   *
+***************
+*** 255,261 ****
+                rs_attr_util_is_auth(h, &rgy_obj_info,
+                    requested_perms, component_name, st_p);
+            }
+!       }
+        if(STATUS_OK(st_p)) {
+            rsdb_attr_lookup_by_uuid(&rgy_obj_info, cursor,
+                space_avail, sch_list,
+--- 262,278 ----
+                rs_attr_util_is_auth(h, &rgy_obj_info,
+                    requested_perms, component_name, st_p);
+            }
+!
+!             /*
+!              * If the caller is not authorized to lookup this entry,
+!              * just mark it as deleted and clear the status.
+!              */
+!             if (*st_p == sec_attr_unauthorized ) {
+!                 sch_list->entries[i].flags.deleted = 1;
+!                 CLEAR_STATUS(st_p);
+!             }
+
+!         }
+!
+        if(STATUS_OK(st_p)) {
+            rsdb_attr_lookup_by_uuid(&rgy_obj_info, cursor,
+                space_avail, sch_list,
+***************
+*** 385,391 ****
+                rs_attr_util_is_auth(h, &rgy_obj_info,
+                    requested_perms, component_name, st_p);
+            }
+!       }
+        if(STATUS_OK(st_p)) {
+            rsdb_attr_lookup_by_uuid(&rgy_obj_info, cursor,
+                space_avail, sch_list,
+--- 402,418 ----
+                rs_attr_util_is_auth(h, &rgy_obj_info,
+                    requested_perms, component_name, st_p);
+            }
+!
+!             /*
+!              * If the caller is not authorized to lookup this entry,
+!              * just mark it as deleted and clear the status.
+!              */
+!             if (*st_p == sec_attr_unauthorized ) {
+!                 sch_list->entries[i].flags.deleted = 1;
+!                 CLEAR_STATUS(st_p);
+!             }
+!         }
+!
+        if(STATUS_OK(st_p)) {
+            rsdb_attr_lookup_by_uuid(&rgy_obj_info, cursor,
+                space_avail, sch_list,
+
+
+
+CR Number                     : 13393
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 13392
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : app_ref
+Short Description             : Audit event REPADMIN_SetSwRev not documented
+Reported Date                 : 3/17/96
+Found in Baseline             : 1.1
+Found Date                    : 3/17/96
+Severity                      : C
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : sec_audit_events(5)
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[3/17/96 public]
+
+The REPADMIN_SetSwRev audit event is currently not defined in the
+sec_audit_events(5) man page.  This event was added in the 1.1 WP
+and should have an correspondent description in the man page.
+
+[8/15/96 public]
+
+Fixed. I made the indicated addition in sec_aud_events.5dce. Also
+corrected a couple of format errors in the REPADMIN_Destroy and
+REPADMIN_Init sections.
+
+
+
+CR Number                     : 13319
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : other
+Component Name                : sec
+Subcomponent Name             : 
+Short Description             : diffs: secd failure caused by
+sec_rgy_attr_sch test
+Reported Date                 : 2/15/96
+Found in Baseline             : 1.1
+Found Date                    : 2/15/96
+Severity                      : A
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2, 1.1maint
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : rs_log_attr_schema.c
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[2/15/96 public]
+
+There are a couple fixes in rs_log_attr_schema.c that I would
+like HP to place in 1.2.1.  The alloc_attr_sch_update fix keeps secd
+from crashing during the sec_rgy_attr_sch test, so I'm filing this OT 
+as an A1.
+
+First, in alloc_attr_sch_update, sch_entry_len should be declared as
+an unsigned32, because it gets passed to rsdb_attr_calc_size in
+an unsigned32 argument.  The declaration of sch_entry_len in
+alloc_attr_sch_create was recently modified to be an unsigned32.  
+This change can be applied to the declaration in alloc_attr_sch_update 
+as well.
+
+Second, in  rs_log_attr_sch_prop_update(), the stack declaration of
+"schema" should be initialized, as in:
+
+    rs_prop_attr_sch_update_data_t  schema = {0};
+
+[2/16/96 public]
+Too late, 1.2.1 is already frozen and out of our hands.  It's in
+the end game stage, so we can't drop this in.  Feel free to include
+it in your product version of 1.2.1 after verifying that the fix is
+correct (I can't do that today).  Changed the platform to 'other' from
+all, since this can't have been seen on HPUX or AIX (secd crashing) or
+1.2.1 wouldn't have frozen.
+
+[2/19/96 public]
+Okay, sorry I missed the deadline.  Just so we don't loose these
+fixes, I'm appending a diff of my changes against the 1.2.1 
+rs_log_attr_schema.c.  Also,  John Wray at Digital advised me to
+modify the description field with the word "diffs:", because
+later this will be used as a key word to facilitate automatic extraction
+of patches.  Or something like that.
+
+diff new old ---
+
+192c192
+<     unsigned32          sch_entry_len, total_size;
+---
+>     long                sch_entry_len, total_size;
+569c569
+<     rs_prop_attr_sch_update_data_t  schema = {0};
+---
+>     rs_prop_attr_sch_update_data_t  schema;
+
+[6/18/96 public]
+Fixed in 1.2.2 for next drop to OSF.
+
+[10/1/96 public]
+Fixed in 1.1 maintenance tree.
+
+
+
+CR Number                     : 13314
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : sec_login
+Short Description             : need status code for uid/gid overflow
+Reported Date                 : 2/8/96
+Found in Baseline             : 1.1
+Found Date                    : 2/8/96
+Severity                      : C
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : security/idl/sec.sams
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Status               : open
+
+[2/8/96 public]
+Given that the uid_t and gid_t types in the system-dependent struct
+passwd may be different sizes on different systems, it may be possible
+for the OS-dependent functions
+sec_login_pvt_get_local_login_info() and/or sec_login_np_lc_to_pwent()
+to truncate a uid or gid when inserting it into the struct passwd.
+This should be detected, and an error status code should be returned.
+I was unable to find an appropriate status code for this situation
+in the existing code; I would like to propose that a status code be
+created for this purpose, so that sec_login_get_pwent() would return
+with this status set if that call would result in a passwd structure
+with a truncated uid/gid.
+Without this code, it is possible for a client program to detect overflow
+by using the sec_rgy_acct_lookup() function and comparing the uid/gid
+returned there to the one returned by sec_login_get_pwent(), but if
+the uid/gid in login context was affected by overrides (obtained via
+sec_login_valid_and_cert_ident(), for example), they will differ even
+in the absence of an overflow condition.
+A kludgy workaround is possible, by having the client program use the
+override interface to detect an overridden uid/gid, but it seems that
+a better solution (reporting the overflow when it happens) would be
+preferable.
+Added field Transarc Deltas with value `' 
+Added field Transarc Status with value `open'
+
+[6/7/96 public]
+New error code (sec_login_s_unix_id_overflow) supplied in latest 1.2.2 drop
+(2nd drop to OSF), so this is marked fix.  I don't believe overflow of UIDs
+is a problem on AIX, so I won't open a separate bug for that, but could you
+send me the context of where/when you're using this new error code, so that
+we can apply it to platform(s) that do have this problem if/when we run into
+them?
+
+
+
+CR Number                     : 13295
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : gssapi
+Short Description             : DIFF : Memory-leak in gssapi key-schedule calculation
+Reported Date                 : 2/1/96
+Found in Baseline             : 1.1, 1.2.1
+Found Date                    : 2/1/96
+Severity                      : C
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : gssapi-supp.c
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[2/1/96 public]
+
+There is a small memory leak in GSSAPI, in the area where a DES key-schedule is
+calculated for integrity protection.  Two distinct key-schedules are
+used, one for privacy and one for integrity, and both are supposed to be 
+created the first time they're needed.
+
+In the current 1.1 & 1.2.1 codebases, however, the integrity key-schedule is
+re-created every time it's needed, wasting time and leaking memory.
+
+The fix is in file security/gssapi/gssapi-supp.c, routine
+gss__fixup_safe_key_info.  The 10th line of this routine that reads:
+
+      if (ctx_ptr->priv_key_schedule != NULL) return 0;
+
+should read:
+
+      if (ctx_ptr->safe_key_schedule != NULL) return 0;
+
+The comment immediately preceeding this line should also be changed to
+refer to the safe_session_key rather than the priv_session_key.
+
+[6/18/96 public]
+Fixed in 1.2.2 for next drop to OSF.
+
+
+
+CR Number                     : 13290
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 13220
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : gssapi
+Short Description             : better export version
+Reported Date                 : 1/24/96
+Found in Baseline             : 1.1
+Found Date                    : 1/24/96
+Severity                      : A
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.1,1.1maint
+Affected File(s)              : security/gssapi/gssapi.c
+Sensitivity                   : public
+
+[1/24/96 public]
+
+If NOENCRYPTION is enabled, GSSAPI "turns off" the encryption flag
+so that the privacy routine is not called.  It might be better if
+#ifdef were used to disable the call altogether.  The DCE 1.2 code
+does this; we should backport to DCE 1.1.
+
+[1/25/96 public]
+Marked fixed in 1.2.1, filled in file field.
+Diff the 1.2.1 version against the 1.1maint version to see what additional
+changes you need for this to patch 1.1.
+
+[01/25/96 public]
+Good idea.  It was a pain doing the diff since lots of unrelated
+things changed between 1.1 and 1.2 (eg all serviceability messaging
+is different) but I believe I got it right.  I did a diff between
+1.1 and 1.2, found the additional NOENCRYPTION checks and applied them
+to the 1.1 source.  The following is a diff between my fixed version
+and the current 1.1.  This diff should go into 1.1-maint.
+Also this is really an enhancement, so I marked it as such.
+
+*** gssapi.c.OLD	Wed Oct  5 17:47:42 1994
+--- gssapi.c.FIX	Thu Jan 25 11:03:47 1996
+***************
+*** 7194,7199 ****
+--- 7194,7200 ----
+      case TOK_ID_DELETE:
+  	break;
+      case TOK_ID_SEAL:
++ #ifndef NOENCRYPTION
+  	if (seal_alg_type == SEAL_ALG_DES) {
+  /* Encrypt data field in-place.						    */
+  
+***************
+*** 7213,7218 ****
+--- 7214,7220 ----
+  		(unsigned char *)internal_buffer.value + data_start);
+  							/* Output in place  */
+  	};
++ #endif
+  	break;
+      };
+  
+***************
+*** 8457,8465 ****
+--- 8459,8471 ----
+  	};
+      };
+  
++ #ifndef NOENCRYPTION
+      if (seal_alg_type == SEAL_ALG_DES) {
+  
+  
++        if (conf_state) *conf_state = 1;
++ 
++ 
+  /* Decrypt confounder, followed by data.				    */
+  	gss_decrypt_DES_CBC(
+  	    zero_block,		    /* IV				    */
+***************
+*** 8532,8538 ****
+  #	endif
+  */
+  
+!     } else if (seal_alg_type == SEAL_ALG_NONE) {
+  	memcpy(confounder,
+  	       (unsigned char *)token_buffer->value + data_offset,
+  	       8);
+--- 8538,8546 ----
+  #	endif
+  */
+  
+!     }
+! #endif
+!     else if (seal_alg_type == SEAL_ALG_NONE) {
+  	memcpy(confounder,
+  	       (unsigned char *)token_buffer->value + data_offset,
+  	       8);
+
+
+
+CR Number                     : 13278
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : secd, acldb
+Short Description             : foreign group acl check bug (DIFF)
+Reported Date                 : 1/10/96
+Found in Baseline             : 1.1
+Found Date                    : 1/10/96
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.2, 1.1maint
+Affected File(s)              : security/server/rsdb/rsdb_daclmgr.c,dce/utils/acldb/acleval.c
+Diff supplied by              : provider
+Diff release                  : 1.2.2
+Sensitivity                   : public
+
+[1/10/96 public]
+
+It appears that the conversion to EPAC's foreign groupset from PAC's list
+of foreign groups in 1.1, wrt the ACL access algorithm in the above listed
+files is incomplete (the code has not been and will still not be testable
+until 1.2.2 is done).  To make DCE1.1 ACL mgrs understand foreign groupsets
+once they start showing up, vendors should patch their 1.1 based products
+with the fix that we come up with and list here (real soon now).
+
+[2/2/96 public]
+Here's the diff (hand diff since my source base is different) to fix the
+bug in rsdb_daclmgr.c.  We should have the diff for the other fix real soon
+now.
+
+security/server/rsdb/rsdb_daclmgr.c
+
+Routine sec__acl_mgr_access_check()
+
+OLD:
+                } else {
+                    /* CHECK FOREIGN GROUPS */
+                    int k;
+                    /* For each foreign groupset that the caller belongs to */
+                    for (j = 0; j < paP->num_foreign_groupsets; j++) {
+
+                      /* If the entry's realm matches this groupset's realm */
+                      if (uuid_equal(&paP->foreign_groupsets[j].realm.uuid,
+!                                     &group_id->uuid, &st))
+
+                        /* Then check each group within that foreign realm */
+                        for (k = 0; k < paP->foreign_groupsets[j].num_groups;
+                             k++) {
+                            if (uuid_equal(
+!                               &paP->foreign_groupsets[j].realm.uuid,
+!                               &realm_id->uuid, &st)) {
+
+                                one_group_found = true;
+                                /* check the perms to see if access granted */
+                                if (get_access(sec_acl_p->sec_acl_entries[i],
+                                        mask_perms, &granted))
+                                    group_access = (group_access | granted);
+                            }
+
+                        }
+                    }
+
+NEW:
+                } else {
+                    /* CHECK FOREIGN GROUPS */
+                    int k;
+                    /* For each foreign groupset that the caller belongs to */
+                    for (j = 0; j < paP->num_foreign_groupsets; j++) {
+
+                      /* If the entry's realm matches this groupset's realm */
+                      if (uuid_equal(&paP->foreign_groupsets[j].realm.uuid,
+!                                     &realm_id->uuid, &st))
+
+                        /* Then check each group within that foreign realm */
+                        for (k = 0; k < paP->foreign_groupsets[j].num_groups;
+                             k++) {
+                            if (uuid_equal(
+!                               &paP->foreign_groupsets[j].groups[k].uuid,
+!                               &group_id->uuid, &st)) {
+
+
+                                one_group_found = true;
+                                /* check the perms to see if access granted */
+                                if (get_access(sec_acl_p->sec_acl_entries[i],
+                                        mask_perms, &granted))
+                                    group_access = (group_access | granted);
+                            }
+
+                        }
+                    }
+
+----------------------------
+
+[7/24/96 public]
+This shouuld have been done long ago, but slipped by...  I believe the following
+is the correct fix for the rest of this problem (being reviewed now by jrr and
+psn). (note: only one of the two above broken stmts were broken in acleval.c)
+
+********************************
+<<< file 1: /vob/dce/src/dce/utils/acldb/acleval.c@@/main/mb_u2u2/0
+>>> file 2: acleval.c
+********************************
+-----[647 changed to 647]-----
+<                        if (!uuid_equal(&gp->uuid, &realm->uuid, st))
+---
+>                       if (!uuid_equal(&fgs->realm.uuid, &realm->uuid, st))
+
+[7/25/96 public]
+Submitted to 1.2.2 locally, well be part of nexct drop.
+
+[10/1/96 public]
+Fixed in the 1.1 maintenance tree.
+
+
+
+CR Number                     : 13274
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 9488,7606
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : sec binding
+Short Description             : rgy update bindings don't rebind
+if first binding is invalid
+Reported Date                 : 1/6/96
+Found in Baseline             : 1.1
+Found Date                    : 1/6/96
+Severity                      : B
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : security/client/rca/internal_bidning.c
+Sensitivity                   : public
+
+[1/6/96 public]
+
+A support customer reported the following problem. 
+OT's 9488 and 7606 also report binding issues which may
+be helpful when reviewing this OT.
+
+On Line Description : 	
+
+rgy_edit -update does not rebind if first binding is invalid
+
+Full Description : 	
+
+If rgy_edit is executed with the -update and the first
+binding to connect to secd is invalid, the next binding in
+the cache is not tried.
+
+How to recreate the problem : 
+1. Edit the pe_site file to have as its first entry an
+   unreachable ip address. Have as the second entry a valid
+   ip address,
+2. Set the environment variable BIND_PE_SITE to 1
+3. Execute rgy_edit -update
+4. The following error message appears after a delay:
+
+?(rgy_edit) Unable to contact the registry - RPC daemon communications failure (
+dce / rpc)
+
+Problem solution : 
+
+In the ./src/security/client/rca/internal_binding.c module,
+in the routine rca_site_resolve_update, a call to
+rca_check_binding_resolved should be made if the call to
+rs_bind_get_update_site fails. This has not been tested.
+
+[1/9/96 public]
+Fixed in DCE1.2.1 version of internal_binding.c
+
+
+
+CR Number                     : 13269
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : sec
+Subcomponent Name             : api
+Short Description             : acct rename test, comparison bug
+Reported Date                 : 12/29/95
+Found in Baseline             : 1.2.1
+Found Date                    : 12/29/95
+Severity                      : B
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : test/security/api/moretests/acct_rename.c
+Diff supplied by              : provider
+Diff release                  : 1.2.2
+Sensitivity                   : public
+
+[12/29/95 public]
+
+Bug found when running DCE 1.2.1 functional tests on AIX.
+The account rename and acl_edit command line functional tests fail.
+
+Routine Tested:   acct_rename
+Tested For:       1 All valid data
+
+Trace Message:    sec_rgy_site_open_update status: 0
+Trace Message:    sec_rgy_site_open_update status: 0
+Trace Message:    sec_rgy_pgo_add (person) status: 0
+Trace Message:    sec_rgy_pgo_add (group) status: 0
+Trace Message:    sec_rgy_pgo_add (org) status: 0
+Trace Message:    sec_rgy_pgo_add (key org) status: 0
+Trace Message:    sec_rgy_pgo_add_member (key org) status: 0
+Trace Message:    sec_rgy_pgo_add_member (group) status: 0
+Trace Message:    sec_rgy_pgo_add_member (org) status: 0
+Trace Message:    sec_rgy_acct_add status: 0
+Trace Message:    sec_rgy_acct_lookup (after add) status: 0
+Trace Message:    sec_rgy_acct_rename (test) status: 0
+Trace Message:    sec_rgy_acct_rename (after rename) status: 0
+Failure Message:  sec_rgy_acct_rename failed
+Trace Message:    sec_rgy_acct_delete status: 0
+Trace Message:    sec_rgy_acct_delete status: 0
+Trace Message:    sec_rgy_acct_lookup (after cleanup delete) status: 387063930
+Trace Message:    sec_rgy_pgo_delete_member (cleanup org) status: 0
+Trace Message:    sec_rgy_pgo_delete_member (cleanup group) status: 0
+Trace Message:    sec_rgy_pgo_delete_member (cleanup key org) status: 0
+Trace Message:    sec_rgy_pgo_delete (cleanup key org) status: 0
+Trace Message:    sec_rgy_pgo_delete (cleanup org) status: 0
+Trace Message:    sec_rgy_pgo_delete (cleanup group) status: 0
+Trace Message:    sec_rgy_pgo_delete (cleanup person) status: 0
+Trace Message:    sec_rgy_site_close status: 0
+Trace Message:    sec_rgy_site_close status: 0
+Test Status:      Test FAILED
+Status Returned:  30146561
+Status Text:      test failed
+
+---------------------------------------------------------------
+Routine Tested:    acl_edit command line
+Tested for:        10 -n command line option
+Against Server:    acl_server -e -f /tmp/aclmgr_keytab
+
+Trace Message:     acl_edit /.:/myfilesystem/greg -m user:uucp:rw -l
+ERROR: acl object not found (dce / sec)
+Unable to bind to object /.:/myfilesystem/greg
+Trace Message:     acl_edit -m user:uucp:rw:  expected: mask_obj:-rw----, received: 
+.
+.
+.
+---------------------------------------------------------------
+Routine Tested:    acl_edit command line
+Tested for:        11 -c command line option
+Against Server:    acl_server -e -f /tmp/aclmgr_keytab
+
+Trace Message:     acl_edit /.:/myfilesystem/greg -m user:uucp:rw -l
+ERROR: acl object not found (dce / sec)
+Unable to bind to object /.:/myfilesystem/greg
+Trace Message:     acl_edit -m user:uucp:rw:  expected: mask_obj:-rw----, received: 
+.
+.
+.
+---------------------------------------------------------------
+Routine Tested:    acl_edit command line
+Tested for:        12 -p command line option
+Against Server:    acl_server -e -f /tmp/aclmgr_keytab
+
+Trace Message:     acl_edit /.:/myfilesystem/greg -m user:uucp:rw -l
+ERROR: acl object not found (dce / sec)
+Unable to bind to object /.:/myfilesystem/greg
+Trace Message:     acl_edit -m user:uucp:rw:  expected: mask_obj:-rw----, received: 
+.
+.
+.
+
+Each of the acl_edit tests prints many more errors, each with an empty
+received string.
+
+These tests fail consistantly in this manner.
+
+[12/29/95 public]
+The first failure doesn't look right to me.  All the calls returned an ok
+status, yet the test still thinks it failed?
+
+The acl_edit failures look like they're due to the acl_server not being
+started up before the test was run.  Do you still have the full logfiles?
+Look above where these tests failed and see if it had a problem starting
+acl_server.
+
+[01/02/96 public]
+If the first failure is actually due to the wrong return status then
+maybe this OT should be changed to be open against the tests instead
+of the code?
+
+The suggestion that acl_server was not running was correct.  I moved
+acl_server to a location where it could be found and the acl_edit 
+tests now succeed.
+
+[2/2/96 public]
+As stated above, the acl_edit portion was a missing piece of the test.
+The acct_rename test problem turned out to be a test bug (was doing a
+memcmp of the structures instead of string comparing the elements of
+the structure), so I've reassigned this to 'test' from 'code'.
+
+[7/25/96 public]
+Submitted to 1.2.2, will be part of next drop. Diff:
+
+*** /vob/dce.src.test/src/test/security/api/moretests/acct_rename.c@@/main/7    Wed Apr 10 06:12:41 1996
+--- /vob/dce.src.test/src/test/security/api/moretests/acct_rename.c@@/main/DCE_1.2.2/1  Fri May 24 19:31:34 1996
+***************
+*** 8,13 ****
+--- 8,17 ----
+  /*
+   * HISTORY
+   * $Log:	c013269,v $
+# Revision 1.5  96/07/25  15:50:15  root
+# changed fields: Status  Fixed In Baseline  Affected File(s)  Diff supplied by  Diff release   new/changed/deleted note(s) [psn 7/25/96 public]
+# 
++  * Revision /main/DCE_1.2.2/1  1996/05/24  23:31 UTC  sommerfeld
++  *    Fix OT13269  acct_rename test.
++  *    [1996/02/13  01:28 UTC  psn  /main/DCE_1.2/1]
++  * 
+   * Revision 1.1.11.3  1996/02/17  23:25:06  marty
+   *    Update OSF copyright year
+   *    [1996/02/17  22:43:18  marty]
+***************
+*** 524,532 ****
+           if (tstatus != rpc_s_ok)
+               TSHMessage (ctx, MOFAILURE, "sec_rgy_acct_lookup failed\n");
+             else
+!              if (memcmp ((char *)&ACCT_KEY_LOGIN_NAME,
+!                          (char *)&name_result,
+!                          sizeof (sec_rgy_login_name_t)) != 0 )
+                 {
+                   TSHMessage (ctx, MOFAILURE, "sec_rgy_acct_rename failed\n");
+                   tstatus = TSH_TEST_FAILED;
+--- 528,543 ----
+           if (tstatus != rpc_s_ok)
+               TSHMessage (ctx, MOFAILURE, "sec_rgy_acct_lookup failed\n");
+             else
+!              if ( (strncmp ((char *)&ACCT_KEY_LOGIN_NAME.pname,
+!                          (char *)&name_result.pname,
+!                          sizeof (sec_rgy_name_t)) != 0 )
+!                 || (strncmp ((char *)&ACCT_KEY_LOGIN_NAME.gname,
+!                          (char *)&name_result.gname,
+!                          sizeof (sec_rgy_name_t)) != 0 )
+!                 || (strncmp ((char *)&ACCT_KEY_LOGIN_NAME.oname,
+!                          (char *)&name_result.oname,
+!                          sizeof (sec_rgy_name_t)) != 0 ) )
+! 
+                 {
+                   TSHMessage (ctx, MOFAILURE, "sec_rgy_acct_rename failed\n");
+                   tstatus = TSH_TEST_FAILED;
+
+
+
+CR Number                     : 13213
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : lm/server
+Short Description             : DIFF: invalid parameter passed to rs_log_journal_activity_update
+Reported Date                 : 12/2/95
+Found in Baseline             : 1.1wp
+Found Date                    : 12/2/95
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.1maint, 1.2.2
+Affected File(s)              : security/server/lm/lm_jrnl.c
+Diff supplied by              : provider
+Diff release                  : 1.2.2
+Sensitivity                   : public
+
+[12/2/95 public]
+ 
+A support customer noted the following:
+---------------------------------------
+
+Component (Module):     security/server/lm/lm_jrnl.c
+
+One Line Description:
+
+lm_log_journal_activity_update invalid param to rs_log_journal_activity_update
+
+Full Description:
+
+The routine rs_log_journal_activity_update() expects the 6th parameter
+to be a pointer to a uuid and is coded:  uuid_t *uuid_of_src.
+The routine lm_log_journal_activity_update() passes this 6th parameter
+as a pointer to a pointer to a uuid.  The code:
+
+    uuid_t *client=NULL;
+
+    rs_log_journal_activity_update(id, data, data_len, &now,
+        master_info_p, &client, st);
+
+[7/25/96 public]
+Will be part of next 1.2.2 drop. Diffs are:
+*** /vob/dce/src/security/server/lm/lm_jrnl.c@@/main/8  Mon Apr  8 21:49:13 1996
+--- /vob/dce/src/security/server/lm/lm_jrnl.c@@/main/DCE_1.2.2/1        Thu Jul 25 12:45:17 1996
+***************
+*** 8,13 ****
+--- 8,17 ----
+  /*
+   * HISTORY
+   * $Log:	c013213,v $
+# Revision 1.5  96/10/10  14:10:56  root
+# changed fields: Fixed In Baseline   new/changed/deleted note(s) [mak 10/10/96 public]
+# 
+# Revision 1.4  96/07/25  13:12:25  root
+# changed fields: Short Description  Status  Fixed In Baseline  Affected File(s)  Diff supplied by  Diff release  Responsible Engr.   new/changed/deleted note(s) [psn 7/25/96 public]
+# 
++  * Revision /main/DCE_1.2.2/1  1996/07/25  16:45 UTC  psn
++  *    OT13213 - fix call to rs_log_journal_activity_update
++  *    [1995/12/14  15:12 UTC  hinxman  /main/HPDCE02/hinxman_ot13213_10/1]
++  * 
+   * Revision 1.1.9.3  1996/02/18  00:16:32  marty
+   *    Update OSF copyright years
+   *    [1996/02/17  23:05:37  marty]
+***************
+*** 272,278 ****
+  {
+      sec_timeval_sec_t           now;
+      rs_replica_master_info_t    *master_info_p = NULL;
+!     uuid_t                      *client=NULL;
+      rsdb_jrnl_rec_t             *data=NULL;
+      int                         data_len=0,i=0;
+  
+--- 276,282 ----
+  {
+      sec_timeval_sec_t           now;
+      rs_replica_master_info_t    *master_info_p = NULL;
+!     uuid_t                      client;
+      rsdb_jrnl_rec_t             *data=NULL;
+      int                         data_len=0,i=0;
+  
+***************
+*** 290,296 ****
+      }
+      memset((char *)data, NULL,data_len);
+      data_len=import_jrnl_to_rsdb(journal,data,st);
+!     CLEAR_STATUS(st);
+      rs_log_journal_activity_update(id, data, data_len, &now,
+          master_info_p, &client, st);
+  
+--- 294,300 ----
+      }
+      memset((char *)data, NULL,data_len);
+      data_len=import_jrnl_to_rsdb(journal,data,st);
+!     uuid_create_nil(&client, st);
+      rs_log_journal_activity_update(id, data, data_len, &now,
+          master_info_p, &client, st);
+
+[10/10/96 public]
+
+Fixed in 1.1 maintenance.
+
+
+
+CR Number                     : 13210
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : cross-cell
+Short Description             : Cross-realm tickets don't refresh properly
+Reported Date                 : 11/21/95
+Found in Baseline             : 1.1
+Found Date                    : 11/21/95
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : src/security/krb5/lib/krb/gc_frm_kdc.c
+Sensitivity                   : public
+Transarc Deltas               : cox-16939-cross-realm-krbtgt-not-refreshed
+Transarc Status               : 
+
+[11/21/95 public]
+This is a defect that Dan Nydick found.  I'm filing it for him here so that
+it can be tracked at HP too.
+-------------------------------
+When I use DFS to access files in a remote cell, I see the following
+behaviour:
+    The first access is fine.  I get a ptgt for the remote cell and
+	service tickets for the remote file servers.  Cdsls of the
+	remote cell's namespace works properly.
+    After several hours (ie: after the ptgt has expired) access starts
+	to fail with code 382312679 "Authentication ticket expired".
+	After this has happened, I can't access any files or see the
+	CDS namespace in the remote cell.  Presumably nothing else
+	works either.  At this time klist shows a tgt and ptgt to the
+	remote cell, but no service tickets.
+    Running kinit fixes everything (for another few hours, anyway).
+ 
+klist while everything is working:
+----------------
+    DCE Identity Information:
+    	Global Principal: /.../sparc30.dce.transarc.com/nydick
+    	Cell:      40a4fc44-ce9a-11ce-96af-9e620c39aa77 /.../sparc30.dce.transarc.com
+    	Principal: 00000517-cea0-21ce-a000-9e620c39aa77 nydick
+    	Group:     0000000b-cea0-21ce-a001-9e620c39aa77 transarc
+    	Local Groups:
+    		0000271f-1b90-21cf-a001-9e620c39aa77 encina_admin_group
+     
+    Identity Info Expires: 95/11/15:19:43:21
+    Account Expires:       never
+    Passwd Expires:        never
+     
+    Kerberos Ticket Information:
+    Ticket cache: /opt/dcelocal/var/security/creds/dcecred_41fffff6
+    Default principal: nydick@sparc30.dce.transarc.com
+    Server: krbtgt/sparc30.dce.transarc.com@sparc30.dce.transarc.com
+    	valid 95/11/15:09:43:21 to 95/11/15:19:43:21
+    Server: dce-rgy@sparc30.dce.transarc.com
+    	valid 95/11/15:09:43:22 to 95/11/15:19:43:21
+    Server: dce-ptgt@sparc30.dce.transarc.com
+    	valid 95/11/15:09:43:23 to 95/11/15:11:43:23
+    Client: dce-ptgt@sparc30.dce.transarc.com	Server: krbtgt/sparc30.dce.transarc.com@sparc30.dce.transarc.com
+    	valid 95/11/15:09:43:23 to 95/11/15:11:43:23
+    Client: dce-ptgt@sparc30.dce.transarc.com	Server: hosts/sparc30/self@sparc30.dce.transarc.com
+    	valid 95/11/15:09:43:23 to 95/11/15:11:43:23
+    Client: dce-ptgt@sparc30.dce.transarc.com	Server: dce-rgy@sparc30.dce.transarc.com
+    	valid 95/11/15:09:43:25 to 95/11/15:11:43:23
+    Server: krbtgt/transarc.com@sparc30.dce.transarc.com
+    	valid 95/11/15:09:44:54 to 95/11/15:19:43:21
+    Server: dce-ptgt@transarc.com
+    	valid 95/11/15:09:44:54 to 95/11/15:11:44:54
+    Client: dce-ptgt@sparc30.dce.transarc.com	Server: krbtgt/transarc.com@sparc30.dce.transarc.com
+    	valid 95/11/15:09:44:54 to 95/11/15:11:43:23
+    Client: dce-ptgt@sparc30.dce.transarc.com	Server: dce-ptgt@transarc.com
+    	valid 95/11/15:09:44:54 to 95/11/15:11:43:23
+    Client: dce-ptgt@transarc.com	Server: krbtgt/transarc.com@transarc.com
+    	valid 95/11/15:09:44:55 to 95/11/15:11:43:23
+    Client: dce-ptgt@transarc.com	Server: hosts/dfs1/dfs-server@transarc.com
+    	valid 95/11/15:09:44:55 to 95/11/15:11:43:23
+    Client: dce-ptgt@sparc30.dce.transarc.com	Server: hosts/sparc30/cds-server@sparc30.dce.transarc.com
+    	valid 95/11/15:09:45:17 to 95/11/15:11:43:23
+    Client: dce-ptgt@sparc30.dce.transarc.com	Server: hosts/sparc30/gda@sparc30.dce.transarc.com
+    	valid 95/11/15:09:45:18 to 95/11/15:11:43:23
+    Client: dce-ptgt@transarc.com	Server: dce-rgy@transarc.com
+    	valid 95/11/15:09:45:20 to 95/11/15:11:43:23
+    Client: dce-ptgt@transarc.com	Server: hosts/unix1/cds-server@transarc.com
+    	valid 95/11/15:09:45:20 to 95/11/15:11:43:23
+    Client: dce-ptgt@sparc30.dce.transarc.com	Server: hosts/sparc30/dfs-server@sparc30.dce.transarc.com
+    	valid 95/11/15:09:45:46 to 95/11/15:11:43:23
+    Client: dce-ptgt@sparc30.dce.transarc.com	Server: encina/sfs/sfs1@sparc30.dce.transarc.com
+	valid 95/11/15:09:46:33 to 95/11/15:11:43:23
+----------------
+ 
+klist after the failures start:
+ 
+----------------
+    DCE Identity Information:
+    	Global Principal: /.../sparc30.dce.transarc.com/nydick
+    	Cell:      40a4fc44-ce9a-11ce-96af-9e620c39aa77 /.../sparc30.dce.transarc.com
+	Principal: 00000517-cea0-21ce-a000-9e620c39aa77 nydick
+	Group:     0000000b-cea0-21ce-a001-9e620c39aa77 transarc
+	Local Groups:
+		0000271f-1b90-21cf-a001-9e620c39aa77 encina_admin_group
+    
+    Identity Info Expires: 95/11/15:19:43:21
+    Account Expires:       never
+    Passwd Expires:        never
+     
+    Kerberos Ticket Information:
+    Ticket cache: /opt/dcelocal/var/security/creds/dcecred_41fffff6
+    Default principal: nydick@sparc30.dce.transarc.com
+    Server: krbtgt/sparc30.dce.transarc.com@sparc30.dce.transarc.com
+    	valid 95/11/15:09:43:21 to 95/11/15:19:43:21
+    Server: dce-rgy@sparc30.dce.transarc.com
+    	valid 95/11/15:09:43:22 to 95/11/15:19:43:21
+    Server: dce-ptgt@sparc30.dce.transarc.com
+    	valid 95/11/15:11:50:49 to 95/11/15:13:50:49
+    Client: dce-ptgt@sparc30.dce.transarc.com	Server: krbtgt/sparc30.dce.transarc.com@sparc30.dce.transarc.com
+    	valid 95/11/15:11:50:49 to 95/11/15:13:50:49
+    Client: dce-ptgt@sparc30.dce.transarc.com	Server: dce-rgy@sparc30.dce.transarc.com
+    	valid 95/11/15:11:51:15 to 95/11/15:13:50:49
+    Server: krbtgt/transarc.com@sparc30.dce.transarc.com
+    	valid 95/11/15:09:44:54 to 95/11/15:19:43:21
+    Server: dce-ptgt@transarc.com
+    	valid 95/11/15:11:50:50 to 95/11/15:13:50:50
+----------------
+ 
+Craig asked the folks at HP if they had any insight.  We got back the
+following:
+ 
+-------------
+    Message-Id: <199511132135.AA201708508@relay.hp.com>
+    Received: from nyc.ch.apollo.hp.com by it_750.ch.apollo.hp.com 
+    	id AA109158506; Mon, 13 Nov 1995 16:35:06 -0500    
+    To: Craig_Everhart@transarc.com, Daniel_Nydick@transarc.com,
+            carl@austin.ibm.com
+    Cc: burati@apollo.hp.com (Mike Burati)
+    Subject: Re: A couple of DCE authn questions 
+    In-Reply-To: Your message of "Mon, 13 Nov 1995 16:24:05 EST."
+    Date: Mon, 13 Nov 1995 16:35:06 -0500
+    From: Sean Mullan <mullan_s@apollo.hp.com>
+ 
+    >    ...
+    >       (c) Dan Nydick is seeing some odd behavior from (I think) dfsbind and I
+    >       wonder if you had seen or known of a problem in this area.  He says
+    >       that, for DFS CM access to non-local cells, the PTGT is being refreshed
+    >       but the service ticket isn't.  Is there something special about using
+    >       only DFS for cross-cell access (and not, say, a more ordinary user-space
+    >       application) that would trigger this behavior? 
+    >    
+    >    Not that I can think of; it would be helpful to better understand
+    >    what's going on there; we may have some strange corner cases in how we
+    >    do PTGT caching..
+    >
+    >This sounds similar to a problem Sean was just telling me about, so I've
+    >cc'd him on this too...
+     
+    Is this DCE 1.1?
+         
+    Check out OSF OT 13197 (KRB5_TC_MATCH_SRV_NAMEONLY flag broken), which I just opened. 
+    This definitely sounds like it could be the same problem.
+     
+    --Sean
+-----------
+ 
+I created a build with Sean's fix (delta
+nydick-ot13197-MATCH_SRV_NAMEONLY-matches-too-much), but that didn't
+seem to solve the problem.
+ 
+nydick-Wed, 15 Nov 1995 12:12:56
+ 
+More mail received from the fellow at HP:
+ 
+-----------
+To: Daniel_Nydick@transarc.com
+Cc: Sean Mullan <mullan_s@apollo.hp.com>, Craig_Everhart@transarc.com,
+        burati@apollo.hp.com (Mike Burati)
+Subject: Re: A couple of DCE authn questions 
+In-Reply-To: Your message of "Wed, 15 Nov 1995 13:11:59 EST."
+             <okeWpjmSMUkt04kXk0@transarc.com> 
+Date: Wed, 15 Nov 1995 13:59:39 -0500
+From: Sean Mullan <mullan_s@apollo.hp.com>
+ 
+Hi Dan,
+ 
+>	I tried your fix from OT13197, and it didn't seem to help my
+>cross-cell problem.  Thanks anyway for the suggestion.  I'm not going
+>to be able to follow up on this one, but if you'd like, I'll have
+>which ever Transarcian that takes on the problem keep in touch with
+>you.
+>    Thanks,
+>	Dan
+ 
+Shucks, oh well.
+ 
+Please (or have your colleague) open an OT with all the information you
+have.  There is actually another dfs ticket refresh problem we have been
+seeing in-house here which we have not yet been able to track down, so
+they may be related.
+ 
+Thanks,
+Sean
+ 
+----------------
+ 
+Sounds like HP is interested.  I suggest we (ie: Ben) strike while the
+iron is hot...
+ 
+nydick-Thu, 16 Nov 1995 10:11:00
+ 
+Extra info: when I re-kinit, I get the following on the console
+(PID 383 is dfsbind).
+ 
+1995-11-16-16:59:52.836-05:00I0.437 PID#383 NOTICE sec rgybind internal_binding.c 1742 0x0000000a
+Attempting to rebind to an alternate registry site and retrying operation
+1995-11-16-16:59:53.390-05:00I0.437 PID#383 NOTICE sec rgybind internal_binding.c 1744 0x0000000a
+Rebound to site /.../transarc.com/subsys/dce/sec/master
+ 
+nydick-Thu, 16 Nov 1995 17:02:16
+ 
+-------------------------------------
+When we saw Dan's problem again in DFS, I took a look to see what traces
+were there.  The DFS CM was cacheing EACCES for the remote cell, since
+that's what it was getting as an error code from dfsbind.  Dfsbind was
+returning that error code since its call to sec_id_parse_name was
+returning eror code 382312679 (rpc_s_auth_tkt_expired).  Now, dfsbind uses
+the machine identity (the ..../self principal), so perhaps its credential
+wasn't having its cross-cell service tickets refreshed or some such.
+ 
+What might be interesting about this case is that the remote cell name is
+a strict subset of the local name (as domain names).  The local cell is:
+	/.../sparc30.dce.transarc.com
+The remote cell is:
+	/.../transarc.com
+ 
+Here is a klist of the ..../self credential when the cross-cell stuff is
+failing:
+----------
+DCE Identity Information:
+	Global Principal: /.../sparc30.dce.transarc.com/hosts/sparc30/self
+	Cell:      40a4fc44-ce9a-11ce-96af-9e620c39aa77 /.../sparc30.dce.transarc.com
+	Principal: 00002711-ce9a-21ce-9600-9e620c39aa77 hosts/sparc30/self
+	Group:     0000000c-ce9a-21ce-9601-9e620c39aa77 none
+	Local Groups:
+		0000000c-ce9a-21ce-9601-9e620c39aa77 none
+		00002715-ce9a-21ce-a001-9e620c39aa77 subsys/dce/dts-servers
+ 
+Identity Info Expires: 95/11/17:17:12:36
+Account Expires:       never
+Passwd Expires:        never
+ 
+Kerberos Ticket Information:
+Ticket cache: /opt/dcelocal/var/security/creds/dcecred_ffffffff
+Default principal: hosts/sparc30/self@sparc30.dce.transarc.com
+Server: krbtgt/sparc30.dce.transarc.com@sparc30.dce.transarc.com
+	valid 95/11/17:07:12:36 to 95/11/17:17:12:36
+Server: dce-rgy@sparc30.dce.transarc.com
+	valid 95/11/17:07:12:37 to 95/11/17:17:12:36
+Server: dce-ptgt@sparc30.dce.transarc.com
+	valid 95/11/17:13:14:56 to 95/11/17:15:14:56
+Client: dce-ptgt@sparc30.dce.transarc.com	Server: krbtgt/sparc30.dce.transarc.com@sparc30.dce.transarc.com
+	valid 95/11/17:13:14:56 to 95/11/17:15:14:56
+Client: dce-ptgt@sparc30.dce.transarc.com	Server: hosts/sparc30/self@sparc30.dce.transarc.com
+	valid 95/11/17:13:14:56 to 95/11/17:15:14:56
+Server: krbtgt/transarc.com@sparc30.dce.transarc.com
+	valid 95/11/17:08:51:29 to 95/11/17:17:12:36
+Server: dce-ptgt@transarc.com
+	valid 95/11/17:13:29:13 to 95/11/17:15:29:13
+Client: dce-ptgt@sparc30.dce.transarc.com	Server: dce-rgy@sparc30.dce.transarc.com
+	valid 95/11/17:13:29:11 to 95/11/17:15:14:56
+----------
+When the problem recurred for Dan, he got it working again by shutting down
+and restarting the SECVAL process in dced, with ``secval deactivate''
+followed by ``secval activate''.  He flushed the CM cache of the dfsbind
+result with ``cm check'' and was off and running again.
+ 
+Hope that this helps.
+
+[11/21/95 public]
+Changed Interest List CC from `nydick@transarc.com, cox@transarc.com' to 
+ `nydick@transarc.com, cox@transarc.com, mullan_s@apollo.hp.com, 
+ burati@apollo.hp.com, carl@austin.ibm.com'
+
+[12/22/95 public]
+Routine krb5_get_cred_from_kdc was looking in the cache for a krbtgt
+for the remote cell without regard to whether it was expired, then
+blindly using it.  Added flag KRB5_TC_MATCH_TIMES to a call to
+krb5_cc_retrieve_cred to ensure that only unexpired foreign krbtgt's
+would be found in the inner loop.
+Delta: cox-16939-cross-realm-krbtgt-not-refreshed
+Change: security/krb5/lib/krb/gc_frm_kdc.c from 12.7 to 12.9
+*** security/krb5/lib/krb/gc_frm_kdc.c
+--- 12.9	1995/12/22 20:29:58
+***************
+*** 2,7 ****
+--- 2,18 ----
+   * @TRANSARC_COPYRIGHT@
+   *
+   * $TALog: gc_frm_kdc.c,v $
++  * Revision 12.9  1995/12/22  20:29:58  cox
++  * Tickets for servers in remote cells were not getting refreshed
++  * properly after expiration.
++  *
++  * The problem was caused by a missing flag in krb5_get_cred_from_kdc,
++  * which was looking in the credential cache for a krbtgt for the remote
++  * cell, and finding one and using it without regard to whether it was
++  * expired.  This change ensures that it will not use an expired foreign
++  * krbtgt, but rather try to get a new one.
++  * [from r12.7 by delta cox-16939-cross-realm-krbtgt-not-refreshed, r1.1]
++  *
+   * Revision 12.7  1995/07/12  21:04:11  claire
+   * [merge of changes from 12.4 to 12.6 into 12.5]
+   *
+***************
+*** 49,55 ****
+   */
+  
+  #if !defined(_NOIDENT) && !defined(lint)
+! static char *TARCSId = "$Id: c013210,v 1.4 95/12/27 13:20:04 root Exp $";
+  #endif
+  
+  /*
+--- 60,66 ----
+   */
+  
+  #if !defined(_NOIDENT) && !defined(lint)
+! static char *TARCSId = "$Id: c013210,v 1.4 95/12/27 13:20:04 root Exp $";
+  #endif
+  
+  /*
+***************
+*** 109,115 ****
+  */
+  /*
+   * $Source: /project/ot/dce/d01/d32/RCS/c013210,v $
+!  * $Author: root $
+   *
+   * Copyright (c) 1994 by the Massachusetts Institute of Technology.
+   * Copyright (c) 1994 CyberSAFE Corporation
+--- 120,126 ----
+  */
+  /*
+   * $Source: /project/ot/dce/d01/d32/RCS/c013210,v $
+!  * $Author: root $
+   *
+   * Copyright (c) 1994 by the Massachusetts Institute of Technology.
+   * Copyright (c) 1994 CyberSAFE Corporation
+***************
+*** 141,147 ****
+  
+  #if !defined(lint) && !defined(SABER)
+  static char rcsid_gcfkdc_c[] =
+! "$Id: c013210,v 1.4 95/12/27 13:20:04 root Exp $";
+  #endif  /* !lint & !SABER */
+--- 152,158 ----
+  
+  #if !defined(lint) && !defined(SABER)
+  static char rcsid_gcfkdc_c[] =
+! "$Id: c013210,v 1.4 95/12/27 13:20:04 root Exp $";
+  #endif  /* !lint & !SABER */
+***************
+*** 395,401 ****
+  	  goto cleanup;
+  
+        if (retval = krb5_cc_retrieve_cred(ccache,
+! 					 KRB5_TC_MATCH_SRV_NAMEONLY,
+  					 &tgtq,
+  					 &tgt)) {
+      
+--- 406,413 ----
+  	  goto cleanup;
+  
+        if (retval = krb5_cc_retrieve_cred(ccache,
+! 					 KRB5_TC_MATCH_SRV_NAMEONLY
+! 					 | KRB5_TC_MATCH_TIMES,
+  					 &tgtq,
+  					 &tgt)) {
+      
+Filled in Affected File with `src/security/krb5/lib/krb/gc_frm_kdc.c' 
+Added field Transarc Deltas with value 
+ `cox-16939-cross-realm-krbtgt-not-refreshed' 
+Added field Transarc Status with value `'
+
+[12/27/95 public]
+
+This suggested fix is actually already in the 1.2.1 sources. Marked as
+fixed in 1.2.1
+
+
+
+CR Number                     : 13199
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : sec_login
+Short Description             : Need sec_login_import_context_uid() to fix CDS security hole
+Reported Date                 : 11/13/95
+Found in Baseline             : 1.0
+Found Date                    : 11/13/95
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : sec_login.idl, sec_login_pvt.h, sec_login.c, sec_login_pvt.c
+Sensitivity                   : public
+
+[11/13/95 public]
+
+PROBLEM:  The cdsadv daemon runs as 'root', but does lots of
+sec_login_import_context() calls to use the DCE credentials of the real
+caller.  The channel between the caller and cdsadv is secured by the local
+filesystem, but the protocol between the caller and cdsadv has no way of
+providing absolute knowledge that the credentials it's asking the advertiser
+to use are owned by that caller.
+
+caller:
+   export_context() (gets KRB5CCNAME equivalent to send across socket to adv)
+
+cdsadv:
+   knows uid of caller.
+   gets buffer (cred name) from socket calls sec_login_import_context()
+
+There was nothing stopping the caller from bypassing the CDS client agent
+that did the sec_login_export_context(), and passing in the name of some
+other users credentials.  Since the advertiser and clerk run as root, they
+can open and read any credentials.
+
+BUT!, the advertiser does know the uid of the caller (it's used to secure
+the channel that the client talks to it on), so all it needs to do is
+verify that the UID of the caller is also the owner of the credential file
+that it's going to import.
+
+BUT! the buffer passed to the advertiser/clerk is supposed to be opaque (nothing
+other than the security internals are supposed to know that they can strip
+off the FILE: and use the rest as a filename), so the advertiser couldn't
+do that.
+
+So, we added a sibling of sec_login_import_context() that now takes a UID
+as an extra argument and checks that UID against the owner of the login
+context's credential cache file.
+
+BUT!, doing stat() every time through this routine kills performance (CDS
+goes through here way more than it should), so we had to cache the owner
+deeper in the sec_login code (wherever it creates the file, opens/reads it
+for the first time, and/or chown()s it).
+
+That's the description, code diffs coming as soon as I can get them (the
+fix is already in 1.2.1, I'm trying to get diffs against the WP, so other
+vendors can fix this sooner).
+
+[11/13/95 public]
+Diffs for sec_login.idl, sec_login_pvt.h and sec_login.c
+(the diffs for sec_login_pvt.c aren't as obvious and will be included in a
+context diff below).  These changes were all based on a starting point of
+the latest WP version of the file that I could find, so start there if you're
+applying the fix from these diffs.  I don't have a 1.1wp sandbox to build/test
+these with, but they came straight from our 1.2.1 version which does build
+and test.
+
+********************************
+<<< file 1: /vob/dce/src/security/idl/sec_login.idl@@/main/ot13199/0
+>>> file 2: sec_login.idl
+********************************
+-----[after 878 inserted 879-894]-----
+>     /* s e c _ l o g i n _ i m p o r t _ c o n t e x t _ u i d
+>      *
+>      * Import a context obtained via a call to sec_login_export_context
+>      * performed on the same machine.  This function is generally reserved to
+>      * the privileged user.  Pass in the UNIX ID of the original caller, to
+>      * be checked against the actual owner of the credential storage.
+>      */
+>     void sec_login_import_context_uid (
+>         [in]        unsigned32          buf_len,
+>         [in, size_is(buf_len)]
+>                     byte                buf[],
+>         [in]        signed32            uid,
+>         [out]       sec_login_handle_t  *login_context,
+>         [out]       error_status_t      *st
+>     );
+> 
+
+********************************
+<<< file 1: /vob/dce/src/security/h/sec_login_pvt.h@@/main/ot13199/0
+>>> file 2: sec_login_pvt.h
+********************************
+-----[265 changed to 265-266]-----
+< } sec_login_context_t, *sec_login_context_p_t;
+---
+>     signed32                 owner_uid; /* owner of the credential files */
+> } sec_login_context_t, *sec_login_context_p_t; 
+
+********************************
+<<< file 1: /vob/dce/src/security/client/login/sec_login.c@@/main/ot13199/0
+>>> file 2: sec_login.c
+********************************
+-----[after 9 inserted 10-12]-----
+>  * Merge fix for CHFts16467 from mb_mothra7
+>  * [1995/10/23  17:20 UTC  burati  /main/HPDCE02/9]
+>  *
+-----[195 changed to 198]-----
+<     "$Id: c013199,v 1.4 95/12/21 16:01:39 root Exp $";
+---
+>     "$Id: c013199,v 1.4 95/12/21 16:01:39 root Exp $";
+-----[after 780 inserted 784-785]-----
+>              * Also, must change the login context owner uid whenever
+>              * we chown the krb5 cache file.
+-----[after 784 inserted 790]-----
+>               tlcp->owner_uid = UNIX_CREDS(tlcp).pwent->pw_uid;
+-----[after 1714 inserted 1721-1754]-----
+> 
+> /* s e c _ _ l o g i n _ i m p o r t _ c o n t e x t
+>  *
+>  * Import a context obtained via a call to sec_login_export_context
+>  * performed on the same machine.  This function is generally reserved to
+>  * the privileged user.
+>  *
+>  * Internal base class rtn with extra boolean arg for cc access checking.
+>  */
+> PRIVATE void sec__login_import_context
+>   (
+>     unsigned32                buf_len,        /* [in]  */
+>     ndr_byte          buf[],          /* [in]  */
+>     signed32            uid,             /* [in]  */
+>     sec_login_handle_t  *login_context, /* [out] */
+>     error_status_t      *st             /* [out] */
+>   )
+> {
+>     sec_login_context_t **lcap = (sec_login_context_t **) login_context;
+>     sec_login_context_t *lcp;
+>     char *cname;
+>     int cname_len;
+>     uuid_t  generation_id;
+> 
+>     CLEAR_STATUS(st);
+> 
+>     sec_login_pvt_parse_export_token(buf, buf_len, &cname, &cname_len, 
+>                                    &generation_id, st);
+>     if (BAD_STATUS(st)) {
+>       *lcap = NULL;
+>       return;
+>     }
+> 
+>     /* Existing login context in cache with that cname? */
+-----[deleted/moved 1715-1722 after 1754 (now at 1838-1845)]-----
+< /* s e c _ l o g i n _ i m p o r t _ c o n t e x t
+<  *
+<  * Import a context obtained via a call to sec_login_export_context
+<  * performed on the same machine.  This function is generally reserved to
+<  * the privileged user.
+<  *
+<  */
+< PUBLIC void sec_login_import_context
+-----[deleted 1723-1752 after 1754]-----
+< #ifndef __STDC__
+<     ( buf_len, buf, login_context, st )
+<     unsigned32          buf_len;        /* [in]  */
+<     ndr_byte            buf[];           /* [in]  */
+<     sec_login_handle_t  *login_context; /* [out] */
+<     error_status_t      *st;            /* [out] */
+< #else
+<   (
+<     unsigned32                buf_len,        /* [in]  */
+<     ndr_byte          buf[],          /* [in]  */
+<     sec_login_handle_t  *login_context, /* [out] */
+<     error_status_t      *st             /* [out] */
+<   )
+< #endif
+< {
+<     sec_login_context_t **lcap = (sec_login_context_t **) login_context;
+<     sec_login_context_t *lcp;
+<     char *cname;
+<     int cname_len;
+<     uuid_t  generation_id;
+< 
+<     CLEAR_STATUS(st);
+< 
+<     sec_login_pvt_parse_export_token(buf, buf_len, &cname, &cname_len, 
+<                                    &generation_id, st);
+<     if (BAD_STATUS(st)) {
+<       *lcap = NULL;
+<       return;
+<     }
+< 
+-----[after 1767 inserted 1770-1778]-----
+> 
+>         /* Make sure creds are owned by the specified UID before proceeding */
+>         if ((uid != -1) && lcp->owner_uid != uid) {
+>             SET_STATUS(st, sec_login_s_no_current_context);
+>       *lcap = NULL;
+>           sec_login_pvt_release_context(lcp);
+>       return;
+>     }
+> 
+-----[after 1773 inserted 1785]-----
+> 
+-----[1775-1781 changed to 1787-1798]-----
+<       sec_login_pvt_allocate_login_context(false,
+<                                           (unsigned_char_p_t) NULL,
+<                                           cname,   /* cache name */
+<                                          lcap,
+<                                          st);
+<     if (GOOD_STATUS(st))
+< {
+---
+>     sec_login_pvt_allocate_login_context(false, (unsigned_char_p_t) NULL,
+>         cname, lcap, st);
+>     if (GOOD_STATUS(st))
+> {
+>         /* Make sure creds are owned by the specified UID before proceeding */
+>         if ((uid != -1) && (*lcap)->owner_uid != uid) {
+>             SET_STATUS(st, sec_login_s_no_current_context);
+>           sec_login_pvt_release_context(*lcap);
+>       *lcap = NULL;
+>       return;
+>     }
+> 
+-----[after 1797 inserted 1815-1837]-----
+>     }
+> 
+> 
+> /* s e c _ l o g i n _ i m p o r t _ c o n t e x t _ u i d
+>  *
+>  * Import a context obtained via a call to sec_login_export_context
+>  * performed on the same machine.  This function is generally reserved to
+>  * the privileged user.
+>  *
+>  */
+> PUBLIC void sec_login_import_context_uid
+>   (
+>     unsigned32                buf_len,        /* [in]  */
+>     ndr_byte          buf[],          /* [in]  */
+>     signed32            uid,             /* [in]  */
+>     sec_login_handle_t  *login_context, /* [out] */
+>     error_status_t      *st             /* [out] */
+>   )
+> {
+>     sec__login_import_context(buf_len, buf, uid, login_context, st);
+>     }
+> 
+> 
+-----[after 1797 inserted/moved 1838-1845 (was at 1715-1722)]-----
+> /* s e c _ l o g i n _ i m p o r t _ c o n t e x t
+>  *
+>  * Import a context obtained via a call to sec_login_export_context
+>  * performed on the same machine.  This function is generally reserved to
+>  * the privileged user.
+>  *
+>  */
+> PUBLIC void sec_login_import_context
+-----[after 1797 inserted 1846-1853]-----
+>   (
+>     unsigned32                buf_len,        /* [in]  */
+>     ndr_byte          buf[],          /* [in]  */
+>     sec_login_handle_t  *login_context, /* [out] */
+>     error_status_t      *st             /* [out] */
+>   )
+> {
+>     sec__login_import_context(buf_len, buf, -1, login_context, st);
+
+
+*** sec_login_pvt.c@@/main/DCE1_1_WP/ot13199/0  Mon Nov 13 19:18:35 1995
+--- sec_login_pvt.c     Mon Nov 13 19:33:44 1995
+***************
+*** 2540,2548 ****
+--- 2540,2558 ----
+      if (cache_name) {
+          int len = strlen(cache_name)+1;
+          char *name_copy = malloc (len);
++       struct stat stb;
+          memcpy(name_copy, cache_name, len);
+          lcp->context_name = name_copy;
+          lcp->context_name_len = len;
++         /*
++          * Find out who owns the credential cache file and set the
++          * owner_uid to it.
++          */
++         if (stat(krb5_cc_get_name(KRB_INFO(lcp).cache), &stb) == -1) {
++             SET_STATUS(stp, sec_login_s_no_current_context);
++           goto errout;
++         }
++       lcp->owner_uid = stb.st_uid;
+      } else {
+          /*
+           * !!! should extract this from the context, and update it on
+***************
+*** 2849,2856 ****
+          }
+  
+        /*
+!        * change ownership of cache file if it is being created
+!        * via proxy (default ownership is by euid).
+         */             
+        if (GOOD_STATUS(stp)) {
+            if ((FLAG_SET(lcp->flags, sec_login_proxy_cred)) &&
+--- 2859,2868 ----
+          }
+  
+        /*
+!        * change ownership of cache file if it is being created 
+!        * via proxy (default ownership is by euid). 
+!        * Also, must change the login context owner uid whenever
+!        * we chown the krb5 cache file.
+         */             
+        if (GOOD_STATUS(stp)) {
+            if ((FLAG_SET(lcp->flags, sec_login_proxy_cred)) &&
+***************
+*** 2858,2863 ****
+--- 2870,2876 ----
+                (geteuid() == 0)) {
+                    if (chown(prev_cfn, UNIX_CREDS(lcp).pwent->pw_uid, -1) == -1)
+                        *stp = errno;
++                   lcp->owner_uid = UNIX_CREDS(lcp).pwent->pw_uid;
+            }
+              /*
+               * save pag in login context.
+***************
+*** 4145,4158 ****
+      if (INFO_STATE(rcp) == info_certified) {
+          char  *cfn;
+          /*
+!          * chown the credential cache and data file with the uid from
+!          * context unix info.
+           */
+          cfn = krb5_cc_get_name(rcp->krb_info.cache);
+        if (cfn != NULL && UNIX_CREDS(rcp).pwent != NULL && geteuid() == 0) {
+            if (chown(cfn, UNIX_CREDS(rcp).pwent->pw_uid, -1) == -1)
+!               *stp = errno;
+!         }
+      }
+  
+      rcp->refcount = 1;
+--- 4158,4174 ----
+      if (INFO_STATE(rcp) == info_certified) {
+          char  *cfn;
+          /*
+!          * chown the credential cache and data file with the uid from 
+!          * context unix info. 
+!          * Also, must change the login context owner uid whenever
+!          * we chown the krb5 cache file.
+           */
+          cfn = krb5_cc_get_name(rcp->krb_info.cache);
+        if (cfn != NULL && UNIX_CREDS(rcp).pwent != NULL && geteuid() == 0) {
+            if (chown(cfn, UNIX_CREDS(rcp).pwent->pw_uid, -1) == -1)
+!               *stp = errno; 
+!           rcp->owner_uid = UNIX_CREDS(rcp).pwent->pw_uid;
+!         } 
+      }
+  
+      rcp->refcount = 1;
+
+[12/20/95 public]
+This appears to have made it into 1.2.1 also, so I'm marking it fixed.
+Whoever owns the security OTs at the OSF should make sure that the above
+mentioned API (sec_login_import_context_uid() ) shows up in the 1.2.1
+code, and then move this from 'fix' to closed.
+
+[12/21/95 public]
+Don't close this yet.  The security part should be in 1.2.1, but the
+changes to CDS that make the above call are not in 1.2.1.  This is because
+we had difficulty building pre-1.2.1 + changes on AIX.  Now that the
+1.2.1 core is available, we'll try it again.  We'll post the CDS diffs
+once we verify on AIX.
+
+
+
+CR Number                     : 13137
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : 
+Short Description             : security functional test failures
+Reported Date                 : 10/3/95
+Found in Baseline             : 1.2.1
+Found Date                    : 9/22/95
+Severity                      : C
+Priority                      : 3
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : test/functional/security/...
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/3/95 public]
+
+	The following security functional tests fail in 1.2.1 
+	DCE (both versions previous to Xidl/regy_sync and with 
+	Xidl/regy_sync).  Logs are available for the owner of 
+	the "assigned to" person, which will be here at HP since 
+	this bug is in the security area.  
+	 
+
+                fail sec_rgy_attr_sch_create_entry()
+                fail password strength startup: rpc_binding_set_auth_info()
+                fail tp1: sec_pwd_mgmt_gen_pwd
+                fail tp2: sec_pwd_mgmt_gen_pwd
+                fail Bin compat: sec_login_import_context
+                fail Bin compat setup: sec_key_mgmt_set_key
+                fail Bin compat: sec_key_mgmt_get_key (vno:1)
+
+[6/26/96 public]
+
+The first 4 tests above now pass for 1.2.2. The last 3 (Bin compat)
+are vendor-specific tests and should not be run.
+
+
+
+CR Number                     : 12959
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : secd
+Short Description             : secd deadlocks against itself when all cthreads are blocked forever
+Reported Date                 : 1/26/95
+Found in Baseline             : 1.1
+Found Date                    : 1/26/95
+Severity                      : B
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : security/server/rs/rs_misc.c
+Sensitivity                   : public
+
+[7/19/95 public]
+
+(from Charlie Rusman at Hitachi)
+
+In DCE1.1 (not sure about 1.0) we find that we can,
+under a fairly extreme load, deadlock secd against itself by causing
+all cthreads to block forever.  We can make this happen if we run
+the rpc.sec.2 system test, for example, in which many clients processes
+of the same principal try to login to DCE.  In this case they all
+serialize on the same context->mutex in rca_lock_handle() via sec_id_parse().
+All but one are blocked on the mutex, and the one holding the lock
+tries an RPC to secd, and blocks for it's completeion.  The RPC is for secd
+itself, however, and that's where things get stuck as there are no
+cthreads available to process it.
+We realize that we can simply call rpc_server_listen() and establish
+a pool of more than 5 cthreads (as the sources are set up to do), but
+we are wondering if anyone has thought about addressing this a bit
+more gracefully by dynamically growing and shrinking the pool at runtime.
+
+
+I'm opening this as a medium priority bug since it is clearly a scaling 
+issue and therefore important to DCE 1.2.
+
+[12/8/95 public]
+This has been fixed in the DCE1.2.1 code.
+
+
+
+CR Number                     : 12955
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : command_ref
+Short Description             : sec_create_db manpage missing info
+Reported Date                 : 7/17/95
+Found in Baseline             : 1.1
+Found Date                    : 7/17/95
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.1doc
+Affected File(s)              : sec_create_db.8sec
+Sensitivity                   : public
+
+[7/17/95 public]
+
+The sec_create_db manpage is missing some material. The end of
+the final page just breaks off in the middle of the following
+sentence:
+
+    The sec_create_db command also create
+
+Probably not much is missing (this occurs in the Related In-
+formation section, which will have been the last one anyway),
+but it definitely is missing.
+
+[8/30/95 public]
+
+This problem is now fixed. It turns out that the "missing" inform-
+ation wasn't missing at all: the interrupted sentence at the end
+of the printed page was simply a scrap of text from earlier in the
+page which had somehow been inadvertently rewritten (along with
+some preceding garbage characters) at the end of the file. I
+have now deleted these.
+
+
+
+CR Number                     : 12877
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : sec
+Subcomponent Name             : rgy_edit
+Short Description             : dceseacl systest dumps core in certain cases
+Reported Date                 : 5/18/95
+Found in Baseline             : 1.1wp
+Found Date                    : 5/18/95
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.1,1.1maint
+Affected File(s)              : rgy_edit/tty_pgo.c
+Sensitivity                   : public
+
+[5/18/95 public]
+
+Warranty patch built on RIOS has failures when running security system
+test dceseacl:
+
+# run.sec -l 1 -m pierrot dceseacl
+
+causes rgy_edit to dump core in following instances:
+
+Case 1:
++ dce_auth seaclclipierrot1 testpw
++ change_neg_prin_quota seaclclipierrot0prin 999
+Dumping core after receiving signal SIGSEGV
+Current site is: registry server at /.../pierrot_cell/subsys/dce/sec/master
+Domain changed to: principal
++ change_neg_group_project_list seaclclipierrot0group nl
++ change_neg_org_management_info seaclclipierrot0org pna pns
++ kdestroy
+
+Case 2:
++ dce_auth seaclclipierrot1 testpw
++ change_prin_quota seaclclipierrot0prin 999
+Dumping core after receiving signal SIGSEGV
+Current site is: registry server at /.../pierrot_cell/subsys/dce/sec/master
+Domain changed to: principal
++ change_neg_group_project_list seaclclipierrot0group nl
++ change_neg_org_management_info seaclclipierrot0org pna pns
++ kdestroy
+
+Case 3:
++ dce_auth seaclclipierrot1 testpw
++ change_neg_prin_quota seaclclipierrot0prin unlimited
+Dumping core after receiving signal SIGSEGV
+Current site is: registry server at /.../pierrot_cell/subsys/dce/sec/master
+Domain changed to: principal
++ change_group_project_list seaclclipierrot0group nl
++ change_neg_org_management_info seaclclipierrot0org pna pns
++ kdestroy
+
+Case 4:
++ dce_auth seaclclipierrot1 testpw
++ change_neg_group_project_list seaclclipierrot0group l
++ change_org_management_info seaclclipierrot0org n n
+Dumping core after receiving signal SIGSEGV
+Current site is: registry server at /.../pierrot_cell/subsys/dce/sec/master
+Domain changed to: org
++ kdestroy
+
+The stack trace from the core is:
+
+# dbx /opt/dcelocal/bin/rgy_edit core
+dbx Version 3.1.
+Type 'help' for help.
+reading symbolic information ...
+[memory image in core]
+
+segmentation violation in tty_get_pgo_args at 0x10020d58 ($t1)
+0x10020d58 (tty_get_pgo_args+0x11c) 907d0000         st   r3,0x0(r29)
+(dbx) where
+tty_get_pgo_args(0x0, 0x200ca458, 0x17083076, 0x177e0000, 0x200aebf0, 0x200aebf0, 0x200aebf0, 0x1) at 0x10020d58
+tty_do_change_pgo(0x0, 0x200ca458) at 0x10022664
+tty_do_change(0x0) at 0x100006b0
+procs_cmds(0x0, 0x200ca458) at 0x1002a8b8
+main(0x0, 0x200ca458) at 0x100035fc
+(dbx) quit
+#
+
+[5/19/95 public]
+
+Yet another core dump:
+
+# run.sec -l 1 -m pierrot dcesepol
+
+cases following core dumps:
+
++ add_org sepolpierrot1o 697
++ + expr 697 + 1
+ORG_ID=698
++ add_org sepolpierrot2o 698
++ + expr 698 + 1
+ORG_ID=699
++ add_org sepolpierrot3o 699
++ set_policies sepolpierrot1o 15 -pls
+Dumping core after receiving signal SIGSEGV
++ + calc_valid_date 1
+PED_VALID_DATE=95/5/20
++ set_policies sepolpierrot2o 95/5/20 -ped
+Dumping core after receiving signal SIGSEGV
++ set_policies sepolpierrot3o 15 -als
+Dumping core after receiving signal SIGSEGV
+
+The stack trace from the last core dump:
+
+# pwd
+/dcetest/dcelocal/test/tet/system/security/ts/dcesepol
+# dbx /opt/dcelocal/bin/rgy_edit core
+dbx Version 3.1.
+Type 'help' for help.
+reading symbolic information ...
+[memory image in core]
+
+segmentation violation in tty_get_pgo_args at 0x10020d58 ($t1)
+0x10020d58 (tty_get_pgo_args+0x11c) 907d0000         st   r3,0x0(r29)
+(dbx) where
+tty_get_pgo_args(0x0, 0x200ca458, 0x17083076, 0x177e0000, 0x200aebf0, 0x200aebf0, 0x200aebf0, 0x1) at 0x10020d58
+tty_do_change_pgo(0x0, 0x200ca458) at 0x10022664
+tty_do_change(0x0) at 0x100006b0
+procs_cmds(0x0, 0x200ca458) at 0x1002a8b8
+main(0x0, 0x200ca458) at 0x100035fc
+(dbx)
+
+[5/23/95 public]
+The problem is legacy brain damage. HP took the __STDC__ path. For some
+reason IBM doesn't define __STDC__. The __STDC__ function delcaration was
+wrong for tty_pgo.c:tty_get_pgo_args . Apply this diff (remove the #ifndef
+__STDC__ crud) and rgy_edit will work (and the tests will pass).
+
+*** tty_pgo.c@@/main/LATEST     Wed Sep 21 20:53:57 1994
+--- tty_pgo.c   Tue May 23 17:49:13 1995
+***************
+*** 390,405 ****
+   * only prompts for a new name value on a change.
+   */
+  PRIVATE boolean32 tty_get_pgo_args
+- #ifndef __STDC__
+-     (op_handle, domain, show_defaults, reserved, is_alias, pgo_name,
+prompts, stp)
+-     ek_op_handle_t  op_handle;
+-     eif_domain_t    domain;
+-     boolean32       show_defaults;
+-     boolean32       reserved;
+-     boolean32       is_alias;
+-     char            **prompts;
+-     error_status_t  *stp;
+- #else
+    (
+      ek_op_handle_t  op_handle,
+      eif_domain_t    domain,
+--- 390,395 ----
+***************
+*** 409,415 ****
+      char            **prompts,
+      error_status_t  *stp
+    )
+- #endif
+  {
+      error_status_t  st;
+      boolean32       one_field_written = false,   /* assume no new data
+entered */
+--- 399,404 ----
+
+
+I'm marking this CR as 'fix' with the fixedin as '1.2' `cuz I don't have a
+clue as to what the right answer is. This fix has been rolled into the
+start of the 1.2 work here at HP and will therefore get to OSF during the
+first drop.
+
+Sigh. 1.2 isn't a valid 'fixedin'. OSF, please fix asap. 1.1 until I get
+some better choices.
+
+[7/19/95 public]
+Submitted to 1.1-maint as suggested above.
+
+
+
+CR Number                     : 12855
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : app_ref
+Short Description             : manpage for sec_login_get_delegation_type should be removed
+Reported Date                 : 5/1/95
+Found in Baseline             : 1.1b23
+Found Date                    : 5/1/95
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : man3sec/sec_login_get_delegation_type.3sec
+Sensitivity                   : public
+
+[5/1/95 public]
+
+NOTE:  There's still a manpage for sec_login_get_delegation_type()
+even though it was removed from the API over a year ago, because it
+made no sense being there...  This manpage should be removed.
+
+[3/20/96 public]
+
+This CR was overlooked till recently because of its unusual
+sub-component field. It is now fixed; I defuncted the
+sec_login_get_delegation_type.3sec manpage in the 1.2 tree.
+And I checked for cross-references in the other manpages;
+there were none.
+
+
+
+CR Number                     : 12713
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : secd
+Short Description             : UHYP: Attribute schema updates not logged or propagated
+Reported Date                 : 10/24/94
+Found in Baseline             : 1.1
+Found Date                    : 10/24/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : See below
+Sensitivity                   : public
+
+[10/24/94 public]
+Somehow, this work slipped through the cracks...
+Attribute schema update functionality was submitted to unintegrated, but it
+didn't include log/replay or propagation of schema updates.
+
+Sally, MaryannePT suggested that I let you know about the following:
+The replication protocol includes a routine for this, but it is incomplete/
+wrong.  This has to be on the MUST TAKE list (in the release notes, for things
+that have to be taken from the Unintegrated tree and applied to DCE1.1 if the
+vendor decides not to apply the entire Unintegrated tree).
+
+At least the following files need to change:
+security/h/rrs_prop_attr_schema.h
+security/idl/rs_prop_attr_schema.idl
+security/server/rrs/rrs_prop_attr_schema.c
+security/server/rs/rs_attr_schema.c
+security/server/rs/rs_log_attr_schema.c
+security/server/rs/rs_prop_attr_schema.c
+
+Susan,  This needs to be UHYP'd asap.  Building/testing starting now.
+
+[10/25/94 public]
+Submitted fixes, marked 'fix'.
+
+[02/08/95 public]
+Changed security/server/rs/rrs_prop_attr_schema.c above to
+security/server/rrs/rrs_prop_attr_schema.c
+
+
+
+CR Number                     : 12670
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : secd and libdce
+Short Description             : couple of instances of missing return values.
+Reported Date                 : 10/19/94
+Found in Baseline             : 1.1b23
+Found Date                    : 10/19/94
+Severity                      : C
+Priority                      : 3
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : see below
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/19/94 public]
+
+In sec_rgy_name_complete() (client/rca/sec_rgy_attr.c) the return in the
+first if-statement does not return a value.
+
+In rsdb_acl_mgr_perms_valid() (server/rsdb/rsdb_acl.c) the return in the
+first if-statement does not return a value.
+
+In rsdb_pgo_util_delete_member() (server/rsdb/rsdb_pgo_util.c) the return
+in the first if-statement does not return a value.
+
+copy_dlg_token_set() (client/login/sec_login_pvt.c) should be declared as
+type void.
+
+[12/21/95 public]
+The first one above is still broken (sec_rgy_attr.c)
+The second one was fixed in 1.1.    (rsdb_acl.c)
+The third  one is still broken      (rsdb_pgo_util.c) (doesn't need to be bool)
+The fourth one was fixed in 1.2.1   (sec_login_pvt.c)
+
+[6/18/96 public]
+Fixed in 1.2.2 for next drop to OSF.
+
+
+
+CR Number                     : 12659
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : login
+Short Description             : UHYP: machine identity missing new info
+Reported Date                 : 10/18/94
+Found in Baseline             : 1.1
+Found Date                    : 10/18/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : security/client/login/sec_login_pvt.c
+Sensitivity                   : public
+
+[10/18/94 public]
+sec_login_pvt_allocate_first(), used by dced to create the host machine
+context, isn't filling in the new 1.1 fields.  One result of this:
+lacking the expected v1_1_info.compat_mode value means that unauthenticated
+requests by root will always fail between two 1.1 cells with the odd error
+"security service does not support version 1.1 security features", because
+of the check at the end of sec_login_util_ptgt_compat()...
+
+[10/19/94 public]
+Since this has serious implications for intercell operation and since we
+know exactly what is wrong and exactly how to fix it (a new line of code was
+added to sec_login_pvt_allocate_login_context() but not to the equivalent
+routine sec_login_pvt_allocate_first() that sets up the machine's context)
+I'll be asking that this be made a UHYP as soon as I can test my fix (building
+now).
+
+[10/20/94 public]
+
+Updating this to UHYP for Susan.
+
+[10/21/94 public]
+Fixed-At-HP
+
+
+
+CR Number                     : 12617
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : 
+Short Description             : UHYP:reset of login_activity does
+not propagate to replicas
+Reported Date                 : 10/13/94
+Found in Baseline             : 1.1
+Found Date                    : 10/13/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : 
+./nosupport/security/login_reset/Makefile
+./nosupport/security/login_reset/glob.h
+./nosupport/security/login_reset/login_reset.c
+./nosupport/security/login_reset/types.h
+./security/h/rs_log.h
+./security/idl/rs_prop_login_reset.idl
+./security/idl/sec_rgy_login_activity.idl
+./security/server/lm/lm_jrnl.c
+./security/server/lm/lm_login.c
+./security/server/rrs/Makefile
+./security/server/rrs/rrs_prop_login_reset.c
+./security/server/rrs/rs_prop_login_reset.acf
+./security/server/rs/Makefile
+./security/server/rs/rs.c
+./security/server/rs/rs_log.c
+./security/server/rs/rs_log_login_reset.c
+./security/server/rs/rs_login_activity.c
+./security/server/rs/rs_prop_login_reset.c
+./security/server/rsdb/rsdb_login.c
+Sensitivity                   : public
+
+[10/13/94 public]
+
+In testing the reset of the login activity, it was discovered that
+the reset is not being propagated to replicas.
+
+This means that a user could get locked out if their login binds
+to a replica (bindings are assigned randomly) instead of a master, 
+even if the login was reset by the administrator.
+
+[10/13/94 public]
+
+I don't know the number of lines of code that need to be changed but
+the changes will be limited to server login activity code
+(security/lm/lm_login.c,security/rs,security/rrs 
+and a one line definition added to security/h/rs_log.h) and this will
+not impact any users interfaces or apis.
+
+[10/14/94 public]
+
+Rich S and Rajendra, can you please comment w.r.t the criticality of
+this problem?  Ie: if the change turns out to be a non-risky one,
+does this meet the criteria of 'very valuable to our licensees?"
+Thanks, Maryann, for the update.
+
+[10/14/94 public]
+Whoops, sorry, just got caught up in my email.  Slated for
+unintegrated per Desai and mpt.
+
+
+
+CR Number                     : 12570
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : Trigger binding
+Short Description             : UHYP: Trigger binding has some minor bugs which might core secd or generate "fault invalid tag" error.
+Reported Date                 : 10/10/94
+Found in Baseline             : 1.1b21
+Found Date                    : 10/10/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : 
+ ./security/idl/sec_attr_base.idl; ./security/server/rs/rpriv_attr.c
+Sensitivity                   : public
+
+[10/10/94 public]
+Sec_attr_base.idl: Missing sec_attr_enc_trig_binding (tag) in sec_attr_value_t.
+ This will generate "fault invalid tag" when client calls rs_attr_lookup_by_id
+ and triggered a binding call out.
+rpriv_attr.c: Some minor bugs which might core secd if generic trigger used.
+
+[10/11/94 public]
+Code has been fixed locally.
+
+[10/17/94 public]
+Files submitted.  Marked fix.
+
+
+
+CR Number                     : 12545
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : dce_login
+Short Description             : UHYP:X.500 intercell password failure
+Reported Date                 : 10/6/94
+Found in Baseline             : 1.1
+Found Date                    : 10/6/94
+Severity                      : B
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : admin/dced/server/sv_preauth.c,security/h/sec_krb_util.h, security/utils/sec_krb_util.c
+Sensitivity                   : public
+
+[10/6/94 public]
+Scenario #1
+-----------
+Configuring intercell between two single-machine cells with X.500 names:
+
+	/c=us/o=osf/ou=dce/cn=gemini (486)
+	/c=us/o=osf/ou=dce/cn=prague (UX)
+
+GDAD running on both machines.
+
+GDS is brought on gemini and intercell connection established.  Basic
+'cdscp show dir /.../c=us/o=osf/ou=dce/cn=prague' (done authenticated)
+works. 
+
+Keys exchanged via rgy_edit successfully.
+
+On gemini, dce_login /.../c=us/o=osf/ou=dce/cn=prague/cell_admin fails with
+"Password Validation Failure. - Invalid password (dce / sec) "
+
+(Yes, password used was correct.)  
+
+Machines times are about 1 minute apart.  (Gemini is ahead.)
+
+Scenario #2
+-----------
+
+Same machines, but GDS is brought up on prague.  'cdscp show dir
+/.../c=us/o=osf/ou=dce/cn=gemini' (authenticated) works.
+
+Key exchange via rgy_edit failed on 'incomplete cell add -- invalid
+password'
+
+[10/12/94 public]
+
+Please try the following to narrow it down:
+
+Stop the secval thread of dced. There is an option to dced to do
+this, but I forget what it is.
+
+Try logging in as before. If it *succeeds*, then this bug is 
+probably in the preauth code.
+
+What this does essentially is default to the Kerberos V5 method of
+preauthentication.
+
+Please let us know the outcome of this test.
+
+[10/12/94 public]
+
+While this problem is critical to get into unintegrated, we will hold
+off on slating it as such until it is understood more (what the fix is).
+Hence, leaving it as a priority 0, but removing UHYP designation.
+
+[10/13/94 public]
+Hot diggity, it worked without secval:
+
+Followed Scenario #1.  Turned off sec_val in the gemini cell (the one in
+which GDS is running) via 'dcecp secval deactivate'.
+
+dce_logged into foreign cell successfully and created object in foreign
+cell.
+
+
+root@gemini $ dcecp -c secval status
+0
+root@gemini $ dce_login /.../c=us/o=osf/ou=dce/cn=prague/cell_admin dce
+root@gemini $ cdscp
+cdscp> create obj /.../c=us/o=osf/ou=dce/cn=prague/foo
+cdscp> show obj /.../c=us/o=osf/ou=dce/cn=prague/foo
+
+                        SHOW
+                      OBJECT   /.../c=us/o=osf/ou=dce/cn=prague/foo
+                          AT   1994-10-13-11:55:17
+                     CDS_CTS = 1994-10-13-15:53:48.455469100/08-00-09-25-43-e8
+                     CDS_UTS = 1994-10-13-15:53:48.557139100/08-00-09-25-43-e8
+cdscp> quit
+
+[10/13/94 public]
+
+Ok, I'll take an educated guess as to what is occuring. The client's dced requests
+a TGT to the remote cell, prague. This TGT is involved in the DCE preauth
+protocol. When prague's secd receives the login request, it deconstructs the
+preauth data and verifies that the machine key information is correct. My guess
+is that this check is failing. Will need to debug this to see exactly what is wrong.
+
+[10/19/94 public]
+
+We found the problem. The dced preauthentication code calls krb5_parse_name()
+to convert string representations of principal names to the krb5_principal
+data type. However, krb5_parse_name() does not properly parse GDA names,
+and we end up with a krb5_principal structure, which when sent to the
+remote cell's secd as part of the preauthentication data, does not match 
+any entry that is stored in its database.
+
+Fix is to correctly convert GDA names to krb5_principal.
+
+[10/25/94 public]
+Fix submitted.  Marked OT "fix".
+
+
+
+CR Number                     : 12531
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : secd
+Short Description             : UHYP:Enable denial status for audit events
+Reported Date                 : 10/5/94
+Found in Baseline             : 1.1
+Found Date                    : 10/5/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : src/security/server/rs/rs_util.c
+Sensitivity                   : public
+
+[10/5/94 public]
+
+Enable denial status codes to be returned for audit events.  Currently
+all secd audit events return a failure status on all non-successful 
+audit records generated.  Open with a A1 priority as this is currently
+tentatively planned to be fixed in the unintegrated tree.
+
+[10/12/94 public[]
+
+removing from unintegrated list, but leaving at priority 0 pending
+information from HP re: what this fix involves.
+
+[10/12/94 public]
+
+The fix involves one file (rs_util.c) and requires that a case statement
+be added that evaluates the audit events and correctly sets the status
+code to be denial or failure.  This enables filtering on denial status -
+and actually getting some output.  Without this change, you are unable to
+filter based on status.
+
+[10/26/94 public]
+rs_util.c function rs_util_status_is_denial now returns "true" (denial)
+rather than "false" (failure) for the following error statuses:
+      case ek_err_passwd_invalid:       /* Invalid password (Registry Edit Kernel) */
+      case ek_err_g_mbr_unauth:         /* Not authorized to modify group membership (Registry Edit Kernel) */
+      case ek_err_o_mbr_unauth:         /* Not authorized to modify org membership (Registry Edit Kernel) */
+      case ek_err_auth_plcy_unauth:     /* Not authorized to modify the authentication policy (Registry Edit Kernel) */
+      case ek_misc_not_authorized:      /* User not authorized to perform operation (Registry Edit Kernel) */
+      case pwd_imp_err_auth:            /*  - Authentication failure */
+      case sec_s_bad_nonce:             /* incorrect response to challenge */
+      case sec_s_not_trustworthy:       /* data originated by untrustworthy security/privilege server */
+      case sec_acl_unable_to_authenticate: /* unable to authenticate on acl operation */
+      case sec_acl_not_authorized:	/* operation on acl not authorized */
+      case sec_key_mgmt_e_unauthorized:	/* The caller is unauthorized to perform operation */
+      case sec_priv_s_deleg_token_exp:	/* delegation token has expired */
+      case sec_rgy_passwd_invalid:	/* Invalid password */
+      case sec_rgy_not_authorized:	/* User is not authorized to update record */
+      case sec_rgy_rep_init_ekey_invalid: /* initialization encryption key not valid */
+      case sec_login_s_privileged:	/* privileged operation invoked in unprivileged process */
+      case sec_login_s_acct_invalid:	/* account not valid for login */
+      case sec_login_s_null_password:	/* cannot log in with zero-length password */
+      case sec_login_s_invalid_password: /* Invalid password. */
+      case sec_login_s_preauth_failed:	/* Preauthentication failure. */
+      case sec_attr_unauthorized:	/* unauthorized to perform this operation */
+      case sec_pwd_mgmt_str_check_failed: /* password failed password strength server checking policy */
+      case sec_pwd_mgmt_not_authorized:	/* unauthorized to call password management server */
+      case sec_svc_not_authorized:      /* Not authorized to perform serviceability operation */
+      case sec_rgy_not_root:	        /* Not a privileged user */
+
+These are the error codes from sad.sams and sec.sams that imply a failure
+due to lack of authorization.  I included a few ambiguous cases (sec_priv_s_deleg_token_exp,
+sec_pwd_mgmt_str_check_failed) because they can be caused by replay or attempt
+to guess passwords.
+
+
+
+CR Number                     : 12530
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : SAMS files
+Short Description             : UHYP: SAMS file updates to be placed in unintegrated tree
+Reported Date                 : 10/5/94
+Found in Baseline             : 1.1b20
+Found Date                    : 10/5/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : src/security/idl/sec.sams
+Sensitivity                   : public
+
+[10/5/94 public]
+
+This OT is a placeholder for the SAMS file updates that are planned
+for the unintegrated tree.
+
+
+
+CR Number                     : 12528
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 12343
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : secd
+Short Description             : UHYP: secd's ec files missing ERA and Delegation points
+Reported Date                 : 10/5/94
+Found in Baseline             : 1.1
+Found Date                    : 10/5/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : dce_sec_authent, dce_sec_control,
+dce_sec_modify, dce_sec_query
+Sensitivity                   : public
+
+[10/5/94 public]
+
+Secd's ec (event configuration) files for audit's filtering of events do
+not include ERA and Delegation audit events.  This OT is opened with a
+A1 priority as it tentatively planned to be fixed in the unintegrated
+tree.
+
+[10/13/94 public]
+Linked this bug to 12343, enabling of delegation audit points.  Should also
+be linked to a bug yet to be open on enabling of ERA audit points.
+
+[10/19/94 public]
+Disregard the last sentence about ERA audit points.  They have been enabled
+for a long time.
+
+[10/24/94 public]
+Fix submitted to unintegrated tree.
+
+
+
+CR Number                     : 12525
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : 
+Short Description             : UHYP: functional tests for invalid login to use dcep
+Reported Date                 : 10/5/94
+Found in Baseline             : 1.1
+Found Date                    : 10/5/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : src/test/functional/security/client/login/invalid_attempts/inv_test1.sh
+Sensitivity                   : public
+
+[10/5/94 public]
+
+
+change the functional tests for invalid login to use dcep calls to
+setup accounts with ERAs
+
+[10/19/94 public]
+Submitted. Marked "fix".
+
+
+
+CR Number                     : 12508
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : sec_salvage_db
+Short Description             : UHYP:enhancement work for
+sec_salvage_db to work on DCE 1.1 database, i.e. ERA.
+Reported Date                 : 10/5/94
+Found in Baseline             : 1.1b0
+Found Date                    : 10/5/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : 
+.../src/security/h/sec_svg.h
+.../src/security/h/sec_svg_tokens.h
+.../src/security/server/sec_salvage_db/sec_svg_db.c
+.../src/security/server/sec_salvage_db/sec_svg_prt.c
+.../src/security/server/sec_salvage_db/sec_svg_rec.c
+.../src/security/server/sec_salvage_db/sec_svg_util.c
+Sensitivity                   : public
+
+[10/5/94 public]
+
+In order for sec_salvage_db to work on a DCE 1.1 rgy database,
+new codes for printing and reconstructing ERA data type ( schema 
+attribute and attributes ) are required.  This work was decided
+by the management team to be included in the unintegrated tree.
+
+[10/17/94 public]
+Bumping the priority of this CR to 0 and making it UHYP (as per Susan) for 
+tracking purposes.
+
+[10/26/94 public]
+
+Submit enhancement work for attribute schema and attributes.  There is a
+new file attr_schema.prt created for printed attribute schema entries.
+Attribute instances are printed together with its associated pgo prt files.
+
+Security  functional tests for sec_salvage_db is not going to work because
+the canned comparison files are not updated accordingly.
+
+
+
+CR Number                     : 12506
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : schema update_entry
+Short Description             : UHYP: Schema update_entry routines
+needed to sbumitted to unintegrated tree.
+Reported Date                 : 10/5/94
+Found in Baseline             : 1.1b20
+Found Date                    : 10/5/94
+Severity                      : B
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : 
+./security/h/rgymacro.h
+./security/h/rs_attr_pvt.h
+./security/h/rsdb_attr_pvt.h
+./security/h/sec_attr_tools.h
+./security/idl/sec.sams
+./security/idl/sec_attr_base.idl
+./security/idl/sec_attr_util.idl
+./security/server/rs/rs_attr_schema.c
+./security/server/rsdb/rsdb_acl.c
+./security/server/rsdb/rsdb_attr_schema.c
+./security/utils/sec_attr_util.c
+Sensitivity                   : public
+
+[10/5/94 public]
+Ann already finished coding and tested.  However, her code is based
+on very old baselevel.  Needed more testing and merge, then submit
+to unintegrated tree.
+
+
+[10/17 public]
+Files submitted.  Marked fix.
+
+
+
+CR Number                     : 12493
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 12446,12498
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : secd
+Short Description             : UHYP: secd hangs/coredumps if filtering enabled
+Reported Date                 : 10/4/94
+Found in Baseline             : 1.1b20
+Found Date                    : 10/3/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : audit.h, evt_write.c, rs_main.c
+Sensitivity                   : public
+
+[10/4/94 public]
+In trying to create default cell-wide filters for sec, dts, and audit, 
+I found that when filtering was turned (DCEAUDITFILTERON = 1) before
+dce was started using dce_config, secd hung and did not complete the
+startup.  Note, no filters had yet been installed for secd.  Therefore,
+logging was effectively turned off.
+
+I will be getting more information today.  I want to find out:
+
+  1) if secd comes up when filters have been installed
+  2) if dtsd comes up when filters have not been installed
+  3) if dtsd comes up when filters have been installed
+
+[10/4/94 public]
+
+My bet is that all 3 of these will fail.  I tried to reproduce this
+problem locally (using BL18 bits) and can reproduce secd's hanging
+(actually it occurs during sec_clientd startup).  My inclination is the
+problem is occuring somewhere in dce_aud_start, such that a call to auditd
+is being invoked due to the filtering env var being set, but auditd is not
+yet up and running - hence the hanging.  Suggest reassigning to aud.
+
+[10/04/94 public]
+I finished my testing.  I was never able to get secd to not hang while
+I was starting dce.  So test #1 above failed.
+
+I was able to get dtsd to pass tests #2 and #3.  BUT, this only happened
+while auditd was running.  If I tried either when auditd was not running,
+I saw the following:
+
+[nodoz]:# dtsd -s                  
+1994-10-04-15:06:50.645-04:00I0.186 dtsd ERROR dts general
+dtss_service_main.c 654 0xa44dd9c8
+Cannot open the audit trail file
+[nodoz]:#
+
+dtsd never came all the way up.  So, I believe that the problem lies
+somewhere in libaudit or both dts and sec are not handling some return
+code properly.  That is, when you ask to filter events when auditd is
+not running, either there is a bug in libaudit or an error code is
+returned that dts and sec trip over.  
+
+I have assigned this to audit.
+
+[10/4/94 public]
+
+Jerry and I have found suspect code, after fixing dtsd to call dce_aud_open
+in the correct place, we still get a core dump:
+Dtsd no longer print out that opening the trail file fails.
+
+#0  0x429358 in dce_aud_start_with_name
+    (529, 5009224, 0, 0, 0, 6823540, 6823544)
+#1  0x428f3b in dce_aud_start_with_server_binding
+    (529, 6304672, 0, 0, 6823540, 6823544)
+#2  0x4201c9 in GetTimeFromProvider (argPtr=0x4c0a18)
+    at /project/dce/build/dce1.1/src/time/service/provider_interface.c:710
+
+Looking at the code we see this in dce_aud_start_with_name():
+    dce_aud_start_with_pac(event, pac, address, options, outcome, ard, status);
+    (*ard)->header.authz_st = rpc_c_authz_name;
+    free(pac);
+
+The status return is not checked!!
+
+Looking at dce_aud_start_with_pac():
+
+    if ((options & aud_c_evt_always_log) == 0 &&
+        (options & aud_c_evt_always_alarm) == 0 &&
+        (aud_g_cli_filter_on))
+    {
+        pthread_mutex_lock(&esl_mutex);
+        aud_esl_get_actions(event, pac, outcome, &as, status);
+        pthread_mutex_unlock(&esl_mutex);
+        if (as == NULL) {
+            *ard = NULL;
+#ifdef DCE_AUD_DEBUG
+            DCE_SVC_DEBUG((aud_svc_handle, aud_s_msgs, svc_c_debug1,
+                "dce_aud_start_with_pac: event needs not auditing \n"));
+#endif
+            return;
+        }
+    }
+
+Where *ard is set to NULL and then we return.
+We are assuming the by setting DCEAUDITFILTERON, we will trigger
+the above code in dce_aud_start_with_pac().
+
+[10/4/94 public]
+I'm not sure if this status check fix will rectify secd's hanging problem.
+
+Another possible area that may be causing problems is the calling
+sequence of dce_aud_start_with_pac() -> aud_esl_get_actions() ->
+sec_rgy_site_open() and sec_rgy_properties_get_info().  This calling
+sequence is only occurring if filtering is turned on.  Since the
+hang is occurring during sec_clientd startup, chances are that a
+audit event is being generated within secd (during sec_clientd startup)
+which is causing this hang. - The audit library is trying to
+make a sec_rgy_*() call, but sec_clientd isn't available yet.
+
+One other thing I noted was that the sec_audit_trail is empty when this
+failure/hang occurs.
+
+[10/04/94 public]
+It won't.  dtsd was coredumping, not hanging, so I don't think the two problems 
+are related.
+The second scenario you are describing sounds more likely, but we need to know
+exactly where the hang is.  I wonder if maybe another place in secd needs to use the
+dce_aud_start_with_uuid API...
+
+[10/04/94 public]
+I don't think the dce_aud_start_with_uuid() API is going to help as it calls
+dce_aud_start_with_pac(), which is where I think the problem might be
+starting from as I mentioned above.
+
+Just to satisfy my curiosity, I generated a secd audit trail up to the point
+where sec_clientd is started, but the registry database has not yet been
+initialized, with no audit filtering specified.  The following audit events
+were generated:
+--- Dumping an event record --- Event Number: 297
+--- Dumping an event record --- Event Number: 275
+--- Dumping an event record --- Event Number: 275
+--- Dumping an event record --- Event Number: 298
+--- Dumping an event record --- Event Number: 298
+--- Dumping an event record --- Event Number: 297
+--- Dumping an event record --- Event Number: 297
+--- Dumping an event record --- Event Number: 275
+--- Dumping an event record --- Event Number: 298
+
+where 297 = SECID_ParseName
+      275 = LOGIN_GetInfo
+and   298 = SECID_GenName
+
+(This is using the latest bits, which has the SECID aud points included.)       
+Some of these events, are probably being generated by audit itself
+especially SECID_ParseName, which is called by dce_aud_start_with_name().
+
+Robert - let me know if seeing the entire aud dump for the above would
+be helpful and if so, I'll email it to you.
+
+[10/11/94 public]
+
+Designated for  unintegrated tree.
+
+[10/11/94 public]
+According to a note that Sue K. sent me, the hang has disappeared after she made use of
+the new dce_aud_set_local_cell_uuid.  Proceeding further, secd hits a core dump,
+as described by the following trace sent by Sue:
+
+..........
+ This is the traceback I'm getting:
+ > trace
+  0 dce_aud_start_with_name + 0x000001b8 (0x113, 0x40329750, 0, 0)
+  1 dce_aud_start + 0x00000178 (0x113, 0x4032fbd0, 0, 0)
+  2 rs_login_get_info + 0x0000006c (0x4032fbd0, 0x4027b854, 0x4027c458,
+ 0x4027c474)
+  3 op0_ssr + 0x0000028c (0x4032fbd0, 0x40194208, 0x4027b51c, 0x40333f58)
+  4 rpc__cn_call_executor@libdce + 0x000007c8 (0x40194208, 0, 0, 0)
+  5 cthread_call_executor@libdce + 0x000002d4 (0x401fc250, 0x7af3e2a0,
+ 0x4004b6d0, 0xf)
+  6 cma__thread_base@libdce + 0x0000021c (0x4004b6d0, 0, 0, 0)
+  7 cma__thread_start1@libdce + 0x0000004c (0x4004b6d0, 0, 0, 0)
+  8 cma__thread_start0@libdce + 0x00000008 (0x4004b6d0, 0, 0, 0)
+  9 dce_aud_start_with_name + 0x000001b8 (0, 0, 0, 0)
+ > 
+...............
+
+my analysis of this traceback is as follows:
+
+The traceback shows the "old" loop, the one where dce_aud_start_with_name at
+step 9, calls eventually rs_login_get_info, which has a codepoint dce_aud_start
+calling dce_aud_start_with_name etc.... (then it crashes.)
+I think this is another spot in secd that needs to use dce_aud_start_with_uuid.
+Robert.
+Assigning to sec component.  (I think this CR should be marked as fixed, and 
+another one opened, to deal with the new issue since it is independent of the hang.)
+
+[10/12/94 public]
+
+If fix is clearly understood and fits into unintegrated tree requirements
+then this will be marked 'UHYP'.  For now, leave as priority 0.  Maryanne
+will prune this bug as well as 12446 if solution is not understood on 10/14.
+
+[10/13/94 public]
+
+Fix being submitted today to unintegrated.
+
+[10/13/94]
+Fix submitted.  Also noted in short description that this is a hang/crash.
+Initially we only saw the hang which this fix corrects.  Sue reported a
+crash on the HP, but we are unable to duplicate the crash at OSF.
+Therefore I have marked it as fixed.  If the crash returns, then this
+CR should be reopened.
+
+[10/13/94 public]
+Just to close the loop on this - using the latest 21.1 bits along with the
+changes that Jerry just submitted, I'm now observing secd successfully
+startup up when audit filtering is enabled.  Suggest that if this core
+dump problem occurs again, a separate/new CR should be opened.  Jerry's
+submission does correct the originally reported problem of secd hanging
+when audit filtering is enabled.
+
+
+
+CR Number                     : 12398
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : replication
+Short Description             : UHYP: Missing functional tests for security replication
+Reported Date                 : 9/28/94
+Found in Baseline             : 1.1b19
+Found Date                    : 9/28/94
+Severity                      : B
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : list_at_the_end_of_OT
+Sensitivity                   : public
+
+[9/28/94 public]
+
+Functional tests for security replication are missing which is
+the cause of a big hole in code coverage results.
+
+I plan to submit changes to the TET tests for replication by Friday 9/30.
+The changes for the testsh tests will go into the unintegrated tree.
+
+[10/3/94 public]
+I spoke with Sean about submittiong these tests into dce1.1 integrated tree
+and he can't test/submit these tests by this week. It will make it into
+un-integrated tree. Downgrading the priority to 1.
+
+[ sekhar 10/25/94 public ]
+Fixed. List of files submitted
+
+    test/functional/security/common/ts-common.h   ***** NEW FILE *****
+    test/functional/security/tetexec.cfg
+    test/functional/security/ts/client/rca/sec_rgy_attr/Makefile
+    test/functional/security/ts/client/rca/sec_rgy_attr/sec_rgy_attr.c
+    test/functional/security/ts/client/rca/sec_rgy_attr_sch/Makefile
+    test/functional/security/ts/client/rca/sec_rgy_attr_sch/sec_rgy_attr_sch.c
+    test/security/api/moretests/acct_add_del.c
+    test/security/api/moretests/acct_admin_repl.c
+    test/security/api/moretests/acct_passwd.c
+    test/security/api/moretests/acct_rename.c
+    test/security/api/moretests/acct_repl_all.c
+    test/security/api/moretests/acct_user_repl.c
+    test/security/api/moretests/auth_policy.c
+    test/security/api/moretests/pgo_test_basic.c
+    test/security/api/moretests/policy.c
+    test/security/api/moretests/props.c
+    test/security/api/moretests/sec_rgy_bind.h   ****** NEW FILE ******
+
+
+
+CR Number                     : 12343
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 11884
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : secd
+Short Description             : UHYP: Delegation audit points not enabled
+Reported Date                 : 9/26/94
+Found in Baseline             : 1.1
+Found Date                    : 9/26/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : 
+./security/server/rs/rpriv.c
+./security/server/rs/rpriv_util.c
+./security/server/rs/rpriv_util.h
+./security/server/rs/rpriv_v1_1_mgrs.c
+./security/h/sec_aud_evts.h
+Sensitivity                   : public
+
+[9/26/94 public]
+
+Due to OT 11884 (audit subsystem causing secd to go into infinite loop),
+the delegation audit points were not fully enabled.  IBM has supplied
+a new API, but the delegation code was never subsequently enhanced to
+use the new audit API (dce_aud_start_with_uuid).  Am assigning this OT
+to myself to correct.
+
+[10/24/94 public]
+Fix submitted in unintegrated tree.
+
+
+
+CR Number                     : 12184
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : pwd_mgmt
+Short Description             : UHYP: exporting to wrong place
+Reported Date                 : 9/14/94
+Found in Baseline             : 1.1b17
+Found Date                    : 9/14/94
+Severity                      : E
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : pwd_config,pwd_strengthd.c
+Sensitivity                   : public
+
+[9/14/94 public]
+pwd_strengthd exports it's binding info /.:/pwd_mgmt/pwd_strength.  This
+path should be under /.:/subsys/dce/.  How about
+/.:/subsys/dce/pwd_mgmt/pwd_strength or should it be under sec/ as well? 
+
+Also this info needs to be added to the namespace appendix of the admin
+guide.
+
+[10/05/94 public]
+This is just wrong - we will fix this in the unintegrated tree because
+we don't want to set a wrong precedent (breaking the rules about where 
+in the namespace things should go) in DCE.
+
+[10/25/94 public]
+Fixed and submitted to unintegrated.  Binding is now exported to
+/.:/subsys/dce/pwd_mgmt/pwd_strength.  This is hard-coded in pwd_strengthd,
+and pwd_config supports it.  To configure a user principal to use this,
+
+dcecp> principal modify <who> -change {pwd_val_type 1}
+dcecp> principal modify <who> -change {pwd_mgmt_binding 
+ {{dce /.:/pwd_strength pktprivacy secret name} ${cds_obj}}}
+
+Due to caching, secd must be stopped and restarted if you switch strength
+servers that export to different locations.
+
+
+
+CR Number                     : 12159
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 11462
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : sec cntx cache/cdsclerk
+Short Description             : UHYP:self principal changes not applying to CDS operations (cdsclerk)
+Reported Date                 : 9/12/94
+Found in Baseline             : 1.1b16
+Found Date                    : 9/12/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : sec_login.c sec_login_cache.c
+sec_login_pvt.c sec_login_pvt.h rs_rep_auth.c
+Sensitivity                   : public
+
+[9/12/94 public]
+
+Hoping to get feedback from CDS/SEC folks:
+
+Using secval instead of sec_clientd, CDS operations expecting to pass ACL
+checks based on the self principal's inclusion in a group fail sometimes.  In
+particular, dtsd add an element to /.:/lan-profile.
+
+It looks to be somehow related to the cdsclerk and the way it imports the
+client login context (remember that the clerk is the one doing the RPC to
+the cdsd, not the client).  If I kill the running cdsclerk and re-try the
+failing CDS operation, a new clerk is spawned and the operation succeeds.
+
+Why this happens with secval and not sec_clientd I believe has something
+to do with the fact that in
+the secval case, the first SELF principal access made to CDS does not
+contain the new group membership (dced attempts to connect with CDS early
+on).  Yet with sec_clientd running, the first SELF access to the CDS is
+by dtsd and therefore WITH the groups membership already in place in the
+SELF creds.
+
+I have instrumented cdsclerk to show me when it does context imports.  It
+appears to be doing it at the right time, the question then becomes why the
+login context imported the *2nd time*, does not seem to be the one getting
+to the cdsd in teh form of teh PAC for the ACL check.  Maybe something in 
+the context cache  maintained by the SEC client side API's is using the 
+wrong/old cached creds info (or not going to read the creds file again)
+
+Mike B, when does the SEC cache logic in a client decide to re-read the
+creds file to get changes?  Should the cdsclerk be doing a 
+sec_login_refresh_identity() every time it imports a context?
+
+[9/12/94 public]
+Put a sec_login_inquire_net_info() in the cdsclerk afetr it does its
+sec_login_import_context() of the client login context.  This was so I
+could display the contents of the PAC (ala klist) and see what group 
+membership this context had.  Not only does this show the correct 
+membership, but it also causes the CDS operation to succeed the ACL
+check in cdsd.  I am guessing that the inquire_net_info() reads through
+the in-memory context cache getting the correct information from the 
+creds files.  I assume this should not be neccesary.  Therefore, for now,
+I will reassign this from dced -> security.
+
+[9/13/94 public]
+It should *not* call refresh identity every time it imports a context.  That
+would be a huge amount of overhead that shouldn't be necessary.  Refreshing
+a context should not pick up any new groups added since the context was
+created, so that shouldn't help anyway.  I'm baffled as to why the inquire
+net info seems to have fixed the problem.  I'd say that it's a possibility
+that it's just coincidence that it worked when you put that in there...  It
+must be a timing related problem since dced/secval isn't that much different
+from sec_clientd.  Is it possible that dced/secval is setting up the machine's
+context earlier during the config than sec_clientd would have been able to
+and is thus not picking up groups which dce_config was about to add when it
+started?
+
+[9/14/94 public]
+
+An identity refresh is useless without subsequent validation, which 
+requires knowledge of the password, so the cdsclerk couldn't
+refresh the identity if it wanted to.  And, as Mike points out,
+that wouldn't result in a larger groupset, in any case.
+
+If the problem is a matter of when the secval thread in dced
+establishes the host machine principal identity, then flushing and
+recreating the host machine credentials prior to configuring
+dtsd should fix the problem.  I seem to recall some recent mail
+about a "secval  deactivate/activate" command in dcecp that
+does exactly that.  Judicious placement of those dcecp operations
+in dce_config might help.
+
+[9/14/94 public]
+The dcecep commands deactivate/activate are what the dce_config uses
+instead of killing/restarting sec_clientd as it used to.  A klist 
+immediately following this as self shows the new group membership.  The
+cdsd access made by dtsd happens ~10 minutes later so I don;t know if
+timing could be the problem. The sec_clientd and secval logic
+are not different in what they do to the credentials cache but
+as I mentioned, additional authenticated CDS operations take place in the
+dced-secval case (unrelated to secval actually).  I think its these CDS
+operations that are changing the picture.  The cdsclerk does not seem
+to get updated with the new group membership even though it is re-importing
+the login context.  With the refresh_identity() idea, I was just trying to
+make any call that would ensure the creds file was re-read, the
+inquire_net_info() may have done that?
+
+Am I way off suspecting problems related to cached creds info?
+
+[9/14/94 public]
+I don't know.  Anything's possible at this stage...
+I've added dce-ot-cds to the CC list in case they have any ideas...
+I thought the cdsclerk cached contexts itself based on the name of the
+credential cache file.  If so, then once you started and talked to a cdsclerk
+as the machine, then it probably wouldn't reread it even if you stopped &
+restarted the secval portion of dced.  I bet the reason that it wasn't a
+problem before is that sec_clientd wasn't talking to CDS right away like
+dced is.  When sec_clientd came up, CDS wasn't up yet, so it cached rgy
+binding handles obtained from the pe_site configuration file.
+
+[9/14/94 public]
+
+Mike must be right.  The host machine principal context file name
+is always the distinguished "ffffffff" file, so the CDS clerk can't
+tell when the underlying credentials for the host machine
+principal have changed.  Here's what we think is the right solution.
+
+Add a "generation id" to the exported context byte string.  This will
+cause the export byte strings for distinct generations of the "fffffff" 
+credentials to compare differently.  Currently the export string
+looks something like this.
+
+   "FILE:/opt/dcelocal/var/security/creds/dcecred_ffffffff"
+
+We propose changing it to something like this.
+
+   "UUID:37aacf0a-cfdc-11cd-bc57-0800097086bf:FILE:/opt/dcelocal/var/security/creds/dcecred_ffffffff"
+
+NOTE:  This will work only if the CDS clerk is treating the 
+exported context as an opaque byte string.  If it is depending
+on a particular format, this fix won't work.
+
+Any comments from the CDS folks?
+
+[9/14/94 public]
+cdsclerk does have a cache mechanism which keeps them from re-importing the
+context at each operation.  In this case though, I think the context (ffff*) is
+being re-imported..... (see the first entry in this OT)
+
+[9/14/94 public]
+
+I'd like to suggest the possibility that the problem is due to
+the rpc runtime auth_info cache, which I'll call
+Acache to distinguish it from the krb identity cache Ccache.  
+The Acache contains creds currently associated with rpc bindings.
+The creds in the Acache are keyed by server principal and cache name.
+The Acache is searched every time an rpc_binding_set_auth_info is called.
+
+In the clerk case the first time through ...set_auth_info the
+Acache is searched with key = ( principal=cds, Ccache=ffffffff ).  Nothing
+is found. The cred for the cds is then searched in the Ccache ffffffff.
+If it is found in the Ccache or has to be acquired over the network is
+irrelevant.  What matters is that a copy of it ends in the Acache,
+keyed by the above key.  Membership to the dts group is not part of the
+authdata of this ticket.
+
+The second time around even though a second context is imported by the
+clerk, and it is essentially different (belongs to one more group), it
+is still associated with the same Ccache.
+The ...set_auth_info call will search the rpc runtime
+Acache with the same keys as before, and WILL find the ticket for the cds
+in it, UNLESS the previously authenticated binding has been freed or reset.
+
+[9/14/94 public]
+We have an outstanding OT 11462 which is this same problem.
+I think it is as greg describes.  We are not re-importing the context.
+CDS has a cache of binding handles.  I suspect once the connection
+is established with the old creds it keeps using it.
+The file name has to change for us to do a re-import.
+I don't have a solution short of special casing fffffff, but his
+means handles will never be cached for this use and performance
+will suffer.
+
+I suppose we could check the pac, would this work??  Would we only
+have to do it of ffffff??
+
+[9/15/94 public]
+
+A couple of things.
+
+Re: Rob's latest note.
+
+I don't think the RPC auth info cache is at fault.  As nearly
+as I can tell, the key is the server principal name and a 
+sec_login_handle_t.  The latter is a pointer to an in-memory
+login context structure, not a cache name.  
+
+I think the problem of not being able to distinguish
+between distinct generations of the ffffffff cache name 
+is a generic security problem, so the CDS folks are off
+the hook, unless I discover other problems while trying
+to apply the "generation id" fix mentioned in my previous
+note.
+
+The fix is going to be a little more complicated than I
+originally imagined, but I hope to get it coded today.
+
+[9/15/94 public]
+
+Greg is right. Rob should not provide such absurd opinions ...
+
+[9/15/94 public]
+
+Sorry guys.  The above note was a joke.  I am accessing the
+ot database with Rob's ID, since I never got my own ID for it.
+I offered the above auth info opinion which I recognize to be
+wrong.  Rob is not to blame.
+
+I don't know if I am in time to provide any more input, but
+I'll try.
+The uuid idea although would work, would basically
+force cimcumventing the login cache every time. Right ? 
+
+Checking the pac would seem the best thing to do.
+
+Another possibility is to disregard a login context cache match
+in ..import_context if the creation time of the
+context to be imported is greater than the modtimes.cachefile of
+the context in the cache.
+
+The newly imported context would then be entered in the login cache
+at the top and susequent lookups would never match older logins.
+
+Both the file creation field and the uuid import-export do not seem
+to solve the so far theoretical problem that dced itself cannot
+enjoy the newly acquired previleges until the clerk dies or
+the cds tickets expire. Right ?
+
+[9/15/94 public]
+
+> Sorry guys.  The above note was a joke.  I am accessing the
+> ot database with Rob's ID, since I never got my own ID for it.
+> I offered the above auth info opinion which I recognize to be
+> wrong.  Rob is not to blame.
+
+No fight, no blame.  Keep those cards and letters coming.
+
+> The uuid idea although would work, would basically
+> force cimcumventing the login cache every time. Right ?
+
+No.  The generation uuid is part of the persistent state
+of every login context.  The login context cache key is
+a filename and a generation uuid.  You will continue to see
+the same cache hits as before, minus the erroneous hits
+due to the previous inability to differentiate succesive
+generations of the host machine credential file.
+
+> Checking the pac would seem the best thing to do.
+
+I don't follow.  To check the PAC, wouldn't you have
+to first import the login context?  The purpose of
+the login context cache is to avoid unnecessary imports
+(i.e. avoid going out to disk).
+
+> Another possibility is to disregard a login context cache match
+> in ..import_context if the creation time of the
+> context to be imported is greater than the modtimes.cachefile of
+> the context in the cache.
+
+Again, the purpose of the login context cache is to avoid the
+expense of disk reads.  But if we're already stat'ing the 
+file for some reason during import, then, yes this would
+be no added expense.  I don't think we are routinely doing so.
+And the generation uuid has the advantage of being relatively
+opaque.  It works for any sort of credential cache implementation.
+
+> Both the file creation field and the uuid import-export do not seem
+> to solve the so far theoretical problem that dced itself cannot
+> enjoy the newly acquired previleges until the clerk dies or
+> the cds tickets expire. Right ?
+
+My tentative understanding is that the "secval decativate/activate" dcecp
+command results in a new host machine credential cache (which now
+also has a new generation uuid).  If that is true, the next 
+CDS access by dced following such a command will cause a login
+context cache miss in the root cds clerk.
+
+[9/15/94 public]
+
+I guess I do not understand.
+
+When let's say dts comes up with uid=root, it gets the host creds.
+Where does it find the current generation uuid in order to export
+it to the clerk ?  Isn't it stored in the creds file ?
+That seems the only place to get it.  Isn't this the meaning of 
+' The generation uuid is part of the persistent state
+ of every login context ' ?  If this is the case, instead of the
+stat on import, one has to do a read on export.
+
+In general, aside from the dced, which create the new creds file,
+how is any other process running as root supposed to
+know the current generation id of the host creds when doing
+an export ?  Such generation id may in theory change at any time
+underneath the process and the only way to get it is reading it in
+the file. 
+
+Also context imports and exports, as I see it, are a quite a rare
+event.  For instance the clerk does an import for each client. But
+that happens after the ipc has been estabilished and that's not
+cheap stuff.   The clerk situation or the very rare customized
+imports/exports are the only cases I have seen.  Is there
+any idea of use of import/export in massive scale ?
+
+If, as I see it, import/exports are rare, with respect
+to ticket activities, the value of the login cache for login and 
+creds sharing seems to be orders of magnitude higher than the 1
+file access during import/export.
+
+Am I off the mark ?  
+
+Finally, let me say that I agree that the uuid is more independent
+of credential cache implementation.  But, if the only way to let all
+the root processes know the new generation id is by embedding it in
+the credit cache file, then I do not see any file access advantage
+(but I would not care much), and more importantly I do not like the
+idea of a change in the creds file layout.   These are the reasons why I
+was considering the stat option.
+
+[9/15/94 public]
+Greg's gone for the day, so I'll join the fun and make this CR even longer :-)
+Addressing your comments above, Max:
+
+Every client has the LC data in memory anyway (whether it got it through
+a setup/validate or a sec_login_get_current_context()), so there's no extra
+read necessary for an export.  A sec_login_handle_t is just an opaque pointer
+to LC structures in memory, part of which is a filename for where that same
+data is stored on disk.
+
+You can create the Unique ID for the LC  ONCE when the cred files are created
+so there's no chance of it changing out from under you as stated above.
+
+When dtsd or any other process inherits a login context, it has to do a
+sec_login_get_current_context().  That reads the login context data from
+disk and that in memory creds data is used from then on by that process when
+that LC is referenced.  The sec_login_export_context() call just gets the
+filename out of that in memory data and passes it back.  The CDS library
+code in libdce does the export (after doing a sec_login_get_current_context())
+and passes the returned string to the clerk.  So, we're not generating any
+extra reads from disk here.
+
+The login context credential file format *has* already changed a lot because
+there's a lot more data (delegation...) in there than there was at DCE1.0.X
+and this new id will go in the new LC datastructure created for this new
+data.  This new structure is written into the creds .data file *after* the
+DCE1.0.X information, so it should be possible for a DCE1.0.X client to
+read the creds file (it just ignores the extra data at the end of the file).
+BUT!  The OSF has already stated that they do not intend to claim support
+for 1.0.X binaries STATICALLY linked with libdce.a running on DCE1.1 systems.
+A 1.0.X binary using shared libraries will be picking up the DCE1.1 version
+of libdce, so in that case it'll be a DCE1.1 binary.
+
+[9/16/94 public]
+
+Mike pretty much covered it.  I'll just add that a single CDS clerk 
+services all processes with a given uinx id, so imagine a dce_login
+followed by a fork/exec of dcecp.  An admin can change their DCE
+identity from within dcecp, and issue operations on any
+of the dce core components.  All name service requests generated
+during the above activity go through the same cdsclerk.  So
+export/import operations may not be all that rare.
+
+Max's suggestion has the advantage of not generating any 
+export/import interoperability problems between statically
+bound binaries of mixed DCE vintage.  I haven't yet
+figured out if I can preserve interoperability in the
+statically-bound 1.1 export --> pre1.1 import 
+(static or shared) case.  I suspect not.  So if a
+statically bound 1.1 DCE app is run on a pre-1.1
+DCE host, CDS operations will fail because the pre-1.1
+clerk won't understand the new export format.  The same 
+is true for any DCE application architectures that make use of 
+the import/export feature.
+
+[9/16/94 public]
+
+If changing the cache file format by adding the uuid is no
+issue (or a small one), I am all for it.  Yet its being useless
+in the general case makes it's impact look large to me.
+
+And it is no clear cut solution as if the clerk imports a login
+with an old uuid, you still would like it to match in the LC cache if
+a login with a new uuid has already been imported (it's going
+to read the current cache file anyway).  The uuid
+solution would not find the match here, creating a duplicate
+login (unless it check to see which uuid in currently in the
+creds file).  A counter or a timestamp would be more effective.
+
+I am still interested in hearing if anyone has ever seen the
+import/export operation done in a larger scale of what 
+happens in the case in question.  So far I see the case of one
+per process connecting to the clerk as typical.
+Considering the above example, of a dce_login and exec'ed dcecp
+I think that a fork and exec typically involve considerable processing
+and disk activity (process setup, reading an executable, setting up
+dynamic links, etc.).
+Add to it the ipc necessary to communicate the export buffer
+(which usually requires disk activity to find the UNIX socket )  and
+it still seems to me that an import/export disk read optimization
+is not relevant (OK, I agree, it is still worth saving if it does
+not compromise anything or create any incompatibilities).
+
+[9/16/94 public]
+
+Thanks for the bulldog tenacity Max.  You convinced
+me.  What really did it was the realization that, in order
+to tell whether or not the volatile copy of the generation
+id was current would require (suprise!) a  file stat/read
+operation.
+
+So...
+
+Back to the basic problem.
+
+If I understand the CDS situation correctly, Max's 
+suggestion of using the creation time of the
+file is almost perfect, but not quite.  The problem is
+that, regardless of what security may do under the covers
+in the import logic, unless the actual contents of the 
+exported byte stream for each generation of the "ffffffff" 
+credentials differs, the CDS clerk bypasses the import step
+and goes directly to its cache of previously established 
+authenticated RPC binding handles and finds a match.  Since 
+the necessary service ticket to cdsd is cached in memory in the 
+RPC runtime, the credentials cache is not consulted, and the auth
+rpc to cdsd takes place with the stale service ticket.
+
+And even if CDS were not bypasing the import logic in this
+fashion, it is a legitimate thing to do, and any DCE application
+making use of the export/import facility could end up in 
+the same boat.
+
+New proposed solution.
+
+Stat (sigh) the file during export to determine the creation time
+and include the creation time in the export byte stream.
+That ensures that any process using the export byte stream as a
+key to an application-level import cache will never equate
+distinct generations of the same credentials.
+
+As long as the CDS clerk is comparing the export streams as 
+bytes and not as C strings, I should be able to do this in 
+way that preserves interoperability in all cases (Oh how I wish
+we had put a sec_login_cmp_exported() call in the API...),
+without requiring any changes in the CDS clerk.
+
+[9/16/94 public]
+Whoa, bringing this OT up in the editor is nearly exhauting the swap
+space on my machine...
+
+The latter design from Greg sounds like the way to go, I have this
+minor comment though:
+
+>> in the import logic, unless the actual contents of the 
+>> exported byte stream for each generation of the "ffffffff" 
+>> credentials differs, the CDS clerk bypasses the import step
+>> and goes directly to its cache of previously established 
+>> authenticated RPC binding handles and finds a match.  Since 
+
+In the initial scenario I was investigating which caused me to open
+this bug, the cdsclerk was in fact re-importing the *ffff* creds file.  
+I don't see anything obvious in the cdsclerk cache logic (ie. pid or
+tid as cache key) that would cause the re-import to happen but it does.  
+(The import was on behalf of a differnt CDS client process...)
+
+[9/19/94 public]
+
+Hmm, how about denial of service attack, with large OT files ?
+That would work with anybody running secd in the foreground off of
+emacs.  Emacs coredumps, there goes secd ...
+
+Seriuosly, I have a couple of remarks (oh no !).  If this discussion
+is not of any help, but rather an impediment please let me know  and
+I'll stop.
+
+Browsing through the clerk code and asking John Dugas I formed this idea
+of the clerk workings (can anyone from CDS land please confirm ?).
+The clerk spawns a thread on accepting a client over the unix domain
+socket.  The thread is dedicated to serve the accepted client
+requests, coming over the accepted file descriptor.  The thread first
+always imports the client context and uses that context to
+authenticate the binding for CDS requests it will do on behalf of the
+client (most of this code is in clerk_bind.c).  Nothing in the clerk
+seems to prevent this first context import from a client.
+If after a few ns calls the client changes the current context, the
+subsequent ns call will send a new export buffer to the clerk.
+The clerk DOES check if the export buffer is any different from the
+one previously exported by this same client, before importing it.
+
+This seems to agree with Robs findings, that the clerk does in fact
+do an import of *fffffff from dts after having already imported it
+from dced.
+
+At first this made me think that a different export buffer was a
+bit of an overkill.
+What I had originally overlooked and makes me appreciate Greg's
+solution is the fact that apps do tend to compare export buffers
+before invalidating all the authenticated handles and importing
+the new buffer.  Greg's solution will in fact, allow the dced 
+itself to immediately acquire the new identity for ns calls, something
+I was almost about to give up (let's remember that the original
+problem was about dts not getting the new identity for ns calls,
+not dced).
+
+One final consideration.  Using the file creation time, is, as
+Greg noticed, cache implementation dependent.  Is there still
+room to consider putting the creation time in the cache content ?
+This would replace the stat with a read.  A bit slower, but cache
+implementation independent.
+I have never looked at the problems related to cache layout changes.
+But Mike seemed to be of the opinion that such change was a
+no brainer.
+Just as I am posing a question in favor of cache implementation
+independence I wonder how much such independence is really worth to us
+and have to admit reluctance to use a global change (cache layout)
+for a very unique situation (host creds recreated having same name).
+
+[9/22/94 public]
+
+Well, stat won't give you the creation time of the file, so
+I had to store something in the credential cache file and read
+it on export.  I went with the uuid solution.  
+
+Fix coded.  Will be submitted as soon as I can get it
+built and tested, hopefully by early next week at the
+lastest.
+
+The cache layout is not an issue, since there are already
+numerous changes additions to the cache layout required for
+delegation.
+
+[10/10/94 public]
+
+To make a long CR even longer ...
+
+The fix I coded is broken big time, and hard to debug, since the core
+server freeze up almost immediately. 
+
+In the event that I can't get the fix working soon, I'll begin
+investigating the possibility of killing the clerk process anytime the host
+principal identity is modified during config.  	It's a sledgehammer, but it
+would work.
+
+Any dce_config or cds experts out there object to this (on any grounds
+other than its ugliness?). 
+
+It is characteristic of all changes to a principal identity that the
+changed identity is not immediately recognized by existing processes 
+utilizing the identity.  For instance, if am am logged into a host via an
+integrated DCE login, and my groupset is modified, that new groupset will
+not be recognized until I run kinit.  Even then, long-lived processes
+running on my behalf may have cached service tickets obtained under the old
+identity and will continue to use those tickets until they expire.
+
+It just so happens that the CDS client architecture makes use of the
+sec_login_export/import path, and that there are steps that can be taken
+within that particular path to help the situation. But those steps may
+have confusing results.  A process utilizing the host machine login context
+may cache some tickets (e.g. to DFS), then invoke a CDS operation.  The CDS
+operation would recognize any changes to the host principal identity, but
+other remote operations issued directly by the process itself may not.  So
+the process might succesfully operate on CDS with the new identity, only to
+fail later on in some other operation due to stale credentials.   The 
+proposed fix, masticated so thoroughly  in previous entries, is by no means
+a general solution--which is why I'm willing to consider the sledgehammer
+mentioned above to get past the dce_config problem, in lieu of an
+(apparently) destabilizing modifications in the guts of the sec_login code,
+which are not likely to receive an adequate amount of system testing this
+late in the game.
+
+I'll keep trying for a while longer before I give up entirely.
+
+[10/11/94 public]
+
+If we were to weild the sledgehammer as described by Greg above, I believe 
+the correct place in dce_config to kill the cds_clerk would be in
+dts_rgyinit()  right after we deactivate/activate secval to get the changed
+group ino into the creds cache.
+
+Although, I'm sure how useful this is.  How would future group set changes
+ever get recognized in the cds_clerk for self processes?  The current
+problem (starting dtsd and it *not* getting the new groupset info from 
+the creds cache) demonstrates that not only long running 'self' processes 
+don;t see changes, *all* self processes don't see changes.  (This is, of
+course, until cds_clerk sec_login_import_context() actually reads the *fff*
+creds file which killing it and restarting would obviously force it to do)
+I think we would have to kill cds_clerk every time an admin changes the
+group membership of self to really make this effective, not only at config
+time.  Probably not a workable solution.
+
+[10/11/94 public]
+
+It's usefulness consists solely of providing a workaround for the
+DCE config problem at hand, in case I can't get the original fix working
+to a reasonable degree of confidence in time for the unintegrated
+tree.
+
+On that score, I have successfully configured a cell up through
+cdsd and kept it running overnight.  The minimal debug output I 
+threw into the sec_login_export/import code indicates the clerk is
+re-importing on every invocation of cdscp with any identity, regardless
+of whether or not the underlying credentials have changed.  It might be
+CDS problem, since security is just handing the clerk a byte buffer
+and relying on the clerk logic to avoid uneccessary imports by
+comparing the bits in the buffer to those in its cache.  I'm throwing 
+in some more substantial serviceability debug statements in the sec_login
+code to try and sort out exactly what's happening.
+
+The fix helps only the cdsclerk, and only if the host machine credentials 
+are manually recreated (dcecp secval deactivate/activate, I believe).  I'm 
+not arguing against the fix, I'm just pointing out that, due to the
+sluggish nature of credential changes in general, it's not as big a
+deal as I originally thought.  That's why I am less offended by the
+thought of the sledgehammer than I might have been earlier.  Even with
+this fix, administrators will still have to intervene manually on a host
+whenever they change the host machine credentials in order to get those
+changes recognized by root processes on that host.
+
+[10/11/94 public]
+Any other processes using cds as root(everyone we ship) will see errors
+if they happen to be making requsts when you kill the clerk.
+
+It goes down quick and doesn't wait for outstanding requests to complete.
+
+[10/11/94 public]
+The binding handle cache is tied to the link between client and clerk.
+When the application exits the link is broken and the cached handles
+are discarded.  If you seeing lots of re-imports it may be cause of this.
+
+[10/11/94 public]
+Greg, this is good news that your fix is getting there.  Just a note that
+may assist you;  when config'ing during your debugging don't forget to 
+comment out the acl_edit's in dce_config:dts_rgyinit() that allow self full 
+access to /.:/lan-profile & /.:/cell-profile.  This cheap workaround is
+what enables dtsd to come up today.  
+
+Also, I did not see the excessive cds_clerk imports when debugging this
+way back when...
+
+[10/13/94 public]
+
+Put UHYP in the description and bumped the priority to o to 
+get this bug back on the endgame radar scope.  
+
+Janet was right in the money; each cdscp session reuires
+a single import and within a session, no re-imports occur.
+
+I've removed the dce_config workaround, config'd dtsd, and
+verified that the clerk re-imports a new generation of the
+host machine principal identity.
+
+I'm currently backed by bl-18.  I'm going to rebuild against
+bl-21.1 on hpux and the 486 and, if all goes well, will submit to
+the unintegrated tree today or tomorrow.
+
+[10/13/94 public]
+
+Whoops.  You can make it a 0, but not a UHYP.  We can talk about
+this at the tech conf call today to determine whether it meets
+the unintegrated tree criteria.
+
+[10/13/94 public]
+Discussed at the tech conf call and approved for unintegrated.
+
+[10/24/94 public]
+
+fix submitted.
+
+
+
+CR Number                     : 11951
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : attr_delete
+Short Description             : UHYP: description of attr_delete behavior in IDL files is wrong, misleading to developers
+Reported Date                 : 8/30/94
+Found in Baseline             : 1.1b14
+Found Date                    : 8/30/94
+Severity                      : C
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : sec_rgy_attr.idl, rs_attr.idl
+Sensitivity                   : public
+
+[8/30/94 public]
+The comment for the attr_delete operations in both sec_rgy_attr.idl and
+rs_attr.idl describes behavior that was originally in the functional
+spec but was removed.  In both files, in the header comment
+for the attr_delete operaiont, the following comment:
+     * If the type alone is ambiguous, as may be the case with
+     * a multi-instanced attribute, a type-value pair may be used
+     * to identify the attribute.
+     *
+
+should be replaced with something like:
+     * This operation deletes every attribute instance of
+     * the input type.  The input value is ignored.  
+
+Also, the following comment in the "Multi-valued Attributes"
+paragraph:
+     * If a type uuid and value are provided, only an instance with
+     * the same uuid and identical value will be deleted.
+
+should be replaced with:
+     * To perform a delete of just one instance of a 
+     * multi-valued attribute, use the attr_update command.
+
+The man page for sec_rgy_attr_delete should reflect this
+behavior.
+
+[10/17/94 public]
+Files submitted, change status to "fix".
+
+
+
+CR Number                     : 11533
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : pwd_gen
+Short Description             : UHYP: Setup script referencing
+unknown executable (/opt/odss/bin/attr_update)
+Reported Date                 : 8/2/94
+Found in Baseline             : 1.1b13
+Found Date                    : 8/2/94
+Severity                      : B
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : src/test/functional/security/ts/client/pwd_mgmt/Makefile, src/test/functional/security/ts/client/pwd_mgmt/pwd_gen/setup.ksh
+Sensitivity                   : public
+
+[8/2/94 public]
+
+setup.ksh referencing unknown exceutable.  Probably an HP specific tool?
+
+[8/3/94 public]
+
+You are absolutely correct. It is calling an HP tool to attach ERAs to
+principals.
+
+I will change the code to use dcecp instead.
+
+[10/19/94 public]
+Submitted. Marked "fix".
+
+
+
+CR Number                     : 10685
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : sec_rgy_acct
+Short Description             : UHYP:canonicalize homedir in acct API
+Reported Date                 : 5/18/94
+Found in Baseline             : 1.1
+Found Date                    : 5/18/94
+Severity                      : D
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : ./security/idl/sec.sams
+./security/client/rca/acct.c
+Sensitivity                   : public
+
+[melman 5/18/94 public] 
+There are problems with putting things like /.: and /: in HOMEDIR on
+some systems because of the ':'.  Mike B. had the suggestion that dcecp
+should canonicalize the values for HOMEDIR before calling the sec_rgy
+API.  There would also be a doc impact since anyone calling the sec_rgy
+API should do this as well.
+
+My understanding is that /.: and /: were meant only for interactive use.
+The NSI and CDSPI canonicalize names on input, I think the sec_rgy API
+should do this as well.  Yes this would mean you can't store relative
+names in the database.  I think it just adding a call to
+rpc_ns_entry_name_expand() in the code for
+  sec_rgy_acct_add()
+  sec_rgy_acct_lookup()
+  sec_rgy_acct_replace_all()
+  sec_rgy_acct_user_replace()
+
+[10/12/94 public]
+
+Removing from unintegrated list, but leaving at priority 0 to
+denote that we still need to discuss this.  See below email...
+
+From: burati@apollo.hp.com
+
+Not fixing this will cause users *LOTS* of headaches if they use /: and/or
+/.: in home directories on accounts.  Yes, those were only meant for interactive
+use, but rgy_edit and dcecp ARE interactive tools and people do use these
+names (rather than typing in a long name like /.../cssl.cell.ch.hp.com/fs all
+the time).  We know this from experience, it has happened several times in our
+own cell.
+
+Need to know more about what the fix entails.
+
+[10/21/94 public]
+Files submitted.  Marked fix.
+
+The call added is rpc_ns_entry_expand_name().  The routines changed are
+sec_rgy_acct_add(), sec_rgy_acct_replace_all() and sec_rgy_acct_user_replace().
+
+
+
+CR Number                     : 10455
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : other
+Component Name                : sec
+Subcomponent Name             : client
+Short Description             : UHYP:possible use of uninitialized
+auto var (internal_binding.c)
+Reported Date                 : 4/25/94
+Found in Baseline             : 1.0.3
+Found Date                    : 4/25/94
+Severity                      : C
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : .../src/security/client/rca/internal_binding.c
+Sensitivity                   : public
+
+[4/25/94 public]
+
+ The rca_rebind() routine in internal_binding.c uses an automatic variable
+named "h". It is possible that this variable could be used before it is
+set, The problem is in the following code: 
+
+	,
+	.
+	.
+
+    rpc_binding_handle_t h;
+    
+    /* 
+     * !!! should free up context->rpc_handle here
+     */
+    
+    /* 
+     * Fall back on additional handles, if any..
+     */
+
+    for (;;)
+    {
+        for (i = context->hindex; i<RCA_MAX_HANDLES; i++) 
+        {
+            h = context->alt_handles[i];
+            
+            if (h != NULL) 
+            {
+                context->alt_handles[i] = NULL;
+                context->hindex = i+1;
+                break;
+            }
+        }
+
+        if (h == NULL)
+
+	,
+	.
+	.
+  
+
+ If the value of context->hindex equals RCA_MAX_HANDLES when the routine is
+entered, then control will immediately fall through the statement
+
+        for (i = context->hindex; i<RCA_MAX_HANDLES; i++) 
+
+The variable "h" will not be set, but will be tested against NULL in the if
+statement immediately following the for loop.
+
+[10/12/94 public]
+
+Removed from unintegrated list.
+
+[10/12/94 public]
+Just registering my disagreement with the removal of this CR from the
+unintegrated list.  This is an obvious bug that could cause unpredictable
+behavior, and has a one line fix.  Why would you not want it?
+
+[ sekhar 10/18/94 public ]
+Fixed.
+
+
+
+CR Number                     : 7712
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : sec
+Subcomponent Name             : kdestroy
+Short Description             : kdestroy should not remove machine context without force option
+Reported Date                 : 4/13/93
+Found in Baseline             : 1.0.2b22
+Found Date                    : 4/13/93
+Severity                      : B
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : security/krb5/clients/kdestroy/kdestroy.c
+Sensitivity                   : public
+
+[4/13/93 public]
+Given that kdestroy can be run in a script by root, it would be possible for a 
+machine administrator on a CDS or DTS server to damage the cell by mistake.  It
+would be good to disallow kdestroy of a machine context, unless a -f option were
+given.
+
+[4/30/96 public]
+
+Fixed in DCE 1.2.1. In order to kdestroy the machine credentials, the -c
+option must be used. Ex: 
+	kdestroy -c FILE:/opt/dcelocal/var/security/creds/dcecred_ffffffff
+
+
+
+CR Number                     : 6771
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : security/client/login
+Short Description             : cred caches grow forever
+Reported Date                 : 1/8/93
+Found in Baseline             : 1.0.2
+Found Date                    : 1/8/93
+Severity                      : D
+Priority                      : 4
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : security/krb5/lib/ccache/file/fcc_nseq.c,fcc_read.c,fcc_retrv.c,fcc_store.c,fcc_write.c
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : jaffe@transarc.com
+Transarc Status               : open
+
+[1/8/93 public]
+  Long-running servers generate credential caches which are
+artificially large: they contain a large number of expired tickets.
+These expired tickets could be collapsed out of the credential cache
+at intervals, perhaps during sec_login_refresh_identity(). Currently
+the servers have no way of cleaning these files.
+
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `jaffe@transarc.com' 
+Added field Transarc Status with value `open'
+
+[4/30/96 public]
+
+Fixed in DCE 1.2.1. Expired ticket slots in credential cache files
+are now reused if the new ticket is the same size as the expired one.
+
+
+
+CR Number                     : 5750
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : 
+Short Description             : UHYP:"Registry sever unavailable (dce /sec)" masks real cause of error
+Reported Date                 : 10/21/92
+Found in Baseline             : 1.0.2
+Found Date                    : 10/21/92
+Severity                      : C
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : security/client/rca/internal_binding.c, security/idl/sec.sams
+Sensitivity                   : public
+
+[10/21/92 public]
+
+The "Registry server unavailable (dce / sec)" is a very widely seen
+error (because the actual error code has been masked). Unfortunately 
+this gives absolutely no indication whatsoever as to what the real 
+cause of the problem is and hence there is no clue as to how to 
+proceed/debug. A real error should be returned instead. 
+
+A frequently used workaround is to set the environment variable 
+DEBUG_SEC (to 1 or 5). This is acceptable where the problem is 
+readily reproducable. However turning on DEBUG_SEC is not a 
+feasible solution when this error occurs after many hours of 
+testing (OT 5611 is an example of this). Also this is not a documented
+feature so many people may be unaware of it.
+
+The following is a list of OT reports where this error was seen 
+or the question was asked  "What does this mean ? How can we proceed ?"
+
+   OT reports: 5684, 5611, 5498, 4911, 4735, 5041
+
+I have been asked the same question often here at OSF. In terms of 
+priority , I consider this higher in priority than most of the 1's 
+except for perhaps OT 5374.
+
+[ pato 10/22/92 public]
+
+I've marked this "defer" (sekhar's comments above notwithstanding).
+We believe that the right way to handle this is to add a 
+sec_rgy_inq_error function to obtain the underlying cause of the 
+failure.  There are many reasons why an operation to a security server
+might fail - but many of these will be invisible to the application
+once replication is in place (i.e., most failures will not actually
+occur since the client code will automatically rebind to a different
+server).  In this environment we expect to store the first error that
+forced a rebind, but then continue rebinding until no more alternatives
+are available.
+
+[10/26/92 public]
+
+Status changed back to open.
+
+Reason: This defect as well as several other enhancements raise the
+a general issue of the importance of better error handling (this 
+applies not only to security but to other components - in my opinion).
+I would like to raise this as an issue here at OSF for review and 
+get answers to questions such as : what priority should be given
+to better error handling and what release should these be fixed
+in 1.0.2, 1.0.3 or 1.1 ? 
+
+Also Joe what was the reason for deferring this ? Could you please update
+this OT report with that info ? 
+
+I would like to keep this OT report open until I have answers to my 
+questions.
+
+[11/19/92 public]
+
+The reason for deferring this bug is that to fix it the way Joe suggests
+(by adding a mechanism for finding out the real error message underneath
+the generic server unavailable message), is adding new functionality that 
+will take some real amount of time to implement.  We believe that 
+this is the correct approach and are happy to add this functionality, but
+given the 1.0.2 schedule, we don't believe it feasible for this release.
+As far as what release we should get this fixed in, that's for the OSF
+to decide.
+the OSF to decide
+this fixed in, that's your call.
+
+[12/3/92 public]
+
+Changed the status to defer (because of lack of time to implement in 1.0.2)
+In my opinion this should be fixed in 1.0.3.
+
+[12/3/92 public]
+Just wanted to add one more note to the readers of this OT. The decision to
+defer the defect (because of lack of time to fix this in 1.0.2 release) was
+agreed upon in the weekly tech conference call two weeks ago (Brad and 
+Dave Lounsbury were at this meeting). That this should be fixed in 1.0.3 is
+my recommendation.
+
+[9/2/93 public]
+Sekhar - now that you own this bug :), you might want to defer it to 1.1,
+since it is part of the planned serviceability work you're doing there.
+
+[7/13/94 public]
+
+years in the making.... Any update on this?  Can we close or defer to 1.2?
+
+[7/13/94 public]
+No, this needs (& is yet) to be addressed in 1.1 serviceability.
+
+[ sekhar 10/5/94 public ]
+
+Bumped priority back to 1 to indicate that we are tentatively planning
+this for the unintegrated tree. The fix will be to log SVC messages 
+(lower risk) and not what is outlined in the OT .
+
+[10/12/94 public]
+
+Removed from unintegrated list until fix is known and can be evaluated.
+Leaving at priority 0 so it stays on the list...
+
+[ sekhar 10/13/94 public ]
+
+The fix simply logs the actual error status before it is mapped to 
+the Registry Server Unavailable.
+
+The files which will change are internal_binding.c (about 10 lines) 
+and sec.sams - for 5 new messages logged by the binding code . These 
+messages are not returned as status codes by the security API. 
+
+The fix is really useful because it will give more information about
+why a registry server was unavailable.
+
+The fix in more detail :
+
+   Informational messages (severity level NOTICE) will be logged on
+   binding failure , attempts to rebind and the success/failure of rebinding.
+
+   The following is an example
+
+   rgy_edit>
+   Current site is: registry server at /.../cell_svc/subsys/dce/sec/master
+   rgy_edit=> do p
+   rgy_edit=> v
+   1994-09-19-12:21:11.855-04:00I----- rgy_edit NOTICE sec rgybind internal_binding.c 2891 0x7aff3d80
+   Registry operation failed ( /.../cell_svc/subsys/dce/sec/master ) : Communications failure
+   1994-09-19-12:21:11.858-04:00I----- rgy_edit NOTICE sec rgybind internal_binding.c 1670 0x7aff3d80
+   Attempting to rebind to an alternate registry site and retrying operation
+   1994-09-19-12:21:11.873-04:00I----- rgy_edit NOTICE sec rgybind internal_binding.c 1672 0x7aff3d80
+   Rebound to site /.../cell_svc/subsys/dce/sec/hot_joe
+   nobody [nogroup none]:*:-2:-2::/::
+   root [system none]:*:0:0::/::
+   .....
+   rgy_edit=>
+
+
+   If the rebind fails , then instead of
+
+     "Rebound to site /.../cell_svc/subsys/dce/sec/hot_joe"
+
+   the message
+
+     1994-09-19-13:26:37.783-04:00I----- rgy_edit NOTICE sec rgybind internal_binding.c 1672 0x7aff3d80
+     Failed to rebind to an alternate registry to retry operation
+
+   would be logged.
+
+   The above sequence may be repeated up to 5 ( RETRY_LIMIT defined in
+   rca_pvt.h - the no of times an operation is retried ).
+
+   NOTES:
+   a. The NOTICE messages are logged according as per the current routing
+      which is in effect.
+   b. The NOTICE messages log the program name as part of the message -
+      provided the client has called the function dce_svc_set_progname() .
+
+      All the current security clients such as rgy_edit , sec_admin do
+      call dce_svc_set_progname() ( since day the first SVC code drop ).
+
+      So when all SVC messages are being logged to the same file, there
+      is no problem is distinguishing the origin of the Registry Server
+      Unavailable SVC messages from different clients.
+
+      However, if dce_svc_set_progname() is not called by a client, then
+      the PID is logged instead of the program name.
+   c. Side effects/gotchas :
+
+      Until a security server is configured, these messages would be logged.
+      For e.g. dced would like something like :
+
+         1994-09-16-16:32:33.822-04:00I----- dced NOTICE sec rgybind internal_binding.c 2512 0x40023c20Registry
+operation failed (  ) : Invalid network address
+
+      In such a case, these errors should be ignored.
+
+[ sekhar 10/17/94 public ]
+
+Fixed.
+
+
+

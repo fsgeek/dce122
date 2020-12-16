@@ -1,0 +1,697 @@
+CR Number                     : 13574
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : acldb
+Short Description             : dce_acl_copy_acl() handles foreign_id incorrectly
+Reported Date                 : 7/23/96
+Found in Baseline             : 1.2.2
+Found Date                    : 7/23/96
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : dce/utils/acldb/aclconv.c
+Diff supplied by              : provider
+Diff release                  : 1.2.2
+Sensitivity                   : public
+
+[7/23/96 public]
+
+The dce_acl_copy_acl() routine in aclconv.c does not copy over foreign_id
+correctly that causes some junk to be left for id.name and realm.name
+after operations like dce_acl_obj_add*().
+
+The diffs of the fix will be posted soon.
+
+[7/23/96 public]
+
+This bug does not affect dce_acl_obj_add*() routines but rather *acl_lookup()
+routines.
+
+[7/24/96 public]
+
+Further review of this routine indicates that it also handles extended_acl
+and delegate entries incorrectly. Diff's is on its way.
+
+[7/25/96 public]
+Part of 1.2.2 and will be provided in next drop:
+
+*** /vob/dce/src/dce/utils/acldb/aclconv.c@@/main/psn_bugfix/1  Tue Jul 23 10:33
+:39 1996
+--- /vob/dce/src/dce/utils/acldb/aclconv.c      Wed Jul 24 13:40:47 1996
+***************
+*** 8,13 ****
+--- 8,23 ----
+  /*
+   * HISTORY
+   * $Log:	c013574,v $
+# Revision 1.5  96/07/25  17:52:39  root
+# changed fields:  new/changed/deleted note(s) [psn 7/25/96 public]
+# 
+# Revision 1.4  96/07/25  13:47:16  root
+# changed fields: Status  Fixed In Baseline  Affected File(s)  Diff supplied by  Diff release   new/changed/deleted note(s) [psn 7/25/96 public]
+# 
++  * Revision /main/psn_bugfix/2  1996/07/23  15:39 UTC  psn
++  *    Fix OTs 13547: dce_acl_copy_acl() handles foreign_id incorrectly
++  *
+   * Revision /main/psn_bugfix/1  1996/07/23  14:34 UTC  psn
+   *    Fix OTs 13031: dce_acl_obj_add_obj lacks support to add user_obj,
+   *    group_obj, mask_obj & other_obj.
+***************
+*** 69,74 ****
+--- 79,85 ----
+
+  #include <aclimpl.h>
+
++ #include <dce/uuid.h>
+  #include <dce/pgo.h>
+  #include <dce/secidmap.h>
+  #include <dce/dce_cf.h>
+***************
+*** 145,150 ****
+--- 156,173 ----
+        /* free each entry */
+
+        switch (ae->entry_info.entry_type) {
++       case sec_acl_e_type_mask_obj:
++       case sec_acl_e_type_user_obj:
++       case sec_acl_e_type_group_obj:
++       case sec_acl_e_type_other_obj:
++       case sec_acl_e_type_unauthenticated:
++       case sec_acl_e_type_any_other:
++       case sec_acl_e_type_user_obj_deleg:
++       case sec_acl_e_type_group_obj_deleg:
++       case sec_acl_e_type_other_obj_deleg:
++       case sec_acl_e_type_any_other_deleg:
++           break;                      /* no action */
++
+        case sec_acl_e_type_user:
+        case sec_acl_e_type_group:
+        case sec_acl_e_type_foreign_other:
+
+***************
+--- 192,201 ----
+            break;
+
++       case sec_acl_e_type_extended:
++             if (ae->entry_info.tagged_union.extended_info)
++                 rpc_sm_free(ae->entry_info.tagged_union.extended_info, st);
++           break;
++
+        default:
+            break;
+        }
+***************
+*** 447,468 ****
+      acl2->sec_acl_entries     = (sec_acl_entry_t *)rpc_sm_allocate(
+                sizeof(sec_acl_entry_t)*acl1->num_entries, st);
+      STAT_CHECK_RET(*st);
+
+!     for (i=0; i<acl1->num_entries; i++) {
+        ae1 = &acl1->sec_acl_entries[i];
+        ae2 = &acl2->sec_acl_entries[i];
+!       acl2->sec_acl_entries[i] = acl1->sec_acl_entries[i];
+
+        switch (ae1->entry_info.entry_type) {
+        case sec_acl_e_type_user:
+        case sec_acl_e_type_group:
+        case sec_acl_e_type_foreign_other:
+!           ae2->entry_info.tagged_union.id.uuid =
+!               ae1->entry_info.tagged_union.id.uuid;
+            if (ae1->entry_info.tagged_union.id.name) {
+                cp = ae1->entry_info.tagged_union.id.name;
+                ae2->entry_info.tagged_union.id.name =
+                        (idl_char *)rpc_sm_allocate(strlen((char *)cp) + 1, st);
+                strcpy((char *)ae2->entry_info.tagged_union.id.name, (char *)cp)
+;
+            }
+            else
+--- 558,587 ----
+      acl2->sec_acl_entries     = (sec_acl_entry_t *)rpc_sm_allocate(
+                sizeof(sec_acl_entry_t)*acl1->num_entries, st);
+      STAT_CHECK_RET(*st);
++     memset(acl2->sec_acl_entries, 0, sizeof(sec_acl_entry_t)*acl1->num_entries
+);
+
+!     for (i=0; *st == error_status_ok && i<acl1->num_entries; i++) {
+        ae1 = &acl1->sec_acl_entries[i];
+        ae2 = &acl2->sec_acl_entries[i];
+!         /* Copy perms and entry type */
+!       ae2->perms = ae1->perms;
+!       ae2->entry_info.entry_type = ae1->entry_info.entry_type;
+
+        switch (ae1->entry_info.entry_type) {
+        case sec_acl_e_type_user:
+        case sec_acl_e_type_group:
+        case sec_acl_e_type_foreign_other:
+!       case sec_acl_e_type_user_deleg:
+!       case sec_acl_e_type_group_deleg:
+!       case sec_acl_e_type_for_other_deleg:
+!             ae2->entry_info.tagged_union.id.uuid =
+!               ae1->entry_info.tagged_union.id.uuid;
+            if (ae1->entry_info.tagged_union.id.name) {
+                cp = ae1->entry_info.tagged_union.id.name;
+                ae2->entry_info.tagged_union.id.name =
+                        (idl_char *)rpc_sm_allocate(strlen((char *)cp) + 1, st);
++                 if (*st != error_status_ok)
++                     break;
+                strcpy((char *)ae2->entry_info.tagged_union.id.name, (char *)cp)
+;
+            }
+            else
+***************
+*** 475,509 ****
+        case sec_acl_e_type_other_obj:
+        case sec_acl_e_type_unauthenticated:
+        case sec_acl_e_type_any_other:
+            break;                      /* no action */
+
+        case sec_acl_e_type_foreign_user:
+        case sec_acl_e_type_foreign_group:
+-           ae2->entry_info.tagged_union.foreign_id =
+-               ae1->entry_info.tagged_union.foreign_id;
+-           break;
+-       case sec_acl_e_type_extended:
+-           ae2->entry_info.tagged_union.extended_info =
+-               ae1->entry_info.tagged_union.extended_info;
+-           /* ae2->entry_info.tagged_union.extended_info.pickled_data
+-            * is NOT a pointer, so we cannot allocate a copy.
+-            */
+-           break;
+-       case sec_acl_e_type_user_obj_deleg:
+-       case sec_acl_e_type_user_deleg:
+        case sec_acl_e_type_for_user_deleg:
+-       case sec_acl_e_type_group_obj_deleg:
+-       case sec_acl_e_type_group_deleg:
+        case sec_acl_e_type_for_group_deleg:
+!       case sec_acl_e_type_other_obj_deleg:
+!       case sec_acl_e_type_for_other_deleg:
+!       case sec_acl_e_type_any_other_deleg:
+            break;
+        default:
+            break;
+        }
+      }
+!     acl2->num_entries = acl1->num_entries;
+  }
+
+  /* ______________________________________________________________________ */
+--- 594,681 ----
+        case sec_acl_e_type_other_obj:
+        case sec_acl_e_type_unauthenticated:
+        case sec_acl_e_type_any_other:
++       case sec_acl_e_type_user_obj_deleg:
++       case sec_acl_e_type_group_obj_deleg:
++       case sec_acl_e_type_other_obj_deleg:
++       case sec_acl_e_type_any_other_deleg:
+            break;                      /* no action */
+
+        case sec_acl_e_type_foreign_user:
+        case sec_acl_e_type_foreign_group:
+        case sec_acl_e_type_for_user_deleg:
+        case sec_acl_e_type_for_group_deleg:
+!             /* Copy foreign id */
+!           ae2->entry_info.tagged_union.foreign_id.id.uuid =
+!               ae1->entry_info.tagged_union.foreign_id.id.uuid;
+!             /* Copy foreign id name if not NULL */
+!           if (ae1->entry_info.tagged_union.foreign_id.id.name) {
+!               cp = ae1->entry_info.tagged_union.foreign_id.id.name;
+!               ae2->entry_info.tagged_union.foreign_id.id.name =
+!                       (idl_char *)rpc_sm_allocate(strlen((char *)cp) + 1, st);
+!                 if (*st != error_status_ok)
+!                     break;
+!               strcpy((char *)ae2->entry_info.tagged_union.foreign_id.id.name,
+(char *)cp);
+!
+!           }
+!           else
+!               ae2->entry_info.tagged_union.foreign_id.id.name = NULL;
+!
+!             /* Copy foreign realm */
+!           ae2->entry_info.tagged_union.foreign_id.realm.uuid =
+!               ae1->entry_info.tagged_union.foreign_id.realm.uuid;
+!             /* Copy foreign realm name if not NULL */
+!           if (ae1->entry_info.tagged_union.foreign_id.realm.name) {
+!               cp = ae1->entry_info.tagged_union.foreign_id.realm.name;
+!               ae2->entry_info.tagged_union.foreign_id.realm.name =
+!                       (idl_char *)rpc_sm_allocate(strlen((char *)cp) + 1, st);
+!                 if (*st != error_status_ok)
+!                     break;
+!               strcpy((char *)ae2->entry_info.tagged_union.foreign_id.realm.nam
+e, (char *)cp);
+!           }
+!           else
+!               ae2->entry_info.tagged_union.foreign_id.realm.name = NULL;
+            break;
++       case sec_acl_e_type_extended:
++             if (ae1->entry_info.tagged_union.extended_info) {
++                 idl_size_t ext_len;
++                 sec_acl_extend_info_t *ae2e, *ae1e;
++
++                 ae1e = ae1->entry_info.tagged_union.extended_info;
++                 /* The size should be calculated using:
++                  *      sizeof(sec_acl_extend_info_t) - 1 +
++                  *      ae1e->num_bytes * sizeof(idl_byte)
++                  * The following was chosen to keep consistency with other
++                  * modules of security code that deals with extended_info.
++                  * The approach below could break if strcture field alignment
++                  * or size changes.
++                  */
++                 ext_len = sizeof(uuid_t) + sizeof(ndr_format_t) +
++                           sizeof(unsigned32) +
++                           ae1e->num_bytes * sizeof(idl_byte);
++                 ae2e = ae2->entry_info.tagged_union.extended_info =
++                     (sec_acl_extend_info_t *)rpc_sm_allocate(ext_len, st);
++                 if (*st != error_status_ok)
++                     break;
++                 ae2e->extension_type = ae1e->extension_type;
++                 ae2e->format_label   = ae1e->format_label;
++                 ae2e->num_bytes      = ae1e->num_bytes;
++               memcpy(&(ae2e->pickled_data), &(ae1e->pickled_data),
++                        ae1e->num_bytes);
++             } else
++                 ae2->entry_info.tagged_union.extended_info = NULL;
++           break;
++
+        default:
+            break;
+        }
+      }
+!
+!     /* Free up allocated memory if we encounter failure during copy */
+!     if (*st != error_status_ok) {
+!         error_status_t dummy_st;
+!         dce_acl_obj_free_entries(acl2, &dummy_st);
+!     } else
+!         acl2->num_entries = acl1->num_entries;
+  }
+
+  /* ______________________________________________________________________ */
+
+[7/25/96 public]
+Just noticed a minor problem that would have caused memory leak in case of
+malloc failure. DIFF:
+
+*** /vob/dce/src/dce/utils/acldb/aclconv.c@@/main/DCE_1.2.2/1   Thu Jul 25 17:27:09 1996
+--- /vob/dce/src/dce/utils/acldb/aclconv.c@@/main/DCE_1.2.2/2   Thu Jul 25 17:50:25 1996
+***************
+*** 8,13 ****
+--- 8,17 ----
+  /*
+   * HISTORY
+   * $Log:	c013574,v $
+# Revision 1.5  96/07/25  17:52:39  root
+# changed fields:  new/changed/deleted note(s) [psn 7/25/96 public]
+# 
++  * Revision /main/DCE_1.2.2/2  1996/07/25  21:50 UTC  psn
++  *    One minor fix to fix for OT13574.
++  *    [1996/07/25  21:46 UTC  psn  /main/psn_bugfix/7]
++  * 
+   * Revision /main/DCE_1.2.2/1  1996/07/25  21:27 UTC  psn
+   *    Rename dce_acl__check_dup_id to dce_acl__check_duplicate.
+   *    [1996/07/25  17:34 UTC  psn  /main/psn_bugfix/6]
+***************
+*** 677,688 ****
+        }
+      }
+  
+      /* Free up allocated memory if we encounter failure during copy */
+      if (*st != error_status_ok) {
+          error_status_t dummy_st;
+          dce_acl_obj_free_entries(acl2, &dummy_st);
+!     } else 
+!         acl2->num_entries = acl1->num_entries;
+  }
+  
+  /* ______________________________________________________________________ */
+--- 681,693 ----
+        }
+      }
+  
++     acl2->num_entries = acl1->num_entries;
++ 
+      /* Free up allocated memory if we encounter failure during copy */
+      if (*st != error_status_ok) {
+          error_status_t dummy_st;
+          dce_acl_obj_free_entries(acl2, &dummy_st);
+!     }
+  }
+  
+  /* ______________________________________________________________________ */
+
+
+
+CR Number                     : 13175
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : app_ref
+Short Description             : man page for dce_msg_get_cat_msg()
+ incorrectly states that a pointer to malloc'd space is returned
+Reported Date                 : 10/17/95
+Found in Baseline             : 1.1
+Found Date                    : 10/31/95
+Severity                      : C
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : app_ref/man3dce/dce_msg_get_cat_msg.3dce
+Sensitivity                   : public
+
+[10/31/95 public]
+
+The man page for dce-msg_get_cat_msg() states:
+   The dce_msg_get_cat_msg() routine is a "convenience" form of
+   the dce_msg_cat_get_msg() routine.  The difference between it
+   and the latter routine is [ ... ]  and returns a pointer
+   to malloc()'d space containing the msg.
+
+The code in this "convenience" routine does:
+- - - -
+      p = dce_msg_cat_get_msg(h, message, status);
+      return p;
+- - - -
+   and since dce_msg_cat_get_msg() does not return malloc'd space,
+neither will dce_msg_get_cat_msg().
+
+(from rsalz)
+The dce_msg api names actually make sense if you look at them long enough.
+	dce_msg_cat_open
+	dce_msg_cat_get_msg
+	dce_msg_cat_close
+DCE MeSsaGe, xpg4 message CATalog stuff --> dce_msg_cat
+Leaving open, get_msg, close.  open and close create/free handles, and
+get_msg gets a message.  I don't know if the docs are clear, or not, but
+dce_msg_cat_get_msg is like catgets -- you don't know if its malloced,
+pointer to internal space, or what.  You just know it's valid until
+the catalog is closed.
+
+And dce_msg_get_cat_msg is a convenience routine that saves you the
+hassle of opening and closing catalog handles.  So it's return value
+is like get_msg:  available until it's called
+
+[2/4/96 public]
+
+Assigned responsibility to myself.
+
+[3/14/96 public]
+
+Fixed. The passage now reads: "dce_msg_get_cat_msg()...determines the
+correct catalog from the message parameter (which is a 32-bit DCE
+message ID as described in dce_error_inq_text(3dce)), opens it, and
+returns a pointer to the message."
+
+
+
+CR Number                     : 12775
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : DCE Backing Store Library : dce_db_open
+Short Description             : Missing crucial parameters
+Reported Date                 : 1/11/95
+Found in Baseline             : 1.1
+Found Date                    : 1/11/95
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : src/dce/utils/acldb/dbopen.c
+Sensitivity                   : public
+
+[1/11/95 public]
+
+dce_db_open really needs 2 additional parameters to be maximally useful.
+One is the file mode argument so that a caller can specify the mods to
+be set when the file is created. Depending on the umask is not safe when
+the information to be stored is confidential. Also, the dce_db_open API
+should allow the user to specify access method specific data to the backend
+selected. This would enable the caller to change important values such
+as the in-memory cachesize or the on-disk page-size, which can improve
+performance and save disk space, depending on what type of data you are
+working with.
+
+So I would suggest changing the API signature to:
+
+void
+dce_db_open(
+    const char          *filename,
+    const char          *backend_type,
+    unsigned32          flags,
+    int                 mode,
+    void                *openinfo,
+    dce_db_convert_func_t convert,
+    dce_db_handle_t     *h,
+    error_status_t      *st
+)
+
+Of course, you would probably need to change the name of the API to
+preserve upwards compatibility.
+
+[01/11/95 public]
+I don't understand the "umask isn't safe" model.  Why doesn't
+	u = umask(0077);
+	dce_db_open(....)
+	umask(u)
+work?
+
+That's a trick question. :-)  It doesn't work because dce_db_XXX makes no
+guarantees about the underlying backend.  The API was designed so that
+the BSD DB library could be ripped out and replaced, say, by a table in
+an off-the-shelf relational database.
+
+On the other hand, a generic openinfo argument is kind of neat, and might
+be cleaner then what I always thought people would do:  use ",key=value"
+substrings as part of the "backend_type" argument, viz:
+	"db44-hash,cachesize=12"
+Analogous to string bindings (and VMS fopen parameters :-).
+
+Given the genericity (?) of the API, I'd support a dce_db_open_with_params
+that had Sean's openinfo parameter, but not his mode parameter.
+
+[2/9/96 public]
+
+Hmm, I regret I never saw the response above till now, because now
+I understand your "genericity" concerns. Anyway, we ended up fixing
+this problem locally and it went in to 1.2.1 as part of a
+bugfix drop. It's currently named dce_db_open_file() - to imply that 
+the operation is for a file, and it adds the openinfo and mode
+arguments. It's undocumented so we can always drop the mode argument
+if there is further disagreement or it could return an "unsupported"
+error if the backend is ever replaced. I was concerned of the implications
+of a umask() switch in a multi-threaded environment. I'm marking
+as 'fix' for now.
+
+
+
+CR Number                     : 12721
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : msg
+Short Description             : UHYP:error_status_ok not translateable
+Reported Date                 : 10/25/94
+Found in Baseline             : 1.1
+Found Date                    : 10/25/94
+Severity                      : B
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : dce/utils/svc/msggetmsg.c
+Sensitivity                   : public
+
+[10/25/94 public]
+Message catalogs can't have a message numbered zero in them.
+dce_error_inq_text works around this by doing
+    if (status_to_convert == 0)
+	status_to_convert = msg_s_ok_text;
+This should also be done for dce_msg_get_cat_msg.  (Maybe others, someone
+will have to look -- that msg API makes my head hurt.:)  It should also
+happen for the dce_msg_get_default_msg routine.
+There is no work-around, but it's hard to see how this is an A0.
+If this fix is not made, then any attempt to get the text for error_status_ok
+through the MSG API will always get the C/English.
+
+There is a latent bug caused by dce_cf_* API.  It defines a 0 status code.
+It shouldn't, but we can't change that.  In dce/utils/svc/msgtable.c,
+we should put a comment making sure that the svc_msg_table comes before
+the the dce_cfg_table so that when status code 0 is translated, you
+always get the SVC version.
+
+[1/25/94 public]
+I adjusted dce_msg_get_default_msg() and dce_msg_get_cat_msg() to use the
+same scheme to map status=0 to a known "success" message.
+
+
+
+CR Number                     : 12611
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : UHYP: no usage for svcdumplog
+Reported Date                 : 10/13/94
+Found in Baseline             : 1.1
+Found Date                    : 10/13/94
+Severity                      : E
+Priority                      : 4
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : dce/utils/svc/svc.sams
+Sensitivity                   : public
+
+[10/13/94 public]
+
+Calling "svcdumplog -x" I get:
+
+svcdumplog: illegal option -- x
+Unknown message number 0x173ca00e
+
+The reason seems to be that svc_s_dump_usage from svc.sams is
+not in dcesvc.cat.
+Sorry for this totally uninteresting OT.
+
+[1/13/94 public]
+Added "intable" to that slot in the sams file.
+
+[1/14/94 public]
+Works in nightly unintegrated build (Oct 20).
+
+[10/26/94 public]
+Marking as UHYP so bug summaries don't get confusing.
+
+
+
+CR Number                     : 12608
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : UHYP:missing semaphore in dce_svc__debug_fillin()
+Reported Date                 : 10/12/94
+Found in Baseline             : 1.1b21
+Found Date                    : 10/12/94
+Severity                      : C
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : dce/utils/svc/{svcprintf.c,svcroute.c}
+Sensitivity                   : public
+
+[10/12/94 public]
+           (IBM svc defect 10732):
+
+           Missing semaphore in dce_svc__debug_fillin()
+
+
+           dce_svc__debug_fillin() should have a lock around the table
+           access, analogous to the one in dce_svc_register(), i.e.:
+
+           boolean
+           dce_svc__debug_fillin(
+               dce_svc_handle_t            handle,
+               error_status_t              *status
+           )
+           {
+               char                        buff[SMBUF];
+               char                        *p;
+               char                        *flags;
+               char                        *freeme;
+
+
+               /* Add the table, translate its strings. */
+               LOCK();
+               if (!dce_svc__add_to_table(handle, status)) {
+                   UNLOCK();
+                   return FALSE;
+               }
+               UNLOCK();
+
+[1/12/94 public]
+Be careful.  dce_svc_printf() calls dce_svc__debug_fillin(), but already
+does LOCK/UNLOCK.
+
+[10/13/94 public]
+Yeah, be careful.  Here is what I think is the right way to fix this.
+	dce_svc__debug_fillin2 should use LOCK/UNLOCK around its
+	call to dce_svc__debug_fillin.
+
+	dce_svc__debug and dce_svc_log should use LOCK/UNLOCK the
+	same way dce_svc_printf does.  (I don't know why they don't)
+
+[1/14/94 public]
+Added LOCK/UNLOCK to dce_svc_debug_fillin2(), dce_svc__debug(), and
+dce_svc_bin_log().
+
+
+
+CR Number                     : 12600
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : attr
+Short Description             : UHYP:spurious blank in tetexec.cfg file causes failures
+Reported Date                 : 10/12/94
+Found in Baseline             : 1.1b19
+Found Date                    : 10/12/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : test/dce/utils/attr/tetexec.cfg
+Sensitivity                   : public
+
+[10/12/94 public]
+A spurious blank in test/dce/utils/attr/tetexec.cfg  causes failures
+in tests.  Removing the blank allows test to pass.  (This wasted an
+hour of my time 2 weeks ago, and some of Bob Whitehurst's today.)
+Trivial, NO-risk fix.
+
+[1/13/94 public]
+Removed the blanks.
+
+
+

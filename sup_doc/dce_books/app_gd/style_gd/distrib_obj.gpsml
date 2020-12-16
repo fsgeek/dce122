@@ -1,0 +1,453 @@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+...\" ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+...\" src directory for the full copyright text. 
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: distrib_obj.gpsml,v $
+...\" Revision 1.1.5.2  1996/12/17  19:54:33  damon
+...\" 	Expanded OSF C O P Y R I G H T   N O T I C E
+...\" 	[1996/12/17  19:53:38  damon]
+...\"
+...\" Revision 1.1.5.1  1996/05/10  19:48:28  wardr
+...\" 	{edit, R1.2.2}
+...\" 	Removed R1.1 changebars
+...\" 	[1996/05/10  19:48:03  wardr]
+...\" 
+...\" Revision 1.1.3.4  1995/11/09  17:00:42  wardr
+...\" 	{enh CR13032 R1.2.1} Indexing and touchup pagination.
+...\" 	[1995/11/09  16:59:36  wardr]
+...\" 
+...\" Revision 1.1.3.3  1995/11/01  23:10:12  wardr
+...\" 	{enh CR13032 R1.2.1} Updated figures and input final edits.
+...\" 	[1995/11/01  23:09:35  wardr]
+...\" 
+...\" Revision 1.1.3.2  1995/09/15  20:02:55  wardr
+...\" 	{edit R1.2.1}
+...\" 	fix figure path names
+...\" 	[1995/09/15  20:02:42  wardr]
+...\" 
+...\" Revision 1.1.3.1  1995/09/15  18:14:37  wardr
+...\" 	{enh, CR13032 R1.2.1}
+...\" 	Add xidl (oorpc) information
+...\" 	[1995/09/15  18:14:07  wardr]
+...\" 
+...\" $EndLog$
+...\" 
+.H 1 "Object-Oriented Applications with Distributed Objects"
+.P
+.iX "C++ language"
+.iX "distributed object"
+.iX "framework"
+.iX "object-oriented applications"
+The DCE Interface Definition Language (IDL) compiler includes 
+support for C++ language syntax features
+that provide a distributed object framework.  This chapter describes
+some terms and techniques for developing object-oriented DCE
+applications.  Before you start developing your applications, read
+this chapter and then see the  
+\*VOSF DCE Application Development Guide - Core Components\*O
+for more information.
+.P
+.iX "benefit of C++"
+.iX "C++ language" "benefits in using"
+In general, using C++ for your DCE applications should be easier than
+using C because the DCE mechanisms can be better hidden from the
+developer.  The following are some examples:
+.ML
+.LI
+The C++ compiler forces the server implementation of all interface
+operations. 
+Although all DCE applications must do this to work properly, 
+there is nothing to prevent you from writing an incomplete
+server in C.
+An added benefit of C++ is that the IDL compiler automatically generates 
+the manager class with all the function signatures defined.
+.LI
+The DCE function table known as an entry point vector (EPV) is
+generated automatically in object code by a C++ compiler, 
+rather than in C code by the IDL compiler.  
+In addition, you never have to construct a
+manager EPV as you might in your C code.
+.LI
+.iX "\*Lrpc_object_set_type(\|)\*O"
+C++ automatically provides a mechanism for grouping objects 
+into types with its class data structure. This means it is unnecessary
+to use the DCE \*Lrpc_object_set_type()\*O routine and associated routines.
+.LI
+For DCE servers, interfaces are automatically registered with the DCE runtime.
+.LE
+.P
+These and other features make for easier and faster development.
+.P
+.iX "exception-handling macros and C++"
+DCE supplies exception-handling macros to use in distributed
+applications.  You should use the DCE macros in your applications,
+instead of the standard C++ macros, to be sure exceptions are
+propagated correctly from servers to clients.
+.P
+Distributed applications traditionally use the client/server model,
+in which a client application binds to a server and makes a request, to
+which the server responds.  In this model, the distinction between a
+client and server is strong from both a development and runtime
+perspective.  The client/server model is still convenient when
+developing and describing distributed, object-oriented applications,
+but an application is not distinctly a client or server.  Whether an
+application is a client or server is more a condition of its execution
+than a characteristic of its development.  It is convenient to say
+that a client requests the use of a distributed object and that
+objects are maintained by servers.  However, clients also create and
+maintain their own objects that may be used by other applications, and
+servers may need to use objects maintained by other applications.
+
+.H 2 "Kinds of Objects"
+.P
+.iX "kinds of objects"
+.iX "objects" "kinds of"
+In addition to the local objects that servers and clients each have,
+there are two major kinds of distributed objects: dynamic objects and
+named objects.  Distributed objects exist in the server's
+memory space, and clients refer to them via a pointer data structure
+known as an \*Vobject reference\*O.
+.P
+.iX "dynamic objects"
+\*VDistributed dynamic objects\*O are created on a server by a client
+request for the exclusive use of the invoking client.  These objects
+reside on the server, but clients initiate the object's creation using
+an object creator function defined in the interface.  In C++, dynamic
+objects are simply local objects created at runtime.  In the context
+of DCE, we use the term \*Vdynamic objects\*O to mean distributed
+dynamic objects.  Dynamic objects are typically short-lived; that is,
+in the life span of the client rather than that of the server.
+.P
+.iX "well-known objects"
+.iX "named objects"
+\*VWell-known objects\*O represent specific resources supported by one or
+more servers and are called \*Vnamed objects\*O when they are
+identified by a name stored in a name service.  Each server that
+supports the resource creates and maintains its own object
+representing the resource.
+.P
+Clients control dynamic objects and servers control named objects.  
+The server can give out a dynamic object reference only to the initiating
+client and cannot give out the reference to any other client.
+However, the client that initiated the creation of a dynamic object
+can become a server to another client and give out a reference to the
+dynamic objects it owns.  Servers do not automatically delete dynamic
+objects when a client exits (unlike other RPC features such as a
+context handle).  This allows clients to pass object references to
+other programs to use. This also means that it is the
+\*Vresponsibility of the clients\*O to delete all their dynamic object
+references, thereby causing remote procedure calls to delete the
+object on the server.  On the other hand, a server may pass object
+references for named objects to more than one client, and the server
+has control over when a named object is deleted.  Clients delete only
+their local reference to named distributed objects; they cannot delete
+the actual object on the server.
+.P
+.iX "persistent objects"
+\*VPersistent objects\*O are known objects (usually named) whose
+characteristics are maintained independently from a specific server, 
+usually on disk.
+
+.ne 1.5i
+.H 2 "Reference Counting: How Objects Keep Track of Multiple Clients"
+.P
+.iX "reference counting"
+.iX "objects" "reference counting"	
+.iX "objects" "keeping track of clients"
+\*VReference counting\*O is simply a record that each dynamic object
+maintains internally of how many clients have a reference to it.
+Dynamic object reference counting on a server is handled for you by
+DCE.  Reference counting is maintained so that a server knows when to
+finally release the resources of an object.  An object's reference
+count increases when the client passes a dynamic object to another
+application, and an object's reference count decreases when each
+object reference is deleted. This is why we have stressed that it
+is the responsibility of clients to delete their object references.
+.P
+In addition, if one client passes a dynamic object to another and the
+original client then exits or dies, the second client's object is
+perfectly valid with respect to the server.
+.P
+With the volatility of a distributed environment, even well-designed
+clients could lose a connection or exit unexpectedly, leaving the
+reference count in an incorrect state.  Robust servers can delete any
+dynamic objects they wish, but they run the risk of causing an
+unexpected failure on clients.  Depending on the application, this may
+be acceptable.  For example, in a trading system where dynamic objects
+may be valid only during a single day, nightly purging of stale
+objects makes sense.
+
+.H 2 "Using Interface Definitions to Design Classes"
+.P
+.iX "classes" "defining in IDL"
+.iX "defining C++ classes"
+Since RPC is the mechanism DCE clients and servers use to become
+distributed applications, this mechanism must be introduced into C++
+applications in an object-oriented way.  When IDL compiles an
+interface definition, it generates a class hierarchy for clients and
+one for servers that provide the transition from RPCs to
+object-oriented applications.
+This is shown in the following figure.
+
+
+.ne 5i
+.iX "RPC class hierarchy"
+.iX "hierarchy of RPC classes"
+.iX "classes" "RPC hierarchy"
+.FG "The RPC Class Hierarchy"
+.pI ../style_gd/figures/distrib_obj_01.ps
+.P
+.iX "\*Lrpc_object_reference\*O class"
+.iX "base class for DCE"
+.iX "classes" "DCE base class \*Lrpc_object_reference\*O"
+At the top of each RPC hierarchy is a DCE-supplied class called
+\*Lrpc_object_reference\*O.  This \*VDCE base class\*O encapsulates
+the RPC mechanisms and provides a framework for identifying,
+distributing, and tracking objects.  It is used by the generated stubs
+and not directly by your application code.
+.P
+.iX "interface class"
+.iX "classes" "interface"
+The IDL compiler also generates an \*Vinterface class\*O derived from
+the DCE base class.  The interface class contains the public member
+functions specified in the interface definition.  The interface class
+provides the link between the RPC mechanisms of the DCE base class and
+your application.
+.P
+.iX "polymorphism"
+.iX "abstract class"
+.iX "virtual functions"
+Although the interface class is the same for both the client and
+server hierarchy, the client and server must implement these functions
+quite differently.  The server implements application-specific
+functions that operate on the actual object, while the client uses
+\*Lidl\*O-generated functions that provide the distributed mechanisms.
+Polymorphism provides the capability to hide the implementation
+details of the interface class.  In C++, this flexibility is easily
+provided by creating the interface class as an\*V abstract class\*O
+with all\*V pure virtual functions\*O.  This means that none of the
+functions of an interface class are implemented directly, so no
+objects of the interface class can be created directly.  This apparent
+restriction simply means that to implement the member functions,
+another class must be derived from the interface class.
+.P
+.iX "proxy class"
+.iX "client proxy class"
+.iX "classes" "proxy"
+At this point, the client and server RPC hierarchies diverge.  
+In the client, the IDL compiler automatically derives a \*Vproxy class\*O
+from the interface class.  The proxy class implements in the client
+stub all the pure virtual member functions of the interface class.
+These functions handle all the underlying RPC code necessary for your
+client to access distributed objects.  Thus, when a client calls the
+interface class's member functions, the polymorphic behavior of the
+C++ class hierarchy causes automatic invocation of the appropriate
+proxy class function in the stub.
+In the server, the IDL compiler automatically generates a 
+\*Vmanager class\*O with empty function bodies.  
+.iX "manager class"
+.iX "server manager class"
+.iX "classes" "manager"
+.P
+.ne 1.5i
+You can choose to implement the server's interface operations in two ways:
+.ML
+.LI
+.iX "IDL compiler option" "\*L-no_cxxmgr\*O"
+.iX "\*L-no_cxxmgr\*O IDL compiler option"
+Implement the functions in the generated header file.  
+However, be aware that under normal circumstances, a new IDL compilation
+of the interface will overwrite the header file with empty functions.
+(You can override this IDL compiler behavior with the \*L-no_cxxmgr\*O option.
+.LI
+Derive a new implementation class from the automatically generated manager class.
+.LE
+.P
+.H 3 "Using Static Functions in Interface Design"
+.P
+.iX "static functions"
+Your IDL interfaces must be designed to make it clear which functions
+are static, because it may not be intuitive to first-time users.  If
+something is static it doesn't move or change; it retains its state.
+In C++ the term \*Estatic\*O has a little more meaning than this.  
+C++ uses the term to restrict the definition of a variable or function to
+within a specific scope of a program, and it causes values to be
+retained when program execution comes back to that scope. A variable
+or function that is static is like a refined global variable or
+function.  Both static and global variables give a program a
+convenient way for one part to easily communicate with another without
+using parameters, but a static variable's scope is confined to a
+portion of the program, rather than the scope of the entire program.
+A static class member is a data member or member function that is in
+the scope of all objects of a particular class, but not in the scope of 
+any other class objects or code of the program.  
+A class's objects use static
+members to share data and functionality in a way that saves storage.
+A static data member acts as a class-global variable because there is
+only one instance of it, no matter how many instances of the class
+exist.
+.P
+Programs and interfaces can declare a member function as static.
+Unlike nonstatic class members, static class members can be accessed
+or invoked directly, even if an instance of the class doesn't exist.
+For this reason, it is useful to developers if the interface designer
+identifies all operations in the interface that are to be static
+member functions by doing all of the following:
+.ML
+.LI
+Identifying static operations with comments in the IDL file.
+.LI
+Grouping static operations together in the IDL file.
+.LI
+.iX "IDL \*Lstatic\*O keyword"
+.iX "\*Lstatic\*O IDL keyword"
+Specifying static operations in the interface by using the \*Lstatic\*O
+keyword.  This will self-document the static member functions.
+However, this imposes a restriction that requires that the interface be
+compiled for C++ only and that servers implement the member
+function as static.  If you do not want to impose this in the
+.iX "\*Lcxx_static\*O ACF attribute"
+.iX "ACF attribute \*Lcxx_static\*O"
+interface definition, use the \*Lcxx_static\*O attribute in an
+Attribute Configuration File (ACF) to specify a static member
+function.
+.LE
+
+.H 3 "Adding an Interface Rather than Changing One"
+.P
+.iX "adding an interface"
+.iX "changing an interface"
+.iX "interface changes"
+An interface can inherit the features of another interface; thus not
+only do you have class hierarchies, but you also can have interface
+hierarchies as well.  We suggest that you add more interfaces
+rather than change an existing one, even though IDL provides for
+different interface versions.  Reasons for this include the following:
+.ML
+.LI
+Adding an interface will self document new features.  There is no way
+for a developer to know which operations are old and which are new
+unless they compare the old and new interfaces or the interface
+designer has documented where the new operations begin.
+.LI
+Adding an interface will not break the interface hierarchy.  Adding
+additional operations to a base class can be a problem for
+applications.
+.LI
+Adding an interface allows you to bypass the tedious procedure for
+changing an interface and its version numbers.
+.LE
+.H 2 "Binding to Distributed Objects Rather than Servers"
+.P
+.iX "binding to objects"
+.iX "objects" "binding to rather than servers"
+.iX "object reference"
+.iX "\*Lbind\|)\*O function"
+When binding to objects, binding information is hidden from the
+application by encapsulating it in the\*L rpc_object_reference\*O base
+class that every DCE object inherits.  An application refers to a
+distributed object via an\*V object reference\*O.  An application
+initially obtains an object reference by calling an appropriate
+operation defined in an interface definition or a special \*Lbind( )\*O
+function generated when the interface definition is compiled.  Once an
+object reference is obtained, the application refers to the
+distributed object by calling its member functions, which are other
+operations defined in the interface definition.  Since the location of
+the object (binding information) is already known and completely
+hidden, it is not appropriate to use explicit binding handles on these
+member functions.
+.P
+Traditional DCE RPC object models limit what an object represents.  In
+these models, objects represent resources on various servers or
+multiple servers on individual hosts.  These models do not allow for
+objects to represent many different things in a single application.
+In addition, these models use a mechanism to group objects into types
+so that different sets of manager routines can be implemented, but
+this mechanism is unnecessary because it is built in with the C++ 
+features of IDL.  
+Using the object-oriented model with C++ instead is an elegant
+way to accomplish these things.
+
+.H 2 "Clients Manipulate Objects Maintained on Servers"
+.P
+The following figure simplifies the relationship between an
+object-oriented application and a remote procedure call.
+
+
+.ne 5i
+.iX "distributed objects and RPCs"
+.iX "RPCs and distributed objects"
+.FG "Distributed Objects and a Remote Procedure Call"
+.pI ../style_gd/figures/distrib_obj_02.ps
+.P
+A client first obtains an object reference to the remote object (manager object).
+An object reference is in the client's address space to act as a proxy
+for the remote object in the server's address space.  In fact, an
+object reference is an instance of the client's proxy class.
+.P
+When a member function is called, the function in the client stub
+executes to handle the RPC.  The stub of the server managing the
+object receives the RPC and dispatches the call to the appropriate
+manager object code and its member function implementation.  The
+actual object is an instance of the manager class.
+
+.H 2 "Naming Objects"
+.iX "naming objects"
+.iX "object naming"
+This section discusses the model used to advertise named objects.  
+The model stores binding information for the object's hosts in the name
+service (for example, the Cell Directory Service, CDS). 
+The model also stores the object's server location information in the 
+endpoint map of each host that has one of the running servers.
+.P
+There are many ways to use the name service to store information.
+Typical servers create and export information to a name service
+entry representing the server itself.  In the named object model, an
+additional name service entry is also created for each named object.
+Thus, as the following figure shows, if five persistent objects are
+supported by two servers, there are a total of seven entries in the
+namespace.  These allow clients a choice to bind by way of server
+entry names or objects names.
+.P
+.ne 2.5i
+.FG "Server and Object Names in the Name Service"
+.pI ../style_gd/figures/distrib_obj_03.ps
+.P
+The object name is application specific, and each server exports its
+binding information to both its server entry and the object entries it
+supports.  The name service entries for each object associate the
+object name with the combination of interface class ID, binding
+information (protocol sequence and host name) for each supported
+server, and object identifier (a UUID).  
+.P
+.iX "CDS object entries"
+.iX "object entries in CDS"
+Object entries are different than server entries.
+It is important to understand that object entries represent objects,
+not servers.  
+A server entry should contain binding information for only one server
+because it represents that server.
+On the other hand, object entries contain binding information for one 
+(or more) servers because multiple servers may support the object.
+.P
+As the number of named objects for an interface grows, management of
+the name service may become necessary.  This could be done in the code
+of each server, but a more consistent and practical approach is to
+create scripts that use \*Ldcecp\*O, or management applications that
+use the name service application programming interface routines.  For
+example, the performance of the name service may degrade as the number
+of entries in a directory becomes very large.  Place object names in a
+directory structure appropriate for the application.
+.P
+If the application allows all clients to know the object names, the
+practical number of objects may be limited.  However, an application
+can be designed to name a service object that clients look up, and
+pass in the specific object name (or identifying number).  In this
+case, the servers can implement (and even later change) the object
+name location any way preferred: 
+by using CDS, a commercial database, 
+or an application-specific database.
+

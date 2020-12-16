@@ -1,0 +1,2975 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: filesets.gpsml,v $
+...\" Revision 1.1.2.3  1994/08/30  00:21:41  jeff
+...\" 	{defect, 11947, R1.1}
+...\" 	Correct/clarify some DFS APIs.
+...\" 	[1994/08/30  00:16:36  jeff]
+...\"
+...\" Revision 1.1.2.2  1994/06/10  21:08:09  devobj
+...\" 	cr10872 - fixed copyright
+...\" 	[1994/06/10  20:47:55  devobj]
+...\" 
+...\" Revision 1.1.2.1  1994/04/05  15:14:19  rom
+...\" 	{enh, 10283, R1.1}
+...\" 	Moved from dce_books/app_gd/dfs/3.rpc.dfs.gpsml to
+...\" 	./supp_docs/redistrib/dfs_app_gdref/chapters/filesets.gpsml.
+...\" 	[1994/04/04  20:55:53  rom]
+...\" 
+...\" $EndLog$
+.H 1 "Manipulating Filesets"
+.zA "defect, 7218, r1.0.2, review comments"
+.P
+This chapter describes the three sets of functions available for manipulating
+filesets. These sets are:
+.ML
+.LI
+Volume Call (\*LVC...(\|)\*O)
+.LI
+Fileset Location Database (\*LVL...(\|)\*O)
+.LI
+Fileset Server (\*LFTSERVER...(\|)\*O)
+.LE
+.iX "VC" "vs. VL and FTSERVER functions"
+.P
+The \*LVC...(\|)\*O functions meet most fileset manipulation needs.
+These are high-level, general-purpose functions for
+maintaining filesets. (They are not, technically, RPC calls, but they
+build on the \*LVL...(\|)\*O and \*LFTSERVER...(\|)\*O RPC calls.)
+These functions automatically keep the Fileset Location
+Database (FLDB) up-to-date, and handle errors gracefully. Failing to keep
+the FLDB and actual filesets in sync with each other could leave the system
+in an inconsistent state, as explained in the following paragraph.
+The \*LVC...(\|)\*O functions
+are implemented using the \*LVL...(\|)\*O and \*LFTSERVER...(\|)\*O functions. They also provide
+consistency guarantees that naive use of the other two sets cannot provide.
+.P
+At times, you may need to perform very specific
+operations that are not covered by the general \*LVC...(\|)\*O functions.
+In those cases, you can use the \*LVL...(\|)\*O and \*LFTSERVER...(\|)\*O functions to
+alter the FLDB entries and actual data, respectively. If you use these
+functions instead of the \*LVC...(\|)\*O functions,
+you have to do your own consistency
+checking when you alter filesets or FLDB entries to ensure that the two
+stay in sync. Changing either the data
+or FLDB entry alone, without changing the other, leads to inconsistency
+that can eventually eliminate your change; that is, if the wrong thing, 
+database
+or data, is synchronized with the other. You need to be careful
+to make both changes at the same time. If you are creating new filesets
+or copies of filesets, you should make the copy first and then create the
+FLDB entry because if you have an entry and no fileset, applications that
+try to access the fileset before you create it get errors. When you
+are making a change, such as renaming a fileset, there is no good rule about
+which to change first, the data or the database entry. Just make sure you
+do one immediately after the other.
+.P
+In addition, you need to make sure that if one of the two changes you make
+(to the fileset or FLDB entry) gets an error that prevents the change from
+actually being made, you do not make the other change anyway or leave the
+disk or database in an intermediate state.
+.P
+All of the functions in this chapter operate, directly or indirectly,
+through remote procedure calls.
+You must write your own code to obtain and manage RPC connections. (See
+Part 3 of this guide for information on doing this.)
+.P
+All of the functions in this chapter operate on DFS filesets, and not on
+files resident on the native
+UNIX File System (UFS) that are not exported to DFS.
+An exported UFS is treated as a DFS fileset.
+.H 2 "DCE and DFS API Terminology Differences"
+.P
+There are some differences in terminology between DCE documentation
+and the DFS API.
+In the DFS API, a \*Efileset\*O may be referred to as a \*Evolume\*O,
+an \*Eaggregate\*O as a \*Epartition\*O, and the \*EFLDB\*O as the \*EVLDB\*O.
+Although the DCE documents have been changed to use fileset terminology,
+the DFS API has not always been changed. Thus, calls, parameter lists, and
+structures often include the \*Vvol\*O, \*Vvolume\*O, and \*Vvldb\*O 
+strings, and
+refer to \*Epartitions\*O. In the DFS API, \*Evolume\*O always means 
+\*Efileset\*O, and \*Epartition\*O means \*Eaggregate\*O unless a
+UFS partition is explicitly being referred to.
+.H 2 "Parameters, Types, and Return Values"
+.P
+Many UNIX functions either return 0 (zero) if the function succeeds, or
+return -1 and set a global variable (\*Lerrno\*O) to a status code. The
+functions described in this chapter do not do this; they always
+return a status code, or zero if there is no error.
+.P
+Because the functions return error codes, the problem of how to return other
+data arises. Because these calls are issued over a network, rather than
+on the local machine, the functions cannot simply return pointers to
+modified data. Thus, you must allocate space for this additional data
+in advance, and pass pointers to this space in the calls. You simply need
+to allocate and manage the memory for these parameters using standard
+UNIX
+memory management techniques (the \*Lmalloc(\|)\*O and \*Lfree(\|)\*O calls, 
+or stack variables).
+.P
+All DFS functions with RPC interfaces have one argument in common, the
+RPC handle.
+.iX "RPC" "handles"
+.iX "handle"  "RPC"
+It is always the first argument to a function and is of type
+\*Lrpc_binding_handle_t\*O (or simply \*Lhandle_t\*O), as defined in Part 3
+of this guide. This handle identifies the particular remote client, and is
+supplied when the remote connection is first established.
+.P
+For the purpose of the examples in this chapter, we assume that you
+have created a function to obtain an RPC handle and set the variable
+\*ERpc_Handle\*O to its output. For information about creating RPC handles,
+see Part 3 of this guide.
+.H 2 "Data Types"
+.P
+Most of the structures described in this chapter have been defined in
+\*Ltypedefs\*O as well as structures. For example, \*Lstruct afsHyper\*O
+and \*LafsHyper\*O are the same. For reasons of extra clarity, the
+structure notation is used in describing the syntax of these functions.
+In the unlikely event that an application programmer needs to use the IDL
+interface for application development, only the latter format is acceptable
+in that environment.
+.P
+Likewise, most of the fields of these structures are of unsigned types,
+including characters. These are explicitly labeled as unsigned only
+in cases where ambiguity could result otherwise.
+.H 2 "Authorization Requirements"
+.P
+The Fileset Location Server (FL Server) and the Fileset Server (FT Server)
+each have administrative
+lists stored in \*Edcelocal\*O\*L/var/dfs\*O.
+The Fileset Location Server for a cell runs on some subset of the
+machines in the cell, and the Fileset Server runs on every machine
+configured as a file server.
+.P
+FL Server administrators can create file server entries in the FLDB that
+are owned by specific groups. People in the group owning a server entry
+can create, delete, and modify FLDB entries for filesets that
+are housed on the declared file server. Specifically, the caller has to be
+in the group owning the file server entry for all file servers referenced by
+the FLDB fileset entry, either before or after any proposed modification.
+This is transparent to the application programmer because the
+caller uses authenticated DCE RPC and the permissions are granted on
+the basis of that authentication.
+.P
+FL Server administrators can make changes
+to the FLDB. All functions in this chapter that require
+altering the FLDB, including those in the \*LVC...(\|)\*O set 
+that create, delete, and
+move filesets, can be called only by those administrators whose principals
+are in the security group that is the ``owner'' of an FLDB server machine
+entry.
+.P
+The administrative list for the Fileset Server should be the union of the
+FL Server administrative list, and the members of the group declared as owning
+the server entry in the FLDB. People on this list can alter any filesets
+on the affected servers. Callers of functions in this chapter that alter
+filesets themselves must be in the appropriate groups.
+(See the \*EOSF DCE Administration Guide\*O for more
+information about these administrative lists.)
+.H 2 "The VC Functions: General Fileset Operations"
+.iX "-: VC" "Volume Call"
+.iX "VC" "functions"
+.P
+The Volume Call (\*LVC...(\|)\*O) functions obtain information
+and perform actions on filesets.
+These functions allow you to manipulate filesets and their corresponding
+Fileset Location Database (FLDB) entries; for example, you can read them,
+delete them, move them around, get status information from them, and so forth.
+.P
+All of the \*LVC...(\|)\*O functions except \*LVC_VolumeStatus(\|)\*O require authorization.
+.H 3 "Parameters"
+.iX "Fileset Server" "functions"
+.P
+Because filesets are accessed through RPC calls, almost all functions in
+this section take an RPC connection and a socket address
+as arguments.
+These are necessary in order to tell the file server where to look for the
+fileset you are manipulating. When you first establish the remote connection,
+you should save the information about the connection and
+simply pass it to these functions. (See Part 3 of this guide
+for more information.)
+.P
+A socket address is needed in addition to an RPC connection because the
+RPC connection is a connection to a fileset server and the socket address
+represents a file server machine to the
+fileset location server. 
+The socket address can be composed from the results of
+the standard UNIX function \*Lgethostbyname(\|)\*O.
+.P
+Most of these functions also take an aggregate identifier, which
+identifies the aggregate containing the fileset. This identifier is
+unique only within a single file server.
+This information is available from the Fileset Location Database (see
+Section 51.6).
+.P
+Filesets have both names and identifiers. The name is a string.
+Because system administrators and programmers create these names, there is no
+guarantee that the names are unique, although they are checked for collisions.
+The identifier is numeric, is generated by the system, and is unique.
+.H 3 "Creating and Deleting Filesets"
+.iX "filesets"  "creating"
+.iX "filesets"  "deleting"
+.iX "creating"  "filesets"
+.iX "deleting"  "filesets"
+.iX "-[" "VC" "functions"
+.P
+\*LVC_CreateVolume(\|)\*O creates a fileset.
+Only DCE LFS filesets can be created with this function. It takes
+a fileset name and other identifying information, creates the fileset,
+creates an FLDB entry for the fileset, and returns the fileset's
+identifier. You should save this identifier for future
+references to this fileset.
+.P
+The fileset name is a string of up to 111 characters, plus a null terminator
+as the 112th character.
+.P
+There are two functions that can be used to delete a fileset. The first,
+\*LVC_DeleteVolume(\|)\*O, 
+removes the fileset and updates the FLDB. The second,
+\*LVC_VolumeZap(\|)\*O, 
+removes the fileset, but does not update the FLDB. You may want to use the
+latter if the database entry is already corrupted or nonexistent, or if you
+have multiple copies of a fileset and some of those copies are corrupted or
+out of date. You can use \*LVC_SyncVldb(\|)\*O, described later in this
+chapter, to correct the FLDB entry for the fileset. Until you update
+the FLDB manually, the entry for this fileset is still there, and this
+could interfere with other operations on the fileset.
+.P
+Both \*LVC_DeleteVolume(\|)\*O and \*LVC_VolumeZap(\|)\*O 
+take four input parameters:
+an RPC connection,
+a socket address,
+an aggregate identifier, and
+a fileset identifier.
+Note that the fileset name is not used in these calls. Both
+of these functions operate only on DCE LFS filesets.
+.H 3 "Moving, Renaming, and Backing Up Filesets"
+.P
+There are three functions for modifying filesets. These are
+\*LVC_MoveVolume, VC_RenameVolume\*O, and \*LVC_BackupVolume\*O.
+.H 4 "Moving Filesets"
+.iX "filesets"  "moving"
+.iX "moving filesets"
+.P
+\*LVC_MoveVolume(\|)\*O moves a fileset from one aggregate to another. Both the
+source and destination must be DCE LFS filesets; moving a UFS fileset, which by
+definition occupies an entire disk partition, would not be helpful. It takes
+five arguments: a fileset identifier, a socket address for the source server,
+the source aggregate, a socket address for the destination server, and the
+destination aggregate. The source and destination socket addresses
+can, of course, be on the same server, but they cannot be the same
+aggregate.
+.P
+\*LVC_MoveVolume(\|)\*O moves the given fileset to the new aggregate. It deletes
+any backups that existed on the old aggregate, but does not make new backups.
+If an error occurs (for example, if the fileset or the
+destination aggregate does not exist), an error is returned and
+any partially completed actions are undone.
+.P
+As a general guideline, if there is a system failure you should check
+the state of the system to find out what the FLDB believes to be true and
+what is actually true (which filesets exist where). This enables you to
+recover appropriately.
+.H 4 "Renaming Filesets"
+.iX "filesets"  "renaming"
+.iX "renaming filesets"
+.P
+\*LVC_RenameVolume(\|)\*O changes the name of a fileset. It also renames
+all associated backup and replicated copies of the fileset. Only the fileset
+\*Ename\*O is changed; the fileset stays in the same aggregate and retains
+the same ID.  Named mount points should be recreated to refer to the fileset's
+new name.  To move a 
+fileset from one aggregate to another, use \*LVC_MoveVolume(\|)\*O. If you want
+to change both a fileset's name and aggregate, you need to call both
+functions.
+.P
+\*LVC_RenameVolume(\|)\*O takes three parameters: an FLDB entry for the fileset,
+the old name,
+and the new name. The FLDB entry must be obtained using the
+function \*LVL_GetEntryByID(\|)\*O or \*LVL_GetEntryByName(\|)\*O 
+(see Section 51.6). 
+.H 4 "Backing Up Filesets"
+.iX "filesets"  "backing up"
+.iX "backing up" "filesets"
+.P
+\*LVC_BackupVolume(\|)\*O makes a read-only clone
+of a fileset and registers it as a backup
+in the FLDB. Backups have the name \*Efileset\*O\*L.backup\*O, where
+\*Efileset\*O
+is the name of the source fileset.
+Backups are important for recovering to a previous state, in the event that
+the fileset becomes corrupted due to programmer, user, or system errors.
+There is (by default) only one backup copy of
+a fileset; if one already exists, \*LVC_BackupVolume(\|)\*O brings it up
+to date. Because \*LVC_BackupVolume(\|)\*O uses cloning, it can be called only
+on DCE LFS filesets.
+.P
+\*LVC_BackupVolume(\|)\*O has four parameters: an RPC connection, a socket
+address, an
+aggregate identifier, and a fileset identifier.
+.H 3 "Saving and Restoring Changes to Filesets"
+.P
+There are two fairly general functions for dumping and restoring filesets.
+These dumps can either be full or incremental; the changes since the last
+dump (if incremental) are written to or read from a pipe that you manipulate.
+.H 4 "Dumping Changes"
+.iX "filesets"  "dumping"
+.iX "dumping filesets"
+.P
+\*LVC_DumpVolume(\|)\*O is used for dumping fileset changes to a file. This
+function is meant primarily for short-term dumping, such as
+moving filesets around by hand. For long-term storage, you should use the
+DCE backup facility (see the \*EOSF DCE Administration Guide\*O).
+.P
+.zA"defect,7311,r1.0.2,new arg for VC_{Dump,Restore}Volume"
+In addition to the parameters described previously for all functions in
+this family, \*LVC_DumpVolume(\|)\*O
+takes a source aggregate identifier, the reference date, and a pipe to
+which data should be written.  
+.P
+The reference date is the date from which changes should be written.
+This date is a structure containing fields for the date, the version number,
+and the mask. (You do not need to supply all three of
+these.) You must specify the mask, which is
+used to determine how \*LVC_DumpVolume(\|)\*O should
+decide what changes to write. A value of 1 means to use the date only
+(so the version number does not need to be supplied). A value of 2 means to
+use the fileset's version number only (so the date does not need to be
+supplied). A value of 0 (zero) means to use neither of these, and just do a
+complete dump of the contents of the fileset. Keep in mind that any of
+these, but especially the complete dump, could require quite a bit of disk
+space. How much disk space you need depends on the amount of data you
+are dumping.
+.P
+The pipe, if specified, is the stream to which data should be written.
+If it is NULL, the filename parameter is used instead.  If both the pipe
+and the filename are NULL, data is sent to standard output.
+.zZ"defect,7311,r1.0.2,new arg for VC_{Dump,Restore}Volume"
+.P
+You can cause \*LVC_DumpVolume(\|)\*O to write to standard output (\*Lstdout\*O)
+by passing a \*LNULL\*O pointer as the filename.
+.H 4 "Restoring Changes"
+.iX "filesets"  "restoring from dump"
+.iX "restoring"  "filesets from dumps"
+.P
+The function \*LVC_RestoreVolume(\|)\*O is used to restore
+data changes that you have
+recorded using \*LVC_DumpVolume(\|)\*O. 
+The function takes an RPC connection, a socket address, a fileset identifier,
+the destination aggregate (for the fileset), a new fileset name, various
+flags, 
+.zA"defect,7311,r1.0.2,new arg for VC_{Dump,Restore}Volume"
+a pointer to a filename where the dump is stored, and a pipe to an
+input stream.  If the pipe is specified, it takes priority over the 
+fileset pointer.
+.zZ"defect,7311,r1.0.2,new arg for VC_{Dump,Restore}Volume"
+The function also takes an option that tells the function what to do
+with any preexisting copy of the named fileset. If the value is 1, the old
+copy is overwritten; if the value is 0 (zero), the restoration is canceled if
+a fileset with that name already exists.  If the aggregate is not in DCE LFS,
+the value must be 1 to indicate that an existing fileset is to be overwritten.
+.P
+\*LVC_RestoreVolume(\|)\*O restores from standard input (\*Lstdin\*O) if the
+fileset name is a \*LNULL\*O pointer.
+.P
+When restoring from incremental dumps, be sure to do the restorations in
+the same order in which the dumps were made, starting with a full dump if
+one exists.
+.H 3 "Setting Fileset Quotas"
+.iX "filesets"  "setting quotas"
+.iX "setting"  "fileset quotas"
+.iX "quotas, setting for filesets"
+.P
+.zA "defect, 6360, r1.0.2, changes to ftserver_status"
+The function \*LVC_SetQuota(\|)\*O is used to change the allocated
+disk quota for a
+DCE LFS fileset. You supply a fileset ID and a new quota. If the new quota is
+not sufficient to hold the current contents of the fileset, the quota is
+set anyway and any future write to the fileset will fail until the usage
+is reduced below the new limit.
+The quota is measured in bytes.
+.P
+There are two kinds of quotas, allocated and visible.  The former is the 
+maximum amount of space the fileset may occupy; the latter, which is 
+typically much larger, is the amount of 
+space allocated to not only the fileset but also its clones and backups.
+.zZ "defect, 6360, r1.0.2, changes to ftserver_status"
+.P
+.H 3 "Synchronizing the Database and File Server"
+.iX "filesets"  "synchronizing with database"
+.iX "Fileset Location Database"  "synchronizing with filesets"
+.iX "synchronizing filesets with FLDB"
+.P
+It is possible for the Fileset Location Database (FLDB) to become inconsistent
+with the actual state of the system. Sometimes filesets will be deleted
+without the FLDB being updated (for example, \*LVC_VolumeZap(\|)\*O does this);
+sometimes ``garbage'' like incomplete filesets will be generated and not
+cleaned up. For these reasons, there are two functions for synchronizing the
+FLDB and the actual contents of the aggregates.
+.P
+\*LVC_SyncVldb(\|)\*O operates on a specific aggregate on a server, or all
+aggregates on one server. It makes sure that
+everything in the aggregate(s) is represented in the FLDB, creating or updating
+entries as necessary. This function should always be called before
+\*LVC_SyncServer(\|)\*O, or you risk throwing away data.
+.P
+\*LVC_SyncServer(\|)\*O synchronizes the server with the FLDB.
+Filesets on the aggregate that are not in the
+given FLDB entries are deleted.
+Once deleted, there is no way to recover this data (except from backups),
+so make sure you \*Ereally\*O want to do this and have first called
+\*LVC_SyncVldb(\|)\*O.
+.P
+\*LVC_SyncServer(\|)\*O either operates on 
+a single aggregate or, if the aggregate
+ID parameter is -1, operates on all aggregates on a server.
+.H 3 "Getting Information About Filesets"
+.iX "filesets"  "getting information about"
+.iX "getting"  "fileset information"
+.P
+Several functions are available for obtaining various types of
+information about filesets. \*LVC_ListVolumes(\|)\*O lists all of the filesets
+in a given aggregate. \*LVC_VolumeStatus(\|)\*O reports the status of a
+particular fileset. \*LVC_VolserStatus(\|)\*O reports the status of the
+fileset server.
+.H 4 "Listing Filesets in an Aggregate"
+.iX "filesets"  "listing contents of an aggregate"
+.iX "aggregates"  "listing contents of"
+.iX "getting"  "contents of aggregate"
+.P
+\*LVC_ListVolumes(\|)\*O provides a list of all filesets in an aggregate. It
+takes an RPC connection, a socket address, an aggregate identifier, and an option as
+input parameters, and a pointer to an array of results structures and the size
+of that structure as output parameters. One structure is returned for each
+fileset in the aggregate.
+.P
+The result of a call to \*LVC_ListVolumes(\|)\*O
+is an array of \*Lftserver_status\*O structures, one per fileset.
+Some of the fields of this structure include the fileset identifier, the
+type of fileset (read-only, read/write, or backup), the identifiers and dates
+of the last backup, the last clone and other copies, the fileset's creation
+date and last update date, the number of files in the fileset, information
+about disk quotas, and so on. For detailed information about this structure,
+see the \*EOSF DCE Application Development Reference\*O.
+.H 4 "Getting the Status of One Fileset"
+.iX "filesets"  "getting detailed information"
+.iX "getting"  "detailed fileset information"
+.P
+\*LVC_VolumeStatus(\|)\*O returns the same fileset information as
+\*LVC_ListVolumes(\|)\*O, but for only one (specified) fileset. It takes
+an RPC connection, a socket address, an aggregate identifier, and a fileset identifier
+as input parameters, and returns the status (a \*Lftserver_status\*O structure)
+as an output parameter. (See the previous section and the \*EOSF DCE Application
+Development Reference\*O for information about this structure.)
+.P
+This is an unprivileged call.
+.H 4 "Getting the Status of the Fileset Server"
+.P
+Currently active operations (``transactions'') are the basis for
+all file server operations, such as manipulating processes or filesets.
+When an operation is started a
+transaction is opened, and at the end of the operation the transaction is
+closed or aborted. Transactions are explained further in Section 51.7.
+.iX "Fileset Server"  "transaction" "getting information"
+.iX "transactions"  "getting information about"
+.iX "getting"  "transaction information"
+.P
+\*LVC_VolserStatus(\|)\*O returns a list of all active transactions on the
+fileset server. These transactions cover all file server operations,
+such as rename, delete, create, move, and copy.
+.P
+The transaction information is represented by an array of
+\*Lflserver_transStatus\*O structures. The structures contains information
+such as the transaction identifier, the aggregate identifier, the fileset
+identifier, a
+descriptor of the open fileset, the time the transaction was started,
+and the time the transaction was last active. For more information,
+see the \*EOSF DCE Application Development Reference\*O.
+.H 3 "Syntax Summary"
+.iX "syntax"  "VC functions"
+.iX "VC" "syntax"
+.P
+The \*LVC...(\|)\*O functions are as follows:
+.ML
+.LI
+\*LVC_BackupVolume(\|)\*O: Makes a backup copy of a fileset (DCE LFS filesets
+only).
+.LI
+\*LVC_CreateVolume(\|)\*O: Creates a new fileset (DCE LFS filesets only).
+.LI
+\*LVC_DeleteVolume(\|)\*O: Deletes a fileset (DCE LFS filesets only).
+.LI
+\*LVC_DumpVolume(\|)\*O: Dumps recent changes to a fileset.
+.LI
+\*LVC_ListVolumes(\|)\*O: Gets a list of filesets on a particular
+aggregate.
+.LI
+\*LVC_MoveVolume(\|)\*O: Moves a fileset from one aggregate to another
+(DCE LFS filesets only).
+.LI
+\*LVC_RenameVolume(\|)\*O: Renames a fileset.
+.LI
+\*LVC_RestoreVolume(\|)\*O: Restores previously saved changes to a fileset
+(DCE LFS filesets only).
+.LI
+\*LVC_SetQuota(\|)\*O: Sets the disk space quota for a fileset (DCE LFS
+filesets only).
+.LI
+\*LVC_SyncServer(\|)\*O: Removes filesets from an aggregate that are not
+listed as being there in the Fileset Location Database.
+.LI
+\*LVC_SyncVldb(\|)\*O: Synchronizes the Fileset Location Database with the
+actual state of an aggregate.
+.LI
+\*LVC_VolserStatus(\|)\*O: Reports the status of a fileset server.
+.LI
+\*LVC_VolumeStatus(\|)\*O: Reports the status of a particular fileset.
+.LI
+\*LVC_VolumeZap(\|)\*O: Deletes a fileset without updating the
+Fileset Location Database (DCE LFS filesets only).
+.LE
+.P
+A syntax summary of each VC function follows.
+.sS
+.zA"defect,5992,r1.0.2,fixed include directory"
+\*L#include <dcedfs/param.h>\*O
+.nL
+\*L#include <dcedfs/sysincludes.h>\*O
+.nL
+\*L#include <dcedfs/stds.h>\*O
+.nL
+\*L#include <dcedfs/common_data.h>\*O
+.nL
+\*L#include <dce/rpc.h>\*O
+.nL
+\*L#include <dce/pthread.h>\*O
+.nL
+\*L#include <dce/exc_handling.h>\*O
+.nL
+\*L#include <dcedfs/compat.h>\*O
+.nL
+\*L#include <dcedfs/nubik.h>\*O
+.nL
+\*L#include <dcedfs/fldb_proc.h>\*O
+.nL
+\*L#include <dcedfs/flserver.h>\*O
+.nL
+\*L#include <dcedfs/flclient.h>\*O
+.nL
+\*L#include <fcntl.h>\*O
+.nL
+\*L#include <dcedfs/ftserver_proc.h>\*O
+.nL
+\*L#include <dcedfs/volume.h>\*O
+.nL
+\*L#include <dcedfs/fldb_data.h>\*O
+.nL
+\*L#include <dcedfs/ftserver.h>\*O
+.nL
+\*L#include <dcedfs/ftserver_trans.h>\*O
+.nL
+\*L#include <dcedfs/aggr.h>\*O
+.nL
+\*L#include <dcedfs/volc.h>\*O
+.zZ"defect,5992,r1.0.2,fixed include directory"
+.sE
+.sS
+\*Lsigned32 VC_BackupVolume(\*O
+        \*Lrpc_binding_handle_t\*V RpcBinding\*L,\*O        /* in */
+        \*Lstruct sockaddr\*V *servAddrp\*L,\*O             /* in */
+        \*Lunsigned32\*V aggrId\*L,\*O                      /* in */
+        \*Lstruct afsHyper\*V *filesetIDp\*L)\*V            /* in */
+.sE
+.sS
+\*Lsigned32 VC_CreateVolume(\*O
+        \*Lrpc_binding_handle_t\*V RpcBinding\*L,\*O        /* in */
+        \*Lstruct sockaddr \*V*servAddrp\*L,\*O             /* in */
+        \*Lunsigned32\*V aggrId\*L,\*O                      /* in */
+        \*Lunsigned char\*V *filesetNamep\*L,\*O            /* in */
+        \*Lstruct afsHyper \*V*filesetIDp\*L)\*O            /* out */
+.sE
+.sS
+\*Lsigned32 VC_DeleteVolume(\*O
+        \*Lrpc_binding_handle_t\*V RpcBinding\*L,\*O        /* in */
+        \*Lstruct sockaddr\*V *servAddrp\*L,\*O             /* in */
+        \*Lunsigned32\*V aggrId\*L,\*O                      /* in */
+        \*Lstruct afsHyper\*V *filesetIDp\*L)\*O            /* in */
+.sE
+.sS
+\*Lsigned32 VC_DumpVolume(\*O
+        \*Lrpc_binding_handle_t\*V RpcBinding\*L,\*O        /* in */
+        \*Lstruct sockaddr\*V *servAddrp\*L,\*O             /* in */
+        \*Lstruct afsHyper\*V *filesetIDp\*L,\*O            /* in */
+        \*Lunsigned32\*V fromAggrId\*L,\*O                  /* in */
+        \*Lstruct ftserver_Date\*V *dumpDatep\*L,\*O        /* in */
+.zA"defect,7311,r1.0.2,new arg for VC_{Dump,Restore}Volume"
+        \*Lunsigned char\*V *filename\*L,\*O                /* in */
+        \*Lpipe_t\*V *dataPipe\*L)\*O                       /* in */
+.zZ"defect,7311,r1.0.2,new arg for VC_{Dump,Restore}Volume"
+.sE
+.sS
+\*Lsigned32 VC_ListVolumes(\*O
+        \*Lrpc_binding_handle_t\*V RpcBinding\*L,\*O        /* in */
+        \*Lstruct sockaddr\*V *servAddrp\*L,\*O             /* in */
+        \*Lunsigned32\*V aggrId\*L,\*O                      /* in */
+        \*Lsigned32\*V allFlag\*L,\*O                       /* in */
+        \*Lstruct ftserver_status \*V**resultPtr\*L,\*O     /* out */
+        \*Lsigned32\*V *sizep\*L)\*O                        /* out */
+.sE
+.sS
+\*Lsigned32 VC_MoveVolume(\*O
+        \*Lstruct afsHyper\*V *filesetIDp\*L,\*O            /* in */
+        \*Lstruct sockaddr\*V *fromservAddrp\*L,\*O         /* in */
+        \*Lunsigned32\*V fromaggrId\*L,\*O                  /* in */
+        \*Lstruct sockaddr\*V *toservAddrp\*L,\*O           /* in */
+        \*Lunsigned32\*V toaggrId\*L)\*O                    /* in */
+.sE
+.sS
+\*Lsigned32 VC_RenameVolume(\*O
+        \*Lstruct vldbentry\*V *entryp\*L,\*O               /* in */
+        \*Lunsigned char\*V *oldNamep\*L,\*O                /* in */
+        \*Lunsigned char\*V *newNamep\*L)\*O                /* in */
+.sE
+.sS
+\*Lsigned32 VC_RestoreVolume(\*O
+        \*Lrpc_binding_handle_t\*V RpcBinding\*L,\*O        /* in */
+        \*Lstruct sockaddr\*V *toservAddrp\*L,\*O           /* in */
+        \*Lunsigned32\*V toaggrId\*L,\*O                    /* in */
+        \*Lstruct afsHyper \*V*filesetIDp\*L,\*O            /* in */
+        \*Lunsigned char\*V *filesetNamep\*L,\*O            /* in */
+        \*Lsigned32\*V override\*L,\*O                      /* in */
+        \*Lunsigned32\*V restoreFlags,\*L,\*O               /* in */
+.zA"defect,7311,r1.0.2,new arg for VC_{Dump,Restore}Volume"
+        \*Lunsigned char\*V *filename\*L,\*O                /* in */
+        \*Lpipe_t\*V *dataPipe\*L)\*O                       /* in */
+.zZ"defect,7311,r1.0.2,new arg for VC_{Dump,Restore}Volume"
+.sE
+.sS
+\*Lsigned32 VC_SetQuota(\*O
+        \*Lrpc_binding_handle_t\*V RpcBinding\*L,\*O        /* in */
+        \*Lstruct sockaddr\*V *servAddrp\*L,\*O             /* in */
+        \*Lunsigned32\*V aggrId\*L,\*O                      /* in */
+        \*Lstruct afsHyper\*V *filesetIDp\*V,\*O            /* in */
+        \*Lunsigned32\*V quota\*L)\*O                       /* in */
+.sE
+.sS
+\*Lsigned32 VC_SyncServer(\*O
+        \*Lrpc_binding_handle_t\*V RpcBinding\*L,\*O        /* in */
+        \*Lstruct sockaddr\*V *servAddrp\*L,\*O             /* in */
+        \*Lunsigned32 \*VaggrId\*L)\*O                      /* in */
+.sE
+.sS
+\*Lsigned32 VC_SyncVldb(\*O
+        \*Lrpc_binding_handle_t\*V RpcBinding\*L,\*O        /* in */
+        \*Lstruct sockaddr\*V *servAddrp\*L,\*O             /* in */
+        \*Lunsigned32\*V aggrId\*L)\*O                      /* in */
+.sE
+.sS
+\*Lsigned32 VC_VolserStatus(\*O
+        \*Lrpc_binding_handle_t\*V RpcBinding\*L,\*O        /* in */
+        \*Lstruct sockaddr \*V*servAddrp\*L,\*O             /* in */
+        \*Lftserver_transEntries\*V *rstatusp\*L)\*O        /* out */
+.sE
+.sS
+\*Lsigned32 VC_VolumeStatus(\*O
+        \*Lrpc_binding_handle_t\*V RpcBinding\*L,\*O        /* in */
+        \*Lstruct sockaddr\*V *servAddrp\*L,\*O             /* in */
+        \*Lunsigned32 \*VaggrId\*L,\*O                      /* in */
+        \*Lstruct afsHyper\*V *filesetIDp\*L,\*O            /* in */
+        \*Lstruct ftserver_status\*V *statusp\*L)\*O        /* out */
+.sE
+.iX "-]" "VC" "functions"
+.sS
+\*Lsigned32 VC_VolumeZap(\*O
+        \*Lrpc_binding_handle_t\*V RpcBinding\*L,\*O        /* in */
+        \*Lstruct sockaddr \*V*servAddrp\*L,\*O             /* in */
+        \*Lunsigned32\*V aggrId\*L,\*O                      /* in */
+        \*Lstruct afsHyper\*V *filesetIDp\*L)\*O            /* in */
+.sE
+.H 2 "The VL Functions: Interacting with the Fileset Location Database"
+.iX "Fileset Location Database"
+.P
+The Volume Location (\*LVL...(\|)\*O) functions are used by remote
+clients to interact with the Fileset Location Database Server.
+(To interact with the filesets themselves, use the \*LFTSERVER...(\|)\*O functions.)
+As described in Chapter 49, each fileset has one entry in
+the FLDB, and this entry is accessed by the Fileset Location Server.
+.P
+The \*LVL...(\|)\*O functions are the basic means by which DFS Cache Managers locate
+resources, primarily filesets, in a DCE cell.
+The locations of filesets are listed in the Fileset Location Database (FLDB),
+which is primarily read and updated by the Fileset Location Server.
+.P
+The \*LVL...(\|)\*O functions fall into several categories:
+.ML
+.LI
+Fileset location: These functions determine the location of a fileset
+given either its assigned unique 64-bit identifier (``uniquifier'') or its name.
+.LI
+Fileset maintenance: These functions create, delete, and change
+attributes of filesets, enumerate entries in the Fileset Location Database,
+report statistics, and change attributes of fileset-bearing servers.
+.LI
+Obtaining configuration information:
+This function allows an application to get configuration
+information about a cell from the Fileset Server.
+.LE
+.P
+.H 3 "The Fileset Location Database Entry"
+.P
+An FLDB entry contains the following information:
+.iX "contents of an FLDB entry"
+.iX "Fileset Location Database" 
+.ML
+.LI
+Fileset name
+.LI
+Fileset type (read/write, read-only, or backup)
+.LI
+Information about all of the servers on which the fileset is replicated
+.LI
+Information used for replicating and cloning the fileset
+.LI
+The DCE principal for each server where the fileset is located
+.LE
+.P
+This information is represented by the \*Lvldbentry\*O structure, which is
+defined as follows. It is discussed fully in the \*EOSF DCE Application
+Development Reference\*O.
+.sS
+\*Lstruct vldbentry{\*O
+       \*Lunsigned char name[MAXNAMELEN];\*O
+       \*Lunsigned32 volumeType;\*O
+       \*Lunsigned32 nServers;\*O
+       \*Lstruct afsNetAddr siteAddr[MAXNSERVERS]; \*O
+       \*Lunsigned32 sitePartition[MAXNSERVERS];\*O
+       \*Lunsigned32 siteFlags[MAXNSERVERS];\*O
+       \*Lunsigned32 sitemaxReplicaLatency[MAXNSERVERS];\*O
+       \*Lstruct kerb_princ_name sitePrincipal[MAXNSERVERS];\*O
+       \*Lstruct afsUUID siteOwner[MAXNSERVERS];\*O
+       \*Lstruct afsUUID siteObjID[MAXNSERVERS];\*O
+       \*Lstruct afsHyper VolIDs[MAXVOLTYPES];\*O
+       \*Lunsigned32 VolTypes[MAXVOLTYPES];\*O
+       \*Lstruct afsHyper cloneId; \*O
+       \*Lunsigned32 flags;\*O
+       \*Lunsigned32 maxTotalLatency;\*O
+       \*Lunsigned32 hardMaxTotalLatency;\*O
+       \*Lunsigned32 minimumPounceDally;\*O
+       \*Lunsigned32 defaultMaxReplicaLatency;\*O
+       \*Lunsigned32 reclaimDally;\*O
+       \*Lunsigned32 WhenLocked;\*O
+       \*Lunsigned32 spare1;\*O
+       \*Lunsigned32 spare2;\*O
+       \*Lunsigned32 spare3;\*O
+       \*Lunsigned32 spare4;\*O
+       \*Lunsigned char LockerName[MAXLOCKNAMELEN];\*O
+       \*Lunsigned char charSpares[50];\*O
+    \*L}\*O
+.sE
+.P
+The fields of this structure are
+.VL
+.LI "\*Lname\*O"
+The string naming the fileset.
+.LI "\*LvolumeType\*O"
+.nL
+The fileset type, one of the following:
+.ML
+.LI
+\*LVOLTIX_TO_VOLTYPE(RWVOL)\*O (read/write)
+.LI
+\*LVOLTIX_TO_VOLTYPE(ROVOL)\*O (read-only)
+.LI
+\*LVOLTIX_TO_VOLTYPE(BACKVOL)\*O (backup)
+.LE
+.iX "filesets" "types"
+.P
+The macro \*LVOLTIX_TO_VOLTYPE\*O takes one of the three types as its
+argument and produces the actual type representation, which is internal.
+.LI "\*LnServers\*O"
+The number of servers that contain this fileset, up to
+\*LMAXNSERVERS\*O.  The arrays of type [\*LMAXNSERVERS\*O] are all indexed
+from 0 up to, but not including, the value of \*LnServers\*O.
+.LI "\*LsiteAddr\*O"
+An array of server addresses, up to but not including the value of 
+\*LnServers\*O.
+.LI "\*LsitePartition\*O"
+An array listing aggregate identifiers for
+the fileset on each server, with indices ranging 
+from 0 up to, but not including, the value of \*LnServers\*O.
+.LI "\*LsiteFlags\*O"
+Flags for each server, as described in the \*EOSF DCE
+Application Development Reference\*O under \*LVL\*O.
+.LI "\*LsitemaxReplicaLatency\*O"
+.nL
+The maximum age, in seconds, that a fileset
+replica can be without the Replication Server attempting to update it.
+.LI "\*LsitePrincipal\*O"
+.nL
+The name of the DCE principal for each server.
+.LI "\*LsiteOwner\*O"
+The UUID of the authentication group that can modify site
+information for each server.
+.LI "\*LsiteObjId\*O"
+The UUID of the site.
+.LI "\*LVolIDs\*O"
+The fileset IDs for all related filesets.
+.LI "\*LVolTypes\*O"
+The types of those related filesets. This
+array and the previous one are paired.
+.LI "\*LcloneId\*O"
+IDs of cloned copies of a fileset.
+.LI "\*Lflags\*O"
+Entry-wide flags, as opposed to site flags, as described in the
+\*EOSF DCE Application Development Reference\*O under \*LVL\*O.
+.LI "\*LmaxTotalLatency\*O"
+.nL
+The maximum age, in seconds, a cached copy of
+data from a fileset can be before the DFS Cache Manager seeks to refresh it.
+.LI "\*LhardMaxTotalLatency\*O"
+.nL
+The fileset age at which the Cache Manager
+will refuse to use cached data.
+.LI "\*LminimumPounceDally\*O"
+.nL
+The amount of time, in seconds, for the
+Replication Server to wait before attempting to retrieve a new token after
+losing one.
+.LI "\*LdefaultMaxReplicaLatency\*O"
+.nL
+The age, in seconds, a replica can be before
+the replication server will not trust it.
+.LI "\*LreclaimDally\*O"
+.nL
+The time, in seconds, that a file exporter will retain files from the 
+read/write fileset after receiving its most recent 
+keep-alive message from the Cache Manager.
+.LI "\*LWhenLocked\*O"
+.nL
+The time at which this entry was locked, if it is
+currently locked.
+.LI "\*LLockerName\*O"
+.nL
+The name of the user holding the current lock on the
+entry, if any.
+.LE
+.P
+.nS caution
+While DFS gives you the ability to alter any of this
+information, doing so could have severe ramifications throughout the
+file system. You should
+not attempt to alter any of this information directly unless you are
+fully aware of the consequences. (See the \*EOSF DCE Administration
+Guide\*O for further information.)
+.nE
+.P
+In addition to the \*Lvldbentry\*O structure, the \*Lcompactvldbentry\*O
+structure holds a subset of this information. The latter, being much smaller,
+is more efficient to pass around. (See Section 51.6.2 for
+a discussion of this.) 
+.iX "compact FLDB entries"
+.iX "filesets" "types"
+.P
+The standard fileset types are obtained with a call to the 
+\*LVOLTIX_TO_VOLTYPE\*O macro with one of the following three values:
+.VL
+.LI "\*LRWVOL\*O"
+Read/write fileset
+.LI "\*LROVOL\*O"
+Read-only fileset
+.LI "\*LBACKVOL\*O"
+Backup fileset
+.LE
+.H 3 "Fileset Location"
+.iX "filesets"  "locating"
+.P
+There are two ways to get the FLDB entry for a fileset: by the fileset's
+name or by its unique identifier.
+.iX "Fileset Location Database"  "entries" "retrieving"
+.P
+\*LVL_GetEntryByID(\|)\*O and \*LVL_GetEntryByName(\|)\*O return a full FLDB entry
+for the given fileset. This is the most straightforward way to get
+fileset information from the FLDB.
+.P
+If \*LVL_GetEntryByID(\|)\*O is being used, there are two input
+parameters: a fileset ID (an \*LafsHyper\*O structure) and the fileset
+type (a number). A fileset has a number of IDs (one per distinct type); you
+just need to supply one of them. The type is used to distinguish the
+various copies of a fileset from the read/write version because you could
+be asking for information about any of these and they share the same name.
+The type is used as a hint to locating the correct entry.
+If \*LVL_GetEntryByName(\|)\*O is being used, there is a single input parameter,
+a string.
+.P
+In addition to \*LVL_GetEntryByID(\|)\*O and \*LVL_GetEntryByName(\|)\*O, DFS
+provides two functions to get ``compact'' information from the FLDB.
+These functions, \*LVL_GetCEntryByID(\|)\*O and \*LVL_GetCEntryByName(\|)\*O,
+take the same arguments and have the same behavior as 
+the \*LVL_GetEntryByID(\|)\*O  and \*LVL_GetEntryByName(\|)\*O functions,
+except that instead of returning \LCvldbentry\*O
+structures, they return \*Lcompactvldbentry\*O structures.
+.P
+The compact entry has the following fields from the original structure:
+.iX "compact FLDB entries"
+.ML
+.LI
+\*Lname\*O
+.LI
+\*LvolumeType\*O
+.LI
+\*LnServers\*O
+.LI
+\*LsitePartition\*O
+.LI
+\*LsiteFlags\*O
+.LI
+\*LsitemaxReplicaLatency\*O
+.LI
+\*LvolIDs\*O
+.LI
+\*LVolTypes\*O
+.LI
+\*LcloneId\*O
+.LI
+\*Lflags\*O
+.LI
+\*LmaxTotalLatency\*O
+.LI
+\*LhardMaxTotalLatency\*O
+.LI
+\*LminimumPounceDally\*O
+.LI
+\*LdefaultMaxReplicaLatency\*O
+.LI
+\*LreclaimDally\*O
+.LI
+\*LWhenLocked\*O
+.LI
+\*LLockerName\*O
+.LE
+.P
+There is also one additional field, \*LsiteCookies\*O. The contents of
+this field can be used to generate detailed site information; more information
+on this is given later in this section.
+.P
+The FLDB stores information about the servers on which a fileset is
+available, such as addresses, server partition numbers, and so on.
+Depending on your configuration, a fileset may exist on
+only one server or on a large number of servers. 
+Because there is no way to guess
+how much server data will have to be stored for a fileset,
+\*LVL_GetEntryByID(\|)\*O and
+\*LVL_GetEntryByName(\|)\*O may not be able to return all of the server
+information that is available in a single call. An FLDB entry can contain
+up to 16 addresses for a fileset, but each server can have up to four
+addresses, so a fileset could have as many as 64 addresses.
+.iX "Fileset Location Database"  "retrieving server information"
+.P
+In order to get this additional information, you must use the
+\*LVL_GetNextServerByID(\|)\*O and \*LVL_GetNextServerByName(\|)\*O
+functions. As
+with the functions described previously, the only difference between the two
+is the means of identifying the fileset.
+.iX "-[" "VL functions"
+.P
+The functions \*LVL_GetNextServerByID(\|)\*O and 
+\*LVL_GetNextServerByName(\|)\*O
+are used to get a list of all of the file servers that contain a given
+fileset. Call them repeatedly until you have received
+all of the server information. Each produces an output flag value whose
+low-order bit is set to 1 if the results from this call end the list.
+Otherwise, this bit is set to 0 (zero).
+.P
+This iteration is done by feeding the functions a start position.
+This indicates how far through the list of servers you have gotten; the initial
+value is 0 (zero).
+\*LVL_GetNextServerByID(\|)\*O and \*LVL_GetNextServerByName(\|)\*O
+will return, along with the expected data, a new start number to use in the
+next call. You simply keep calling the functions with the new start numbers
+until you run out of servers, which is signaled by the functions returning
+a special error code (\*LVL_ENDOFLIST\*O).
+The iterator is not used except as input to the subsequent call.
+.P
+If the next call to the function would return \*LVL_ENDOFLIST\*O, the low-order
+bit will be set in the output flags parameter.
+.P
+The first time \*LVL_GetNextServerByID(\|)\*O or 
+\*LVL_GetNextServerByName(\|)\*O
+is called, the data looks like
+the output from \*LVL_GetEntryByID(\|)\*O and \*LVL_GetEntryByName(\|)\*O. If
+you know that you are going to want to retrieve all of the server
+information, use the server functions instead of
+\*LVL_GetEntryByID(\|)\*O and \*LVL_GetEntryByName(\|)\*O.
+.P
+The inputs to \*LVL_GetNextServerByID(\|)\*O and 
+\*LVL_GetNextServerByName(\|)\*O
+are analogous to those for \*LVL_GetEntryByID(\|)\*O and 
+\*LVL_GetEntryByName(\|)\*O;
+the former takes a fileset ID and a type, and the latter takes a fileset
+name (a string).
+.P
+The following code fragment obtains a list of all servers that contain the
+\*Luser.jones\*O fileset.
+.in -.75i
+.oS
+unsigned char *fileset = "user.jones";
+unsigned32 startIterator, newIterator, flags;
+struct vldbentry *entry;
+signed32 nextServ = 0;
+int j, startIterator = 0, flags = 0;
+
+while (nextServ != VL_ENDOFLIST && ((nextServ != 0) || (flags & 1) == 0))
+  {
+    nextServ = VL_GetNextServerByName(Rpc_Handle, fileset, 
+	startIterator, &newIterator, &entry, &flags);
+    if(nextServ)
+      printf("Got an error! \\n");
+    else
+      {
+       startIterator = newIterator;
+       printf("Servers: \\n");
+       for(j=0; j<MAXSERVERS && j < entry->nServers; j++)
+         printf("  %2d: %s\\n", j, AddressToString(&entry[j]));
+     }
+  }
+.oE
+.in
+.P
+As with \*LVL_GetEntryByID(\|)\*O and \*LVL_GetEntryByName(\|)\*O, there are also
+analogs for the server functions that produce compact FLDB entries. These
+functions are \*LVL_GetCNextServerByID(\|)\*O and
+\*LVL_GetCNextServerByName(\|)\*O, and they behave as the similarly named
+function pair described previously.
+.P
+The ``compact'' functions, as mentioned earlier, store a compacted version
+of the server information instead of the larger version found in the
+\*Lvldbentry\*O structure. This compacted format is only useful if it is
+easy to convert from this to an expanded format. \*LVL_ExpandSiteCookie(\|)\*O
+does exactly this. It takes the cookie field from a \*Lcompactvldbentry\*O
+structure and returns a \*LsiteDesc\*O structure, which contains network
+addresses and the DCE principal. 
+.iX "expanding compacted information"
+.H 3 "Fileset Entry Maintenance"
+.P
+Most of the \*LVL...(\|)\*O functions relate to maintaining the FLDB.
+This maintenance includes
+routine activities like creating, deleting, and modifying
+entries, obtaining various information, changing the servers
+associated with filesets, and locking filesets to block other access to them.
+This maintenance is usually initiated by system administrators, but
+applications may need to create and maintain filesets and their associated
+data as well.
+.P
+You should lock fileset entries before modifying them or their filesets;
+this lock will serve as a signal to others who may wish to operate on it.
+Locks are discussed in Section 51.6.3.2.
+.P
+In order to modify FLDB entries, you must have administrator privileges on the
+FLDB or, in some cases, be in the owner group for any file server entries that
+your action refers to.
+.H 4 "Creating and Deleting Fileset Entries"
+.P
+The functions \*LVL_CreateEntry(\|)\*O and \*LVL_DeleteEntry(\|)\*O do what
+their names imply: they create and delete FLDB entries.
+.iX "Fileset Location Database"  "entries" "creating" 
+.P
+\*LVL_CreateEntry(\|)\*O is used to create a new FLDB entry; creating the
+actual fileset is a separate issue. You have to supply a full
+\*Lvldbentry\*O structure, as described earlier. You must fill in all
+fields except the name of the user who last locked the entry.
+.P
+The FLDB entry that you supply to \*LVL_CreateEntry(\|)\*O includes a
+fileset ID. Before creating an entry, you need to allocate this
+ID. You really need to allocate three such IDs: one for the source,
+one for the backup, and one for replicas.
+.iX "Fileset Location Database"  "reserving fileset IDs"
+.P
+The function \*LVL_GetNewVolumeIds(\|)\*O allocates fileset IDs for future 
+use.  It takes an argument that specifies the number of identifiers to reserve.
+.P
+Avoid allocating  more IDs than you actually need because these
+IDs are kept forever once they are allocated. There is no way to reclaim them.
+While the limit on the total number of IDs is large, it is still finite,
+and it is beneficial to keep the numbers representing IDs as low as possible.
+The best approach is to allocate IDs right before you need them, rather than
+allocating a large block and then using only a few of them
+later.
+.iX "Fileset Location Database"  "entries" "deleting" 
+.P
+\*LVL_DeleteEntry(\|)\*O deletes an entry from the FLDB. As with other functions
+in this set, you must separately remove the actual fileset.
+\*LVL_DeleteEntry(\|)\*O takes two arguments: the fileset ID and fileset type.
+.P
+Because there is only one FLDB entry for all related filesets, 
+deleting the entry
+automatically deletes information about backups, clones, and replicas.
+The \*EfilesetType\*O parameter to \*LVL_DeleteEntry(\|)\*O
+is used as a hint; if you know the type of fileset,
+you should supply this information so that the function can locate the
+entry more easily. If you do not know the type, use a value of -1.
+.H 4 "Locks"
+.P
+In order to reserve an FLDB entry for your exclusive use, such as to write
+to it, you must first lock it. There is no way to lock a fileset directly;
+all locks are handled through the FLDB.
+.P
+Locking an FLDB entry alerts
+the FLDB that the fileset is reserved for writing by one particular client.
+Applications are free to bypass locks and alter the fileset directly; locks
+are purely advisory. You should make sure your applications attempt to set
+locks before modifying FLDB entries or filesets;
+applications must never make modifications without
+setting locks first. Locks are there to help you: that is, to protect you from
+other applications (including user commands) that might attempt to manipulate
+the same filesets that you are manipulating. However, locks do not
+\*Eenforce\*O anything, and if any application bypasses the use of locks,
+the potential for incompatible changes exists.
+.P
+The function used to set a lock is \*LVL_SetLock(\|)\*O.
+.iX "Fileset Location Database"  "locking filesets"
+It takes three
+arguments: a fileset ID, fileset type, and a set of options (represented as a
+number; the following names are the names of constants).
+The options indicate the reason for the lock, such as \*LVLOP_MOVE\*O for moving the
+fileset and \*LVLOP_DELETE\*O for deleting the fileset. You should set the
+correct options so that other applications attempting to access the FLDB
+entry will know why the lock is in place.
+.P
+A list of the possible options follows:
+.ML
+.LI
+\*LVLOP_MOVE\*O
+.LI
+\*LVLOP_RELEASE\*O
+.LI
+\*LVLOP_BACKUP\*O
+.LI
+\*LVLOP_DELETE\*O
+.LI
+\*LVLOP_DUMP\*O
+.LI
+\*LVLOP_RESTORE\*O
+.LI
+\*LVLOP_ADDSITE\*O
+.LE
+.P
+Any client that tries to lock a locked fileset entry will be informed of the
+existing lock, and its attempt to obtain a lock will fail.
+.P
+You should make sure you release the lock as soon as you are done with it,
+so that the fileset entry will be available to others who need to write it.
+.P
+\*LVL_ReleaseLock(\|)\*O releases a fileset lock acquired by \*LVL_SetLock(\|)\*O.
+.iX "Fileset Location Database"  "releasing fileset locks"
+It takes three arguments: the fileset ID, fileset type, and a mask for
+the FLDB lock options to clear.
+.H 4 "Modifying Fileset Entries"
+.P
+Sometimes it is necessary to change information in an FLDB entry,
+such as a fileset name or server information, to reflect
+changes on the file servers. For example, backup facilities
+may need to do this. You can change any field of an FLDB entry,
+although as discussed before, it can be dangerous to change them
+without being aware of the consequences.
+.iX "Fileset Location Database"  "entries" "replacing" 
+.P
+\*LVL_ReplaceEntry(\|)\*O replaces one entry in the FLDB with another. As with
+\*LVL_CreateEntry(\|)\*O, you are responsible for making sure the new entry is
+complete. The function takes four arguments: the fileset ID for the entry
+you wish to change, the fileset type, the new entry, and the lock fields to
+be cleared at the end of the operation.
+.P
+Calling \*LVL_ReplaceEntry(\|)\*O is functionally equivalent to calling
+\*LVL_CreateEntry(\|)\*O with the new entry then calling 
+\*LVL_DeleteEntry(\|)\*O
+with the old entry; however, actually doing this 
+is prohibited because you cannot
+have two filesets with the same name or ID.
+.H 4 "Modifying Server Addresses"
+.P
+A machine
+can have several network addresses, generally corresponding to different
+networks for which the machine has an interface. Because network addresses
+sometimes change and network interfaces may be added and dropped from server
+machines, addresses specified when the server is first added to the
+file system may become out of date and need to be changed. The functions
+described in this section are used to add, remove, change, and look up these
+addresses.
+.iX "Fileset Location Database"  "server addresses" "adding" 
+.iX "server" "addresses"
+.P
+\*LVL_AddAddress(\|)\*O declares another network address for a server. It takes
+two arguments: any current address for the server (to identify it) and the
+address to be added. 
+All known addresses can be found by the \*LVL_GetSiteInfo(\|)\*O
+call.
+.iX "server" "addresses" "removing"
+.iX "Fileset Location Database"  "server addresses" "removing" 
+.P
+\*LVL_RemoveAddress(\|)\*O removes a network address from the list of addresses
+for a server. It takes two arguments, the associated RPC connection and
+the address to be removed.
+.iX "server" "addresses" "changing"
+.iX "Fileset Location Database"  "server addresses" "changing" 
+.P
+\*LVL_ChangeAddress(\|)\*O changes one of the network addresses
+for a file server to a new value. It is comparable to the sequence of
+\*LVL_AddAddress(\*VOldAddr, NewAddr\*L)\*O followed by 
+\*LVL_RemoveAddress(\*VOldAddr\*L)\*O, 
+but does not require that the set of addresses
+have space available for a new entry.
+.P
+The maximum number of addresses that a server can have is
+\*LADDRSINSITE\*O.
+.iX "Fileset Location Database"  "getting network information"
+.P
+In order to get all of the addresses for a server, use the 
+\*LVL_GetSiteInfo(\|)\*O function, 
+which returns all known server addresses and the
+DCE principal, given any one address. It produces a
+\*LsiteDesc\*O structure as output. This structure contains several fields:
+.ML
+.LI
+\*LAddr\*O, an array of four site addresses
+.LI
+\*LKerbPrin\*O, a string identifying the principal
+.LI
+\*LOwner\*O, the UUID for the owning authentication group
+.LI
+\*LObjID\*O, the UUID for the server itself
+.LI
+.zA"defect,6918,r1.0.2, minor wording change"
+\*LCreationQuota\*O, the maximum number of filesets allowed (0 means
+no quota)
+.zZ"defect,6918,r1.0.2, minor wording change"
+.LI
+\*LCreationUses\*O, the number of filesets that currently exist
+.LE
+.H 4 "Modifying the Set of Servers"
+.P
+In addition to modifying addresses and principals for existing servers,
+DCE provides a way to add and change server entries themselves in the FLDB.
+.iX "adding"  "servers to FLDB"
+.iX "servers"  "adding to FLDB"
+.P
+The \*LVL_CreateServer(\|)\*O function adds a server entry to the FLDB. It takes
+a \*LsiteDesc\*O structure, described previously. Before you can create FLDB 
+entries referring to a file server or modify the server's addresses, you must 
+create a server entry in the
+FLDB. Merely having a File Exporter running on the server is not sufficient;
+if the FLDB is not told about the server explicitly, its clients will not be able
+to locate filesets on the servers in question. This is an operation that
+should be performed only once.
+If the FLDB contains servers marked as deleted, one of these is reused 
+to save space.
+.iX "changing servers in FLDB"
+.iX "servers"  "changing in FLDB"
+.P
+The \*LVL_AlterServer(\|)\*O function makes changes to an existing server.
+It takes an address (any single address by which the server is known can
+be used) and a \*LsiteAlter\*O structure, which specifies the properties
+to change. The \*LsiteAlter\*O structure is defined as follows:
+.sS
+\*Lstruct siteAlter {\*O
+       \*Lunsigned32 Mask;\*O
+       \*Lunsigned char KerbPrin[MAXKPRINCIPALLEN];\*O
+       \*LafsUUID Owner;\*O
+       \*LafsUUID ObjID;\*O
+       \*Lunsigned32 CreationQuota;\*O
+       \*Lunsigned32 CreationUses;\*O
+       \*Lunsigned32 spare1;\*O
+       \*Lunsigned32 spare2;\*O
+\*L}\*O
+.sE
+.P
+The mask is the bitwise OR of the options for the fields to be altered;
+the new values for those fields are taken from the rest of this structure.
+(Any other values that are filled in are ignored.)
+The options are 
+.ML
+.LI
+\*LSITEALTER_PRINCIPAL\*O
+.LI
+\*LSITEALTER_OWNER\*O
+.LI
+\*LSITEALTER_OBJID\*O
+.LI
+\*LSITEALTER_CREATIONQUOTA\*O
+.LI
+\*LSITEALTER_CREATIONUSES\*O
+.LI
+\*LSITEALTER_DELETEME\*O
+.LE
+.P
+\*LCreationQuota\*O is the maximum number of filesets that can be created
+on the server. If it is 0 (zero), there is no limit.
+.P
+\*LCreationUses\*O is the current number of entries in the FLDB that point
+to this server. \*VDo not\*O modify this field.
+.H 4 "Manipulating Other FLDB Information"
+.P
+If \*LSITEALTER_DELETEME\*O is specified, the server is deleted from the 
+FLDB.  It is an error to combine this bit with any other, or to delete a 
+server that is still in use.
+Once a site is deleted, there is no way to retrieve it.  The memory used
+to store the data is cleared and reused by the next site creation.
+.P
+It is sometimes useful to be able to get a list of all FLDB entries, so
+that you can perform some global actions or just survey the existing
+filesets.
+.iX "Fileset Location Database"  "entries" "listing" 
+The \*LVL_ListEntry(\|)\*O function 
+provides a list of all entries in the FLDB. The
+\*Lvldbentry\*O structure for each is provided; this structure lists
+a variety of information about the entry, and was described earlier in
+this chapter.
+.P
+You should be sure that you really want information about the \*Eentire\*O
+FLDB before issuing this call repeatedly. The database could be quite large.
+.P
+\*LVL_ListEntry(\|)\*O provides FLDB entries one at a time by using an iterator,
+as described earlier. The function returns, along with an
+entry, an entry number saying where to start on the next call.
+On subsequent calls, you pass in that number and
+it starts there, rather than at the beginning. On the first call, pass 0 (zero)
+for this value. This allows you to get all of the information, although 
+it generally takes many calls. When that number is returned as 0 (zero), all of
+the entries have been supplied.
+.P
+This number is the only input argument to \*LVL_ListEntry(\|)\*O. Three values
+are placed into the output buffer:
+an estimate of the number of entries remaining, the start number
+for the next call, and the returned entry.
+.iX "Fileset Location Database"  "selected entries" "listing" 
+.P
+\*LVL_ListByAttributes(\|)\*O addresses two limitations in the
+\*LVL_ListEntry(\|)\*O mechanism:
+that each FLDB entry is returned in individual calls, and that no
+selection of FLDB entries is done at the database location itself.
+\*LVL_ListByAttributes(\|)\*O uses a selector structure that describes
+the subset
+of the FLDB entries that should be returned. The results are returned in
+an array (up to \*LMAXBULKLEN\*O entries).
+.P
+The selector is a \*LVldbListByAttributes\*O structure.
+.sS
+\*Lstruct VldbListByAttributes {\*O
+       \*Lunsigned32 Mask;\*O
+       \*Lstruct afsNetAddr site;\*O
+       \*Lunsigned32 partition;\*O
+       \*Lunsigned32 volumetype;\*O
+       \*Lstruct afsHyper volumeid;\*O
+       \*Lunsigned32 flag;\*O
+       \*Lunsigned32 spare1;\*O
+       \*Lunsigned32 spare2;\*O
+       \*Lunsigned32 spare3;\*O
+       \*Lunsigned32 spare4;\*O
+       \*Lunsigned32 spare5;\*O
+\*L};\*O
+.sE
+.P
+The fields are as follows:
+.VL
+.LI "\*Lsite\*O"
+The network address of the server.
+.LI "\*Lpartition\*O"
+The aggregate numeric ID.
+.LI "\*Lvolumetype\*O"
+The fileset type, one of the following:
+.ML
+.LI
+\*LVOLTIX_TO_VOLTYPE(RWVOL)\*O
+.LI
+\*LVOLTIX_TO_VOLTYPE(ROVOL)\*O
+.LI
+\*LVOLTIX_TO_VOLTYPE(BACKVOL)\*O
+.LE
+.LI "\*Lvolumeid\*O"
+The fileset ID.
+.LI "\*Lflag\*O"
+The options.
+.LI "\*LMask\*O"
+Bitwise OR of bit values that indicate the fields whose given values should
+constrain the search.  Possible bit values are 
+.iX "masks"
+.VL
+.LI "\*LSite\*O"
+\*LVLLIST_SITE\*O
+.LI "\*LPartition\*O"
+\*LVLLIST_PARTITION\*O
+.LI "\*LFileset type\*O"
+\*LVLLIST_VOLUMETYPE\*O
+.LI "\*LFileset ID\*O"
+\*LVLLIST_VOLUMEID\*O
+.LI "\*LFlags\*O"
+\*LVLLIST_FLAG\*O
+.LE
+.LE
+.P
+For example, to select all FLDB entries having an instance 
+on a particular server and aggregate,
+use a mask value of \*L(BLLIST_SITE | VLLIST_PARTITION)\*O
+and fill in the \*Lsite\*O and \*Lpartition\*O
+fields with the particular site and aggregate in which you are interested.
+.P
+More information about this data structure is provided in the \*EOSF DCE
+Application Development Reference\*O.
+.P
+As with \*LVL_ListEntry(\|)\*O, iteration is used to get all of the
+entries, but up to \*LMAXBULKLEN\*O entries are returned on each call.
+.P
+\*LVL_ListByAttributes(\|)\*O takes two input parameters: the structure
+described previously and the iteration value (starting with 0). It returns
+four values: the number of entries returned, the entries, the next
+iterator value, and a flag. Only the low order bit of this flag is defined;
+if it is set, then this return includes the last matching entry.
+.P
+The following code obtains all read/write entries on a particular server;
+the address of this server is presumed to be stored in the global variable
+\*LThis_Server\*O.
+.oS
+\*C
+#define MAXRESULTS 256;
+
+struct VldbListByAttributes attrib;
+unsigned32 iterator, newIterator, numEntries, flags;
+bulkentries *entries;
+error_status_t error;
+/* The size of the following array depends on how many
+   filesets you expect to match. */
+struct vldbentry AllEntries[MAXRESULTS];
+int lastFilledEntry = 0, j;
+
+attrib.volumeType = VOLTIX_TO_VOLTYPE(RWVOL);
+attrib.Mask = VLLIST_SITE | VLLIST_VOLUMETYPE;
+bcopy(&This_Server, &attrib.site, sizeof(afsNetAddr));
+
+flags = 0;
+iterator = 0;
+
+while (flags == 0)
+  {
+    error = VL_ListByAttributes(Rpc_Handle, &attrib, iterator,
+                                &numEntries, &entries,
+                                &newIterator, &flags);
+    if(error) {
+      printf("Got an error! \\n"); break; }
+    else
+      {
+        vldbentry *entry;
+
+        iterator = newIterator;
+        entry= &entries.bulkentries_val[0];
+        for(j=0; j<numEntries; j++, entry++,
+            lastFilledEntry++)
+          if (lastFilledEntry >= MAXRESULTS)
+             abort("Overflow");
+          AllEntries[lastFilledEntry] = entry;
+      }
+  }
+.oE
+.P
+It is possible to get information about
+the FLDB itself, such as when servers started running, how many requests
+of what types have been made, and so on.
+.iX "Fileset Location Database"  "getting server statistics"
+\*LVL_GetStats(\|)\*O returns two data structures that describe both the
+specific operational statistics that have been gathered by this
+Fileset Location Server instance and the basic information describing
+the FLDB as a whole.
+.P
+The operational statistics, represented by the \*Lvlstats\*O structure,
+include the following: 
+.ML
+.LI
+\*Lstart_time\*O, when the server started up
+.LI
+\*Lrequests\*O, the number of requests of each type of
+RPC procedure
+.LI
+\*Laborts\*O, the number of aborts of each type
+.LE
+.P
+These last two are arrays; the index values for each RPC are listed in
+the \*EOSF DCE Application Development Reference\*O under 
+the \*LVL_GetStats(3dfs)\*O reference page.
+.P
+The basic FLDB information, a \*Lvital_vlheader\*O structure, contains
+frequently used global values and general information such as internal
+statistics.
+.P
+If you do not want all of the preceding information, you can get just a list
+of all 
+active
+file servers known to the FLDB (in other words, any servers mentioned
+in it
+and not marked as deleted) 
+by using the \*LVL_GenerateSites(\|)\*O function.
+.iX "Fileset Location Database"  "listing known servers"
+This function uses an iterator, and provides \*LsiteDesc\*O structures
+(see \*LVL_GetSiteInfo(\|)\*O) compacted together into a \*LbulkSites\*O
+structure, nine at a time.
+.P
+You can also check for communications problems involving the Fileset
+Location Server
+with the \*LVL_Probe(\|)\*O function.
+.iX "Fileset Location Database"  "checking run status of"
+There are no error conditions specific to
+the Fileset Location Server, although the underlying communications mechanism
+may encounter errors and signal the errors via the return value.
+.H 3 "Obtaining Configuration Information"
+.P
+There is a single function to get cell-wide information from the Fileset
+Location Server.
+\*LVL_GetCellInfo(\|)\*O allows a DFS Cache Manager to learn all the
+configuration information about a cell simply by contacting one of the
+Fileset Location Server instances for that cell.
+It takes no input (other than the RPC connection)
+and returns a \*Lvlconf_cell\*O structure containing the information.
+.P
+The \*Lvlconf_cell\*O structure contains fields for the name of the cell,
+the cell's ID, the number of database servers on which Fileset Location
+Servers are running, and the network addresses and names of those servers.
+There is a limit on the size of these last two values (see the structure
+definition, described in the \*EOSF DCE Application Development Reference\*O);
+if the number of servers is greater than the limit imposed by this size,
+then there is no way to get the information about the additional servers.
+.H 3 "Syntax Summary"
+.P
+The functions in this set are
+.ML
+.LI
+Fileset Location
+.ML
+.LI
+\*LVL_ExpandSiteCookie(\|)\*O: Expands compacted site representation
+.LI
+\*LVL_GetCEntryByID(\|)\*O: Gets the compact FLDB entry corresponding to
+a fileset ID
+.LI
+\*LVL_GetCEntryByName(\|)\*O: Gets the compact FLDB entry corresponding to
+a fileset name
+.LI
+\*LVL_GetCNextServerByID(\|)\*O: Returns the next set of servers from a compact FLDB entry for a fileset (using the ID for lookup)
+.LI
+\*LVL_GetCNextServerByName(\|)\*O: Returns the next set of servers from a compact FLDB entry for a fileset (using the name for lookup)
+.LI
+\*LVL_GetEntryByID(\|)\*O: Gets the FLDB entry corresponding to a fileset ID
+.LI
+\*LVL_GetEntryByName(\|)\*O: Gets the FLDB entry corresponding to a fileset
+.LI
+\*LVL_GetNextServerByID(\|)\*O: Returns the next set of servers for a
+fileset (using the ID for lookup)
+.LI
+\*LVL_GetNextServerByName(\|)\*O: Returns the next set of servers for a
+fileset (using the name for lookup)
+.LE
+.LI
+Fileset Maintenance
+.ML
+.LI
+\*LVL_AddAddress(\|)\*O: Declares another network address for a server
+.LI
+\*LVL_AlterServer(\|)\*O: Alters server information in the FLDB
+.LI
+\*LVL_ChangeAddress(\|)\*O: Alters a network address for a server
+.LI
+\*LVL_CreateEntry(\|)\*O: Creates a new FLDB entry
+.LI
+\*LVL_CreateServer(\|)\*O: Declares another server machine to the FLDB
+.LI
+\*LVL_DeleteEntry(\|)\*O: Deletes an entry from the FLDB
+.LI
+\*LVL_GenerateSites(\|)\*O: Lists all file servers known to the FLDB
+.LI
+\*LVL_GetNewVolumeIds(\|)\*O: Allocates several fileset IDs
+.LI
+\*LVL_GetSiteInfo(\|)\*O: Finds out a server's addresses and principal
+.LI
+\*LVL_GetStats(\|)\*O: Gets FLDB and server statistics
+.LI
+\*LVL_ListByAttributes(\|)\*O: Returns selected FLDB entries
+.LI
+\*LVL_ListEntry(\|)\*O: Lists the contents of the FLDB
+.LI
+\*LVL_Probe(\|)\*O: Checks whether the Fileset Location Server is reachable
+.LI
+\*LVL_ReleaseLock(\|)\*O: Releases a previously held lock on an FLDB entry
+.LI
+\*LVL_RemoveAddress(\|)\*O: Removes a network address for a server
+.LI
+\*LVL_ReplaceEntry(\|)\*O: Replaces an FLDB entry for a fileset
+.LI
+\*LVL_SetLock(\|)\*O: Marks an FLDB entry as locked
+.LE
+.LI
+Obtaining Configuration Information
+.ML
+.LI
+\*LVL_GetCellInfo(\|)\*O Gets configuration information for the server's
+cell
+.LE
+.LE
+.P
+A syntax summary for each \*LVL...(\|)\*O function follows.
+.iX "syntax"  "VL functions"
+.iX "Fileset Location Database"  "function syntax"
+.sS
+.zA"defect,5992,r1.0.2,fixed include directory"
+\*L#include <dcedfs/param.h>\*O
+.nL
+\*L#include <dcedfs/sysincludes.h>\*O
+.nL
+\*L#include <dcedfs/stds.h>\*O
+.nL
+\*L#include <dcedfs/common_data.h>\*O
+.nL
+\*L#include <dce/rpc.h>\*O
+.nL
+\*L#include <dce/pthread.h>\*O
+.nL
+\*L#include <dce/exc_handling.h>\*O
+.nL
+\*L#include <dcedfs/compat.h>\*O
+.nL
+\*L#include <dcedfs/nubik.h>\*O
+.nL
+\*L#include <dcedfs/fldb_proc.h>\*O
+.nL
+\*L#include <dcedfs/flserver.h>\*O
+.nL
+\*L#include <dcedfs/flclient.h>\*O
+.zZ"defect,5992,r1.0.2,fixed include directory"
+.sE
+.sS
+\*Lerror_status_t VL_AddAddress(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LafsNetAddr\*V *OldAddr\*L,\*O                    /* in */
+        \*LafsNetAddr\*V *AddrToAdd\*L)\*O                  /* in */
+.sE
+.sS
+\*Lerror_status_t VL_AlterServer(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LafsNetAddr\*V *Addr\*L,\*O                       /* in */
+        \*LsiteAlter\*V *Attrs\*L)\*O                       /* in */
+.sE
+.sS
+\*Lerror_status_t VL_ChangeAddress(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LafsNetAddr\*V *OldAddr\*L, \*O                   /* in */
+        \*LafsNetAddr\*V *NewAddr\*L)\*O                    /* in */
+.sE
+.sS
+\*Lerror_status_t VL_CreateEntry(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*Lvldbentry\*V *new\*L)\*O                         /* in */
+.sE
+.sS
+\*Lerror_status_t VL_CreateServer(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LsiteDesc\*V *FullSiteInfo\*L)\*O                 /* in */
+.sE
+.sS
+\*Lerror_status_t VL_DeleteEntry(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LafsHyper\*V *filesetID\*L,\*O                    /* in */
+        \*Lunsigned32\*V filesetType\*L)\*O                 /* in */
+.sE
+.sS
+\*Lerror_status_t VL_ExpandSiteCookie(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V Cookie\*L,\*O                      /* in */
+        \*LsiteDesc\*V *FullSiteInfo\*L)\*O                 /* out */
+.sE
+.sS
+\*Lerror_status_t VL_GenerateSites(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V startHere\*L,\*O                   /* in */
+        \*Lunsigned32\*V *nextStartP\*L,\*O                 /* out */
+        \*LbulkSites\*V *TheseSites\*L,\*O                  /* out */
+        \*Lunsigned32\*V *nSites\*L)\*O                     /* out */
+.sE
+.sS
+\*Lerror_status_t VL_GetCellInfo(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*Lvlconf_cell\*V *MyCell\*L)\*O                    /* out */
+.sE
+.sS
+\*Lerror_status_t VL_GetCEntryByID(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LafsHyper\*V *filesetID\*L,\*O                    /* in */
+        \*Lunsigned32 \*VfilesetType\*L,\*O                 /* in */
+        \*Lcompactvldbentry\*V *entry\*L)\*O                /* out */
+.sE
+.sS
+\*Lerror_status_t VL_GetCEntryByName(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LvolumeName\*V filesetName\*L,\*O                 /* in */
+        \*Lcompactvldbentry\*V *entry\*L)\*O                /* out */
+.sE
+.sS
+\*Lerror_status_t VL_GetCNextServersByID(\*O
+        \*Lhandle_t\*O rpcBinding\*L,\*O                    /* in */
+        \*LafsHyper\*V *filesetID\*L,\*O                    /* in */
+        \*Lunsigned32\*V filesetType\*L,\*O                 /* in */
+        \*Lunsigned32\*V startHere\*L,\*O                   /* in */
+        \*Lunsigned32\*V *nextStartP\*L,\*O                 /* out */
+        \*Lcompactvldbentry\*V *entry\*L,\*O                /* out */
+        \*Lunsigned32\*V *flags\*L)\*O                      /* out */
+.sE
+.sS
+\*Lerror_status_t VL_GetCNextServersByName(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LvolumeName\*V filesetName\*L,\*O                 /* in */
+        \*Lunsigned32\*V startHere\*L,\*O                   /* in */
+        \*Lunsigned32\*V *nextStartP\*L,\*O                 /* out */
+        \*Lcompactvldbentry\*V *entry\*L,\*O                /* out */
+        \*Lunsigned32\*V *flags\*L)\*O                      /* out */
+.sE
+.sS
+\*Lerror_status_t VL_GetEntryByID(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LafsHyper\*V *filesetID\*L,\*O                    /* in */
+        \*Lunsigned32\*V filesetType\*L,\*O                 /* in */
+        \*Lvldbentry\*V *entry\*L)\*O                       /* out */
+.sE
+.sS
+\*Lerror_status_t VL_GetEntryByName(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LvolumeName\*V filesetName\*L,\*O                 /* in */
+        \*Lstruct vldbentry\*V *entry\*L)\*O                /* out */
+.sE
+.sS
+\*Lerror_status_t VL_GetNewVolumeIds(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V numWanted\*L,\*O                   /* in */
+        \*LafsNetAddr\*V *serverAddr\*L,\*O                 /* in */
+        \*LbulkIds\*V *newIDs\*L)\*O                        /* out */
+.sE
+.sS
+\*Lerror_status_t VL_GetNextServersByID(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LafsHyper\*V *filesetID\*L,\*O                    /* in */
+        \*Lunsigned32\*V filesetType\*L,\*O                 /* in */
+        \*Lunsigned32\*V startHere\*L,\*O                   /* in */
+        \*Lunsigned32\*V *nextStartP\*L,\*O                 /* out */
+        \*Lvldbentry\*V *entry\*L,\*O                       /* out */
+        \*Lunsigned32\*V *flags\*L)\*O                      /* out */
+.sE
+.sS
+\*Lerror_status_t VL_GetNextServersByName(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LvolumeName\*V filesetName\*L,\*O                 /* in */
+        \*Lunsigned32\*V startHere\*L,\*O                   /* in */
+        \*Lunsigned32\*V *nextStartP\*L,\*O                 /* out */
+        \*Lvldbentry\*V *entry\*L,\*O                       /* out */
+        \*Lunsigned32\*V *flags\*L)\*O                      /* out */
+.sE
+.sS
+\*Lerror_status_t VL_GetSiteInfo(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LafsNetAddr\*V *OldAddr\*L,\*O                    /* in */
+        \*LsiteDesc\*V *FullSiteInfo\*L)\*O                 /* out */
+.sE
+.sS
+\*Lerror_status_t VL_GetStats(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*Lvldstats\*V *stats\*L,\*O                        /* out */
+        \*Lvital_vlheader\*V *vital_header\*L)\*O           /* out */
+.sE
+.sS
+\*Lerror_status_t VL_ListByAttributes(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LVldbListByAttributes\*V *attributes\*L,\*O       /* in */
+        \*Lunsigned32 \*Vcookie\*L,\*O                      /* in */
+        \*Lunsigned32 \*V*nentries\*L,\*O                   /* out */
+        \*Lbulkentries\*V *blkentries\*L,\*O                /* out */
+        \*Lunsigned32 \*V*nextcookiep\*L,\*O                /* out */
+        \*Lunsigned32 \*V*flagsp\*L)\*O                     /* out */
+.sE
+.sS
+\*Lerror_status_t VL_ListEntry(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V previous_index\*L,\*O              /* in */
+        \*Lunsigned32\*V *count\*L,\*O                      /* out */
+        \*Lunsigned32\*V *next_index\*L,\*O                 /* out */
+        \*Lvldbentry\*V *entry\*L)\*O                       /* out */
+.sE
+.sS
+\*Lerror_status_t VL_Probe(\*O
+        \*Lhandle_t\*V rpcBinding\*L)\*O                    /* in */
+.sE
+.sS
+\*Lerror_status_t VL_ReleaseLock(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LafsHyper\*V *filesetID\*L,\*O                    /* in */
+        \*Lunsigned32\*V filesetType\*L,\*O                 /* in */
+        \*Lunsigned32\*V ReleaseType)\*O	            /* in */
+.sE
+.sS
+\*Lerror_status_t VL_RemoveAddress(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LafsNetAddr\*V *AddrToRemove\*L)\*O               /* in */
+.sE
+.sS
+\*Lerror_status_t VL_ReplaceEntry(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LafsHyper\*V *filesetID\*L,\*O                    /* in */
+        \*Lunsigned32\*V filesetType\*L,\*O                 /* in */
+        \*Lvldbentry\*V *new\*L,\*O                         /* in */
+        \*Lunsigned32\*V ReleaseType)\*O      		    /* in */
+.sE
+.sS
+\*Lerror_status_t VL_SetLock(\*O
+        \*Lhandle_t\*V rpcBinding\*L,\*O                    /* in */
+        \*LafsHyper\*V *filesetID\*L,\*O                    /* in */
+        \*Lunsigned32\*V filesetType\*L,\*O                 /* in */
+        \*Lunsigned32\*V fsOper\*L)\*O                      /* in */
+.iX "-]" "VL functions"
+.sE
+.H 2 "The FTSERVER Functions: Interacting with the Fileset Server"
+.iX "Fileset Server" "functions"
+.iX "-[" "FTSERVER functions"
+.P
+The Fileset Server (\*LFTSERVER...(\|)\*O) functions are used to perform basic operations
+on filesets, such as creating, deleting, moving, and replicating them.
+Unlike the Volume Call (\*LVC...(\|)\*O) functions, 
+these functions do not change
+the corresponding entries in the Fileset Location Database. To do that,
+use the \*LVL...(\|)\*O functions, described in the previous section.
+Unless you need the extra flexibility that the \*LFTSERVER...(\|)\*O functions provide, you
+should use the \*LVC...(\|)\*O functions instead; the \*LVC...(\|)\*O functions do more for
+you automatically.
+.iX "authorization" "requirements"  "FTSERVER"
+.P
+All of the \*LFTSERVER...(\|)\*O functions except \*LFTSERVER_ListAggregates(\|)\*O,
+\*LFTSERVER_ListVolumes(\|)\*O, \*LFTSERVER_AggregateInfo(\|)\*O, and
+\*LFTSERVER_GetOneVolStatus(\|)\*O require authorization.
+.iX "transactions" 
+.P
+Each \*LFTSERVER...(\|)\*O operation is carried out as a transaction, which
+can be logically viewed as an ``open fileset'' operation with an exclusive
+lock on the affected fileset.
+.iX "atomicity"
+.iX "transactions"  "atomicity of"
+The term ``transaction'' is somewhat of a misnomer here;
+Fileset Server transactions are not atomic. The Fileset Server
+does not use a 2-phase
+commit mechanism, nor does it attempt to undo changes on abort.
+Instead, the Fileset Server's transactions are simply
+a convenient way of denoting state information being held by
+the Fileset Server itself. 
+.P
+There is a large amount of state associated with
+holding a fileset open. That state is not returned to the client. So,
+if you open a transaction and do not complete it, the FLDB and file server
+are not returned to the states they were in before the transaction was
+opened.
+.iX "transactions"  "and simultaneous access"
+.P
+Fileset Server transactions do prevent simultaneous access to a fileset.
+Opening a transaction signals
+to other servers that the fileset in question is unavailable while the
+Fileset Server is manipulating it.
+.P
+Before calling any function except \*LFTSERVER_CreateVolume(\|)\*O or
+\*LFTSERVER_GetOneVolStatus(\|)\*O, you
+must first open a transaction by calling \*LFTSERVER_CreateTrans(\|)\*O,
+or the function fails. (\*LFTSERVER_CreateVolume(\|)\*O opens its own
+transaction automatically.) You then must explicitly close
+every transaction, even those created by \*LFTSERVER_CreateVolume(\|)\*O, with
+.zA"defect,6761,r1.0.2, review comments"
+\*LFTSERVER_DeleteTrans(\|)\*O or \*LFTSERVER_AbortTrans(\|)\*O, 
+.zZ"defect,6761,r1.0.2, review comments"
+or the affected fileset remains locked
+even after you are done making changes to it, and other processes will not
+be able to access it.
+.iX "transactions"  "timing out"
+.P
+Transactions do not time out so long as they are still actively referenced,
+such as in a long-running operation like a dump. Once they are no longer
+being actively referenced, they time out after 10 minutes, and the
+filesets are restored to service. However, applications should
+not rely on timing out; you should call \*LFTSERVER_DeleteTrans(\|)\*O 
+.zA"defect,6761,r1.0.2, review comments"
+or \*LFTSERVER_AbortTrans(\|)\*O 
+as soon
+as you no longer need a transaction. Timing out is provided to prevent
+filesets from becoming permanently unavailable if the failure of a
+machine or other problem interrupts a transaction before
+\*LFTSERVER_DeleteTrans(\|)\*O  or \*LFTSERVER_AbortTrans(\|)\*O 
+is called.
+.zZ"defect,6761,r1.0.2, review comments"
+
+.zA "defect, 5820, r1.0.2, add FTSERVER_AbortTrans"
+.H 3 "Basic Transaction Functions"
+.iX "transactions"  "basic functions"
+.iX "Fileset Server"  "transactions"
+.P
+The functions in this section are used to create and delete transactions on
+filesets. No other functions in this set, except \*LFTSERVER_CreateVolume(\|)\*O
+and \*LFTSERVER_GetOneVolStatus(\|)\*O can be called before a transaction has
+been opened for the fileset in question.
+.iX "transactions"  "creating"
+.iX "Fileset Server"  "transactions" "creating" 
+.P
+\*LFTSERVER_CreateTrans(\|)\*O creates a new fileset transaction and returns its
+unique transaction identifier. You must use this 
+ID in all calls to \*LFTSERVER...(\|)\*O
+functions that operate on that fileset.
+.P
+.zA "defect, 4587, r1.0.2, changes to transaction flags"
+The function accepts a fileset ID, an aggregate ID (where the fileset lives),
+and a set of options.  The options represent the operations that will be 
+performed while the fileset is open and the status code to report to
+other processes attempting to access the same fileset in an incompatible
+manner.  The operations are combined via bitwise OR to form a mask, and 
+then that mask and the status code are passed, in that order, to the macro
+\*LFLAGS_ENCODE\*O to be combined into a single flag value.  
+If an operation is then attempted that is not on the list
+of allowable operations, the specified status code is returned.
+.P
+The following options represent operations that will be performed on the 
+fileset during the transaction:
+.iX "transactions"  "status"
+.ML
+.LI
+\*LFTSERVER_OP_DELETE(\|)\*O
+.LI
+\*LFTSERVER_OP_DUMP(\|)\*O
+.LI
+\*LFTSERVER_OP_RESTORE(\|)\*O
+.LI
+\*LFTSERVER_OP_CLONE(\|)\*O
+.LI
+\*LFTSERVER_OP_RECLONE(\|)\*O
+.LI
+\*LFTSERVER_OP_GETFLAGS(\|)\*O
+.LI
+\*LFTSERVER_OP_SETFLAGS(\|)\*O
+.LI
+\*LFTSERVER_OP_SETFLAGSID\*O
+.LI
+\*LFTSERVER_OP_SETSTATUS(\|)\*O
+.LI
+\*LFTSERVER_OP_GETSTATUS(\|)\*O
+.LI
+\*LFTSERVER_OP_SWAPIDS\*O
+.LE
+.P
+The difference between \*LFTSERVER_OP_SETFLAGS\*O and 
+\*LFTSERVER_OP_SETFLAGSID\*O is that the latter also allows changing the 
+ID for a fileset.
+.P
+The list of status codes from which to choose is found in 
+\*Ldcedfs/vol_errs.h\*O.  One status code should be chosen from this list
+that is appropriate to all operations not permitted via the flags 
+specified previously.
+There are two types of errors, persistent and transient.  In the former
+case, the cache manager reports the error.  In the latter case, the cache
+manager waits for recovery.
+.P
+Any number of operation options can be specified, but only one error code
+may be given.  The operation options are used by DFS to determine what
+operations may occur concurrently with this one; the error code is 
+returned to any process that attempts to open the fileset for an 
+incompatible operation.
+.P
+.zZ "defect, 4587, r1.0.2, changes to transaction flags"
+.P
+Transactions at some point are either completed or aborted.
+In the case of an abort, the fileset may be left in some intermediate
+state.  The Fileset Server does not ensure the consistency of filesets,
+but it does maintain a special bit, the inconsistency bit, for each
+fileset.  If this bit is set, data in the fileset cannot be trusted.  This
+bit is set during operations such as cloning and restoration, and is 
+typically unset at the completion of the operation.  
+\*LFTSERVER_DeleteTrans\*O unsets the bit; \*LFTSERVER_AbortTrans\*O 
+leaves it set.  It is up to the system administrator to handle the
+results of aborted transactions.
+.iX "transactions"  "deleting"
+.iX "Fileset Server"  "transactions" "deleting"
+.P
+\*LFTSERVER_DeleteTrans(\|)\*O takes one argument (in addition to the RPC
+connection): a transaction ID, and deletes
+the transaction associated with it. Once you delete a transaction, you will
+not be able to perform \*LFTSERVER...(\|)\*O operations on the fileset until you create
+another transaction.
+.iX "transactions"  "aborting"
+.iX "Fileset Server"  "transactions" "aborting"
+.P
+Similarly, \*LFTSERVER_AbortTrans(\|)\*O takes two arguments, the handle
+and the transaction ID.  It frees the fileset for additional operations,
+but leaves the inconsistency bit set.  Once you abort a transaction, you will
+not be able to perform \*LFTSERVER...(\|)\*O operations on the fileset until 
+you create another transaction.
+.zZ "defect, 5820, r1.0.2, add FTSERVER_AbortTrans"
+
+.H 3 "Creating, Deleting, and Cloning Filesets"
+.P
+The functions in this section create, delete, clone, and update clones of
+filesets. They all apply only to DCE LFS filesets.
+All except \*LFTSERVER_CreateVolume(\|)\*O require that a transaction
+be open for the fileset.
+.iX "Fileset Server"  "creating filesets" 
+.iX "filesets"  "creating"
+.P
+\*LFTSERVER_CreateVolume(\|)\*O is used to create a fileset. Like
+\*LVC_CreateVolume\*O, it takes an RPC connection, an aggregate ID, a
+fileset name, and a fileset ID. In addition, you must specify the fileset
+type and the ID of the parent fileset. This parent fileset has nothing
+to do with where the fileset will eventually be mounted on the file server;
+rather, this refers to relationships with other filesets. For example, a
+copy of a fileset has that fileset as its parent. If you are creating a
+copy, use the fileset ID for the source as the parent; if you are creating
+a new fileset, pass a 0 (zero) ID.
+Finally, \*LFTSERVER_CreateVolume(\|)\*O takes an option argument like the one
+taken by \*LFTSERVER_CreateTrans(\|)\*O.
+.P
+\*LFTSERVER_CreateVolume(\|)\*O returns a transaction ID, which should be
+treated like transaction IDs returned by \*LFTSERVER_CreateTrans(\|)\*O.
+.P
+The types of filesets are as follows:
+.VL 10
+.LI "\*LVOLTIX_TO_VOLTYPE(RWVOL)\*O:"
+read/write fileset
+.LI "\*LVOLTIX_TO_VOLTYPE(ROVOL)\*O:"
+read-only fileset
+.LI "\*LVOLTIX_TO_VOLTYPE(BACKVOL)\*O:"
+backup fileset
+.LE
+.P
+The fileset will not actually be accessible until \*LFTSERVER_SetFlags(\|)\*O
+or \*LFTSERVER_SetStatus(\|)\*O
+is called to bring it online and the transaction ends. Be sure to
+call \*LFTSERVER_DeleteTrans(\|)\*O to close the transaction, or the fileset
+will remain unavailable until the transaction times out.
+.P
+The following example shows the creation of a read/write fileset.
+.oS
+unsigned char *fileset = "foo";        /* arbitrary name */
+unsigned32 AggID = 0;                  /* arbitrary disk no. */
+struct bulkIds filesetIDs;
+unsigned32 transactionID = 0;
+int code;                              /* return code */
+error_status_t error;
+
+bzero(&filesetID, sizeof(filesetID));
+bzero(&parentID, sizeof(parentID));
+
+/* PARENT FILESET */
+
+/* get ID */
+error = VL_GetNewVolumeIds(Rpc_Handle, 1, AggID, filesetIDs);
+if(error)
+  printf("Got an RPC error while getting fileset ID! \\n");
+
+/* create fileset */
+code = FTSERVER_CreateVolume(Rpc_Handle, AggID, fileset,
+                             VOLTIX_TO_VOLTYPE(RWVOL),
+                             &parentID,&filesetID,
+                             &transactionID);
+if(code != 0)
+  printf("Got an RPC error while creating parent fileset! \\n");
+
+/* bring fileset online */
+code = FTSERVER_SetFlags(Rpc_Handle, transactionID, VOL_RW);
+if(code != 0)
+\&  printf("Got an RPC error while bringing fileset online!\\n");
+
+/* delete transaction */
+code = FTSERVER_DeleteTrans(Rpc_Handle, transactionID);
+if(code != 0)
+  printf("Got an RPC error while deleting transaction! \\n");
+.oE
+.iX "Fileset Server"  "deleting filesets"
+.iX "filesets"  "deleting"
+.P
+\*LFTSERVER_DeleteVolume(\|)\*O deletes a fileset from the aggregate. It takes
+two arguments: an RPC connection and the transaction ID that was obtained
+from \*LFTSERVER_CreateTrans(\|)\*O or \*LFTSERVER_CreateVolume(\|)\*O.
+.iX "Fileset Server"  "cloning filesets" 
+.iX "filesets"  "cloning"
+.iX "clones"
+.P
+\*LFTSERVER_Clone(\|)\*O creates a clone (read-only or backup copy)
+of a read/write fileset. It takes an RPC connection and transaction ID
+and the ID, type, and name of the copy.
+.P
+To make administration easier, the name of the clone should be related to
+the name of the source fileset. For example, a backup clone of fileset
+\*Lfoo\*O could be named \*Lfoo.backup\*O.
+.iX "Fileset Server"  "updating clones"
+.iX "filesets"  "updating clones"
+.P
+Once you have made a clone, you may wish to update it from time to time.
+This is more efficient than making new clones and then deleting the old
+ones, as only the information that has changed will need to be updated.
+.P
+\*LFTSERVER_ReClone(\|)\*O brings a clone up to date with the source fileset.
+It takes three arguments: an RPC connection, the transaction ID of the
+source fileset, and the fileset ID of the clone.
+.P
+There is no explicit ``unclone'' function to delete a clone.
+\*LFTSERVER_DeleteVolume(\|)\*O, if given a clone as a parameter,
+removes that clone only.
+.H 3 "Getting and Modifying Fileset Status"
+.P
+The functions in this section are used to find and
+modify the status of filesets;
+for instance, to move them online or offline, or to examine or change fileset
+header fields.
+.iX "Fileset Server"  "setting status of filesets" 
+.iX "filesets"  "setting status of"
+.P
+You must explicitly set the status of a fileset when you create it, and
+manually change it, when using the \*LFTSERVER...(\|)\*O functions. The
+status determines the conditions under which the fileset can be accessed,
+and what types of operations can be done.
+.P
+\*LFTSERVER_SetFlags(\|)\*O is used to set the current status of a fileset.
+.P
+The status is a bitwise OR of values from the following list:
+.ML
+.LI
+\*LVOL_RW\*O indicates that the fileset allows both read and write
+access.
+.LI
+\*LVOL_READONLY\*O indicates that the fileset is read-only. Writes to
+this fileset will fail.
+.LI
+\*LVOL_DELONSALVAGE\*O indicates that the fileset is not usable; it will
+be deleted upon reboot. This is an intermediate state used to guarantee
+correctness for large operations such as cloning a fileset.
+.LI
+\*LVOL_OFFLINE\*O indicates that the fileset is offline. Reads and
+writes to this fileset will fail.
+.LI
+\*LVOL_BUSY\*O indicates that the fileset is temporarily unavailable.
+.LI
+\*LVOL_OUTOFSERVICE\*O indicates that the fileset is not
+usable; it will not be deleted upon reboot.
+.LI
+\*LVOL_DEADMEAT\*O indicates that the fileset is in the process of
+being deleted.
+.LI
+.zA"defect,6761,r1.0.2, review comments"
+\*LVOL_ZAPME\*O is used to delete the fileset immediately.
+.LI
+\*LVOL_CLONEINPROG\*O indicates that a clone of this fileset is in progress
+or was interrupted and never finished.
+.LI
+\*LVOL_OK\*O is the bitwise negation of \*LVOL_BUSY\*O,
+\*LVOL_OFFLINE\*O, \*LVOL_DELONSALVAGE\*O, and \*LVOL_OUTOFSERVICE\*O.
+It is used to mark a fileset as usable.
+.LI
+\*LVOL_REPFIELD\*O is used for replication and should never be
+modified by applications.
+.LI
+\*LVOL_IS_COMPLETE\*O is used as a flag by the Replication Server.
+.LI
+\*LVOL_HAS_TOKEN\*O is used for communications between the Replication
+Server and the File Exporter.
+.LI
+\*LVOL_KNOWDALLY\*O is used by the File Exporter to prevent files from
+being deleted prematurely.
+.LI
+\*LVOL_TYPEFIELD\*O is a record of more specific fileset uses.
+.zZ"defect,6761,r1.0.2, review comments"
+.LE
+.iX "Fileset Server"  "getting status of filesets" 
+.iX "filesets"  "getting status of"
+.P
+\*LFTSERVER_GetFlags(\|)\*O gets the current availability of a fileset. It takes
+two arguments: an RPC connection and the transaction ID of the fileset in
+question, and returns a mask derived from the options described previously for
+\*LFTSERVER_SetFlags(\|)\*O.
+.P
+In addition to the current availability, there are other types of status
+information that can be set.
+.iX "Fileset Server"  "setting status of filesets"
+.iX "filesets"  "setting status of"
+\*LFTSERVER_SetStatus(\|)\*O sets this status information. It
+takes four arguments: an RPC connection, the transaction ID for the fileset,
+a mask, and a structure representing the status to set. The status is an
+\*Lftserver_status\*O structure.
+.sS
+struct ftserver_status {
+       ftserver_status_static vss;
+       ftserver_status_dynamic vsd;
+       }
+
+struct ftserver_status_static {
+       struct afsHyper volId;
+       struct afsHyper parentId;
+       struct afsTimeval cloneTime;
+       struct afsTimeval vvCurrentTime;
+       struct afsTimeval vvPingCurrentTime;
+       unsigned32 type; 
+       unsigned32 accStatus;
+       unsigned32 accError;
+       unsigned32 states;
+       unsigned32 reclaimDally;
+       unsigned32 tokenTimeout;
+       unsigned32 activeVnops;
+       unsigned32 volMoveTimeout;
+       unsigned32 static_spare4;
+       unsigned32 static_spare5;
+       unsigned32 static_spare6;
+       unsigned32 static_spare7;
+       unsigned32 static_spare8;
+       unsigned32 static_spare9;
+       unsigned char volName[FTSERVER_MAXFSNAME];
+       unsigned char concurrency;
+       unsigned char static_cspares[15];
+       }
+
+struct ftserver_status_dynamic {
+       struct afsTimeval creationDate;
+       struct afsTimeval updateDate;
+       struct afsTimeval accessDate;
+       struct afsTimeval backupDate;
+       struct afsTimeval copyDate;
+       struct afsHyper volversion; 
+       struct afsHyper backupId;
+       struct afsHyper cloneId;
+       struct afsHyper llBackId;
+       struct afsHyper llFwdId;
+       struct afsHyper allocLimit;
+       struct afsHyper allocUsage;
+       struct afsHyper visQuotaLimit;
+       struct afsHyper visQuotaUsage;
+       unsigned32 fileCount;
+       unsigned32 minQuota;
+       unsigned32 owner;
+       unsigned32 unique;
+       unsigned32 index;
+       unsigned32 rwindex;
+       unsigned32 backupIndex;
+       unsigned32 parentIndex;
+       unsigned32 cloneIndex;
+       unsigned32 nodeMax;
+       unsigned32 dynamic_spare1;
+       unsigned32 dynamic_spare2;
+       unsigned32 dynamic_spare3;
+       unsigned32 dynamic_spare4;
+       unsigned32 dynamic_spare5;
+       unsigned32 dynamic_spare6;
+       unsigned32 tag;
+       unsigned32 msgLen;
+       unsigned char statusMsg[128];
+       unsigned char dynamic_cspares[16];
+       }
+.sE
+.P
+The fields of these structures are as follows:
+.ML
+.LI
+\*Lftserver_status_static\*O
+.ML
+.LI
+\*LvolId\*O: The ID of the fileset, which should be unique throughout
+the cell.
+.LI
+\*LparentId\*O: The fileset ID of the read/write source, if this is a
+read-only or backup clone.
+.LI
+\*LcloneTime\*O: The time the last clone was made of this fileset.
+.LI
+\*LvvCurrentTime\*O: The most recent time that the fileset version
+number was known to be current on the read/write site.
+Applications should not modify this field.
+.LI
+\*LvvPingCurrentTime\*O: The most recent time that a read-only site
+tried to contact a read/write site to determine how current the fileset
+version number there is. Applications should not modify this field.
+.LI
+\*Ltype\*O: The fileset's type.
+.LI
+\*LaccStatus\*O: The access status on the fileset; the status will be
+one of the codes described under \*LFTSERVER_CreateTrans(\|)\*O. This field
+should never be modified by an application program.
+.LI
+\*LaccError\*O: The access error on a fileset; this will be
+one of the codes described under \*LFTSERVER_CreateTrans(\|)\*O. This field
+should never be modified by an application program.
+.LI
+\*Lstates\*O: The status flag, as set by \*LFTSERVER_SetFlags(\|)\*O.
+.LI
+\*LreclaimDally\*O: The time, in seconds, between keep-alive messages
+sent by the Cache Manager.
+.LI
+\*LtokenTimeout\*O: The time at which the \*LVOL_HAS_TOKEN\*O bit in the 
+states field times out.
+.LI
+\*LactiveVnops\*O: The number of vnode operations currently in progress for
+the fileset.
+.LI
+\*LvolMoveTimeout\*O: The time at which the \*LVOL_MOVE_TARGET\*O and 
+\*LVOL_MOVE_SOURCE\*O bits in the states field are to be cleared.  These
+are used to coordinate token state recovery across fileset moves.
+.LI
+\*Lstatic_spare4\*O through \*Lstatic_spare9\*O: Spares reserved for future
+use.
+.LI
+\*LvolName\*O: The name of the fileset.
+.LI
+\*Lconcurrency\*O: Indicates which vnode operations may be carried out
+concurrently with the currently-active sequence of fileset operations;
+its value is meaningful only if \*LVOL_BUSY\*O is set in the states field.
+The possible values are: \*LVOL_CONCUR_ALLOPS, VOL_CONCUR_READONLY,\*O and
+\*LVOL_CONCUR_NOOPS\*O.
+.LI
+\*Lstatic_cspares\*O: Reserved for future use.
+.LE
+.LI
+\*Lftserver_status_dynamic\*O
+.ML
+.LI
+\*LcreationDate\*O: The date of the fileset's creation.
+.LI
+\*LupdateDate\*O: The timestamp of the last modification by a user.
+.LI
+\*LaccessDate\*O: The last access time by a user.
+.LI
+\*LbackupDate\*O: The date at which the last backup clone was made.
+.LI
+\*LcopyDate\*O: The time that this copy of the fileset was created.
+.LI
+\*LvolVersion\*O: The current version number of the fileset.
+.LI
+\*LbackupId\*O: The fileset ID of the latest backup version of this
+fileset.
+.LI
+\*LcloneId\*O: The fileset ID of the clone.
+.LI
+\*LllBackId\*O and \*LllFwdId\*O: Links all related filesets in a
+doubly linked list; used to find the correct fileset to unclone when
+deleting a fileset.
+.LI
+\*LallocLimit\*O: The maximum amount of disk space the fileset is allowed
+to take up, expressed in bytes. A value of 0 (zero) means there is no limit.
+.LI
+\*LallocUsage\*O: The amount of disk space currently in use by the fileset.
+.LI
+\*LvisQuotaLimit\*O: The maximum amount of disk space that may be used by
+this fileset and its clones and backups.  
+.LI
+\*LvisQuotaUsage\*O: The amount of disk space currently in use by the fileset
+and its clones and backups.
+.LI
+\*LfileCount\*O: The number of files in the fileset.
+.LI
+\*LminQuota\*O: The amount of disk space guaranteed to be available for
+the fileset, expressed in units of 1024 bytes. Other filesets on the
+partition are prevented from growing if their growth would impinge
+on this limit.
+.LI
+\*Lowner\*O: The DFS ID of the owner of the fileset.
+.LI
+\*Lunique\*O: The uniquifier, a value combined with other IDs to
+guarantee uniqueness (\*Vdo not\*O modify this).
+.LI
+\*Lindex\*O, \*Lrwindex\*O, \*LbackupIndex\*O, \*LparentIndex\*O,
+and \*LcloneIndex\*O: Information about where other related filesets are
+located within an aggregate; for the remote application user they are
+meaningless. They cannot be set remotely.
+.LI
+\*LnodeMax\*O: The maximum filesystem-independent index that can be used
+on this fileset.  For
+UFS/JFS filesets, it reflects the size of the underlying inode table.  For 
+LFS filesets, it reflects the size of the volume table. 
+.LI
+\*Ldynamic_spare1\*O through \*Ldynamic_spare6\*O: Spares reserved
+for future use.
+.LI
+\*Ltag\*O:
+.LI
+\*LmsgLen\*O: The length of \*LstatusMsg\*O.
+.LI
+\*LstatusMsg\*O: A message field used by low-level code to transmit
+error messages back up to the caller (across the FTServer-to-kernel interface).
+Applications should not use this field.
+.LI
+\*Ldynamic_cspares\*O: Reserved for future use.
+.LE
+.LE
+.P
+The mask is the bitwise OR of identifiers for the fields to be set. The
+fields are defined by the following constants:
+.ML
+.LI
+\*LVOL_STAT_VOLNAME\*O
+.LI
+\*LVOL_STAT_VOLID\*O
+.LI
+\*LVOL_STAT_VERSION\*O
+.LI
+\*LVOL_STAT_UNIQUE\*O
+.LI
+\*LVOL_STAT_OWNER\*O
+.LI
+\*LVOL_STAT_TYPE\*O
+.LI
+\*LVOL_STAT_STATES\*O
+.LI
+\*LVOL_STAT_NODEMAX\*O
+.LI
+\*LVOL_STAT_ALLOCLIMIT\*O
+.LI
+\*LVOL_STAT_VISLIMIT\*O
+.LI
+\*LVOL_STAT_VOLMOVETIMEOUT\*O
+.LI
+\*LVOL_STAT_BACKUPID\*O
+.LI
+\*LVOL_STAT_PARENTID\*O
+.LI
+\*LVOL_STAT_CLONEID\*O
+.LI
+\*LVOL_STAT_LLBACKID\*O
+.LI
+\*LVOL_STAT_LLFWDID\*O
+.LI
+\*LVOL_STAT_CREATEDATE\*O
+.LI
+\*LVOL_STAT_UPDATEDATE\*O
+.LI
+\*LVOL_STAT_ACCESSDATE\*O
+.LI
+\*LVOL_STAT_COPYDATE\*O
+.LI
+\*LVOL_STAT_MINQUOTA\*O
+.LI
+\*LVOL_STAT_INDEX\*O
+.LI
+\*LVOL_STAT_BACKVOLINDEX\*O
+.LI
+\*LVOL_STAT_STATUSMSG\*O
+.LI
+\*LVOL_STAT_CLONETIME\*O
+.LI
+\*LVOL_STAT_VVCURRTIME\*O
+.LI
+\*LVOL_STAT_VVPINGCURRTIME\*O
+.LI
+\*LVOL_STAT_BACKUPDATE\*O
+.LI
+\*LVOL_STAT_RECLAIMDALLY\*O
+.LE
+.iX "Fileset Server"  "getting status of filesets"
+.iX "filesets"  "getting status of"
+.iX "getting"  "fileset status"
+.P
+\*LFTSERVER_GetStatus(\|)\*O returns the status information listed previously for a
+fileset. It takes two arguments: an RPC connection and the transaction ID
+for the fileset in question, and returns a \*Lftserver_status\*O structure
+containing the information.
+.P
+\*LFTSERVER_GetStatus(\|)\*O, like most calls in this section, requires that
+\*LFTSERVER_CreateTrans(\|)\*O and \*LFTSERVER_DeleteTrans(\|)\*O be called, thus
+locking the fileset while the status check is in progress. An easier solution
+for those cases where you wish to quickly check the status of a single fileset
+is \*LFTSERVER_GetOneVolStatus(\|)\*O.
+.iX "filesets"  "getting status of"
+.iX "getting"  "fileset status"
+This function does \*Enot\*O require the two transaction calls, 
+and \*Ldoes not\*O
+require any special authentication to use. It takes an RPC handle, the
+identifier for the fileset to check, and an aggregate ID, and returns the
+same status as \*LFTSERVER_GetStatus(\|)\*O does in the output buffer.
+.H 3 "Dumping, Restoring, and Moving Filesets"
+.P
+This section describes functions for dumping and restoring filesets and
+moving dumps around.
+.iX "dumping filesets"
+.iX "filesets"  "dumping"
+.P
+Dumping refers to the process of copying a fileset, or portion thereof,
+to a byte stream, which is suitable for storage on tape
+or as an intermediate format when moving filesets between file server
+machines that store filesets in different formats.
+.iX "restoring"  "filesets from dumps"
+.iX "filesets"  "restoring"
+Restoring refers
+to conversion of a byte stream back into the appropriate fileset format
+and placement back into the file system.
+.iX "dumping filesets"
+.iX "backing up" "vs. dumping"
+Dumping is different from backing up because the result is not a mountable
+fileset. In order to use a backed up fileset, you merely need to bring
+it online, which is a fast operation. In order to use a dumped fileset,
+you need to restore it. However, dumping is necessary for offline storage.
+.iX "Fileset Server"  "dumping filesets" 
+.iX "filesets"  "dumping"
+.P
+\*LFTSERVER_Dump(\|)\*O dumps a fileset as a byte stream.
+It takes four arguments:
+an RPC connection, the transaction ID for the affected fileset, a
+specification of what to dump, and an RPC pipe to accept the output.
+The date is represented as an \*Lftserver_Date\*O structure, described
+previously. 
+.P
+The \*Lftserver_Date\*O structure contains a mask slot that
+indicates which of the other two fields, the date or version number, to use.
+A mask of 1 means to use the date, and a mask of 2 means to use the version.
+A mask of 0 means to use neither. All other values are undefined.
+.P
+The dump data itself is returned as an output pipe parameter.
+.P
+A fileset dump consists of a fileset header dump followed by a set of
+individual vnode dumps, followed by an end-of-fileset opcode. Individual
+vnode dumps consist of a vnode start opcode, multiple vnode descriptor
+opcodes, and an end-of-vnode opcode.
+.P
+Complete information about these opcodes is given in the \*EOSF DCE Application
+Development Reference\*O. The information that is represented follows:
+.ML
+.LI
+Maximum uniquifier, the value of the highest uniquifier
+that has been used.
+.LI
+Maximum quota, the maximum number of 1024-byte units that the
+fileset can grow to (0 (zero) means no limit).
+.LI
+Minimum quota, the minimum number of 1024-byte units that the
+fileset has reserved (0 (zero) means no reservation).
+.LI
+Actual disk usage, in 1024-byte units.
+.LI
+The number of files in the fileset.
+.LI
+Fileset owner ID.
+.LI
+Creation date, when the fileset ID was first used by this fileset.
+.LI
+Last access date.
+.LI
+Last update date.
+.LI
+Message of the day, a string that gives human readable
+information about the particular state of this fileset; that is, 
+why the fileset is unavailable, when it will be back, and so on.
+.LI
+Volume version.
+.LI
+Fileset type from which the dump was made.
+.LI
+Vnode type.
+.LI
+Vnode link count.
+.LI
+Vnode data version.
+.LI
+Vnode fileset version.
+.LI
+Vnode access time.
+.LI
+Vnode modify time (from the client rather than from server).
+.LI
+Vnode change time.
+.LI
+Vnode true modify time (from the server rather than from client).
+.LI
+Vnode group owner.
+.LI
+Vnode author (the person who last modified the fileset).
+.LI
+Vnode owner.
+.LI
+Vnode UNIX mode bits.
+.LI
+Vnode access control lists.
+.LI
+Vnode size.
+.LI
+Vnode data.
+.LE
+.P
+If you are planning to immediately restore the dumped fileset elsewhere,
+for efficiency reasons, you should call \*LFTSERVER_Forward(\|)\*O instead
+of calling \*LFTSERVER_Dump(\|)\*O followed by \*LFTSERVER_Restore(\|)\*O.
+.iX "Fileset Server"  "restoring dumped filesets" 
+.iX "filesets"  "restoring"
+.P
+\*LFTSERVER_Restore(\|)\*O restores a DCE LFS fileset 
+from a dump. It takes three
+arguments: an RPC connection, the transaction ID for the fileset, and a third
+argument that is reserved for future use (use 0 (zero)).
+.P
+Dumping and restoring filesets are CPU- and network-intensive processes,
+so you should be careful about their use.
+.iX "Fileset Server"  "moving filesets" 
+.iX "filesets"  "moving"
+.P
+\*LFTSERVER_Forward(\|)\*O dumps a fileset from one file server and restores
+it on another. The destination must be a DCE LFS fileset. It takes six
+arguments: an RPC connection, a transaction ID for the source fileset, an
+\*Lftserver_Date\*O structure describing what kind of dump to make
+(this is the same as the corresponding argument to \*LFTSERVER_Dump(\|)\*O),
+the address of the destination machine in an \*Lftserver_dest\*O structure,
+restoration flags as per \*LVC_RestoreVolume\*O,
+and a transaction ID for the fileset on the destination machine.
+.P
+You must first create a fileset on the destination machine, and then open
+transactions on both the source and destination filesets.
+
+.zA"defect, 6415, r1.0.2, add FTSERVER_SwapIDs"
+.H 3 "Changing Fileset IDs"
+.P
+In some cases it may be desirable to exchange the identifiers of two 
+filesets.  This could be necessary, for example, if you are writing your
+own cloning operation or you wish to perform certain operations on 
+locally mounted filesets.  The function \*LFTSERVER_SwapIDs(\|)\*O is 
+used for this purpose.  The function takes five arguments: the binding handle,
+transactions on the two filesets involved, and two spares.  The function 
+exchanges the identifiers for the two filesets.
+.zZ"defect, 6415, r1.0.2, add FTSERVER_SwapIDs"
+
+.H 3 "Enumerating Filesets, Aggregates, and Transactions"
+.P
+The functions in this section supply information about filesets, aggregates,
+and current transactions. Because these functions do not directly
+manipulate filesets, they do not require open transactions.
+.iX "Fileset Server"  "aggregates" "listing" 
+.iX "aggregates"  "listing"
+.P
+\*LFTSERVER_ListAggregates(\|)\*O returns the names, devices,
+IDs, and types of all valid
+aggregates on a server. It takes an RPC connection on the
+server in question. It returns an array of \*Lftserver_aggrList\*O structures.
+This structure has four main fields that correspond to the four pieces of
+information returned for each aggregate. The array contains up to
+\*LFTSERVER_MAXAGGR(\|)\*O structures.
+.P
+\*LFTSERVER_ListAggregates(\|)\*O uses iterators to return the aggregates.
+.iX "Fileset Server"  "aggregates" "listing contents of"
+.iX "aggregates"  "listing detailed information"
+.P
+To get more specific information about a single aggregate, use
+\*LFTSERVER_AggregateInfo(\|)\*O.
+This function returns detailed information about a single
+aggregate, unlike \*LFTSERVER_ListAggregates(\|)\*O, which returns general
+information about all of them. \*LFTSERVER_AggregateInfo(\|)\*O takes two
+arguments: an RPC connection and an aggregate ID, and returns a
+\*Lftserver_aggrInfo\*O structure. 
+The structure contains the following information:
+.ML
+.LI
+The name of the partition on which the aggregate resides
+.LI
+The new device name on which the aggregate is mounted
+.LI
+The type of aggregate (for example, UFS or DCE LFS)
+.LI
+The number of usable 1024-byte units allocated
+.LI
+The total space free, in 1024-byte units
+.LI
+The reserved space, in 1024-byte units
+.LE
+.iX "Fileset Server"  "aggregates" "listing contents of"
+.iX "aggregates"  "listing contents of"
+.iX "filesets"  "listing aggregate contents"
+.P
+If you want to list the contents of an aggregate, use
+\*LFTSERVER_ListVolumes(\|)\*O.
+This function returns a list of all filesets on a given aggregate.
+It takes three arguments: an RPC connection, an aggregate ID,
+and an iterator. It returns
+two values: the iterator to use for the next call and the actual information.
+As with other functions that use an iterator, you should give an initial value
+of 0 (zero) and use the output iterator as the next input iterator value until you
+have all of the data.
+.P
+This operation has substantial overhead
+because it reads the fileset headers for all the
+filesets on that aggregate on the disk. If you are really only interested
+in a small number of filesets, you would be much better off using
+\*LFTSERVER_GetStatus(\|)\*O or \*LFTSERVER_GetOneVolStatus(\|)\*O
+to get information on those specific filesets only.
+For information about the information returned, see Section 51.7.3.
+.iX "Fileset Server"  "transactions" "listing active"
+.iX "transactions"  "listing active"
+.P
+Finally, \*LFTSERVER_Monitor(\|)\*O is provided to return a list of all
+active transactions involving
+a given file server. This function allows processes to monitor the progress
+of a transaction. The function takes one argument, an RPC connection for
+the server, and returns an array of \*Lftserver_trans\*O structures
+containing the results. 
+.P
+The following information about each transaction is returned:
+.ML
+.LI
+The transaction ID
+.LI
+The open fileset's aggregate
+.LI
+The open fileset's ID
+.LI
+The descriptor of the open fileset
+.LI
+The time the transaction was last active
+.LI
+The time the transaction started
+.LI
+The transaction error code, if any errors have occurred
+.LI
+The transaction's status bits
+.LE
+.H 3 "Syntax Summary"
+.iX "syntax"  "FTSERVER functions"
+.iX "Fileset Server"  "syntax"
+.iX "FTSERVER functions"  "syntax"
+.P
+The \*LFTSERVER...(\|)\*O functions are as follows:
+.ML
+.LI
+Transactions
+.ML
+.LI
+\*LFTSERVER_CreateTrans(\|)\*O: Opens a transaction on a fileset
+.LI
+\*LFTSERVER_DeleteTrans(\|)\*O: Closes a transaction on a fileset
+.zA "defect, 5820, r1.0.2, add FTSERVER_AbortTrans"
+.LI
+\*LFTSERVER_AbortTrans(\|)\*O: Aborts a transaction on a fileset.
+.zZ "defect, 5820, r1.0.2, add FTSERVER_AbortTrans"
+.LE
+.LI
+Creating, Deleting, and Cloning (LFS filesets only)
+.ML
+.LI
+\*LFTSERVER_Clone(\|)\*O: Creates a read-only copy of a fileset
+.LI
+\*LFTSERVER_CreateVolume(\|)\*O: Creates a new fileset
+.LI
+\*LFTSERVER_DeleteVolume(\|)\*O: Deletes a fileset
+.LI
+\*LFTSERVER_ReClone(\|)\*O: Brings a clone up to date with the read/write
+copy
+.LE
+.LI
+Modifying Fileset Status
+.ML
+.LI
+\*LFTSERVER_GetFlags(\|)\*O: Gets the current availability of a fileset
+.LI
+\*LFTSERVER_GetOneVolStatus(\|)\*O: Gets the full status of a fileset without
+requiring explicit transactions
+.LI
+\*LFTSERVER_GetStatus(\|)\*O: Gets the full status of a fileset
+.LI
+\*LFTSERVER_SetFlags(\|)\*O: Sets the current availability of a fileset
+.LI
+\*LFTSERVER_SetStatus(\|)\*O: Sets the various status information for a fileset
+.LE
+.LI
+Dumping, Restoring, and Moving
+.ML
+.LI
+\*LFTSERVER_Dump(\|)\*O: Dumps a fileset to a character stream
+.LI
+\*LFTSERVER_Forward(\|)\*O: Dumps a fileset from one file server and restores
+it to another (DCE LFS filesets only)
+.LI
+\*LFTSERVER_Restore(\|)\*O: Restores a fileset from a character stream
+(DCE LFS filesets only)
+.LE
+.LI
+Enumerating Filesets, Aggregates, and Transactions
+.ML
+.LI
+\*LFTSERVER_AggregateInfo(\|)\*O: Provides specific information about an
+aggregate
+.LI
+\*LFTSERVER_ListAggregates(\|)\*O: Identifies all valid aggregates on a
+server
+.LI
+\*LFTSERVER_ListVolumes(\|)\*O: Lists the filesets on a file server
+.LI
+\*LFTSERVER_Monitor(\|)\*O: Identifies all active transactions involving
+a given file server
+.LE
+.LE
+.P
+A syntax summary for each \*LFTSERVER...(\|)\*O function follows.
+.sS
+.zA"defect,5992,r1.0.2,fixed include directory"
+\*L#include <dcedfs/param.h>\*O
+.nL
+\*L#include <fcntl.h>\*O
+.nL
+\*L#include <dcedfs/compat.h>\*O
+.nL
+\*L#include <dcedfs/ftserver_proc.h>\*O
+.nL
+\*L#include <dcedfs/sysincludes.h>\*O
+.nL
+\*L#include <dcedfs/fldb_data.h>\*O
+.nL
+\*L#include <dcedfs/flserver.h>\*O
+.nL
+\*L#include <dcedfs/ftserver.h>\*O
+.nL
+\*L#include <dcedfs/ftserver_trans.h>\*O
+.nL
+\*L#include <dce/rpc.h>\*O
+.zZ"defect,5992,r1.0.2,fixed include directory"
+.sE
+.sS
+.zA "defect, 5820, r1.0.2, add FTSERVER_AbortTrans"
+\*Lerror_status_t FTSERVER_AbortTrans(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V transID\*L)\*O                     /* in */
+.sE
+.sS
+.zZ "defect, 5820, r1.0.2, add FTSERVER_AbortTrans"
+\*Lerror_status_t FTSERVER_AggregateInfo(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V aggrID\*L,\*O                      /* in */
+        \*Lstruct ftserver_aggrInfo\*V *aggrDesc\*L)\*O     /* out */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_Clone(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V transID\*L,\*O                     /* in */
+        \*Lunsigned32\*V newType\*L,\*O                     /* in */
+        \*LvolNamep_string\*V *newName\*L,\*O               /* in */
+        \*LafsHyper\*V *newfilesetID\*L)\*O		    /* inout */
+.sE
+.zA "defect, 4587, r1.0.2, changes to transaction flags"
+.sS
+\*Lerror_status_t FTSERVER_CreateTrans(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*LafsHyper\*V *filesetIDp\*L,\*O                   /* in */
+        \*Lunsigned32\*V aggregateID\*L,\*O                 /* in */
+        \*Lunsigned32\*V flags\*L,\*O                       /* in */
+        \*Lunsigned32\*V *transID\*L)\*O                    /* out */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_CreateVolume(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32 \*VaggregateID\*L,\*O                 /* in */
+        \*LvolNamep_string \*Vname[MAXNAMELEN]\*L,\*O       /* in */
+        \*Lunsigned32\*V type\*L,\*O                        /* in */
+        \*Lunsigned32\*V flags\*L,\*O                       /* in */
+        \*LafsHyper\*V *parentID\*L,\*O                     /* in */
+        \*LafsHyper\*V *filesetID\*L,\*O                    /* inout */
+        \*Lunsigned32\*V *transID\*L)\*O                    /* out */
+.sE
+.zZ "defect, 4587, r1.0.2, changes to transaction flags"
+.sS
+\*Lerror_status_t FTSERVER_DeleteTrans(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V transID\*L)\*O                     /* in */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_DeleteVolume(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V transID\*L)\*O                     /* in */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_Dump(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V transID\*L,\*O                     /* in */
+        \*Lftserver_Date\*V *dumpDate\*L,\*O                /* in */
+        \*Lpipe_t\*V *dataPipeP\*L)\*O                      /* out */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_Forward(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V fromTrans\*L,\*O                   /* in */
+        \*Lftserver_Date\*V *fromDate\*L,\*O                /* in */
+        \*Lftserver_dest\*V *destAddress\*L,\*O             /* in */
+        \*Lunsigned32\*V restoreFlags,\*L)\*O               /* in */
+        \*Lunsigned32\*V destTrans\*L)\*O                   /* in */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_GetFlags(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V transID\*L,\*O                     /* in */
+        \*Lunsigned32\*V *flags\*L)\*O                      /* out */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_GetOneVolStatus(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*LafsHyper\*V *filesetID\*L,\*O                    /* in */
+        \*Lunsigned32\*V aggrId\*L,\*O                      /* in */
+        \*Lunsigned32\*V spare1\*L,\*O                      /* in */
+        \*Lftserver_status\*V *status\*L)\*O                /* out */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_GetStatus(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V transID\*L,\*O                     /* in */
+        \*Lftserver_status\*V *status\*L)\*O                /* out */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_ListAggregates(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lftserver_iterator\*V *inCookie\*L,\*O            /* in */
+        \*Lftserver_iterator\*V *outCookie\*L,\*O           /* out */
+        \*Lftserver_aggrEntries\*V *aggrList\*L)\*O         /* out */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_ListVolumes(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V aggrID\*L,\*O                      /* in */
+        \*Lftserver_iterator\*V *inCookie\*L,\*O            /* in */
+        \*Lftserver_iterator\*V *outCookie\*L,\*O           /* out */
+        \*Lftserver_statEntries\*V *statEntries\*L)\*O      /* out */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_Monitor(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lftserver_transEntries\*V *aggrInfoP\*L)\*O       /* out */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_ReClone(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V transID\*L,\*O                     /* in */
+        \*LafsHyper\*V *cloneID\*L)\*O                      /* in */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_Restore(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V transID\*L,\*O                     /* in */
+        \*Lunsigned32\*V flags\*L,\*O                       /* in */
+        \*Lpipe_t\*V *dataPipeP\*L)\*O                      /* in */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_SetFlags(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V transID\*L,\*O                     /* in */
+        \*Lunsigned32\*V flags\*L)\*O                       /* in */
+.sE
+.sS
+\*Lerror_status_t FTSERVER_SetStatus (\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V transID\*L,\*O                     /* in */
+        \*Lunsigned32\*V mask\*L,\*O                        /* in */
+        \*Lftserver_status\*V *status\*L,\*O                /* in */
+        \*Lunsigned32\*V spare1\*L)\*O                      /* in */
+.sE
+.zA"defect, 6415, r1.0.2, add FTSERVER_SwapIDs"
+.sS
+\*Lerror_status_t FTSERVER_SwapIDs(\*O
+        \*Lhandle_t\*V RpcBinding\*L,\*O                    /* in */
+        \*Lunsigned32\*V transA\*L,\*O                      /* in */
+        \*Lunsigned32\*V transB\*L,\*O                      /* in */
+        \*Lunsigned32\*V spare1\*L,\*O                      /* in */
+        \*Lunsigned32\*V spare2P\*L,\*O                     /* out */
+.sE
+.zZ"defect, 6415, r1.0.2, add FTSERVER_SwapIDs"
+.iX "-]" "FTSERVER functions"
+.zZ "defect, 7218, r1.0.2, review comments"

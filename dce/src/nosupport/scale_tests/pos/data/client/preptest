@@ -1,0 +1,34 @@
+#HOSTNAME=`uname -a|awk '{print $2}'`
+HOSTNAME=`hostname`
+cdsli -odR >CDSLI
+#CDS_SRV=`grep "cds-server" CDSLI | awk -F/ '{print $4}' | awk -F. '{print $1}'`
+
+CDS_SRV=`grep "cds-server" CDSLI | awk -F/ '{print $4}'`
+for i in $CDS_SRV
+do
+	if [ "$HOSTNAME" = "$i" ];then
+		grep "Initial CDS Server" /etc/mkdce.data >/dev/null 2>&1
+		if [ $? -eq 0 ];then
+			INITCDSSRV=$i
+		fi
+	else
+		INITCDSSRV=$i
+	fi
+done
+
+echo "init cds server is $INITCDSSRV"
+
+for i in acltimes.in asgn1 asgn10 asgn20 asgn50 asgnhdr
+do
+	if [ -f $i.orig ];then
+		echo "$i.orig already exists"
+	else
+		cp $i $i.orig
+	fi
+done
+
+for inputfile in acltimes.in asgn1 asgn10 asgn20 asgn50 asgnhdr
+do
+	cat $inputfile | sed "s/bnp95/$INITCDSSRV/g" >$inputfile.new
+	mv $inputfile.new $inputfile
+done

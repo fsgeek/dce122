@@ -1,0 +1,3875 @@
+...\" A PRIVATE KEY STORAGE SERVER FOR DCE
+...\" =========================================================================
+...\" This template first sets a bunch of *roff options (authors/readers
+...\" don't usually have to know about these).
+...\" Then it defines some strings and macros, many of which deal with
+...\" things that differ between nroff & troff (some of these may not be
+...\" perfect, but they're better than nothing -- to do a really good
+...\" job would require a real semantic markup language.
+...\" Convention: "Begin/End" for strings, "Start/Finish" for macros.
+...\" Strings:
+...\"       \*(f!        - Footnote string (replaces \*F).
+...\"       \*(hB, \*(hE - Page header/footer font (internal use).
+...\"       \*(kB, \*(kE - Doc header font (internal use).
+...\"       \*(qB, \*(qE - Quotations.
+...\"       \*(iB, \*(iE - Italics/emphasis in primary font.
+...\"       \*(bB, \*(bE - Bold font.
+...\"       \*(lB, \*(lE - Literal font.
+...\"       \*(jB, \*(jE - Italics/emphasis in literal font.
+...\"       \*(nH        - Default note header string.
+...\" Macros:
+...\"       .aH      - Appendix header macro (uses number register \na).
+...\"       .aL      - Automatic list macro (replaces .AL; uses num reg \ng).
+...\"       .tS, .tF - Title start/finish (internal use).
+...\"       .cS, .cF - Displays (no-fill) without indentation.
+...\"       .dS, .dF - Displays (no-fill) with indentation.
+...\"       .iS, .iF - Indented (fill) text.
+...\"       .nS, .nF - Note.
+...\" -------------------------------------------------------------------------
+...\" First, set up some number registers here (instead of on command line),
+...\" and include the "mm" macro package here (instead of on command line).
+...\" -------------------------------------------------------------------------
+.if n .nr L 66 \" Nroff page length = 66 lines.
+.if t .nr L 11i \" Troff page length = 11 inches.
+.if n .nr W 72 \" Nroff page width = 72 columns.
+.if t .nr W 6.5i \" Troff page width = 6.5 inches.
+.if n .nr O 3 \" Nroff page offset = 3 columns.
+.if t .nr O 0.75i \" Troff page offset = 0.75 inches.
+.nr N 2 \" No header on page 1.
+.so /usr/lib/tmac/tmac.m \" Points to "mm" package, in /usr/lib/tmac.
+...\" Next, twiddle the "mm" package to suit our preferred style.
+...\" -------------------------------------------------------------------------
+...\" Point size and font types.
+...\" -------------------------------------------------------------------------
+.if n .fp 1 R \" "Regular" font ONLY -- don't use any others in nroff.
+.if t \{ .S 10 12 \" Point size = 10, vertical spacing = 12.
+...\" Note: Some systems give different names to these fonts.
+.fp 1 R \" Times roman.
+.fp 2 I \" Times italic.
+.fp 3 B \" Times bold.
+.fp 4 BI \" Times bold italic.
+.fp 5 CW \" Courier.
+.fp 6 CI \" Courier oblique.
+.fp 7 CB \" Courier bold.
+.fp 8 CX \" Courier bold oblique.
+.fp 9 H \" Helvetica.
+.fp 10 HI \" Helvetica oblique.
+.fp 11 HB \" Helvetica bold.
+.fp 12 HX \" Helvetica bold oblique.
+.fp 13 S \} \" Special symbol font -- normally only called automatically.
+...\" -------------------------------------------------------------------------
+...\" Headings; page header and footers; titles.
+...\" -------------------------------------------------------------------------
+.nr Ej 0 \" No eject for first-level headings.
+.nr Hs 7 \" Heading space level = blank line after heading (all levels).
+.nr Hb 7 \" Heading break level = break after heading (all levels).
+.nr Hi 1 \" Post-heading indent = paragraph indent.
+.nr Hc 0 \" Heading centering = none.
+.if n .ds HF 1 1 1 1 1 1 1 \" Heading fonts = regular (no underlining).
+.if t .ds HF 11 11 11 11 11 11 11 \" Heading fonts = Helvetica bold.
+.if t .ds HP 0 0 0 0 0 0 0 \" Heading point sizes (= default).
+.HM 1 1 1 1 1 1 1 \" Heading mark = arabic (all levels).
+.nr Hu 1 \" Unnumbered heading level = 1 (see aH macro, below).
+.de HX \" Beginning-of-heading processing.
+.in 0 \" Left justify headings.
+.ie     \\$2=0 .ds }0\" Null string heading mark for HU.
+.el .ie \\$1=1 .ds }0 \\n(H1.\ \&\" Heading marks = dotted sections + 1 space.
+.el .ie \\$1=2 .ds }0 \\n(H1.\\n(H2.\ \&
+.el .ie \\$1=3 .ds }0 \\n(H1.\\n(H2.\\n(H3.\ \&
+.el .ie \\$1=4 .ds }0 \\n(H1.\\n(H2.\\n(H3.\\n(H4.\ \&
+.el .ie \\$1=5 .ds }0 \\n(H1.\\n(H2.\\n(H3.\\n(H4.\\n(H5.\ \&
+.el .ie \\$1=6 .ds }0 \\n(H1.\\n(H2.\\n(H3.\\n(H4.\\n(H5.\\n(H6.\ \&
+.el .if \\$1=7 .ds }0 \\n(H1.\\n(H2.\\n(H3.\\n(H4.\\n(H5.\\n(H6.\\n(H7.\ \&
+..
+.de HZ \" End-of-heading processing.
+.if n .in 3 \" Indent body of doc by 3 columns in nroff.
+.if t .in 0 \" Don't indent in troff.
+..
+.if n .ds hB \&\" Page header/footer font begin in nroff.
+.if t .ds hB \f9\" Page header/footer font begin in troff.
+.if n .ds hE \&\" Page header/footer font end in nroff.
+.if t .ds hE \fP\" Page header/footer font end in troff.
+.if n .ds kB \&\" Doc header font begin in nroff.
+.if t .ds kB \f(11\" Doc header font begin in troff.
+.if n .ds kE \&\" Doc header font end in nroff.
+.if t .ds kE \f1\" Doc header font end in troff.
+.de tS \" Title start.
+.SP 2 \" 2 blank lines.
+.ce 99 \" Center (each line of) title.
+.if t \{ .ft 11 \" Bold helvetica.
+.S +2 D \} \" Bigger point size.
+..
+.de tF \" Title finish.
+.ce \" Turn off centering.
+.SP 1 \" 1 blank line.
+.if t \{ .ft 1 \" Return to regular font.
+.S P P \} \" Return to regular point size.
+..
+...\" -------------------------------------------------------------------------
+...\" Special Appendix heading macro, .aH.
+...\" -------------------------------------------------------------------------
+.nr a 0 1 \" Appendix number.
+.af a A \" Assign format upper-case alpabetic to number register a.
+.de aH \" Appendix heading macro.
+.if \\na=0 \{ .nr H1 0 \" Reset H1 to 0.
+.HM A 1 1 1 1 1 1 \} \" Heading mark = Upper case alphabetic + arabics.
+.HU "APPENDIX \\n+a. \\$1"
+..
+...\" -------------------------------------------------------------------------
+...\" Paragraph stuff.
+...\" -------------------------------------------------------------------------
+.nr Pt 0 \" Paragraph type = left-justified.
+.nr Pi 0 \" Paragraph indent = 0.
+.nr Ps 1 \" Paragraph spacing = 1 blank space.
+...\" -------------------------------------------------------------------------
+...\" Special list macro, .aL (replaces .AL, for all levels).
+...\" This should be used for almost all lists (including ".LI "\ "").
+...\" The only exception is variable lists (.VL, indented by multiples of 6).
+...\" -------------------------------------------------------------------------
+.de aL
+.nr g \\n(:g
+...\" In-line lists should be numbered (by hand): (1), (2), (3), ...
+.ie     \\ng=0 .LB 6 0 1 3 a \" 1st level: (a), (b), (c), ...
+.el .ie \\ng=1 .LB 6 0 1 3 i \" 2nd level: (i), (ii), (iii), ...
+.el .ie \\ng=2 .LB 6 0 1 4 a \" 3rd level: [a], [b], [c], ...
+.el .ie \\ng=3 .LB 6 0 1 4 i \" 4th level: [i], [ii], [iii], ...
+.el .ie \\ng=4 .LB 6 0 1 6 a \" 5th level: {a}, {b}, {c}, ...
+.el .if \\ng=5 .LB 6 0 1 6 i \" 6th level: {i}, {ii}, {iii}, ...
+..
+.nr Ls 6 \" Blank lines between all list items, by default (but adjustable).
+...\" -------------------------------------------------------------------------
+...\" Footnote stuff; special footnote string, \*(f!.
+...\" -------------------------------------------------------------------------
+.if n .ds f! [\\n+(:p]\" Footnote string (replaces \*F in nroff).
+.if t .ds f! \\*F\" Footnote string (same as \*F in troff).
+.if n .FD 6 \" Footnotes not hyphenated or indented, label left justified.
+.if t .FD 5 \" Footnotes hyphenated, not indented, label left justified.
+.nr Fs 1 \" 1 blank line between footnotes.
+...\" -------------------------------------------------------------------------
+...\" Line adjustment stuff.
+...\" -------------------------------------------------------------------------
+.if n .nr Hy 0 \" No hyphenation in nroff.
+.if t .nr Hy 1 \" Hyphenate in troff.
+.if n .SA 0 \" Set adjust: left margin only in nroff.
+.if t .SA 1 \" Set adjust: left and right margins in troff.
+...\" -------------------------------------------------------------------------
+...\" Miscellaneous stuff.
+...\" -------------------------------------------------------------------------
+.ta \" No tabs by default -- set them up by hand as needed.
+.nr Si \n(Ls \" Default indent for .DS display macro = 6 (use in troff only).
+...\" -------------------------------------------------------------------------
+...\" Displays.
+...\" -------------------------------------------------------------------------
+.de cS \" Display start: no-fill, literal font, no indentation.
+.P
+.nf \" No fill mode.
+.if t .ft 5 \" Constant width font in troff.
+..
+...\" Within .cS, ".ne N"'s can be added by hand, but should be minimized.
+.de cF \" Display finish.
+.if t .ft 1 \" Back to standard font in troff.
+.fi \" Fill mode.
+.P
+..
+.de dS \" Display start: no-fill, literal font, with indentation.
+.P
+.aL \" Use .aL macro for consistent indentation.
+.nf \" No fill mode.
+.LI "\ " \" List item will no (visible) marker.
+.if t .ft 5 \" Constant width font in troff.
+..
+...\" Within .dS, ".ne N"'s can be added by hand, but should be minimized.
+.de dF \" Display finish.
+.if t .ft 1 \" Back to standard font in troff.
+.fi \" Fill mode.
+.LE
+.P
+..
+.de iS \" Indent start: fill, regular font, with indentation.
+.P
+.aL
+.LI "\ "
+..
+.de iF \" Indent finish.
+.LE
+.P
+..
+.ds nH NOTE\"Default note header string -- can be changed by author.
+.de nS \" Note start: fill, italics font, with indentation.
+.P
+.aL \" Use .aL macro for consistent indentation.
+.LI "\ " \" List item will no (visible) marker.
+.if t .ft 2 \" Italics font in troff, and reverse roman <--> italic fonts:
+.if n .ds iB _\" Italics/emphasis primary font begin in nroff.
+.if t .ds iB \f1\" Italics/emphasis primary font begin in troff.
+.if n .ds iE _\" Italics/emphasis primary font end in nroff.
+.if t .ds iE \fP\" Italics/emphasis primary font end in troff.
+.ie \\n(.$=0 \\*(nH:\" Default header string if none supplied by author.
+.el \\$1:\" Header string supplied by author as argument to .nS macro.
+..
+.de nF \" Note finish.
+.if t .ft 1 \" Back to standard font in troff, and remap font macros:
+.if n .ds iB _\" Italics/emphasis primary font begin in nroff.
+.if t .ds iB \f2\" Italics/emphasis primary font begin in troff.
+.if n .ds iE _\" Italics/emphasis primary font end in nroff.
+.if t .ds iE \fP\" Italics/emphasis primary font end in troff.
+.LE
+.P
+..
+...\" -------------------------------------------------------------------------
+...\" Quotation marks and font toggles.
+...\" -------------------------------------------------------------------------
+.if n .ds qB \&"\" Quotation begin in nroff.
+.if t .ds qB ``\" Quotation begin in troff.
+.if n .ds qE \&"\" Quotation end in nroff.
+.if t .ds qE ''\" Quotation end in troff.
+.if n .ds iB _\" Italics/emphasis primary font begin in nroff.
+.if t .ds iB \f2\" Italics/emphasis primary font begin in troff.
+.if n .ds iE _\" Italics/emphasis primary font end in nroff.
+.if t .ds iE \fP\" Italics/emphasis primary font end in troff.
+.if n .ds bB *\" Bold font begin in nroff.
+.if t .ds bB \f3\" Bold font begin in troff.
+.if n .ds bE *\" Bold font end in nroff.
+.if t .ds bE \fP\" Bold font end in troff.
+.if n .ds lB `\" Literal font begin in nroff.
+.if t .ds lB \f5\" Literal font begin in troff.
+.if n .ds lE '\" Literal font end in nroff.
+.if t .ds lE \fP\" Literal font end in troff.
+.if n .ds jB <\" Italics/emphasis literal font begin in nroff.
+.if t .ds jB \fP\f6\" Italics/emphasis literal font begin in troff.
+.if n .ds jE >\" Italics/emphasis literal font end in nroff.
+.if t .ds jE \fP\f5\" Italics/emphasis literal font end in troff.
+...\" -------------------------------------------------------------------------
+...\" No diffmarks by default, i.e., define .mc to be null.
+...\" (Comment out this null definition to turn diffmarking on.)
+...\" -------------------------------------------------------------------------
+.de mc
+..
+...\" =========================================================================
+...\" Finally, it's time to start writing the document!
+...\" The OSF-RFC author modifies the following header/footer info.
+...\" (The major/minor number is assigned by the OSF-RFC Editor.)
+...\" =========================================================================
+.ND "November 1996" \" Date must be hard-coded.
+.PH "$\*(hBOSF-RFC 94.1$A Private Key Storage Server for DCE$\\\\*(DT\*(hE$"
+.PF "$\*(hBMark Heroux$DRAFT #1$Page \\\\n%\*(hE$" \" Draft version.
+.PF "$\*(hBMark Heroux$$Page \\\\n%\*(hE$" \" Final version.
+...\"
+...\" Following are the first printed lines (header info) of the document:
+...\"
+\&\" Force top-of-first-page trap to position the following info correctly.
+.tl $\*(kBOpen Software Foundation$$Mark Heroux (DEC)\*(kE$
+.tl $\*(kBRequest For Comments: 94.1$$\*(kE$
+.tl $\*(kB\*(DT$$\*(kE$
+.tS \" Title, in all capitals (can span multiple lines):
+A PRIVATE KEY STORAGE SERVER FOR DCE \*(EM
+FUNCTIONAL SPECIFICATION
+.tF
+...\" =========================================================================
+...\" Now, the actual body of the document!!
+...\" Heading capitalization style:
+...\"     1st level: CAPITALIZE ALL WORDS
+...\"     2nd level: Capitalize Initial Letters of All (Significant) Words
+...\"     3rd-7th level: Capitalize first letter of first word only
+...\" =========================================================================
+...\" -------------------------------------------------------------------------
+...\" No line-numbers by default
+...\" (Uncomment the .nm 1 line to turn line-numbering on.)
+...\" -------------------------------------------------------------------------
+...\".nm 1 \" Do not line number the final draft
+.P
+.H 1 "INTRODUCTION" \" Always start with an introduction section.
+...\"The first paragraph of the Introduction should be in the form of an
+...\"*(iBabstract\*(iE, i.e., a brief description of the component or
+...\"subsystem being specified.\*(f!
+...\".FS
+...\"Note that the formatting conventions of OSF-RFC's are in effect,
+...\"especially the use of \*(iBmacros\*(iE that simultaneously support ASCII
+...\"and PostScript.  See [RFC 0.1] for details on those.  For an actual
+...\"example of an RFC having the outline shown here, see [RFC 41.2].
+...\"(However, that RFC used an earlier version of the RFC macros
+...\"\*(EM again, see [RFC 0.1] for details.)
+...\".FE
+.P
+This document specifies:
+.P
+.aL
+.LI
+A Private Key Store Server (PKSS) for DCE, as referred to in [RFC
+68.2].
+.LI
+A secure protocol by which a client obtains an asymmetric key pair
+from the PKSS.
+.LI
+A secure protocol by which a client can change a password and/or
+asymmetric key pair.
+.LI
+Secure management and auditing capabilities.
+.LI
+The data structures and interfaces required to implement the
+above.
+.LE
+.P
+...\"The remainder of the Introduction introduces the component or subsystem
+...\"being specified at a greater level of detail than the abstract in the
+...\"first paragraph.
+.H 2 "Changes Since Last Publication"
+...\"If this is a revision of a previous version, give a list of changes.
+.P
+This document supercedes [RFC 94.0].  After [RFC 94.0] was published,
+we learned that one of the secure network communication protocols
+described therein was protected by a patent.  When our attempts to
+reach a license agreement with the patent-holder failed, we devised
+and implemented an alternative protocol.  This document
+describes PKSS functionality using that alternative protocol.
+.P
+.H 1 "TARGET"
+...\"Indications of for whom this technology is being built
+...\"and how it is supposed to be used.
+.P
+This service is intended for customers who want to use public
+key encryption for secure logins per [RFC 68.2], but who may not
+want to invest in the equipment and infrastructure required to
+deploy smart-card-based public key security enterprise-wide, or
+who may want to phase in hardware-based public key mechanisms
+slowly over time.
+.P
+.H 1 "GOALS AND NON-GOALS"
+...\"Define the scope of the technology.
+.P
+.H 2 "Goals"
+.P
+.aL
+.LI
+Provide a secure server to store, retrieve, and manage asymmetric
+key pairs on behalf of users.
+.LI
+Integrate seamlessly with the public-key-based login procedure
+specified in [RFC 68.2].
+.LE
+.P
+.H 2 "Non-Goals"
+.P
+.aL
+.LI
+Provide a secure means to replicate the PKSS.
+.LI
+Provide a secure means for users to use the private key
+component of their asymmetric key pairs for any operation other
+than login as specified in [RFC 68.2].
+.LI
+Provide a means to enforce use of strong passwords through
+integration with a password strength server.
+.LE
+.P
+.H 1 "TERMINOLOGY"
+.P
+...\"Definitions of all \*(qBnew\*(qE terms used within this document.
+...\"Use a list like the following:
+.H 2 "Definitions"
+.P
+.aL
+.LI
+\*(bBPassword\*(bE \*(EM A secret string of characters that one
+uses to identify oneself securely.  A \*(qBstrong\*(qE password
+may not be compromised by a dictionary attack (see below).
+.LI
+\*(bBKey\*(bE \*(EM A bit string that an encryption algorithm
+uses for encryption or decryption.  A key may be based on a
+password.
+.LI
+\*(bBSecret key encryption\*(bE \*(EM A method of encryption
+that uses one key for both encryption and decryption.  Also
+called \*(qBsymmetric key encryption\*(qE.  The Data Encryption
+Standard (DES) is an example of a secret key encryption algorithm.
+.LI
+\*(bBPublic key encryption\*(bE \*(EM A method of encryption
+that uses a pair of keys, one for encryption and another for
+decryption.  An important property of public key encryption is
+that it is infeasible to recover one key given only the other.
+Also called \*(qBasymmetric key encryption\*(qE.  The Rivest-
+Shamir-Adelman (RSA) algorithm is an example of a public key
+encryption algorithm.
+.LI
+\*(bBDiffie-Hellman key\*(bE \*(EM A secret key which two
+communicating principals may derive and share without having
+previously agreed on a shared secret.
+.LI
+\*(bBHash function\*(bE \*(EM A mathematical function that takes
+as input data of arbitrary length and computes a fixed length
+output.  A one-way hash is one whose input is infeasible to
+recover given only the output.  A one-way hash may also be
+called a \*(qBchecksum\*(qE or \*(qBmessage digest\*(qE.
+.LI
+\*(bBDictionary attack\*(bE \*(EM An attack on passwords limited
+to using only such words or phrases as might be found in a
+dictionary.
+.LI
+\*(bBExhaustive search attack\*(bE \*(EM An attack on passwords
+or keys that systematically tries every possible combination.
+An exhaustive search on an eight-byte US-ASCII password space
+would probe every combination between 0x2020202020202020 and
+0x7E7E7E7E7E7E7E7E.  An exhaustive search on an eight-byte key
+space would probe every combination between 0x0000000000000000
+and 0xFFFFFFFFFFFFFFFF.
+.LI
+\*(bBForward search attack\*(bE \*(EM An attack on small amounts
+of encrypted or hashed data (such as passwords) in which an
+attacker, knowing the algorithm with which the data was
+transformed, uses a dictionary or exhaustive search attack to
+produce trial encrypted or hashed output that matches the data
+under attack.  On UNIX systems, \*(lB/etc/password\*(lE files
+that contain hashed passwords are susceptible to this attack.
+.LI
+\*(bBKnown-plaintext attack\*(bE \*(EM An attack on encrypted
+data in which an attacker searches for certain material known
+to be in the data stream.  ASN.1-encoded data is subject to
+known-plaintext attacks (one searches for the ASN.1
+identifiers).
+.LI
+\*(bBSpoof attack\*(bE \*(EM An attack on system or network
+resources in which one party attempts to masquerade as another.
+.LI
+\*(bBReplay attack\*(bE \*(EM An attack in which a message
+originally transmitted by a valid user is retransmitted by
+another at a later time for the purpose of gaining access to
+resources to which the party mounting the attack is not
+legitimately entitled.  This is a form of spoof attack.
+.LI
+\*(bBBucket Brigade attack\*(bE \*(EM An attack in which an
+attacker intercepts and retransmits messages between
+communicating principals but makes it appear as if they are
+communicating directly with one another.  Also called a
+\*(qBMan-in-the-middle attack\*(qE.  An unprotected Diffie-
+Hellman key negotiation is susceptible to this form of atttack.
+.LI
+\*(bBDenial of Service attack\*(bE \*(EM An attack in which the
+attacker prevents valid users from gaining access to resources
+to which they are legitimately entitled.
+.LI
+\*(bBMessage Stream Modification attack\*(bE \*(EM An attack in
+which the contents of a message are changed for the purpose of
+spoofing or denying service.
+.LE
+.P
+.H 2 "Symbols"
+.P
+In these symbol definitions, case is irrelevant, with the
+exception that lower-case letters may imply subscripting.
+.P
+.aL
+.LI
+\*(lBN\*(lE \*(EM A nonce.  \*(lBNp\*(lE is a nonce generated by
+the PKSS.  \*(lBNc\*(lE is a nonce generated by a PKSS client.
+.LI
+\*(lBD\*(lE \*(EM A symmetric key used for secure communication
+between the PKSS and the client, jointly generated using the
+Diffie-Hellman algorithm.  The client and PKSS each generate
+nonces \*(lBXc\*(lE and \*(lBXp\*(lE, and calculate
+\*(lBE(Xc)\*(lE and \*(lBE(Xp)\*(lE respectively, where
+\*(lBE(x)\*(lE is defined as \*(lB(P**x) mod g\*(lE; \*(lBP\*(lE
+is a prime number; and \*(lBg\*(lE is a number less than
+\*(lBP\*(lE.  Each party sends its calculated value to the
+other.  Thus the PKSS receives \*(lBE(Xc)\*(lE, and the client
+receives \*(lBE(Xp)\*(lE.  The client calculates
+\*(lB(E(Xp)**Xc) mod g\*(lE, while the PKSS calculates
+\*(lB(E(Xc)**Xp) mod g\*(lE.  These two values are the same, and
+are used as the communications key \*(lBD\*(lE. An observer of
+the network traffic sees only \*(lBE(Xc)\*(lE and
+\*(lBE(Xp)\*(lE, from which it is infeasible to derive
+\*(lBD\*(lE.
+.LI
+\*(lBKx\*(lE \*(EM The private key component of an asymmetric key pair.
+.LI
+\*(lBKo\*(lE \*(EM The public key component of an asymmetric key pair.
+.LI
+\*(lBU\*(lE \*(EM A person (\*(qBUser\*(qE) wanting to use or
+currently using network resources.
+.LI
+\*(lBC\*(lE \*(EM A PKSS client application under the control of
+a User.
+.LI
+\*(lBP\*(lE \*(EM Private Key Store Server (PKSS).
+.LI
+\*(lBKop\*(lE \*(EM The public component key of the Private Key
+Store Server's asymmetric key pair; similarly \*(lBKxp\*(lE,
+\*(lBKou\*(lE, \*(lBKxu\*(lE.
+.LI
+\*(lB[Z]Y\*(lE \*(EM \*(lBZ\*(lE encrypted using key \*(lBY\*(lE.
+.LI
+\*(lB{Z}Y\*(lE \*(EM \*(lBZ\*(lE signed using key \*(lBY\*(lE.
+.LI
+\*(lBV\*(lE \*(EM A version number of an asymmetric key pair.
+.LI
+\*(lBX-->Y: Z\*(lE \*(EM Principal \*(lBX\*(lE sends message
+\*(lBZ\*(lE to principal \*(lBY\*(lE.
+.LI
+\*(lBH1\*(lE and \*(lBH2\*(lE \*(EM A pair of hashes that are
+the results of a password-hashing function \*(lBH\*(lE, where
+\*(lBH(password) = {H1,H2}\*(lE.  This hash function must have
+the properties that: (1) obtaining the password given either or
+both hashes is intractable; and (2) obtaining one hash given the
+other is intractable.  See [RFC 1507, 4.2.2] for the algorithm
+by which the PKSS server and its clients will derive
+\*(lBH1\*(lE and \*(lBH2\*(lE.
+.LI
+\*(lBA\*(lE \*(EM An encryption algorithm.  \*(lBAs\*(lE is a
+symmetric key encryption algorithm and \*(lBAa\*(lE is an asymmetric
+key encryption algorithm.
+.LI
+\*(lBAs...\*(lE \*(EM A list of secret key encryption algorithms.
+.LI
+\*(lBAs...[i]\*(lE \*(EM An index into a list of secret key encryption
+algorithms.
+.LI
+\*(lBH(As...)\*(lE \*(EM A hash of a list of secret key encryption
+algorithms.
+.LI
+\*(lBL\*(lE \*(EM The bit length of a public key.
+.LE
+.P
+.H 1 "REQUIREMENTS"
+.P
+...\"Discusses areas such as security, portability, and internationalization
+...\"that must be addressed by this technology.  This could be a list, or
+...\"just a general discussion, as appropriate.
+This technology must give customers who want to use public-key
+encryption for authentication flexibility with respect to
+whether or when to use and subsequently deploy a hardware-based
+public-key security infrastructure.
+.P
+.H 1 "FUNCTIONAL DEFINITION"
+.P
+This section defines a PKSS record format, login protocol, and
+password/key-change protocols.
+.P
+The record format and protocols specified in this document assume:
+.P
+.aL
+.LI
+Physical and organizational security similar to that required by
+the DCE Key Distribution Center (KDC).
+.LI
+Use of the DCE Auditing Subsystem.
+.LE
+.P
+.H 2 "User Record and Lookup Key Formats"
+.P
+The PKSS stores records in a database using lookup keys
+as described below.  In this document, the word \*(qBuserkey\*(qE
+means a PKSS database user record lookup key.
+.P
+The user record lookup key consists of four items, as follows:
+.P
+.aL
+.LI
+A variable-length character array containing the name by which
+the user is known to DCE.
+.LI
+A domain ID.  This specifies the application domain for which
+use of this key is defined.  In this revision, a key pair may
+only be used in the context of a DCE login.
+.LI
+A key version number.  This is an integer that specifies a key's
+generation.
+.LI
+A set of key usage flags.  This is a bitmask which specifies how
+the key may be used.  In this revision, a key pair may only be
+used for authentication.  In a future revision, encryption may
+be added as an option.
+.LE
+.P
+Note that the length field of the username, domain ID, key version
+number, and usage flags are all integers.  To make PKSS databases
+transportable between different machine architectures, the PKSS
+converts all lookup key integer data to network byte order before
+using.
+.P
+The user record is a four-tuple:
+.dS
+[Kxu]H1:H2:Kou:V
+.dF
+.P
+consisting of four items as follows:
+.aL
+.LI
+The private key component of the user's asymmetric key pair,
+\*(lBKxu\*(lE, encrypted under \*(lBH1\*(lE.
+.LI
+A copy of the user's password hash, \*(lBH2\*(lE.
+.LI
+A copy of the public key component of the user's asymmetric
+key pair, \*(lBKou\*(lE.
+.LI
+The version number \*(lBV\*(lE of the asymmetric key pair
+given by \*(lBKxu\*(lE and \*(lBKou\*(lE.  This must match
+the version number in the lookup key.
+.LE
+.P
+Note that the PKSS stores the record in ASN.1 format.  Note further
+that before inserting the record, the PKSS will convert the key
+version number to network byte order to match the byte order of
+the key version number in the lookup key.
+.P
+.H 3 "Observations on the record format"
+.P
+Although strong physical and organizational security measures
+are assumed, if an attacker compromises these measures, what
+attacks on the database are possible?
+.P
+An attacker may mount a forward search attack on passwords to
+find hashes \*(lBH2\*(lE that match some of the \*(lBH2\*(lE's
+stored in the database.  Note that compromising \*(lBH2\*(lE
+reveals \*(lBH1\*(lE at the same time, and that users' private
+keys are stored in the database encrypted under H1.  Use of
+strong passwords, therefore, is very desirable, but a means to
+enforce their use is beyond the scope of this document.  (Note
+that DCE 1.1 already supports some strong password controls.)
+.P
+.H 2 "PKSS Database"
+.P
+The PKSS database shall consist of a set of user records as
+described above.  In the first revision, the database will be
+protected with a default ACL granting the \*(lBsec_admin\*(lE
+user permissions to add, delete, and modify user records.  The
+modify permission shall mean the ability to change a user's
+password and asymmetric key pair.  In a future revision,
+individual user records may be protected by individual ACL's or
+sets of ACL's but such a discussion is beyond the scope of this
+document.
+.P
+.H 3 "Initializing the database"
+.P
+The PKSS database gets its initial ACL's when it is first created.
+It is created the first time the PKSS in a cell comes up.  There
+are no default user records in a PKSS database.
+.P
+.H 2 "User Private Key Acquisition Protocol"
+.P
+This is a four-step sequence.
+.P
+.H 3 "Client-to-PKSS initial inquiry (step one)"
+.P
+This section describes the client-to-PKSS initial inquiry message:
+.P
+.dS
+C-->P: userkey:[E(Dc)]:As...
+.dF
+.P
+A client initiates an interaction with the PKSS by sending the
+PKSS a message containing the \*(lBuserkey\*(lE in the clear,
+an exponentiated Diffie-Hellman seed value \*(lBE(Dc)\*(lE,
+and a list of symmetric key encryption algorithms
+\*(lBAs...\*(lE that the client supports.
+.P
+Upon receipt of an initial inquiry from a client, the PKSS:
+.P
+.aL
+.LI
+Searches the PKSS database for a record matching \*(lBuserkey\*(lE.
+If not found, the PKSS discontinues processing and returns an
+error code to the client.  NOTE:  All PKSS error and status codes
+are listed and described in the \*(qBREMOTE INTERFACES\*(qE section.
+.LI
+Searches the list of symmetric key encryption algorithms the client
+supports \*(lBAs...\*(lE for one that the PKSS supports.  If the PKSS
+does not find one that it supports, the PKSS discontinues processing
+and returns an error code to the client.  If the PKSS does find one
+that it supports, it returns an index \*(lBAs...[i]\*(lE into the
+the client's list of supported symmetric key encryption algorithms.
+.LI
+Generates its own exponentiated Diffie-Hellman seed value,
+\*(lBE(Dp)\*(lE.
+.LI
+Computes a Diffie-Hellman key \*(lBD\*(lE, using \*(lBE(Dc)\*(lE
+suitable for use with the encryption algorithm given by
+\*(lBAs...[i]\*(lE.
+.LI
+Generates a random symmetric encryption key \*(lBS\*(lE suitable
+for use with the algorithm given by \*(lBAs...[i]\*(lE to be used
+as a session key.  Encrypts \*(lBS\*(lE with \*(lBH2\*(lE to
+produce \*(lB[S]H2\*(lE.
+.LI
+Computes a hash of the client's algorithm list \*(lBAs...\*(lE
+to produce \*(lBH(As...)\*(lE.
+.LI
+Encrypts \*(lB[S]H2\*(lE and \*(lBH(As...)\*(lE with the Diffie-
+Hellman key \*(lBD\*(lE to produce \*(lB[[S]H2:H(As...)]D\*(lE.
+.LI
+Generates a nonce, \*(lBNp\*(lE.
+.LI
+Encrypts \*(lBNp\*(lE with \*(lBS\*(lE, to obtain \*(lB[Np]S\*(lE.
+.LE
+.P
+.H 3 "PKSS-to-client challenge (step two)"
+.P
+This section describes the PKSS-to-client challenge message:
+.P
+.dS
+P-->C: E(Dp):[[S]H2:H(As...)]D:[Np]S:As...[i]
+.dF
+.P
+The PKSS constructs a challenge message consisting of: The PKSS'
+Diffie-Hellman seed value \*(lBE(Dp)\*(lE, a two-tuple
+\*(lB[S]H2:H(As...)\*(lE encrypted under the Diffie-Hellman key
+\*(lBD\*(lE, a nonce \*(lBNp\*(lE encrypted with the session
+key \*(lBS\*(lE, and an index into the symmetric key
+encryption algorithm list \*(lBAs...\*(lE that is the algorithm
+the PKSS and the PKSS client will use for secure communication.
+.P
+Upon receipt of the challenge message, the client:
+.P
+.aL
+.LI
+Computes a Diffie-Hellman key, \*(lBD\*(lE, using
+\*(lBE(Dp)\*(lE suitable for use with the encryption algorithm
+given by \*(lBAs...[i]\*(lE.
+.LI
+Decrypts \*(lB[[S]H2:H(As...)]D\*(lE with Diffie-Hellman key
+\*(lBD\*(lE, to obtain \*(lB[S]H2:H(As...)\*(lE.
+.LI
+Computes a hash, \*(lBH(As...)\*(lE of the algorithm list it
+sent the PKSS in step one.
+.LI
+Compares the algorithm list hash it just computed with the one
+returned from the PKSS.  If they do not match, the PKSS client
+discontinues processing and returns an error code.
+.LI
+Decrypts \*(lB[S]H2\*(lE with the password hash \*(lBH2\*(lE
+to obtain the session key, \*(lBS\*(lE.
+.LI
+Decrypts \*(lB[Np]S\*(lE with the session key
+\*(lBS\*(lE, to obtain the PKSS's nonce, \*(lBNp\*(lE.
+.LI
+Generates a nonce, \*(lBNc\*(lE.
+.LE
+.P
+.H 3 "Client-to-PKSS response (step three)"
+.P
+This section describes the client-to-PKSS response message:
+.P
+.dS
+C-->P: [Nc:Np:I]S
+.dF
+.P
+The client constructs a response three-tuple consisting of: the
+nonce \*(lBNc\*(lE it generated in the previous step; the nonce
+\*(lBNp\*(lE it obtained from the PKSS challenge message; and an
+operation ID, \*(lBI\*(lE.  NOTE:  All PKSS operation ID's are
+listed in the \*(qBREMOTE INTERFACES\*(qE section.  The client sets the
+operation ID to a pre-defined value that indicates password
+acquisition.  It encrypts the three-tuple with \*(lBS\*(lE and
+sends this message to the PKSS.
+.P
+Upon receipt of the client-to-PKSS response message, the PKSS:
+.P
+.aL
+.LI
+Decrypts the client-to-PKSS response message with \*(lBS\*(lE,
+to obtain \*(lBNc:Np:I\*(lE.  If the \*(lBNp\*(lE the PKSS sent
+to the client in the challenge message does not match the
+\*(lBNp\*(lE in the client's response message, the PKSS
+discontinues processing because only the real client could have
+recovered \*(lBE(Dp)\*(lE in the challenge message with the
+password hash \*(lBH2\*(lE to obtain the session key S
+required to produce \*(lB[Nc:Np:I]S\*(lE.
+.LE
+.P
+.H 3 "PKSS-to-client response (step four)"
+.P
+This section describes the PKSS-to-client response message:
+.P
+.dS
+P-->C: [[Kxu]H1:Kou:V:Nc]S
+.dF
+.P
+The PKSS-to-client response message consists of a four-tuple
+containing: the user's private key \*(lBKxu\*(lE encrypted under
+\*(lBH1\*(lE; the user's public key \*(lBKou\*(lE; the key
+version number \*(lBV\*(lE of \*(lBKxu\*(lE/\*(lBKou\*(lE; and
+the nonce \*(lBNc\*(lE it obtained from the client in the
+previous step.  It encrypts the four-tuple with the
+session key \*(lBS\*(lE.
+.P
+Upon receipt of the PKSS-to-client response message, the client:
+.P
+.aL
+.LI
+Decrypts the response message with its copy of the
+Diffie-Hellman key \*(lBD\*(lE, to obtain
+\*(lB[Kxu]H1:Kou:V:Nc\*(lE.  If the \*(lBNc\*(lE in this message
+does not match the \*(lBNc\*(lE it sent to the PKSS, the client
+ignores the response because only the real PKSS could have
+decrypted the response to its challenge message with \*(lBD\*(lE
+to obtain the correct \*(lBNc\*(lE to insert in this message.
+.LI
+Decrypts \*(lB[Kxu]H1\*(lE with \*(lBH1\*(lE, to obtain the
+user's private key \*(lBKxu\*(lE.
+.LE
+.P
+DCE login may now proceed per [RFC 68.2].
+.P
+.H 3 "Observations on the user private key acquisition protocol"
+.P
+Note that \*(lBE(Dc)\*(lE, \*(lBE(Dp)\*(lE, \*(lBNc\*(lE,
+\*(lBNp\*(lE, and the session key \*(lBS\*(lE are nonces.
+Assuming a \*(qBgood\*(qE random number generator, that is,
+one that makes it infeasible for an attacker to guess its
+output, an attacker who intercepted those messages cannot
+assail the password with a forward search on \*(lBH2\*(lE
+nor assail the Diffie-Hellman key \*(lBD\*(lE, nor assail
+the session key \*(lBS\*(lE since it is not possible to
+detect whether or not trial decryptions were successful.
+Therefore:
+.P
+.aL
+.LI
+A spoof attack is not possible without knowledge of the
+password, because any information a spoofer gets at step two is
+unusable without the password from which to derive \*(lBH2\*(lE.
+Replay and bucket brigade attacks using the message at step one
+fail for the same reason.
+.LI
+Message stream modification attacks at any step result only in
+denial of service.
+.LE
+.P
+Because DCE RPC does not support chaining, the first two and
+second two steps of the user private key acquisition protocol
+will be implemented in separate RPC's, but will use context
+handles to link them together logically.  The exported
+interfaces to client programs, however, will present a single
+call that will invoke both RPC's on a client's behalf.  Note
+that the protocol does not rely on the context handles for
+security.
+.P
+.H 2 "User Password/Key-Change Protocols"
+.P
+This section describes two key change protocols, one
+in which the client generates new key pairs, and one in which
+the server does.  Interfaces for both protocols will be provided
+in this revision.  Each approach has distinct advantages and
+disadvantages, some of which this document attempts to identify.
+Note that in both protocols, the user specifies new passwords.
+.P
+Both protocols are six-step (three RPC) exchanges and require
+authenticated RPC at each step to assure the PKSS client that it
+is sending new password/key data to the actual PKSS.
+.P
+The first four steps are the same as the user private key
+acquisition protocol (section 6.3), except that the operation ID
+\*(lBI\*(lE in 6.3.3 (that is, acquisition protocol step three)
+is set to a value the indicates either \*(qBrecord update
+\*(EM client generates keys\*(qE or \*(qBrecord update \*(EM
+server generates keys\*(qE.  The purpose of this initial
+exchange is to establish that client knows \*(lBH2\*(lE (that
+is, knows the old password), and to establish a conversation key
+to be used for the final exchange.  The last two messages,
+described below in sections 6.4.1 (client generates keys) and
+6.4.2 (PKSS generates keys) perform the password/key change
+itself, and furnish additional proof that the client knows
+\*(lBKxu\*(lE (thus proving it also knows \*(lBH1\*(lE).  In all
+cases in either protocol, the PKSS audits change password/key
+attempts.
+.P
+.H 3 "Change password/key (client generates keys)"
+.P
+In this version of the password/key change protocol, the client
+is responsible to generate new asymmetric key pairs and present
+them to the server securely.  Note that either the asymmetric
+key pair, the password, or both may be changed with the same
+message.
+.P
+.H 4 "Client-to-PKSS change password/key message (client generates keys)"
+.P
+This section describes the Client-to-PKSS change password/key
+message (where the client generates the keys):
+.P
+.dS
+C-->P: [{[Kxu~]H1~:H2~:Kou~}Kxu]S
+.dF
+.P
+Once the client has successfully decrypted the PKSS-to-client
+response message and obtained its private key \*(lBKxu\*(lE
+(step four of the user private key acquisition protocol), it
+constructs the change password/key message as follows:
+.P
+.aL
+.LI
+Computes new hashes \*(lBH1~\*(lE and \*(lBH2~\*(lE of the
+new password.  Observe that this step is not required if only
+the asymmetric key pair is changing and the password is
+remaining the same.
+.LI
+Generates a new asymmetric key pair \*(lBKxu~\*(lE and
+\*(lBKou~\*(lE.  Observe that this step is not required if
+only the password is changing and the asymmetric key pair key is
+remaining the same.  For simplicity's sake, the symbolic
+notation used in this section assumes that both the password and
+the asymmetric key pair are changing.
+.LI
+Encrypts \*(lBKxu~\*(lE with \*(lBH1~\*(lE, to obtain
+\*(lB[Kxu~]H1~\*(lE.
+.LI
+Adds \*(lBH2~\*(lE and \*(lBKou~\*(lE to the message.
+Observe that \*(lB[Kxu~]H1~:H2~:Kou~\*(lE is the new
+security data for the PKSS database user record.
+.LI
+Signs \*(lB[Kxu~]H1~:H2~:Kou~\*(lE with the user's
+private key \*(lBKxu\*(lE, to obtain
+\*(lB{[Kxu~]H1~:H2~:Kou~}Kxu\*(lE.
+.LI
+Encrypts the signed change password/key message
+\*(lB{[Kxu~]H1~:H2~:Kou~}Kxu\*(lE with the
+session key \*(lBS\*(lE, to obtain
+\*(lB[{[Kxu~]H1~:H2~:Kou~}Kxu]D\*(lE.
+.LE
+.P
+Upon receipt of the change password message from the client, the
+PKSS:
+.P
+.aL
+.LI
+Decrypts the client's change password/key message
+\*(lB[{[Kxu~]H1~:H2~:Kou~}Kxu]S\*(lE with the
+session key \*(lBS\*(lE, to obtain
+\*(lB{[Kxu~]H1~:H2~:Kou~}Kxu\*(lE.
+.LI
+Verifies the user's digital signature
+\*(lB{[Kxu~]H1~:H2~:Kou~}Kxu\*(lE with the user's
+public key \*(lBKou\*(lE, by computing the checksum of
+\*(lB[Kxu~]H1~:H2~:Kou~\*(lE and comparing it with
+the unsealed signature.  If the two values match, the PKSS is
+sure this message originated with the real client, since only
+the real client would know the session key \*(lBS\*(lE
+and the password from which to derive the hash \*(lBH1\*(lE to
+obtain the user's private key \*(lBKxu\*(lE.  If the checksums
+do not match, the PKSS discontinues further processing.
+.LI
+Obtains new key version number \*(lBV~\*(lE (actually \*(lBV+1\*(lE).
+.LI
+Replaces \*(lB[Kxu]H1:H2:Kou:V\*(lE in the user record with
+\*(lB[Kxu~]H1~:H2~:Kou~:V~\*(lE.  Observe that if only
+the password is changing, only \*(lB[Kxu]H1:H2\*(lE is replaced
+as there will be no \*(lBKou~\*(lE.
+.LE
+.P
+.H 4 "PKSS-to-client change password ACK/NAK message (client generates keys)"
+.P
+This section describes the PKSS-to-client change password
+ACK/NAK message (where the client generates the keys):
+.P
+.dS
+P-->C: [Nc:V:Status]S
+.dF
+.P
+The PKSS sends an ACK/NAK three-tuple to the client in
+consisting of: the nonce \*(lBNc\*(lE the client sent to the
+PKSS earlier while attempting to obtain the user's private key;
+the new key's version number; and a status code.
+The PKSS encrypts this message message with the session
+key \*(lBS\*(lE.
+.P
+.H 4 "Observations on the change protocol (client generates keys)"
+.P
+The messages at steps five and six are encrypted with the
+session key \*(lBS\*(lE.  This makes the messages at
+these steps impervious to dictionary attacks.  This observation
+is also true for the version of the change protocol in which the
+server generates keys.
+.P
+Because DCE RPC does not support chaining, the first, second,
+and third pairs of steps of the change password/key protocol
+will be implemented in three separate RPC's.  The exported
+interface to client programs, however, will present a single
+call that will invoke all three RPC's on a client's behalf.
+This is also true for the version of the change protocol in
+which the server generates keys.
+.P
+.P
+.H 3 "Change password/key (server generates keys)"
+.P
+In this version of the password/key change protocol, the client
+presents a new password to the server and relies on the server
+to generate new asymmetric key pairs.  This version of the
+protocol is intended for situations where the PKSS is expected
+to be more capable of generating keys, either due to superior
+CPU performance or due to the availability of better random
+numbers (server hardware is more likely to have a dedicated
+random number generating device).
+.P
+.H 4 "Client-to-PKSS change password/key message (server generates keys)"
+.P
+This section describes the client-to-PKSS change password/key
+message (where the server generates the keys):
+.P
+.dS
+C-->P: [{H1:H2:newpassword:key-chg?:Aa:L}Kxu]S
+.dF
+.P
+Once the client has successfully decrypted the PKSS-to-client
+response message and obtained its private key \*(lBKxu\*(lE, it
+constructs the change password/key message as follows:
+.P
+.aL
+.LI
+Computes hashes \*(lBH1\*(lE and \*(lBH2\*(lE on the old
+password.
+.LI
+Adds \*(lBH1\*(lE, \*(lBH2\*(lE, and the new password to the
+message.
+.LI
+Sets a flag \*(lBkey-chg?\*(lE which informs the PKSS whether
+or not to generate a new asymmetric key pair.
+.LI
+Signs \*(lBH1:H2:newpassword:key-chg?\*(lE with the user's
+private key \*(lBKxu\*(lE, to obtain
+\*(lB{H1:H2:newpassword:key-chg?}Kxu\*(lE.
+.LI
+Encrypts \*(lB{H1:H2:newpassword:key-chg?}Kxu\*(lE with the
+session key \*(lBS\*(lE to obtain
+\*(lB[{H1:H2:newpassword:key-chg?}Kxu]S\*(lE.
+.LE
+.P
+Upon receipt of the change password message from the client, the
+PKSS:
+.P
+.aL
+.LI
+Decrypts the message using the session key \*(lBS\*(lE.
+.LI
+Verifies the user's digital signature
+\*(lB{H1:H2:newpassword:key-chg?}Kxu\*(lE with the user's public
+key \*(lBKou\*(lE, by computing the checksum of
+\*(lBH1:H2:newpassword:key-chg?\*(lE and comparing it with the
+unsealed signature.  If the two values match, the PKSS is sure
+this message originated with the real client since only the real
+client would know the Diffie-Hellman key \*(lBD\*(lE and the
+password from which to derive the hash \*(lBH1\*(lE to obtain
+the user's private key \*(lBKxu\*(lE.  If the checksums do not
+match, the PKSS discontinues further processing.
+.LI
+Inspects the \*(lBkey-chg?\*(lE flag to determine whether or not
+to generate a new asymmetric key pair.  If set, generates the
+new keys \*(lBKxu~\*(lE, \*(lBKou~\*(lE suitable for use with
+algorithm \*(lBAa\*(lE of length \*(lBL\*(lE.  If not set,
+decrypts [Kxu]H1 in the user's PKSS database record with the
+\*(lBH1\*(lE the client sent the PKSS in the client-to-PKSS
+change password/key message.
+.LI
+Computes new hashes \*(lBH1~\*(lE and \*(lBH2~\*(lE on the
+new password.  Observe that \*(lBH1~\*(lE = \*(lBH1\*(lE and
+\*(lBH2~\*(lE = \*(lBH2\*(lE if only the key pair is changing
+but the password is not changing.
+.LI
+Encrypts \*(lBKxu~\*(lE with \*(lBH1~\*(lE to obtain
+\*(lB[Kxu~]H1~\*(lE and concatenates \*(lBH2~\*(lE and
+\*(lBKou~\*(lE.  This is the new security data for the user's
+PKSS database record.  Observe that \*(lBKxu~\*(lE =
+\*(lBKxu\*(lE and \*(lBKou~\*(lE = \*(lBKou\*(lE if only the
+password is changing but the key pair is not changing.
+.LI
+Obtains new key version number \*(lBV~\*(lE (actually \*(lBV+1\*(lE).
+.LI
+Overwrites \*(lB[Kxu]H1:H2:Kxu:V\*(lE in the user's PKSS database
+record with \*(lB[Kxu~]H1~:H2~:Kou~:V~\*(lE.
+.LE
+.P
+.H 4 "PKSS-to-client change password ACK/NAK message (server generates keys)"
+.P
+This section describes the PKSS-to-client change password
+ACK/NAK message (where the server generates the keys):
+.P
+.dS
+P-->C: [Nc:V:status:Kou~]S
+.dF
+.P
+The ACK/NAK message has the same content and semantics in this
+version of the password/key change protocol as it did in the
+version in which the client generated new keys, with one
+exception: If the \*(lBkey-chg?\*(lE flag was set in the change
+message, the PKSS will also return the client's new public key.
+Thus, the return message will be either a three-tuple or a
+four-tuple depending on the contents of the \*(lBkey-chg?\*(lE
+flag.
+.P
+.H 4 "Observations on the change protocol with server generating keys"
+.P
+Because the PKSS client presents the user's password to the
+PKSS, this version also allows for PKSS integration with a
+password strength server.  Note, however, that the user's
+password is exposed briefly on the PKSS.
+.P
+.H 2 "PKSS Management Protocols"
+.P
+The \*(lBsec_admin\*(lE user will be able to add, delete, and
+modify user records in the PKSS database.  The modify operation
+shall mean to change both password and key pair at the same
+time.  Note that to change password alone requires knowledge of
+the current password, thus \*(lBsec_admin\*(lE may only change
+both at once.
+.P
+The PKSS management protocols are all four-step (two RPC)
+exchanges that begin with a modified Diffie-Hellman key exchange
+[DIFF 76] over a secure RPC to establish a session key to encrypt
+password/key change data.  Authentication and packet-integrity
+are required to thwart bucket-brigade attacks.
+.P
+Step one:
+.P
+.dS
+C-->P: I:E(Dc):As...
+.dF
+.P
+The PKSS management client initiates an interaction with the
+PKSS by generating a random number \*(lBXc\*(lE and computing
+the exponentiated Diffie-Hellman seed value \*(lBE(Dc)\*(lE =
+\*(lB(P**Xc) mod g\*(lE.  The PKSS management client sends
+\*(lBE(Dc)\*(lE to the PKSS.
+.P
+The PKSS management client adds to this a PKSS management
+protocol ID \*(lBI\*(lE and a list of symmetric key encryption
+algorithms \*(lBAs...\*(lE that it supports.
+.P
+Upon receipt of the PKSS management client's message
+\*(lBI:E(Dc):As...\*(lE, the PKSS:
+.P
+.aL
+.LI
+Generates a random number \*(lBXp\*(lE.
+.LI
+Computes a Diffie-Hellman key \*(lBD\*(lE = \*(lB(E(Dc)**Xp) mod
+g\*(lE.
+.LE
+.P
+Step two:
+.P
+.dS
+P-->C: E(Dp):H(As...):As...[i]
+.dF
+.P
+The PKSS sends \*(lBE(Dp):H(As...):As...[i]\*(lE to the PKSS
+management client.  Upon receipt of, the PKSS management client:
+.P
+.aL
+.LI
+Computes a Diffie-Hellman key \*(lBD\*(lE = \*(lB(E(Dp)**Xc) mod
+g\*(lE suitable for use with the symmetric key encryption
+algorithm given by \*(lBAs...[i]\*(lE.
+.LI
+Computes is own hash \*(lBH(As...)\*(lE and compares it with
+the \*(lBH(As...)\*(lE that came back from the PKSS.  If they
+do not match, the client discontinues processing, and returns
+an error code to the client.
+.LE
+.P
+The PKSS and its management client now have between them a
+session key D for private communication.
+.P
+.H 3 "PKSS management add user"
+.P
+The \*(qBadd user\*(qE management function will have two
+versions, one in which the client generates asymmetric keys and
+one in which the server does.
+.P
+.H 4 "PKSS management add user (client generates keys)"
+.P
+This section describes the PKSS management add user message
+(where the client generates the keys):
+.P
+.dS
+C-->P: [userkey:[Kxu]H1:H2:Kou]D
+.dF
+.P
+The PKSS management client constructs the security information
+of the user record and a PKSS database lookup key.
+It will encrypt this with the Diffie-Hellman key
+\*(lBD\*(lE
+.P
+Upon receipt by the PKSS, it verifies the ACL against the user
+attempting to perform the add operation, and if the ACL permits
+the user to perform the operation, the PKSS inserts this record
+into the database.
+.P
+Then:
+.P
+.dS
+P-->C: [V:Status]D
+.dF
+.P
+The PKSS constructs a response message two-tuple consisting in
+the actual key version number and a status code.
+.P
+.H 4 "PKSS management add user (server generates keys)"
+.P
+This section describes the PKSS management add user message
+(where the server generates the keys):
+.P
+.dS
+C-->P: [userkey:password:Aa:L]D
+.dF
+.P
+The PKSS management client constructs an add user message
+four-tuple consisting of: the userkey; the new password;
+the asymmetric key encryption algorithm to be used, and
+the bit length of the asymmetric key to be generated.
+.P
+Upon receipt of this message, the PKSS:
+.P
+.aL
+.LI
+Generates a new key pair.
+.LI
+Hashes the new password.
+.LI
+Constructs a new user record and inserts it into the database.
+.LE
+.P
+Then:
+.P
+.dS
+P-->C: [V:Kou:Status]D
+.dF
+.P
+The PKSS constructs a response message three-tuple consisting in
+the actual key version number, the public key component of the
+key pair it generated on the client's behalf, and a status code.
+.P
+.H 3 "PKSS management delete user"
+.P
+This section describes the PKSS management delete user message:
+.P
+.dS
+C-->P: userkey
+.dF
+.P
+The PKSS management client sends the PKSS a userkey
+containing the username of the principal whose record is to be
+deleted.  Upon receipt by the PKSS, it verifies the ACL against
+the user attempting to perform the delete operation, and if the
+ACL permits the user to perform the operation, the PKSS deletes
+the indicated record from the database.
+.P
+Then:
+.P
+.dS
+P-->C: Status
+.dF
+.P
+The PKSS sends the PKSS client a status code specifying
+whether the operation succeeded or failed.
+.P
+.H 3 "PKSS management modify user"
+.P
+The modify user functions (two versions: client generates keys,
+and server generates keys) have the same behavior and syntax as
+the add user functions with the exception that the record given
+by the userkey will be deleted before the new record
+is inserted, and the operation ID \*(lBI\*(lE will be set to a
+pre-defined value that indicates \*(qBmodify a user\*(qE.
+.P
+.H 2 "PKSS Context Management"
+.P
+The protocols by which users interact with the PKSS are all
+multi-step exchanges requiring two or three separate RPC's in
+order to fulfill requests for service.  To make this work, the
+PKSS must maintain selected data across individual RPC's.  It
+will do this with user-defined data in the context handle.
+.P
+The user-defined data in the context handle shall contain:
+.P
+.aL
+.LI
+An encryption key established in the first RPC of all
+protocols.  This will be the randomly generated session key
+for user protocols or the Diffie-Hellman key in the case of
+management protocols.
+.LI
+A state flag which allows the PKSS to track at what step in
+which protocol it currently is.  (Not used in the current
+version, but reserved for future use).
+.LI
+A copy of the symmetric key algorithm ID to be used in
+conjunction with the encryption key above.
+.LI
+A copy of the PKSS nonce.
+.LI
+A copy of the client's nonce.
+.LI
+A copy of the database record lookup key.
+.LI
+A mutex so that the context handle may be locked while in use.
+.LI
+A flag indicating whether the context has been deleted.
+.LE
+.P
+.H 2 "PKSS Event Auditing"
+.P
+All PKSS events are auditable.  The PKSS will use the DCE
+Auditing Subsystem for secure, reliable auditing.
+.P
+.H 1 "DATA STRUCTURES"
+.P
+.cS
+//
+// Class definitions for PKSS ASN.1 messages
+//
+
+//
+// PKSS Application Tags
+//
+
+#define PKSS_LOGIN_P1_MSG_TAG           (1)
+#define PKSS_LOGIN_P2_MSG_TAG           (2)
+#define PKSS_LOGIN_P3_MSG_TAG           (3)
+#define PKSS_LOGIN_P4_MSG_TAG           (4)
+
+#define PKSS_CLT_CHG_P1_MSG_TAG         (11)
+#define PKSS_CLT_CHG_P2_MSG_TAG         (12)
+#define PKSS_CLT_CHG_P3_MSG_TAG         (13)
+#define PKSS_CLT_CHG_P4_MSG_TAG         (14)
+#define PKSS_CLT_CHG_P5_MSG_TAG         (15)
+#define PKSS_CLT_CHG_P6_MSG_TAG         (16)
+
+#define PKSS_SVR_CHG_P1_MSG_TAG         (21)
+#define PKSS_SVR_CHG_P2_MSG_TAG         (22)
+#define PKSS_SVR_CHG_P3_MSG_TAG         (23)
+#define PKSS_SVR_CHG_P4_MSG_TAG         (24)
+#define PKSS_SVR_CHG_P5_MSG_TAG         (25)
+#define PKSS_SVR_CHG_P6_MSG_TAG         (26)
+
+#define PKSS_MGMT_P1_MSG_TAG            (31)
+#define PKSS_MGMT_P2_MSG_TAG            (32)
+
+#define PKSS_MGMT_CLT_ADD_P3_MSG_TAG    (43)
+#define PKSS_MGMT_CLT_ADD_P4_MSG_TAG    (44)
+
+#define PKSS_MGMT_SVR_ADD_P3_MSG_TAG    (53)
+#define PKSS_MGMT_SVR_ADD_P4_MSG_TAG    (54)
+
+#define PKSS_MGMT_DEL_P3_MSG_TAG        (63)
+#define PKSS_MGMT_DEL_P4_MSG_TAG        (64)
+#define PKSS_MGMT_CLT_MOD_P3_MSG_TAG    (73)
+#define PKSS_MGMT_CLT_MOD_P4_MSG_TAG    (74)
+
+#define PKSS_MGMT_SVR_MOD_P3_MSG_TAG    (83)
+#define PKSS_MGMT_SVR_MOD_P4_MSG_TAG    (84)
+
+
+//-----------------------------------------------------------------+
+// class definition for PKSS database key (that is, db search key) |
+//-----------------------------------------------------------------+
+
+class PkssUserKeyC : public asn_sequence
+{
+public:
+  asn_IA5string uname;
+  asn_IA5string domain;  // must convert uuid_t to/from string
+  asn_integer   usages;
+  asn_integer   version;
+
+  PkssUserKeyC (void)
+  {
+    register_child (&uname);
+    register_child (&domain);
+    register_child (&usages);
+    register_child (&version);
+  }
+
+}; // End class definition for PkssUserKeyC
+
+
+//-------------------------------------------+
+// class definition for PKSS database record |
+//-------------------------------------------+
+
+class PkssDBrecC : public asn_sequence // [Kxu]H1:H2:Kou:V
+{
+public:
+  asn_octetstring KxuH1;
+  asn_octetstring H2;
+  SubjectPublicKeyInfo Kou;
+  asn_integer version;
+
+  PkssDBrecC (void):asn_sequence(SECURE)
+  {
+    register_child (&KxuH1);
+    register_child (&H2);
+    register_child (&Kou);
+    register_child (&version);
+  }
+
+}; // End class definition for PkssDBrecC
+
+
+//--------------------------------------------------------+
+// class definition for PKSS client algorithm choice list |
+//--------------------------------------------------------+
+
+class PkssAlgListC : public asn_sequenceof<asn_integer>
+{
+
+}; // End class definition for PkssAlgListC
+
+
+//--------------------------------------------------+
+// class definition for PKSS user login phase 1 msg |
+//--------------------------------------------------+
+
+class PkssUsrGetKeyP1MsgBaseC : public asn_sequence
+  // C-->P: userKey:E(Dc):As...
+{
+public:
+  PkssUserKeyC userKey;
+  asn_integer eDc;
+  PkssAlgListC algList;
+
+  PkssUsrGetKeyP1MsgBaseC (void)
+  {
+    register_child (&userKey);
+    register_child (&eDc);
+    register_child (&algList);
+  }
+
+}; // End class definition for PkssUsrGetKeyP1MsgBaseC
+
+
+class PkssLoginP1MsgC : public PkssUsrGetKeyP1MsgBaseC
+{
+public:
+  PkssLoginP1MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_LOGIN_P1_MSG_TAG);
+  }
+
+}; // End class definition for PkssLoginP1MsgC
+
+
+//---------------------------------------------------+
+// class definition for PKSS user login phase 2 data |
+//---------------------------------------------------+
+
+class PkssUsrGetKeyP2DataF2C : public asn_sequence // [[S]H2:H(As...)
+{
+public:
+  asn_octetstring sH2;
+  asn_octetstring hAlgs;
+
+  PkssUsrGetKeyP2DataF2C (void):asn_sequence(SECURE)
+  {
+    register_child (&sH2);
+    register_child (&hAlgs);
+  }
+
+}; // End class definition for PkssUsrGetKeyP2DataF2C
+
+
+//--------------------------------------------------+
+// class definition for PKSS user login phase 2 msg |
+//--------------------------------------------------+
+
+class PkssUsrGetKeyP2MsgBaseC : public asn_sequence
+      // P-->C: E(Dp):[[S]H2:H(As...)]D:[Np]S:As...[i]
+{
+public:
+  asn_integer eDp;
+  asn_octetstring sH2HalgsD;
+  asn_octetstring nps;
+  asn_integer algIdx
+
+  PkssUsrGetKeyP2MsgBaseC (void)
+  {
+    register_child (&eDp);
+    register_child (&sH2HalgsD);
+    register_child (&nps);
+    register_child (&algIdx);
+  }
+
+}; // End class definition for PkssUsrGetKeyP2MsgBaseC
+
+
+class PkssLoginP2MsgC : public PkssUsrGetKeyP2MsgBaseC
+{
+public:
+  PkssLoginP2MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_LOGIN_P2_MSG_TAG);
+  }
+
+}; // End class definition for PkssLoginP2MsgC
+
+
+//---------------------------------------------------+
+// class definition for PKSS user login phase 3 data |
+//---------------------------------------------------+
+
+class PkssUsrGetKeyP3DataC : public asn_sequence
+{
+public:
+  asn_integer protoID;
+  asn_integer np;
+  asn_integer nc;
+
+  PkssUsrGetKeyP3DataC (void):asn_sequence(SECURE)
+  {
+    register_child (&protoID);
+    register_child (&np);
+    register_child (&nc);
+  }
+
+}; // End class definition for PkssUsrGetKeyP3DataC
+
+
+//--------------------------------------------------+
+// class definition for PKSS user login phase 3 msg |
+//--------------------------------------------------+
+
+class PkssUsrGetKeyP3MsgBaseC : public asn_octetstring
+                                       // C-->P: [I:Np:Nc]S
+{
+
+}; // End class definition for PkssUsrGetKeyP3MsgBaseC
+
+
+class PkssLoginP3MsgC : public PkssUsrGetKeyP3MsgBaseC
+{
+public:
+  PkssLoginP3MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_LOGIN_P3_MSG_TAG);
+  }
+
+}; // End class definition for PkssLoginP3MsgC
+
+
+//---------------------------------------------------+
+// class definition for PKSS user login phase 4 data |
+//---------------------------------------------------+
+
+class PkssUsrGetKeyP4DataC : public asn_sequence
+{
+public:
+  asn_octetstring kxuH1;
+  SubjectPublicKeyInfo kou;
+  asn_integer version;
+  asn_integer nc;
+
+  PkssUsrGetKeyP4DataC (void):asn_sequence(SECURE)
+  {
+    register_child (&kxuH1);
+    register_child (&kou);
+    register_child (&version);
+    register_child (&nc);
+  }
+
+}; // End class definition for PkssUsrGetKeyP4DataC
+
+
+//--------------------------------------------------+
+// class definition for PKSS user login phase 4 msg |
+//--------------------------------------------------+
+
+class PkssUsrGetKeyP4MsgBaseC : public asn_octetstring
+  // P-->C: [[Kxu]H1:Kou:V:Nc]S
+{
+
+}; // End class definition for PkssUsrGetKeyP4MsgBaseC
+
+
+class PkssLoginP4MsgC : public PkssUsrGetKeyP4MsgBaseC
+{
+public:
+  PkssLoginP4MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_LOGIN_P4_MSG_TAG);
+  }
+
+}; // End class definition for PkssLoginP4MsgC
+
+
+//--------------------------------------------------------------+
+// class defs for user change key/password msgs (clt gens keys) |
+//--------------------------------------------------------------+
+
+class PkssCltChgP1MsgC : public PkssUsrGetKeyP1MsgBaseC
+{
+public:
+  PkssCltChgP1MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_CLT_CHG_P1_MSG_TAG);
+  }
+
+}; // End class definition for PkssCltChgP1MsgC
+
+
+class PkssCltChgP2MsgC : public PkssUsrGetKeyP2MsgBaseC
+{
+public:
+  PkssCltChgP2MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_CLT_CHG_P2_MSG_TAG);
+  }
+
+}; // End class definition for PkssCltChgP2MsgC
+
+
+class PkssCltChgP3MsgC : public PkssUsrGetKeyP3MsgBaseC
+{
+public:
+  PkssCltChgP3MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_CLT_CHG_P3_MSG_TAG);
+  }
+
+}; // End class definition for PkssCltChgP3MsgC
+
+
+class PkssCltChgP4MsgC : public PkssUsrGetKeyP4MsgBaseC
+{
+public:
+  PkssCltChgP4MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_CLT_CHG_P4_MSG_TAG);
+  }
+
+}; // End class definition for PkssCltChgP4MsgC
+
+
+//------------------------------------------------------------------+
+// class def for PKSS user chg key/pwd phase 5 data (clt gens keys) |
+//------------------------------------------------------------------+
+
+class PkssCltChgP5DataC : public asn_sequence // [Kxu~]H1~:H2~:Kou~
+{
+public:
+  asn_octetstring newKxuH1;
+  asn_octetstring newH2;
+  SubjectPublicKeyInfo newKou;
+
+  PkssCltChgP5DataC (void):asn_sequence(SECURE)
+  {
+    register_child (&newKxuH1);
+    register_child (&newH2);
+    register_child (&newKou);
+  }
+
+}; // End class definition for PkssCltChgP5DataC
+
+
+class PkssCltChgP5SignedC : public asn_sequence
+                                   // {[Kxu~]H1~:H2~:Kou~}Kxu
+{
+public:
+  PkssCltChgP5DataC dataToBeSigned;
+  asn_integer sigAlg;
+  asn_octetstring signature;
+
+  PkssCltChgP5SignedC (void)
+  {
+    register_child (&dataToBeSigned);
+    register_child (&sigAlg);
+    register_child (&signature);
+  }
+
+}; // End class definition for PkssCltChgP5SignedC
+
+
+//-----------------------------------------------------------------+
+// class def for PKSS user chg key/pwd phase 5 msg (clt gens keys) |
+//-----------------------------------------------------------------+
+
+class PkssCltChgP5MsgC : public asn_octetstring
+{
+public:
+
+  PkssCltChgP5MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_CLT_CHG_P5_MSG_TAG);
+  }
+
+}; // End class definition for PkssCltChgP5MsgC
+
+
+//------------------------------------------------------------------+
+// class def for PKSS user chg key/pwd phase 6 data (clt gens keys) |
+//------------------------------------------------------------------+
+
+class PkssCltChgP6DataC : public asn_sequence
+{
+public:
+  asn_integer nc;
+  asn_integer version;
+  asn_integer status;
+
+  PkssCltChgP6DataC (void):asn_sequence (SECURE)
+  {
+    register_child (&nc);
+    register_child (&version);
+    register_child (&status);
+  }
+
+}; // End class definition for PkssCltChgP6DataC
+
+
+//-----------------------------------------------------------------+
+// class def for PKSS user chg key/pwd phase 6 msg (clt gens keys) |
+//-----------------------------------------------------------------+
+
+class PkssCltChgP6MsgC : public asn_octetstring
+{
+public:
+
+  PkssCltChgP6MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_CLT_CHG_P6_MSG_TAG);
+  }
+
+}; // End class definition for PkssCltChgP6MsgC
+
+
+//--------------------------------------------------------------+
+// class defs for user change key/password msgs (svr gens keys) |
+//--------------------------------------------------------------+
+
+
+class PkssSvrChgP1MsgC : public PkssUsrGetKeyP1MsgBaseC
+{
+public:
+  PkssSvrChgP1MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_SVR_CHG_P1_MSG_TAG);
+  }
+
+}; // End class definition for PkssSvrChgP1MsgC
+
+
+class PkssSvrChgP2MsgC : public PkssUsrGetKeyP2MsgBaseC
+{
+public:
+  PkssSvrChgP2MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_SVR_CHG_P2_MSG_TAG);
+  }
+
+}; // End class definition for PkssSvrChgP2MsgC
+
+
+class PkssSvrChgP3MsgC : public PkssUsrGetKeyP3MsgBaseC
+{
+public:
+  PkssSvrChgP3MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_SVR_CHG_P3_MSG_TAG);
+  }
+
+}; // End class definition for PkssSvrChgP3MsgC
+
+
+class PkssSvrChgP4MsgC : public PkssUsrGetKeyP4MsgBaseC
+{
+public:
+  PkssSvrChgP4MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_SVR_CHG_P4_MSG_TAG);
+  }
+
+}; // End class definition for PkssSvrChgP4MsgC
+
+
+//------------------------------------------------------------------+
+// class def for PKSS user chg key/pwd phase 5 data (svr gens keys) |
+//------------------------------------------------------------------+
+
+class PkssSvrChgP5DataC : public asn_sequence
+        // H1:H2:newpassword:key-chg?:Aa:L
+{
+public:
+  asn_octetstring oldH1;
+  asn_octetstring oldH2;
+  asn_IA5string newPwd;
+  asn_boolean keyChg;
+  asn_octetstring pkAlgID;
+  asn_integer pkKeyLen;
+
+  PkssSvrChgP5DataC (void):asn_sequence (SECURE)
+  {
+    register_child (&oldH1);
+    register_child (&oldH2);
+    register_child (&newPwd);
+    register_child (&keyChg);
+    register_child (&pkAlgID);
+    register_child (&pkKeyLen);
+  }
+
+}; // End class definition for PkssSvrChgP5DataC
+
+
+class PkssSvrChgP5SignedC : public asn_sequence
+  // {H1:H2:newpassword:key-chg?:A:L}Kxu
+{
+public:
+  PkssSvrChgP5DataC dataToBeSigned;
+  asn_integer sigAlg;
+  asn_octetstring signature;
+
+  PkssSvrChgP5SignedC (void):asn_sequence (SECURE)
+  {
+    register_child (&dataToBeSigned);
+    register_child (&sigAlg);
+    register_child (&signature);
+  }
+
+}; // End class definition for PkssSvrChgP5SignedC
+
+
+//-----------------------------------------------------------------+
+// class def for PKSS user chg key/pwd phase 5 msg (svr gens keys) |
+//-----------------------------------------------------------------+
+
+class PkssSvrChgP5MsgC : public asn_octetstring
+{
+public: // C-->P: [{H1:H2:newpwd:key-chg?:Aa:L}Kxu]S
+
+  PkssSvrChgP5MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_SVR_CHG_P5_MSG_TAG);
+  }
+
+}; // End class definition for PkssSvrChgP5MsgC
+
+
+//------------------------------------------------------------------+
+// class def for PKSS user chg key/pwd phase 6 data (svr gens keys) |
+//------------------------------------------------------------------+
+
+class PkssSvrChgP6DataC : public asn_sequence
+{
+public:
+  asn_integer status;
+  asn_integer nc;
+  asn_integer version;
+  SubjectPublicKeyInfo newKou;
+
+  PkssSvrChgP6DataC (void):asn_sequence (SECURE)
+  {
+    register_child (&nc);
+    register_child (&version);
+    register_child (&status);
+    register_child (&newKou);
+    version.set_optional();
+    newKou.set_optional();
+  }
+
+}; // End class definition for PkssSvrChgP6DataC
+
+
+//-----------------------------------------------------------------+
+// class def for PKSS user chg key/pwd phase 6 msg (svr gens keys) |
+//-----------------------------------------------------------------+
+
+class PkssSvrChgP6MsgC : public asn_octetstring
+{
+public:
+
+  PkssSvrChgP6MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_SVR_CHG_P6_MSG_TAG);
+  }
+
+}; // End class definition for PkssSvrChgP6MsgC
+
+
+//-------------------------------------------------+
+// PKSS mgmt protocols; PKSS mgmt D-H key exchange |
+//-------------------------------------------------+
+
+class PkssMgmtP1MsgC : public asn_sequence  // C-->P:  I:E(Dc):As...
+{
+public:
+  asn_integer protoID;
+  asn_integer eDc;
+  PkssAlgListC algList;
+
+  PkssMgmtP1MsgC (void)
+  {
+    register_child (&protoID);
+    register_child (&eDc);
+    register_child (&algList);
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_MGMT_P1_MSG_TAG);
+  }
+
+}; // End class definition for PkssMgmtP1MsgC
+
+
+class PkssMgmtP2MsgC : public asn_sequence
+    // P-->C:  E(Dp):H(As...):As...[i]
+{
+public:
+  asn_integer eDp;
+  asn_octetstring hAlgs;
+  asn_integer algIdx;
+
+  PkssMgmtP2MsgC (void)
+  {
+    register_child (&eDp);
+    register_child (&hAlgs);
+    register_child (&algIdx);
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_MGMT_P2_MSG_TAG);
+  }
+
+}; // End class definition for PkssMgmtP2MsgC
+
+
+//------------------------------------------------------+
+// class def for PKSS mgmt phase 3 data (clt gens keys) |
+//------------------------------------------------------+
+
+class PkssMgmtCltP3DataC : public asn_sequence
+{
+public:
+  PkssUserKeyC userKey;
+  asn_octetstring kxuH1;
+  asn_octetstring H2;
+  SubjectPublicKeyInfo kou;
+
+  PkssMgmtCltP3DataC (void):asn_sequence (SECURE)
+  {
+    register_child (&userKey);
+    register_child (&kxuH1);
+    register_child (&H2);
+    register_child (&kou);
+  }
+
+}; // End class definition for PkssMgmtCltP3DataC
+
+
+//----------------------------------------------------------+
+// class def for PKSS mgmt phase 3 msg base (clt gens keys) |
+//----------------------------------------------------------+
+
+class PkssMgmtCltP3MsgBaseC : public asn_octetstring
+  // C-->P: [Userkey:[Kxu]H1:H2:Kou]D
+{
+
+}; // End class definition for PkssMgmtCltP3MsgBaseC
+
+
+//--------------------------------------------------------------+
+// class def for PKSS mgmt add user phase 3 msg (clt gens keys) |
+//--------------------------------------------------------------+
+
+class PkssMgmtCltAddP3MsgC : public PkssMgmtCltP3MsgBaseC
+{
+public:
+  PkssMgmtCltAddP3MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_MGMT_CLT_ADD_P3_MSG_TAG);
+  }
+
+}; // End class definition for PkssMgmtCltAddP3MsgC
+
+
+//------------------------------------------------------+
+// class def for PKSS mgmt phase 4 data (clt gens keys) |
+//------------------------------------------------------+
+
+class PkssMgmtCltP4DataC : public asn_sequence
+{
+public:
+  asn_integer version;
+  asn_integer status;
+
+  PkssMgmtCltP4DataC (void)
+  {
+    register_child (&version);
+    register_child (&status);
+  }
+
+}; // End class definition for PkssMgmtCltP4DataC
+
+
+//----------------------------------------------------------+
+// class def for PKSS mgmt phase 4 msg base (clt gens keys) |
+//----------------------------------------------------------+
+
+class PkssMgmtCltP4MsgBaseC : public asn_octetstring
+// P-->C: [V:Status]D
+{
+
+}; // End class definition for PkssMgmtCltP4MsgBaseC
+
+
+//--------------------------------------------------------------+
+// class def for PKSS mgmt add user phase 4 msg (clt gens keys) |
+//--------------------------------------------------------------+
+
+class PkssMgmtCltAddP4MsgC : public PkssMgmtCltP4MsgBaseC
+{
+public:
+  PkssMgmtCltAddP4MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_MGMT_CLT_ADD_P4_MSG_TAG);
+  }
+
+}; // End class definition for PkssMgmtCltAddP4MsgC
+
+
+//------------------------------------------------------+
+// class def for PKSS mgmt phase 3 data (svr gens keys) |
+//------------------------------------------------------+
+
+class PkssMgmtSvrP3DataC : public asn_sequence
+{
+public:
+  PkssUserKeyC userKey;
+  asn_IA5string pwd;
+  asn_octetstring pkAlgID;
+  asn_integer pkKeyLen;
+
+  PkssMgmtSvrP3DataC (void):asn_sequence (SECURE)
+  {
+    register_child (&userKey);
+    register_child (&pwd);
+    register_child (&pkAlgID);
+    register_child (&pkKeyLen);
+  }
+
+}; // End class definition for PkssMgmtSvrP3DataC
+
+
+//----------------------------------------------------------+
+// class def for PKSS mgmt phase 3 msg base (svr gens keys) |
+//----------------------------------------------------------+
+class PkssMgmtSvrP3MsgBaseC : public asn_octetstring
+  // C-->P: [Username:password:Aa:L]D
+{
+
+}; // End class definition for PkssMgmtSvrP3MsgBaseC
+
+
+//--------------------------------------------------------------+
+// class def for PKSS mgmt add user phase 3 msg (svr gens keys) |
+//--------------------------------------------------------------+
+
+class PkssMgmtSvrAddP3MsgC : public PkssMgmtSvrP3MsgBaseC
+{
+public:
+  PkssMgmtSvrAddP3MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_MGMT_SVR_ADD_P3_MSG_TAG);
+  }
+
+}; // End class definition for PkssMgmtSvrAddP3MsgC
+
+
+//------------------------------------------------------+
+// class def for PKSS mgmt phase 4 data (svr gens keys) |
+//------------------------------------------------------+
+
+class PkssMgmtSvrP4DataC : public asn_sequence
+{
+public:
+  asn_integer status;
+  asn_integer version;
+  SubjectPublicKeyInfo kou;
+
+  PkssMgmtSvrP4DataC (void)
+  {
+    register_child (&status);
+    register_child (&version);
+    register_child (&kou);
+    version.set_optional();
+    kou.set_optional();
+  }
+
+}; // End class definition for PkssMgmtSvrP4DataC
+
+
+//----------------------------------------------------------+
+// class def for PKSS mgmt phase 4 msg base (svr gens keys) |
+//----------------------------------------------------------+
+
+class PkssMgmtSvrP4MsgBaseC : public asn_octetstring
+{
+
+}; // End class definition for PkssMgmtSvrP4MsgBaseC
+
+
+//--------------------------------------------------------------+
+// class def for PKSS mgmt add user phase 4 msg (svr gens keys) |
+//--------------------------------------------------------------+
+
+class PkssMgmtSvrAddP4MsgC : public PkssMgmtSvrP4MsgBaseC
+  // P-->C: [V:Kou:Status]D
+{
+public:
+
+  PkssMgmtSvrAddP4MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_MGMT_SVR_ADD_P4_MSG_TAG);
+  }
+
+}; // End class definition for PkssMgmtSvrAddP4MsgC
+
+
+//----------------------------------------------+
+// class def for PKSS mgmt del user phase 3 msg |
+//----------------------------------------------+
+
+class PkssMgmtDelP3MsgC : public asn_sequence
+{
+public:
+
+  PkssUserKeyC userKey;
+
+  PkssMgmtDelP3MsgC (void)
+  {
+    register_child (&userKey);
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_MGMT_DEL_P3_MSG_TAG);
+  }
+
+}; // End class definition for PkssMgmtDelP3MsgC
+
+
+//----------------------------------------------+
+// class def for PKSS mgmt del user phase 4 msg |
+//----------------------------------------------+
+
+class PkssMgmtDelP4MsgC : public asn_sequence
+{
+public:
+  asn_integer status;
+
+  PkssMgmtDelP4MsgC (void)
+  {
+    register_child (&status);
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_MGMT_DEL_P4_MSG_TAG);
+  }
+
+}; // End class definition for PkssMgmtDelP4MsgC
+
+
+//-----------------------------------------------+
+// PKSS mgmt modify user (client generates keys) |
+//-----------------------------------------------+
+
+class PkssMgmtCltModP3MsgC : public PkssMgmtCltP3MsgBaseC
+{
+public:
+  PkssMgmtCltModP3MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_MGMT_CLT_MOD_P3_MSG_TAG);
+  }
+
+}; // End class definition for PkssMgmtCltModP3MsgC
+
+
+class PkssMgmtCltModP4MsgC : public PkssMgmtCltP4MsgBaseC
+{
+public:
+  PkssMgmtCltModP4MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_MGMT_CLT_MOD_P4_MSG_TAG);
+  }
+
+}; // End class definition for PkssMgmtCltModP4MsgC
+
+
+//-----------------------------------------------+
+// PKSS mgmt modify user (server generates keys) |
+//-----------------------------------------------+
+
+class PkssMgmtSvrModP3MsgC : public PkssMgmtSvrP3MsgBaseC
+{
+public:
+  PkssMgmtSvrModP3MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_MGMT_SVR_MOD_P3_MSG_TAG);
+  }
+
+}; // End class definition for PkssMgmtSvrModP3MsgC
+
+
+class PkssMgmtSvrModP4MsgC : public PkssMgmtSvrP4MsgBaseC
+{
+public:
+  PkssMgmtSvrModP4MsgC (void)
+  {
+    set_tag_class (APPLICATION_CLASS);
+    set_tag (PKSS_MGMT_SVR_MOD_P4_MSG_TAG);
+  }
+
+}; // End class definition for PkssMgmtSvrModP4MsgC
+
+
+//
+// Client context handle - required by sec_pvtkey_* layer
+//
+// See [RFC 68.2]
+//
+
+typedef struct
+{
+  char *name_p;
+  char *pkss_svc_profile_name_p;
+  sec_pk_domain_t domain;
+} sec_pkss_clt_ctx_t;
+
+
+//
+// PKSS server context handle block
+//
+
+typedef struct
+{
+  unsigned32 proto;
+  unsigned32 sym_alg;
+  unsigned32 state;
+  unsigned32 deleted;
+  pthread_mutex_t mutex;
+  // ctx_timer;
+  PkssDbKeyC *dbkey_p;
+  sec_pk_gen_data_t *svr_nonce_p;
+  sec_pk_gen_data_t *clt_nonce_p;
+  sec_pk_gen_data_t *crypto_key_p;
+} sec_pkss_context_t;
+
+
+//
+// PKSS database record key
+//
+// contains Username:domain_id:usage_flags:version
+// in a buffer consisting in a length field and a
+// data field.
+//
+typedef struct
+{
+  unsigned32 len;
+  unsigned char *data;
+} sec_pkss_dbkey_t;
+
+//
+// PKSS database record contains ASN.1 encoding of
+// [Kxu~]H1~:H2~:Kou~:V in a buffer consisting in a
+// length and a data field.
+//
+
+typedef struct
+{
+  unsigned32 asn_rec_len;
+  unsigned char *asn_rec_p;
+} sec_pkss_dbrec_t;
+.cF
+.P
+.H 1 "USER INTERFACES"
+.P
+.P
+.H 1 "API'S"
+...\"Details the interfaces to the modules that will be available to users of
+...\"this component/subsystem.
+.P
+.cS
+//
+// PKSS client API prototypes
+//
+
+//
+// Retrieve user's private key for use in [RFC 68.2] login
+//
+// Input
+//
+//    pkss_svc_profile_name_p: Pointer to entry name in namespace
+//                             where the search for compatible
+//                             binding handles will begin.
+//    name_p: Pointer to the user's canonical name within the
+//            specified domain.
+//    domain_id: The application domain this key belongs to.
+//    key_usages: The usage(s) permitted of this keypair.
+//    key_vno: The key version number. (0 may be specified to
+//             indicate that the routine should select the next
+//             appropriate or newest key version number).
+//             (In the reference implementation, key_vno starts with
+//             1, then monotonically increase 1 for each update.)
+//    pwd_p:  Pointer to the user's password string.
+//
+// Output
+//
+//    pvt_key_p: Pointer to the encoded private key component of
+//               the user's asymmetric key pair.   It is the caller's
+//               responsibility to release the storage allocated for
+//               the private key component by this function.
+//
+//    pub_key_p: Pointer to the encoded public key component of
+//               the user's asymmetric key pair.   It is the caller's
+//               responsibility to release the storage allocated for
+//               the public key component by this function.
+//
+//    ret_key_vno_p:  Pointer to the actual key version number of
+//                    the returned key.  It is the caller's
+//                    responsibility to provide the storage to
+//                    contain the actual key version number.
+// Calls        sec_pkss_clt_diffhell
+//              sec_pkss_clt_pkey_get
+//              
+//
+
+#if __cplusplus
+extern "C"
+#endif
+ error_status_t sec_pkss_get_key
+ (
+   const char *pkss_svc_profile_name_p,
+   const char *name_p,
+   sec_pk_domain_t domain_id,
+   sec_pk_usage_flags_t key_usages,
+   unsigned32 key_vno,
+   const char *pwd_p,
+   sec_pk_pvtkey_t *pvt_key_p,
+   sec_pk_pubkey_t *pub_key_p,
+   unsigned32 *ret_key_vno_p
+ );
+
+//
+// Change user's password and/or asymmetric key pair (client
+// generates new asymmetric key pair).
+//
+// Input
+//
+//    pkss_svc_profile_name_p: Pointer to entry name in namespace
+//                             where the search for compatible
+//                             binding handles will begin.
+//    name_p: Pointer to the user's canonical name within the
+//            specified domain.
+//    domain_id: The application domain this key belongs to.
+//    key_usages: The usage(s) permitted of this keypair.
+//    key_vno: The key version number. (0 may be specified to
+//             indicate that the routine should select the next
+//             appropriate or newest key version number).
+//             (In the reference implementation, key_vno starts with
+//             1, then monotonically increase 1 for each update.)
+//    old_pwd_p:  Pointer to the user's current password.
+//    new_pwd_p:  Pointer to the user's new password.  Callers should
+//                set this field to NULL if only the asymmetric key
+//                pair is changing, but the password is staying the
+//                same.
+//    new_pvt_key_p:  a pointer to a buffer containing the private
+//                    key component of the new asymmetric key pair.
+//    new_pub_key_p:  a pointer to a buffer containing the public key
+//                    component of the new asymmetric key pair.
+//
+// Output
+//
+//    new_key_vno_p:  Pointer to the actual key version number of
+//                    the new key.  It is the caller's responsibility
+//                    to provide the storage to contain the actual
+//                    key version number.
+//
+// Calls:       sec_pkss_clt_diffhell
+//              sec_pkss_clt_pkey_get
+//              sec_pkss_chg_key_clt
+//
+
+#if __cplusplus
+extern "C"
+#endif
+ error_status_t sec_pkss_key_chg_clt
+ (
+   const char *pkss_svc_profile_name_p,
+   const char *name_p,
+   sec_pk_domain_t domain_id,
+   sec_pk_usage_flags_t key_usages,
+   unsigned32 key_vno,
+   const char *old_pwd_p,
+   const char *new_pwd_p,
+   sec_pk_pvtkey_t *new_pvt_key_p,
+   sec_pk_pubkey_t *new_pub_key_p,
+   unsigned32 *new_key_vno_p
+ );
+
+//
+// Change user's password and/or asymmetric key pair (server
+// generates new asymmetric key pair).
+//
+// Input
+//
+//    pkss_svc_profile_name_p: Pointer to entry name in namespace
+//                             where the search for compatible
+//                             binding handles will begin.
+//    name_p: Pointer to the user's canonical name within the
+//            specified domain.
+//    domain_id: The application domain this key belongs to.
+//    key_usages: The usage(s) permitted of this keypair.
+//    key_vno: The key version number. (0 may be specified to
+//             indicate that the routine should select the next
+//             appropriate or newest key version number).
+//             (In the reference implementation, key_vno starts with
+//             1, then monotonically increase 1 for each update.)
+//    old_pwd_p:  Pointer to the user's current password.
+//    new_pwd_p:  Pointer to the user's new password.  Callers should
+//                set this field to NULL if only the asymmetric key
+//                pair is changing, but the password is staying the
+//                same.
+//    key_change_flag:  If set, instructs PKSS to generate a new
+//                      asymmetric key pair.
+//    pk_alg_id_p: Pointer to algorithm to use when generating new
+//                 public key.
+//    pk_len: Key length of public key to be generated by PKSS
+//            server.
+//
+//
+// Output
+//
+//    new_pub_key_p:  Pointer to a buffer to contain the public key
+//                    component of the user's asymmetric key pair.
+//                    It is the caller's responsibility to call
+//                    sec_pkss_key_free() to release the key storage
+//                    allocated by this function to contain the key.
+//    new_key_vno_p:  Pointer to the actual key version number of
+//                    the new key.  It is the caller's responsibility
+//                    provide the storage to contain the actual key
+//                    version number.
+//
+// Calls:       sec_pkss_clt_diffhell
+//              sec_pkss_clt_pkey_get
+//              sec_pkss_chg_key_svr
+//
+
+#if __cplusplus
+extern "C"
+#endif
+ error_status_t sec_pkss_key_chg_svr
+ (
+   const char *pkss_svc_profile_name_p,
+   const char *name_p,
+   sec_pk_domain_t domain_id,
+   sec_pk_usage_flags_t key_usages,
+   unsigned32 key_vno,
+   const char *old_pwd_p,
+   const char *new_pwd_p,
+   unsigned32 key_chg_flag,
+   sec_pk_algorithm_id_t *pk_alg_id_p,
+   unsigned32 pk_len,
+   sec_pk_pubkey_t *new_pub_key_p,
+   unsigned32 *new_key_vno_p
+ );
+
+#endif // SEC_PKSS_CLT_API_H
+.cF
+.P
+.H 1 "REMOTE INTERFACES"
+...\"In a client/server model, a description of the services which may be
+...\"invoked across network interfaces.  In particular, any RPC interfaces
+...\"should be specified by their IDL/ACF interface descriptions.  Remote
+...\"interfaces not described by IDL should provide detailed definition
+...\"including an octet-level description of the wire format and a protocol
+...\"state machine.
+.P
+.cS
+/*
+ * PKSS IDL - all buffers containing sensitive data will be
+ * explicitly zeroed before their storage is released.
+ */
+
+const unsigned long PKSS_PWD_HASH_SIZE = 8;
+const unsigned long PKSS_NONCE_SIZE = 8;
+
+//
+// PKSS operation ID's
+//
+
+const unsigned long PKSS_PROTO_USR_KEY_GET = 1;
+const unsigned long PKSS_PROTO_USR_KEY_CHG_CLT = 2;
+const unsigned long PKSS_PROTO_USR_KEY_CHG_SVR = 3;
+
+const unsigned long PKSS_PROTO_MGMT_ADD_USR_CLT = 11;
+const unsigned long PKSS_PROTO_MGMT_ADD_USR_SVR = 12;
+const unsigned long PKSS_PROTO_MGMT_DEL_USR = 13;
+const unsigned long PKSS_PROTO_MGMT_MOD_USR_CLT = 14;
+const unsigned long PKSS_PROTO_MGMT_MOD_USR_SVR = 15;
+
+//
+// PKSS change key flag values
+//
+
+const unsigned long PKSS_SVR_GEN_KEY_NO = 0;
+const unsigned long PKSS_SVR_GEN_KEY_YES = 1;
+
+
+/*
+ * PKSS context handle
+ */
+typedef [context_handle] void *sec_pkss_ctx_hdl_t;
+
+
+/*
+ * Structure for PKSS messages
+ */
+
+typedef struct
+{
+  unsigned32 msg_len;
+  [ptr, size_is (msg_len)] byte *msg_p;
+} sec_pkss_msg_buf_t;
+
+typedef [ptr] sec_pkss_msg_buf_t *sec_pkss_msg_buf_p_t;
+
+
+/*
+ * Improved Encrypted Key Exchange (steps one and two)
+ */
+
+error_status_t sec_pkss_clt_diffhell
+(
+  [in] handle_t binding,
+  [out] sec_pkss_ctx_hdl_t *ctx_handle_p,
+  [in]  sec_pkss_msg_buf_t *to_pkss_p,
+  [out] sec_pkss_msg_buf_p_t *from_pkss_p,
+  [in,out] error_status_t *estatus_p
+);
+
+/*
+ * Improved Encrypted Key Exchange conclusion (steps three and four)
+ */
+
+error_status_t sec_pkss_clt_pkey_get
+(
+  [in] handle_t binding,
+  [in,out] sec_pkss_ctx_hdl_t *ctx_handle_p,
+  [in]  sec_pkss_msg_buf_t *to_pkss_p,
+  [out] sec_pkss_msg_buf_p_t *from_pkss_p,
+  [in,out] error_status_t *estatus_p
+);
+
+/*
+ * Change user's password/key (client generates new Kxu, Kou)
+ */
+
+error_status_t sec_pkss_chg_key_clt
+(
+  [in] handle_t binding,
+  [in]  sec_pkss_ctx_hdl_t *ctx_handle_p,
+  [in]  sec_pkss_msg_buf_t *to_pkss_p,
+  [out] sec_pkss_msg_buf_p_t *from_pkss_p,
+  [in,out] error_status_t *estatus_p
+);
+
+/*
+ * Change user's password/key (server generates new Kxu, Kou)
+ */
+
+error_status_t sec_pkss_chg_key_svr
+(
+  [in] handle_t binding,
+  [in] sec_pkss_ctx_hdl_t *ctx_handle_p,
+  [in]  sec_pkss_msg_buf_t *to_pkss_p,
+  [out] sec_pkss_msg_buf_p_t *from_pkss_p,
+  [in,out] error_status_t *estatus_p
+);
+
+//
+// PKSS error/status codes
+//
+
+start
+code            pks_s_no_memory
+text            "Cannot allocate memory"
+explanation     "Memory allocation operation failed"
+action          "Check memory limits on your machine, and increase
+                available memory, if possible."
+attributes      svc_c_sev_error
+sub-component   pks_s_general
+end
+
+start
+code            pks_s_no_gen_reply
+text            "Cannot generate a reply message, %x"
+explanation     "Could not generate ASN.1-encoded reply message"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_general
+end
+
+start
+code            pks_s_invalid_arg
+text            "Bad or wrong arguments"
+explanation     "Bad or wrong arguments were supplied."
+action          "Reinvoke the command with the correct arguments."
+attributes      svc_c_sev_error
+sub-component   pks_s_general
+end
+
+start
+code            pks_s_invalid_arg_1_parm
+text            "Bad or wrong argument: %d"
+explanation     "Bad or wrong argument were supplied."
+action          "Reinvoke the command with the correct arguments."
+attributes      svc_c_sev_error
+sub-component   pks_s_general
+end
+
+
+start
+code            pks_s_cant_open_storage_file
+text            "Failed to open file associated with pks object"
+explanation     "When attempting to open a file associated with
+                the pks object, a failure occurred."
+action          "Ensure that the \*Lstorage_tag\*O field of the \*Lid\*O
+                paramater refers to an existing file, and that the
+                file is accessible to the pks process."
+end
+
+start
+code            pks_s_no_config_file
+text            "Inaccessible or absent configuration file."
+explanation     "The PKSS configuration file could not be opened."
+action          "Check that a valid configuration exists and can be
+                read."
+attributes      svc_c_sev_error
+sub-component   pks_s_server
+end
+
+start
+code            pks_s_no_group_name
+text            "Cannot read server group name from config info"
+explanation     "Cannot read server group name from config info"
+action          "Check that a valid configuration exists and can be
+                 read."
+attributes      svc_c_sev_error
+sub-component   pks_s_server
+end
+
+start
+code            pks_s_already_initialized
+text            "The PKSS has already initialized."
+explanation     "An initialization routine was called more than
+                once."
+action          "None - this is an informational status."
+attributes      svc_c_sev_notice
+sub-component   pks_s_server
+end
+
+start
+code            pks_s_cant_remove_storage_file
+text            "Failed to remove file belonging to pks object"
+explanation     "When attempting to remove a file
+                referred to by the pks object, a failure occurred."
+action          "Ensure that the \*Lstorage_tag\*O field of the
+                \*Lid\*O paramater refers to an existing file, and
+                that the file and directory in which it resides is
+                accessible to the pks process."
+end
+
+start
+code            pks_s_no_acl
+text            "The ACL was not found."
+explanation     "The ACL did not exist within the database."
+action          "Application-specific"
+end
+
+start
+code            pks_s_bad_acl
+text            "An error was detected in a retrieved ACL."
+explanation     "An ACL did not pass consistency checks."
+action          "Check the integrity of the database."
+end
+
+start
+code            pks_s_bad_acl_type
+text            "The specified ACL type was not recognized."
+explanation     "The specified ACL type was not recognized."
+action          "Specify a recognized ACL type."
+end
+
+start
+code            pks_s_invalid_op
+text            "The specified authorization operation was
+                unrecognized."
+explanation     "Internal error - the specified authorization
+                operation was unrecognized."
+action          "Submit a problem report."
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_insufficient_space
+sub-component   pks_s_pipe
+text            "There is not enough room in the buffer."
+explanation     "The data would have overflowed the buffer"
+action          "Use a larger buffer"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_pipe_error
+sub-component   pks_s_pipe
+text            "Can't create pipe."
+explanation     "The PKSS split-client can't create a pipe"
+action          "Check process resources"
+attributes      svc_c_sev_error
+end
+
+start
+code            sec_pkss_pipe_encrypt_fail
+sub-component   pks_s_pipe
+text            "Error encrypting for pipe (%x)"
+explanation     "Error returned from crypto routine"
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            sec_pkss_pipe_decrypt_fail
+sub-component   pks_s_pipe
+text            "Error decrypting data from pipe (%x)."
+explanation     "Error returned from crypto routine"
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_pipe_svr_encrypt_fail
+sub-component   pks_s_pipe
+text            "Error encrypting data in server for pipe (%x)."
+explanation     "Error returned from crypto routine"
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_pipe_svr_decrypt_fail
+sub-component   pks_s_pipe
+text            "Error decrypting data in server from pipe (%x)."
+explanation     "Error returned from crypto routine"
+action          "submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_fork_error
+sub-component   pks_s_pipe
+text            "Can't create child process."
+explanation     "The PKSS split-client can't fork a child"
+action          "Check process resources"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_pipe_data_error
+sub-component   pks_s_pipe
+text            "Pipe data error."
+explanation     "Error communicating with child process."
+action          "Check process resources"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_int_length_error
+text            "Pipe length error."
+explanation     "Error calculating pipe data length."
+action          "Submit a problem report"
+end
+
+start
+code            pks_s_int_length_errorp
+sub-component   pks_s_pipe
+text            "Pipe length error (%d)."
+explanation     "Error calculating pipe data length."
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_exec_e2big
+sub-component   pks_s_pipe
+text            "Exec failed (E2BIG)."
+explanation     "Exec failed, errno = E2BIG."
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_exec_eacces
+sub-component   pks_s_pipe
+text            "Exec failed (EACCES)."
+explanation     "Exec failed, errno = EACCES."
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_exec_eloop
+sub-component   pks_s_pipe
+text            "Exec failed (ELOOP)."
+explanation     "Exec failed, errno = ELOOP."
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_exec_enametoolong
+sub-component   pks_s_pipe
+text            "Exec failed (ENAMETOOLONG)."
+explanation     "Exec failed, errno = ENAMETOOLONG."
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_exec_enoent
+sub-component   pks_s_pipe
+text            "Exec failed (ENOENT)."
+explanation     "Exec failed, errno = ENOENT."
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_exec_enomem
+sub-component   pks_s_pipe
+text            "Exec failed (ENOMEM)."
+explanation     "Exec failed, errno = ENOMEM."
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_exec_enotdir
+sub-component   pks_s_pipe
+text            "Exec failed (ENOTDIR)."
+explanation     "Exec failed, errno = ENOTDIR."
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_exec_enoexec
+sub-component   pks_s_pipe
+text            "Exec failed (ENOEXEC)."
+explanation     "Exec failed, errno = ENOEXEC."
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_exec_fail
+sub-component   pks_s_pipe
+text            "Exec failed (%d)."
+explanation     "Exec failed."
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_pipsvr_nomem
+sub-component   pks_s_pipe
+text            "Pipe server can't allocate memory (%d)."
+explanation     "The client-side helper can't allocate memory."
+action          "Check process resources"
+attributes      svc_c_sev_fatal
+end
+
+start
+code            pks_s_pipclt_nomem
+sub-component   pks_s_pipe
+text            "Pipe client can't allocate memory (%d)."
+explanation     "The client can't allocate memory."
+action          "Check process resources"
+attributes      svc_c_sev_fatal
+end
+
+start
+code            pks_s_pipclt_bad_msg
+sub-component   pks_s_pipe
+text            "Unexpected message type returned from pipe helper
+                (%d)."
+explanation     "A protocol violation occured."
+action          "Internal error"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_bad_msg_type
+text            "Unexpected message type returned from pipe helper."
+explanation     "A protocol violation occured."
+action          "Internal error"
+end
+
+start
+code            pks_s_pipsvr_decode_error
+sub-component   pks_s_pipe
+text            "Error decoding pipe data."
+explanation     "Error decoding pipe data."
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_pipsvr_decode_errorp
+sub-component   pks_s_pipe
+text            "Error decoding pipe data (%d)."
+explanation     "Error decoding pipe data."
+action          "Submit a problem report"
+attributes      svc_c_sev_error
+end
+
+start
+code            pks_s_unexpected_termination
+sub-component   pks_s_pipe
+text            "Unexpected child termination,
+                status=<0x%8.8lx|code>."
+explanation     "The child process unexpectedly terminated.
+                The status code \*Lcode\*O specifies additional
+                information."
+action          "Correct the indicated error and retry the
+                operation."
+attributes      "svc_c_sev_fatal | svc_c_action_exit_bad"
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_caught_signal
+text            "Caught signal %d. Exiting."
+attributes      svc_c_sev_notice
+sub-component   pks_s_general
+end
+
+start           undocumented intable incatalog
+code            pks_s_start
+text            "Server starting.."
+attributes      svc_c_sev_notice
+sub-component   pks_s_server
+end
+
+start
+code            pks_s_ready_to_listen
+sub-component   pks_s_server
+attributes      "svc_c_sev_notice"
+text            "Ready to listen on interfaces..."
+explanation     "The daemon has started."
+action          "None required."
+end
+
+start           undocumented intable incatalog
+code            pks_s_cant_open_database
+text            "Cannot open pks database '%s', errno = %d"
+attributes      svc_c_sev_fatal
+sub-component   pks_s_server
+end
+
+start           undocumented intable incatalog
+code            pks_s_storage_close
+text            "Storage close, status = %d"
+attributes      svc_c_sev_error
+sub-component   pks_s_server
+end
+
+start           undocumented intable incatalog
+code            pks_s_filename
+text            "GdbC filename not valid"
+attributes      svc_c_sev_fatal
+sub-component   pks_s_general
+end
+
+start           undocumented intable incatalog
+code            pks_s_is_listening
+text            "pks is listening..."
+attributes      svc_c_sev_notice
+sub-component   pks_s_general
+end
+
+start           undocumented intable incatalog
+code            pks_s_cant_init_something
+text            "Initialization (<%s|part>) failed,
+                status=<0x%8.8lx|code>."
+explanation     "The specified \*Lpart\*O of server initialization
+                failed.  The status code \*Lcode\*O specifies
+                additional information."
+action          "Correct the indicated error and restart the server."
+attributes      "svc_c_sev_fatal | svc_c_action_exit_bad"
+sub-component   pks_s_general
+end
+
+start           undocumented intable incatalog
+code            pks_s_cant_export_yet
+text            "Cannot export to namespace -- sleeping,
+                status=<0x%8.8lx|code>."
+explanation     "Unable to export a service to the namespace.
+                The status code \*Lcode\*O specifies additional
+                information.  The server will keep retrying until it
+                succeeds."
+action          "If the failiure is not transient, stop the server,
+                correct the indicated error, and restart the server."
+attributes      svc_c_sev_notice_verbose
+sub-component   pks_s_general
+end
+
+start           undocumented intable incatalog
+code            pks_s_sec_bsafe
+text            "Error on sec_bsafe routine, status=<0x%8.8lx|code>."
+explanation     "An unexpected error occured during encryption or
+                decryption"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_general
+end
+
+start           undocumented intable incatalog
+code            pks_s_dbwrite_fail
+text            "Error writing ACL to database,
+                status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while writing an ACL to the
+                database"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+start           undocumented intable incatalog
+code            pks_s_acl_encode_fail1
+text            "Error 1 encoding an ACL, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while encoding an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_encode_fail2
+text            "Error 2 encoding an ACL, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while encoding an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_encode_fail3
+text            "Error 3 encoding an ACL, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while encoding an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_encode_fail4
+text            "Error 4 encoding an ACL, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while encoding an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_encode_fail5
+text            "Error 5 encoding an ACL, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while encoding an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_encode_fail6
+text            "Error 6 encoding an ACL, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while encoding an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_decode_fail1
+text            "Error 1 decoding an ACL, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while decoding an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_decode_fail2
+text            "Error 2 decoding an ACL, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while decoding an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_decode_fail3
+text            "Error 3 decoding an ACL, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while decoding an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_decode_fail4
+text            "Error 4 decoding an ACL, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while decoding an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_decode_fail5
+text            "Error 5 decoding an ACL, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while decoding an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_defcon_retrieve_fail1
+text            "Error 1 retrieving default container ACL,
+                node <%s>, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_defcon_retrieve_fail2
+text            "Error 2 retrieving default container ACL,
+                node <%s>, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_defcon_retrieve_fail3
+text            "Error 3 retrieving default container ACL,
+                node <%s>, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_defcon_retrieve_fail4
+text            "Error 4 retrieving default container ACL,
+                node <%s>, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_defcon_retrieve_fail5
+text            "Error 5 retrieving default object ACL,
+                node <%s>, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_defcon_retrieve_fail6
+text            "Error 6 retrieving default object ACL,
+                node <%s>, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_defcon_retrieve_fail7
+text            "Error 7 retrieving default object ACL,
+                node <%s>, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+start           undocumented intable incatalog
+code            pks_s_acl_defobj_retrieve_fail1
+text            "Error 1 retrieving default object ACL,
+                node <%s>, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_defobj_retrieve_fail2
+text            "Error 2 retrieving default object ACL,
+                node <%s>, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_defobj_retrieve_fail3
+text            "Error 3 retrieving default object ACL,
+                node <%s>, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_defobj_retrieve_fail4
+text            "Error 4 retrieving default object ACL,
+                node <%s>, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_defobj_retrieve_fail5
+text            "Error 5 retrieving default object ACL,
+                node <%s>, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_defobj_retrieve_fail6
+text            "Error 6 retrieving default object ACL,
+                node <%s>, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_defobj_retrieve_fail7
+text            "Error 7 retrieving default object ACL,
+                node <%s>, status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_obj_retrieve_fail1
+text            "Error 1 retrieving object ACL, node <%s>,
+                status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_obj_retrieve_fail2
+text            "Error 2 retrieving object ACL, node <%s>,
+                status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_obj_retrieve_fail3
+text            "Error 3 retrieving object ACL, node <%s>,
+                status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_con_retrieve_fail1
+text            "Error 1 retrieving container ACL, node <%s>,
+                status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           undocumented intable incatalog
+code            pks_s_acl_con_retrieve_fail2
+text            "Error 2 retrieving container ACL, node <%s>,
+                status=<0x%8.8lx|code>."
+explanation     "Unexpected error occured while retrieving an ACL"
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+
+start           intable incatalog
+code            pks_s_acl_not_authorized
+text            "Unauthorized add or modify attempt on user '%s'."
+explanation     "Caller attempted add or modify operation without
+                required privileges."
+action          "none"
+attributes      svc_c_sev_error
+sub-component   pks_s_acl
+end
+
+start           !intable undocumented
+code            pks_i_svc_general
+text            "General PKS facility"
+end
+
+start           !intable undocumented
+code            pks_i_svc_server
+text            "The PKS server"
+end
+
+start           !intable undocumented
+code            pks_i_svc_acl
+text            "PKS ACL manager"
+end
+
+start           !intable undocumented
+code            pks_i_svc_pipe
+text            "Split-client pipe manipulation"
+end
+.cF
+.P
+.H 1 "MANAGEMENT INTERFACES"
+.P
+...\"Details how the component is configured, started, monitored, stopped,
+...\"etc.  Should specify all user interfaces, local API's, and remote
+...\"interfaces pertinent to management.  This section should also describe
+...\"how the component will modify the existing \*(lBdce_config\*(lE
+...\"management tool.
+.P
+.cS
+/*
+ * PKSS management IDL - all buffers containing sensitive data
+ * will be explicitly zeroed before their storage is released.
+ */
+
+/*
+ * PKSS Diffie-Hellman key exchange
+ */
+
+error_status_t sec_pkss_mgmt_diffhell
+(
+  [in] handle_t binding,
+  [in,out] sec_pkss_ctx_hdl_t *ctx_handle_p,
+  [in]  sec_pkss_msg_buf_t *to_pkss_p,
+  [out] sec_pkss_msg_buf_p_t *from_pkss_p,
+  [in,out] error_status_t *estatus_p
+);
+
+/*
+ * PKSS management add user (client generates keys)
+ */
+error_status_t sec_pkss_mgmt_add_user_clt
+(
+  [in] handle_t binding,
+  [in,out] sec_pkss_ctx_hdl_t *ctx_handle_p,
+  [in]  sec_pkss_msg_buf_t *to_pkss_p,
+  [out] sec_pkss_msg_buf_p_t *from_pkss_p,
+  [in,out] error_status_t *estatus_p
+);
+
+/*
+ * PKSS management add user (server generates keys)
+ */
+error_status_t sec_pkss_mgmt_add_user_svr
+(
+  [in] handle_t binding,
+  [in,out] sec_pkss_ctx_hdl_t *ctx_handle_p,
+  [in]  sec_pkss_msg_buf_t *to_pkss_p,
+  [out] sec_pkss_msg_buf_p_t *from_pkss_p,
+  [in,out] error_status_t *estatus_p
+);
+
+/*
+ * PKSS management delete user
+ */
+error_status_t sec_pkss_mgmt_del_user
+(
+  [in] handle_t binding,
+  [in]  sec_pkss_msg_buf_t *to_pkss_p,
+  [out] sec_pkss_msg_buf_p_t *from_pkss_p,
+  [in,out] error_status_t *estatus_p
+);
+
+/*
+ * PKSS management modify user (client generates keys)
+ */
+error_status_t sec_pkss_mgmt_mod_user_clt
+(
+  [in] handle_t binding,
+  [in,out] sec_pkss_ctx_hdl_t *ctx_handle_p,
+  [in]  sec_pkss_msg_buf_t *to_pkss_p,
+  [out] sec_pkss_msg_buf_p_t *from_pkss_p,
+  [in,out] error_status_t *estatus_p
+);
+
+/*
+ * PKSS management modify user (server generates keys)
+ */
+error_status_t sec_pkss_mgmt_mod_user_svr
+(
+  [in] handle_t binding,
+  [in,out] sec_pkss_ctx_hdl_t *ctx_handle_p,
+  [in]  sec_pkss_msg_buf_t *to_pkss_p,
+  [out] sec_pkss_msg_buf_p_t *from_pkss_p,
+  [in,out] error_status_t *estatus_p
+);
+
+
+//
+// PKSS management client API prototypes
+//
+
+//
+// Add a new user (client generates asymmetric key pair).
+//
+// Input
+//
+//    pkss_svc_profile_name_p: Pointer to entry name in namespace
+//                             where the search for compatible
+//                             binding handles will begin.
+//    name_p: Pointer to the user's canonical name within the
+//            specified domain.
+//    domain_id: The application domain this key belongs to.
+//    key_usages: The usage(s) permitted of this keypair.
+//    key_vno: The key version number. (0 may be specified to
+//             indicate that the routine should select the next
+//             appropriate or newest key version number).
+//             (In the reference implementation, key_vno starts with
+//             1, then monotonically increase 1 for each update.)
+//    pvt_key_p:  a pointer to a buffer containing the private key
+//              component of the new asymmetric key pair.
+//    pub_key_p:  a pointer to a buffer containing the public key
+//              component of the new asymmetric key pair.
+//    pwd_p:  Pointer to the new user's password.  It is the
+//            caller's responsibility to provide the storage to
+//            contain the password.
+//
+// Output
+//
+//    new_key_vno_p:  Pointer to the actual key version number of
+//                    the new key.  It is the caller's responsibility
+//                    to provide the storage to contain the actual
+//                    key version number.
+//
+// Calls:       sec_pkss_mgmt_diffhell
+//              sec_pkss_mgmt_add_user_clt
+//
+
+#if __cplusplus
+extern "C"
+#endif
+ error_status_t sec_pkss_mgmt_user_add_clt
+ (
+   const char *pkss_svc_profile_name_p,
+   const char *name_p,
+   sec_pk_domain_t domain_id,
+   sec_pk_usage_flags_t key_usages,
+   unsigned32 key_vno,
+   sec_pk_pvtkey_t *pvt_key_p,
+   sec_pk_pubkey_t *pub_key_p,
+   const char *pwd_p,
+   unsigned32 *new_key_vno_p
+ );
+
+//
+// Add a new user (server generates asymmetric key pair).
+//
+// Input
+//
+//    pkss_svc_profile_name_p: Pointer to entry name in namespace
+//                             where the search for compatible
+//                             binding handles will begin.
+//    name_p: Pointer to the user's canonical name within the
+//            specified domain.
+//    domain_id: The application domain this key belongs to.
+//    key_usages: The usage(s) permitted of this keypair.
+//    key_vno: The key version number. (0 may be specified to
+//             indicate that the routine should select the next
+//             appropriate or newest key version number).
+//             (In the reference implementation, key_vno starts with
+//             1, then monotonically increase 1 for each update.)
+//    pwd_p:  Pointer to the new user's password.  It is the
+//            caller's responsibility to provide the storage to
+//            contain the password.
+//    alg_id_p:  A pointer to a public key algorithm identifier.
+//    key_len:  Bit-length of new public key to be generated by PKSS.
+//
+// Output
+//
+//    new_pub_key_p:  Pointer to a buffer to contain the public key
+//                    component of the user's asymmetric key pair.
+//                    It is the caller's responsibility to to provice
+//                    the storage to contain the key.
+//    new_key_vno_p:  Pointer to the actual key version number of
+//                    the new key.  It is the caller's responsibility
+//                    to provice the storage to contain the actual
+//                    key version number.
+//
+// Calls:       sec_pkss_mgmt_diffhell
+//              sec_pkss_mgmt_add_user_svr
+//
+
+#if __cplusplus
+extern "C"
+#endif
+ error_status_t sec_pkss_mgmt_user_add_svr
+ (
+   const char *pkss_svc_profile_name_p,
+   const char *name_p,
+   sec_pk_domain_t domain_id,
+   sec_pk_usage_flags_t key_usages,
+   unsigned32 key_vno,
+   const char *pwd_p,
+   sec_pk_algorithm_id_t *alg_id_p,
+   unsigned32 key_len,
+   sec_pk_pubkey_t *new_pub_key_p,
+   unsigned32 *new_key_vno_p
+ );
+
+//
+// Delete a user
+//
+// Input
+//
+//    pkss_svc_profile_name_p: Pointer to entry name in namespace
+//                             where the search for compatible
+//                             binding handles will begin.
+//    name_p: Pointer to the user's canonical name within the
+//            specified domain.
+//    domain_id: The application domain this key belongs to.
+//    key_usages: The usage(s) permitted of this keypair.
+//    key_vno: The key version number. (0 may be specified to
+//             indicate that the routine should select the next
+//             appropriate or newest key version number).
+//             (In the reference implementation, key_vno starts with
+//             1, then monotonically increase 1 for each update.)
+// Output
+//
+//    none
+//
+// Calls:       sec_pkss_mgmt_diffhell
+//              sec_pkss_mgmt_del_user
+//
+
+#if __cplusplus
+extern "C"
+#endif
+ error_status_t sec_pkss_mgmt_user_del
+ (
+   const char *pkss_svc_profile_name_p,
+   const char *name_p,
+   sec_pk_domain_t domain_id,
+   sec_pk_usage_flags_t key_usages,
+   unsigned32 key_vno
+ );
+
+//
+// Modify a user record (client generates asymmetric key pair).
+//
+// Input
+//
+//    pkss_svc_profile_name_p: Pointer to entry name in namespace
+//                             where the search for compatible
+//                             binding handles will begin.
+//    name_p: Pointer to the user's canonical name within the
+//            specified domain.
+//    domain_id: The application domain this key belongs to.
+//    key_usages: The usage(s) permitted of this keypair.
+//    key_vno: The key version number. (0 may be specified to
+//             indicate that the routine should select the next
+//             appropriate or newest key version number).
+//             (In the reference implementation, key_vno starts with
+//             1, then monotonically increase 1 for each update.)
+//    pvt_key_p:  a pointer to a buffer containing the private key
+//                  component of the new asymmetric key pair.
+//    pub_key_p:  a pointer to a buffer containing the public key
+//                  component of the new asymmetric key pair.
+//    pwd_p:  Pointer to the new user's password.  It is the
+//            caller's responsibility to provide the storage to
+//            contain the password.
+//
+// Output
+//
+//    new_key_vno_p:  Pointer to the actual key version number of
+//                    the new key.  It is the caller's responsibility
+//                    to provide the storage to contain the actual
+//                    key version number.
+//
+// Calls:       sec_pkss_mgmt_diffhell
+//              sec_pkss_mgmt_mod_user_clt
+//
+
+#if __cplusplus
+extern "C"
+#endif
+ error_status_t sec_pkss_mgmt_user_mod_clt
+ (
+   const char *pkss_svc_profile_name_p,
+   const char *name_p,
+   sec_pk_domain_t domain_id,
+   sec_pk_usage_flags_t key_usages,
+   unsigned32 key_vno,
+   sec_pk_pvtkey_t *pvt_key_p,
+   sec_pk_pubkey_t *pub_key_p,
+   const char *pwd_p,
+   unsigned32 *new_key_vno_p
+ );
+
+//
+// Modify a user record (server generates asymmetric key pair).
+//
+// Input
+//
+//    pkss_svc_profile_name_p: Pointer to entry name in namespace
+//                             where the search for compatible
+//                             binding handles will begin.
+//    name_p: Pointer to the user's canonical name within the
+//            specified domain.
+//    domain_id: The application domain this key belongs to.
+//    key_usages: The usage(s) permitted of this keypair.
+//    key_vno: The key version number. (0 may be specified to
+//             indicate that the routine should select the next
+//             appropriate or newest key version number).
+//             (In the reference implementation, key_vno starts with
+//             1, then monotonically increase 1 for each update.)
+//    pwd_p:  Pointer to the new user's password.  It is the
+//            caller's responsibility to provide the storage to
+//            contain the password.
+//    alg_id_p:  A pointer to a public key algorithm identifier.
+//    key_len:  Bit-length of new public key to be generated by PKSS.
+//
+// Output
+//
+//    new_pub_key_p:  Pointer to a buffer to contain the public key
+//                    component of the user's asymmetric key pair.
+//                    It is the caller's responsibility to provide
+//                    the storage to contain the key.
+//
+//    new_key_vno_p:  Pointer to the actual key version number of
+//                    the new key.  It is the caller's responsibility
+//                    to provide the storage to contain the actual
+//                    key version number.
+//
+// Calls:       sec_pkss_mgmt_diffhell
+//              sec_pkss_mgmt_mod_user_svr
+//
+
+#if __cplusplus
+extern "C"
+#endif
+ error_status_t sec_pkss_mgmt_user_mod_svr
+ (
+   const char *pkss_svc_profile_name_p,
+   const char *name_p,
+   sec_pk_domain_t domain_id,
+   sec_pk_usage_flags_t key_usages,
+   unsigned32 key_vno,
+   const char *pwd_p,
+   sec_pk_algorithm_id_t *alg_id_p,
+   unsigned32 key_len,
+   sec_pk_pubkey_t *new_pub_key_p,
+   unsigned32 *new_key_vno_p
+ );
+.cF
+.P
+.H 1 "RESTRICTIONS AND LIMITATIONS"
+.P
+...\"Notes the restrictions and limitations of this technology, including
+...\"system resource consumption limits.
+.aL
+.LI
+The current version of the PKSS does not allow the use of
+alternate Diffie-Hellman blocks during key negotiation.
+.LI
+The current version of the PKSS does not provide a write lock
+capability on the database.  Such a feature would facilitate
+backups.
+.LE
+.P
+...\"The remainder of the Introduction introduces the component or subsystem
+...\".P
+...\".H 1 "OTHER COMPONENT DEPENDENCIES"
+...\"Notes the dependencies between this and other components/subsystems.
+...\"Explicitly describe the use of any existing or proposed DCE APIs or
+...\"remote interfaces.  Describe any use or extension of existing DCE
+...\"databases, such as naming or security.
+...\".P
+...\".H 1 "COMPATIBILITY"
+...\"Details the compatibility of this design with past designs/work.  There
+...\"should be explicit descriptions of how this component will diverge from
+...\"existing DCE 1.0/1.1 implementations.
+...\".P
+...\".H 1 "STANDARDS"
+...\"Notes the standards being followed/used by this component/subsystem.
+...\".P
+...\".H 1 "OPEN ISSUES"
+...\".P
+...\"Make a list all known open issues.
+...\".P
+...\" =========================================================================
+...\" Appendices go here, using aH macros.
+...\" =========================================================================
+...\" .P
+...\" .aH "LIST OF SECTION TITLES"
+...\" .P
+...\" ----------------------------------------------------------------
+...\"<Appendix contents go here.>
+...\" ----------------------------------------------------------------
+...\" Add any sub-sections & sub-sub-sections to this list.
+...\" .ta .25i +\w$15.\ \ $u +\w$8.13.\ \ $u +\w$8.11.25.\ \ \ $u
+...\" .nf
+...\"   1. INTRODUCTION
+...\"   1.1. Changes Since Last Publication
+...\" .P
+...\"   2. TARGET
+...\" .P
+...\"   3. GOALS AND NON-GOALS
+...\"   3.1. Goals
+...\"   3.2. Non-Goals
+...\" .P
+...\"   4. TERMINOLOGY
+...\" .P
+...\"   5. REQUIREMENTS
+...\" .P
+...\"   6. FUNCTIONAL DEFINITION
+...\" .P
+...\"   7. DATA STRUCTURES
+...\" .P
+...\"   8. USER INTERFACES
+...\" .P
+...\"   9. API'S
+...\" .P
+...\"   10. REMOTE INTERFACES
+...\" .P
+...\"   11. MANAGEMENT INTERFACES
+...\" .P
+...\"   12. RESTRICTIONS AND LIMITATIONS
+...\" .P
+...\"   13. OTHER COMPONENT DEPENDENCIES
+...\" .P
+...\"   14. COMPATIBILITY
+...\" .P
+...\"   15. STANDARDS
+...\" .P
+...\"   16. OPEN ISSUES
+...\" .P
+...\"   APPENDIX A. LIST OF SECTION TITLES
+...\" .P
+...\"   REFERENCES
+...\" .P
+...\"   AUTHOR'S ADDRESS
+...\" .fi
+...\" .P
+.HU "REFERENCES"
+.P
+...\" =========================================================================
+...\" References go here, as an unnumbered heading.
+...\" =========================================================================
+...\"
+...\"List relevant documents, in a list like the following:
+.P
+.VL 12 0
+.LI "[DIFF\ 76]"
+Diffie, W. & Hellman, M., \*(qBNew Directions in
+Cryptography\*(qE, IEEE Transactions on Information Theory,
+Vol. 22 #6, 1976.
+.LI "[ITU\ X.509]"
+ITU, \*(qBFinal Text of the 1993 Edition of ISO/IEC 9594-8/ITU-T
+Rec X.509, Information Technology \*(EM Open Systems
+Interconnection \*(EM The Directory: Authentication Framework\*(qE,
+ISO/IEC JTC 1/SC 31 N 8696, 28 June 1994.
+.LI "[RFC\ 68.2]"
+Anderson, A. & Cuti, S., \*(qBDCE 1.2.2 Public Key Login \*(EM
+Functional Specification\*(qE, OSF-RFC 68.2, February 1996.
+.LI "[RFC\ 1507]"
+Kaufman, C., \*(qBDASS: Distributed Authentication Security
+Service\*(qE, RFC 1507, September 1993.
+.LE
+.P
+...\" =========================================================================
+...\" Author's address goes here, as unnumbered heading, at end of doc.
+...\" =========================================================================
+.P
+.ne 3+5
+.HU "AUTHOR'S ADDRESS"
+.P
+.tl $Mark Heroux$$Internet email: marcoh@lkg.mts.dec.com$
+.tl $Digital Equipment Corporation$$Telephone: +1-508-486-7461$
+.tl $550 King Street, MS LKG2-2/Z7$$$
+.tl $Littleton, MA 01460$$$
+.tl $USA$$$
+...\" =========================================================================
+...\" Done!
+...\" =========================================================================

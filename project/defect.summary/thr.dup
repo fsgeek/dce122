@@ -1,0 +1,665 @@
+CR Number                     : 10271
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : Code cleanup
+Reported Date                 : 4/1/94
+Found in Baseline             : 1.1
+Found Date                    : 4/1/94
+Severity                      : D
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 9579
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/1/94 public]
+Code cleanup
+
+
+
+CR Number                     : 9578
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : pthread.h doesn't compile with "-ansi"
+Reported Date                 : 12/7/93
+Found in Baseline             : 1.0.3
+Found Date                    : 12/7/93
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 9579
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : cma_config.h exc_handling.h
+Sensitivity                   : public
+
+[12/7/93 public]
+I tried to compile a gds source including pthread.h with gcc on AT386.
+If the "-ansi" flag is not set gcc sets "-Di386" and "-D__i386__".
+If I set the "-ansi" flag gcc will not set "-Di386". Because of that
+_CMA_HARDWARE and  _EXC_HARDWARE_ are not defined; so the mentioned
+files do not compile.
+I changed in both files "i386" to "__i386__"; that works. Only
+one warning comes in cma.h: the prototype for cma_t_call_routine
+is not correct. That is acceptable.
+I assigned A0 because all guys here are working on the code clean
+which means especially to compile with gcc and "-ansi" and a lot of other
+switches on AT386.
+
+[10/07/93 public]
+The threads code cleanup is scheduled as a 1.1 requirement. I've opened
+up a bug, 9579, ass a place holder for this work. This bug is a dup of
+that.
+
+
+
+CR Number                     : 8306
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 8277
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : pthread
+Short Description             : pthread_setschedule man page has wrong return code
+Reported Date                 : 7/19/93
+Found in Baseline             : 1.0.2a
+Found Date                    : 7/19/93
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 8483
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : app_ref/man3thr/pthread_setschedule.3thr
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : jaffe@transarc.com
+Transarc Status               : open
+
+[7/19/93 public]
+As noted in OT 8277, the setscheduler code does the return the POSIX
+specified value.  This defect address the documentation error which
+agrees neither with the POSIX spec nor with the code.
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `jaffe@transarc.com' 
+Added field Transarc Status with value `open'
+
+[07/22/93 public]
+Assigned to writer Doug Weir.
+
+[08/30/93 public]
+Changed Fix-By baselevel to 1.0.3
+
+[09/21/93 public]
+This bug is a duplicate of 8483, which has been fixed.
+
+
+
+CR Number                     : 8237
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 4920
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : other
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : Race condition between kill
+and sigwait in dealing with SIGCHLD
+Reported Date                 : 7/7/93
+Found in Baseline             : 1.0.2
+Found Date                    : 7/7/93
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 4920
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/7/93 public]
+
+Problem reported by customer with SVR4 platform:
+
+Full Description:
+        On SVR4 systems blocking SIGCHLD will not prevent
+        it from being dropped immediately when the
+        disposition for this signal is default ( SIG_IGN )
+
+        There is no thread safe call or a wrapper that
+        can be used to install a signal handler for this
+        signal - as cma_sigaction jacket will not allow
+        handlers to be registered for asynchronous signals  -
+        which would prevent this race condition.
+
+Repeat By:
+
+Proposed Solution:
+        Several possibilities exist, none of which seem
+        to be good.
+
+        1. Fix OS to not drop blocked signals even if
+           their disposition is SIG_IGN.
+           ( Bad because - can break existing apps,
+             This would be a feature, if applications
+             were to rely upon, would not meet posix
+             portability guidelines )
+
+        2. Fix CMA to allow handler to be registered for
+           SIGCHLD ( Making cma signal handling inconsistent
+            - can of worms ? )
+
+        3. Fix cma so that it registers a handler for
+           SIGCHLD. ( would change SYSV behavior relating
+           to wait and zombies )
+
+        4. Get around cma_sigaction with and #undef sigaction
+           or using sigset.
+
+        5. Having applications build some external synchronization
+           mechanism that prevents this race - child waits to
+           die until parent calls sigwait.
+
+        Any more ??
+
+[Thu Jul  8 10:32:20 EDT 1993 public]
+
+As far as I can tell, the "problem" description in the first praragraph 
+is not really a problem; here is how I understand the problem:
+
+	1)  The SIGCHLD signal is being dropped when its disposition is
+	SIG_IGN.  
+
+	2)  Also mentioned is the fact that this happens when
+	the signal is blocked.
+
+POSIX sematics state that any signal which is "ignored" (whose state 
+is set to SIG_IGN) will not be received by a process.  Therefore,
+it seems like this is not a problem at all, and certainly not specific
+to SVR4.
+
+In addition, the fact that the signal is blocked at the time should
+have no bearing on what happens to a signal which is ignored.
+
+The second paragraph states that there is not call which can be used to 
+install a signal handler for this signal.  This is correct, and is
+documented in P1003.4a and in the "OSF DCE Application Development Guide".
+In order to "catch" or "handle" the SIGCHLD signal, one must use the
+sigwait(2) call.
+
+It seems like this bug should be cancelled, or at the very least
+made a bug on all platforms -- not SVR4 specific.
+
+[Mon Jul 12 16:04:38 EDT 1993 public]
+
+I was too hasty in my statements above, and will try to clarify now.
+
+From P1003.1-1988, section 3.3.1.2:
+
+	If the action associated with a blocked signal is to ignore the
+	signal and if that signal is generated for the process, it is
+	unspecified whehther the signal is discarded immediately upon
+	generation or remains pending.
+
+which means that the SVR4 platform is in compliance with the standard, 
+as well as those that do not "drop" the signal.
+
+[7/12/93 public]
+
+I agree that this is not a SVR4 specific problem, and the OSs that drop
+SIGCHLD when it is blocked and its default action is SIG_IGN are not to
+blame either.
+
+As such, i am re-assigning to osf for consideration.
+
+The problem is still there: for OS that drops SIGCHLD when its default
+action is SIG_IGN, like SVR4, there is no way to catch it: sigwait() is not
+going to work since the underlying OS has already dropped the signal. To
+change the default action, one needs to use sigaction (cma_siogaction), but
+sigaction explicitly disallow the async signals.
+
+[Mon Jul 12 17:10:35 EDT 1993 public]
+
+I will argue very strongly that this bug should be cancelled.  The
+fact that there is nothing which says what happens to the disposition
+of a signal when it is blocked and ignored, means that there is no
+bug here.
+
+Even if one were able to use sigaction(2) to change the action for
+a given signal, it would not help in this case since the signal
+has already been dropped by the OS.  This is true regardless of whether
+one uses sigaction(2) or sigwait(2).  The disposition of the signal must
+be something other than SIG_IGN *before* a signal is generated for 
+a process, if the process wants to handle it.
+
+[7/13/93 public]
+
+I agree that this is none of OS's fault, but it is more likly to be a CMA
+design issue.
+
+It seems to me that when cma signals handling was designed, it did not
+occur that it is possible that async signal may get dropped if its handler
+is SIG_IGN. The saying that one has to use cma_sigaction to catch the sync
+siglas and cma_sigwait to catch async signals assumes that signals do not
+get dropped by the OS.
+
+The dilemma now is that for some OSs, like SVR4, one needs to use
+cma_sigaction to change the default SIG_IGN action in order for the OS not
+to drop the signal, but one could not do so.
+
+[Mon Aug  2 10:08:18 EDT 1993 public]
+
+I have come around to believing that there is actually a problem.  The
+short description is misleading.  The problem is not really there there
+is a race condition.  It seems to me that the problem is really, how
+in SVR4 DCE, can one reliably obtain SIGCHLD signals?
+
+I will illustrate with a code
+example:
+
+    catch_children()
+    {
+    sigset_t    sigset;
+
+        if ( sigemptyset( &sigset ) == -1 )
+            {
+            perror("sigemptyset");
+            exit(-1);
+            }
+
+        if ( sigaddset(SIGCHLD, &sigset) == -1 )
+            {
+            perror("sigaddset");
+            exit(-1);
+            }
+
+        if ( sigprocmask(SIG_BLOCK, &sigset, (sigset *)NULL) == -1 )
+            {
+            perror("sigprocmask");
+            exit(-1);
+            }
+
+        while (1)
+            {
+            if ( sigwait(&sigset) == -1 )
+                {
+                perror("sigwait");
+                perror("sigwait");
+                exit(-1);
+                }
+
+            /*
+            *   One of our children died, do something now.
+            */
+            }   /* while() */
+    }   /* catch_children() */
+
+The basic idea, is to forever loop, waiting for children which die.  It is
+necessary to call sigprocmask(2) in order to not lose any SIGCHLD signals
+between calls to sigwait(2).  If sigprocmask(2) were not used, then
+the application would "lose" some SIGCHLD signals.  Unfortunately, SVR4
+states that if a signal is blocked and its disposition is SIG_IGN, then
+it may get dropped, so using sigprocmask(2) does not help an SVR4 application.
+
+The reason that this is not a problem in a non-DCE application is because
+an application would use sigaction(2) to install a signal handler for
+SIGCHLD.  This signal handler never gets deinstalled (unlike when sigwait(2)is used -- signals will only be caught while inside of the sigwait(2) call)
+-- therefore a SIGCHLD signal will never get "lost".
+
+OSF OT #4920 describes a similar problem.
+
+[jd 10/07/93 public] 
+Ben's analysis looks correct. This is a dup of 4920 and I'm marking it as 
+such. The question remains what can be done about it given that sigaction
+can;t be used to assign an handler.......
+
+
+
+CR Number                     : 8234
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : app_ref
+Short Description             : Mismatch between
+pthread_attr_setprio ref. page and code
+Reported Date                 : 7/6/93
+Found in Baseline             : 1.0.2
+Found Date                    : 7/6/93
+Severity                      : D
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 8410
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/6/93 public]
+
+Full Description:
+
+        pthread_attr_setprio man page says (in PARAMETERS section):
+
+        "... To specify a priority midway between the minimum and maximum
+        ....specify the following....:
+
+        pri_rr_mid = (PRI_RR_MIN + PRI_RR_MAX)/2 "
+
+        If I use this formula to get the default priority value from
+        PRI_OTHER_MIN and PRI_OTHER_MAX then it falls 1 short of the correct
+        value used in the code. The corrected equation should round-up the
+        result, i.e.,
+
+        pri_rr_mid = (PRI_RR_MIN + PRI_RR_MAX + 1)/2
+
+Repeat By:
+
+        Lookup the code, see if "default priority value" equals
+        (PRI_OTHER_MIN + PRI_OTHER_MAX)/2 or not. It is one short.
+
+	PRI_OTHER_MIN is set to 8, PRI_OTHER_MAX is set to 15 and the initial
+	priority is set to cma_c_prio_through_mid, which is 12.
+
+
+Proposed Solution:
+
+        Replace:
+                pri_rr_mid = (PRI_RR_MIN + PRI_RR_MAX)/2
+        By:
+                pri_rr_mid = (PRI_RR_MIN + PRI_RR_MAX + 1)/2
+
+[07/06/93 public]
+Reassigned this CR to writer Doug Weir.
+
+[09/21/93 public]
+This is a duplicate of 8410, which is fixed.
+
+
+
+CR Number                     : 8025
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 6886
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : closing all file descriptors in threaded env
+Reported Date                 : 5/20/93
+Found in Baseline             : 1.0.2a
+Found Date                    : 5/20/93
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 6886
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : 
+Transarc Status               : 
+
+[5/20/93 public]
+I have a process that goes into the kernel and never comes back.
+Before it goes into the kernel, I want to close all it's file
+descriptors.  I want to do this primarily to close all RPC connections
+that might have been opened for me.  So, I cycle through all the file
+descriptors and get a couple of different errors.
+The first is an assertion failure:
+ % See 'cma_dump.log' for state information.
+ %Internal DCE Threads problem (version CMA BL10+), terminating execution.
+ % Reason: assertion failure:  cma__io_available:  i exceeded cma__g_file_num
+   before nfound reached zero.
+        at line 867 in ../../../src/threads/cma_thread_io.c
+A good candidate for what's causing this is on line 873 of
+cma_thread_io.c.  THere is a check for whether the file is known to be
+open by CMA.  If not, it just continues.  What it should be doing is
+checking the event masks and decrementing nfound appropriately since
+even file descriptors not known to cma will still be included in the
+count returned from select.
+The second is a set of warnings:
+        running fxd...
+ **** Assertion warning. cma__close_general:  Closing a file with threads waitin
+g to read.
+     at line 508 in ../../../src/threads/cma_thread_io.c
+ **** Assertion warning. cma__close_general:  Closing a file with threads waitin
+g for exception.
+     at line 514 in ../../../src/threads/cma_thread_io.c
+ **** Assertion warning. cma__close_general:  Closing a file with read mask bit
+set.
+These messages aren't terribly useful to me.  Is it against the rules
+to close a file descriptor opened in another thread?  Is there some
+way to blow away the thread state?
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `' 
+Added field Transarc Status with value `'
+
+[10/7/93 public]
+This has the Inter-related CR 6886, which is assigned to jd. 
+Reassigning this to jd.
+
+
+
+CR Number                     : 7850
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : problem in cma__io_available() on closed filedescriptors.
+Reported Date                 : 4/30/93
+Found in Baseline             : 1.0.2b23
+Found Date                    : 4/30/93
+Severity                      : B
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 6886
+Fix By Baseline               : 1.0.2a
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/30/93 public]
+
+The defect was found while testing dfs on AIX. The problem can be seen simply
+by creating two threads, one thread doing read() (on stdin) and another
+thread closing the stdin. The thread that did read() gets blocked. The
+close of stdin generates assertion warnings on AIX reference paltform.
+When the null thread runs the infinite wait via select(), on AIX, select() returns
+and this causes a SIGSEGV alter in the cma__io_available(). 
+
+The problem can be fixed by: ensuring that when cma_close() is called, the waiters are
+woken up  for that file descriptor. This ensures that threads doing I/O waits
+are woken up with error code correctly.   Also, cma__io_available() assumes that
+masks are not changed if the select() fails. This is paltform specific and prone to error.
+
+The code in cam__io_available() needs to be robust so that   
+if a file descriptor is closed, cma does not dereference 
+the cma__g_file[] structure for it.
+
+
+I can provide all the changes required to fix the problem.                            
+
+You can reach me at:512-838-8298 for more details
+
+[05/03/93 public]
+This came in as 6886 a bit late in 1.0.2. I looked at it then and will
+revisit it early in 1.0.3. I'll look at your suggested fix then.
+
+
+
+CR Number                     : 5389
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : intermittent assertion failure in cma
+Reported Date                 : 9/15/92
+Found in Baseline             : 1.0.2
+Found Date                    : 9/15/92
+Severity                      : B
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 2995
+Fix By Baseline               : 1.0.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/15/92 public]
+
+I have seen intermittently assertion failures from cma:
+
+digital5# cd fs
+**** Assertion failure. About to enter kernel when already in kernel.
+     at line 409 in ../../../src/threads/cma_errors.c
+%Internal DCE Threads problem (version CMA BL10+), terminating execution.
+% Reason: assertion failure:  About to enter kernel when already in kernel.
+        at line 409 in ../../../src/threads/cma_errors.c
+% See 'cma_dump.log' for state information.
+
+
+We have also seen this on the rios as well.  This shows up randomly during
+during the course of configuring and/or running a cell.
+
+[09/16/92 public]
+This particular assertion failure is both annoying and misleading,
+since it occurs along an error reporting path but is not related to
+whatever error has occurred.  The function cma__error() is used
+throughout CMA to raise "client-caused errors" as exceptions.  It
+asserts that the CMA "kernel" (scheduling database) is not active when
+it's called.  This is the assertion that's failing above; naturally,
+the failure is masking whatever caused cma__error() to be called in the
+first place.
+
+In 1.0.1, this was especially nasty because assertion output involved a
+call to cma__error(), meaning that assertion failures at any point
+where the CMA database was locked became problematic.  This is no
+longer a problem in 1.0.2.
+
+Because I have looked at this already, I'll see if I can come up with
+an updated list of "bad" places from which cma__error() can be called
+and pass that info to Sekhar (proud new owner of CMA).  The fundamental
+choice that needs to be made is either a) to remove the assertion check
+from cma__error() or b) to avoid calling cma__error() from any point at
+which the scheduling database can be locked.
+
+I will ask Brian Keane of DEC for input on this.
+
+[10/19/92 public]
+
+OT cleanup 1 : Severity = unchanged(B) ; Priority = unchanged(1)
+               Assigned to Brian keane.
+
+[10/20/92 public]
+This defect is really a dup of 2995.  I'm not marking it that way,
+though, so as to preserve the additional information present here.
+
+I did indeed ask Brian about this problem some time ago.  His group
+points out that the assertion check in cma__error() is valable, since
+the function can be called with the CMA kernel locked.  If thread
+rundown tried to lock the kernel again, things would hang.  So I
+took choice b) above and tried to locate calls to cma__error() that
+could occur with the kernel locked.  The only ones I found were in
+cma_defer.c.  For now, I didn't try to eliminate the cma__error()
+calls, but preceded them with assertion warnings, so that there would
+be explicit output identifying which problematic cma__error()
+call was made before the function failed.  (See the source file
+for details.)
+
+I think all that can be done for now is to sit back and wait for a
+new failure to occur, and see if it happened along one of the code
+paths I identified.  If not, there's more analysis to be done, since
+presumably I would have missed something.
+
+[11/03/92 public]
+Made this a dup of 2995.
+
+
+
+CR Number                     : 2927
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : thr
+Subcomponent Name             : src/test/threads/prvb_thd_006.c
+Short Description             : Threads test failed; Test "PRVB_THD_006": Unequal distribution of execution.
+Reported Date                 : 4/20/92
+Found in Baseline             : 1.0
+Found Date                    : 4/20/92
+Severity                      : B
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 2283
+Fix By Baseline               : 1.0.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/20/92 public]
+
+
+Full Description:
+
+	START,  Test "PRVB_THD_006":    Test for timeslicing fairness.
+Starting......done.
+
+     Thread          Iterations
+        0               100348
+        1               098330
+        2               098980
+        3               098840
+        4               098943
+        5               097193
+        6               098555
+        7               078344
+        8               099038
+        9               098707
+
+For 10 threads, running for 61 seconds:
+        Average: 96724
+        Maximum: 100348
+        Minimum: 78344
+Deviation: 19%  (Threshold: 10%)
+
+FAILED, Test "PRVB_THD_006":    Unequal distribution of execution.
+
+Repeat By:
+
+	run the test case on the RS-6000
+
+
+

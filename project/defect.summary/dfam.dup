@@ -1,0 +1,290 @@
+CR Number                     : 13440
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : dfam
+Subcomponent Name             : Client FVT
+Short Description             : DAT files incorrect
+Reported Date                 : 4/19/96
+Found in Baseline             : 1.2.1
+Found Date                    : 4/19/96
+Severity                      : C
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 13431
+Fix By Baseline               : 1.2.1
+Fixed In Baseline             : 
+Affected File(s)              : 48
+Sensitivity                   : public
+
+[4/19/96 public]
+
+	This bug terminates the test suite made for the DFAM Client,
+and serverity will be C1.  The real problem of this bug is that 48 files
+must be changed (the actual fixing required to each file is one or two
+lines), and a vendor may find it cumbersome to change the bug manually.
+	The PM team agreed to supply the new DAT files in the /project/archive
+portion of the GA tape.  Release note will explain the problem and tell the
+users how to copy the new DAT files to replace the old DAT files.
+
+
+
+CR Number                     : 13408
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : dfam
+Subcomponent Name             : 
+Short Description             : Unexpected behavior of stat system call
+Reported Date                 : 3/27/96
+Found in Baseline             : 1.2.1
+Found Date                    : 3/27/96
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 13406
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[3/27/96 public]
+
+The DFAM CHO execution has surfaced an issue w.r.t. the behavior of the 'stat'
+system call.  Transarc is waiting on more debug information from Hitachi in 
+order to continue.  See below email dialogue:
+
+>From yamaur_t@soft.hitachi.co.jp Mon Mar 25 05:24:20 1996
+From: yamaur_t@soft.hitachi.co.jp
+Subject: Re: Re: A bug in DFS ?? (which caused DFAM failure ?)
+To: cfe+@transarc.com, susan@osf.org, Vikram_Biyani@transarc.com
+Date: Mon, 25 Mar 96 19:04:37 JST
+Cc: mcg@osf.org, marty@osf.org, nick@alphaville.osf.org, mstaff@osf.org,
+        dce12-pm@osf.org, Jason_Gait@transarc.com
+Mailer: Elm [revision: 70.85]
+
+> >             He looked into the DFAM trace file to find that an unexpected
+> >      behavior of the stat system call seems to have triggered the DFAM
+> >      failure.  The DFAM trace file showed that the stat system call was
+> >      issued to a DFS (LFS) file (not a UNIX file), and the issued system
+> >      call sometimes waited for 2 hours before it stopped and reported a
+> >      connection time out error.  The previous spec of the stat system
+> >      call, however, was that it waits only for 5 minutes, then issues a
+> >      connection time out error.
+> 
+> The ``dfstrace'' output from the DFS cache manager would be useful in
+> determining just what was going on here.  Without that I can only
+> speculate as to the possible causes.
+> 
+> The DFS CM sets a 10-minute timeout for each RPC that it makes to the
+> file server, so that if a call does not complete in that interval, the
+> calling thread will continue with the timeout signal.  Furthermore, if
+> the CM does not receive a response from the dfsbind helper process
+> within three minutes, the CM thread will continue with an error
+> indication.  If a second client holds conflicting tokens but is
+> unreachable due to a network partition, after two minutes the tokens
+> will be preemptively revoked and our client will be able to continue.
+> 
+> However, there are several circumstances that will cause a thread to
+> retry an operation for an unbounded interval; these are in general
+> controlled by the result of the cm_Analyze() routine in
+> src/file/cm/cm_rrequest.c.  The usual causes of these long (but
+> interruptible) retry sequences are that the fileset on which the
+> operation is being performed is involved in some long-lived
+> administrative activity.  It is conceivable, for instance, that moving a
+> very large, actively-updated fileset from server to server across a slow
+> link might delay a client this much.  Initial replica propagation might
+> conceivably take this long, as well.  Of course, these delays and
+> retries should have resulted in the eventual success of the call, not in
+> a connection timeout.
+> 
+> In any case, I am unaware of any specification for the stat() system
+> call that claims it will wait for only five minutes before declaring a
+> failure.  If there was a two-hour delay, it is worth trying to
+> understand why that delay was occurring, particularly if it ultimately
+> fails.  I would recommend the output of dfstrace and the console log as
+> being relevant to this further diagnosis.
+
+
+            Thank you very much for the detailed diagnosis.  For
+     your information, we did not use the replica when we were
+     running DFAM 48 CHO (FYI, the DFAM Agent is a client of DFS).
+
+
+> 
+> >             DFAM generates a process in every 2 to 3 seconds.  If the
+> >      stat system call waits for 2 hours, the number of the generated
+> >      process goes up to 3,000, and this can easily cause the shortage
+> >      of memory, which stops the DFAM 48 CHO.
+> >
+> >             The questions we would like to ask the DFS engineers are:
+> >
+> >      Q1: Has the spec of the stat system call issued against DFS files
+> >          been changed so that the system call waits for 2 hours ?
+> 
+> As above: I am unaware of any such specification.  However, the RPCs
+> that the DFS CM generates are made with two timeouts:
+>     - the comm_timeout of (default+2), or about 2.5 minutes
+>     - the call_timeout of ten minutes
+> Either of these could result in an ETIMEDOUT value in errno.
+> 
+> >      Q2: If yes, Why ?
+> >
+> >      Q3: If no, could you please check the system call ?
+> 
+> I would be happy to investigate the trace and console output....
+
+
+
+            Thank you very much.  Here is a question on how to use 
+     dfstrace.  
+
+            We executed the dfstrace command to get the information 
+     listed as "Attachment 1," which we cannot find out what it 
+     actually means.  We think the trace information should have 
+     the format listed as "Attachment 2."  Do we need special setting
+     to get the proper trace information (you can assume that the 
+     NLS path was properly set) ?
+
+
+
+--------------------------  Attachment 1  -----------------------------
+DFS Trace Dump -
+
+   Date: Mon Mar 25 15:26:54 1996
+
+Found 1 logs.
+
+Contents of log cmfx:
+Log wrapped; data missing.
+raw op 29c9c088, time 332.974613, pid 27825
+p0:0x5d0e390
+raw op 29c9c0dc, time 332.974620, pid 27825
+p0:0
+raw op 29c9c001, time 332.974636, pid 27825
+p0:0x5d0e390 p1:dir
+raw op 29c9c03c, time 332.974647, pid 27825
+p0:0x5d0e390 p1:dir
+raw op 29c9c0ec, time 332.974654, pid 27825
+p0:0x5d0e390 p1:1028
+raw op 29c9c002, time 332.974665, pid 27825
+p0:0x5d0e390 p1:1107296240
+raw op 29c9c003, time 332.974672, pid 27825
+p0:63
+-----------------------------------------------------------------------------
+
+
+
+-------------------------  Attachment 2  -------------------------------------
+DFS Trace Dump -
+
+   Date: Mon Mar 25 15:33:01 1996
+
+Found 2 logs.
+
+Contents of log disk:
+
+Contents of log cmfx:
+Log wrapped; data missing.
+time 917.440039, pid 5771: checkerror returning code 0
+time 917.440040, pid 5771: inactive vp 165c650
+time 917.440041, pid 5771: cm_lookup 16542b0 dirb
+time 917.440042, pid 5771: gettokens vp 16542b0, rights.low 0x404
+time 917.440048, pid 5771: nh_dolookup dvp 16542b0, name dirb
+time 917.440049, pid 5771: gettokens vp 16542b0, rights.low 0x404
+time 917.440053, pid 5771: cm_GetScache vp 165c650, volume.low 0x1, vnode 0x1bfe
+
+time 917.440056, pid 5771: found fid d04f7878.1.1bfe.0 (hex)
+time 917.440057, pid 5771: lookup returning vp 165c650
+
+-----------------------------------------------------------------------------
+
+> 
+>From cfe+@transarc.com Mon Mar 25 11:41:18 1996
+Date: Mon, 25 Mar 1996 11:40:16 -0500 (EST)
+From: Craig_Everhart@transarc.com
+To: susan@osf.org, Vikram_Biyani@transarc.com, yamaur_t@soft.hitachi.co.jp
+Subject: Re: A bug in DFS ?? (which caused DFAM failure ?)
+Cc: mcg@osf.org, marty@osf.org, nick@alphaville.osf.org, mstaff@osf.org,
+        dce12-pm@osf.org, Jason_Gait@transarc.com
+
+Excerpts from mail: 25-Mar-96 Re: Re: A bug in DFS ?? (wh..
+yamaur_t@soft.hitachi.co (5671)
+
+>             We executed the dfstrace command to get the information 
+>      listed as "Attachment 1," which we cannot find out what it 
+>      actually means.  We think the trace information should have 
+>      the format listed as "Attachment 2."  Do we need special setting
+>      to get the proper trace information (you can assume that the 
+>      NLS path was properly set) ?
+
+Thanks very much for your follow-up message.  Indeed, I would expect
+that dfstrace output would look like ``Attachment 2'' rather than like
+``Attachment 1''.  The dfstrace program simply calls
+dce_error_inq_text() to find the interpretation of the 32-bit ``raw op''
+value for the trace code.  The message catalogs that are to supply the
+text strings for dfstrace should be installed as files named dfszXX.cat,
+for some two characters XX.  Perhaps these are not installed in the
+environment in which dfstrace is run, as local root, with what you're
+using for LANG and NLSPATH.  (I doubt that these catalogs would have
+been translated into Japanese, for example.)  These are the old-style
+catalogs, generated with the compile_et tool rather than with the sams
+tool.
+
+I don't know what will make these catalogs available in your
+environment.  If all else fails, it might be necessary to set LANG to C
+or en_US or some such.  Certainly your ``Attachment 2'' formatting looks
+just fine, and I don't know why your ``Attachment 1'' doesn't look like
+``Attachment 2'' other than what I've told you.
+
+I hope that this helps isolate the problem with dfstrace, and I'm sorry
+that it isn't working correctly for you yet.
+
+Once you obtain the trace information in the correct format, you might
+be able to do some of the log analysis yourself, if you wish.  The
+dfstrace information is kept in kernel memory in a circular log. 
+Dfstrace controls the size of this log; you can examine it with the
+``dfstrace lslog'' sub-command and you can set it with the ``dfstrace
+setlog'' sub-command.  The default cmfx log size might only contain a
+few minutes' worth of information for a busy cache manager, so you may
+wish to increase the log size before trying to reproduce this stat()
+problem--but of course the fact that the log is in kernel memory will
+limit the log size.  After a test fails, you might wish immediately to
+execute ``dfstrace setset -inactive'' which will stop all additional
+logging, preserving the existing log contents until ``dfstrace dump''
+could be executed.
+
+Ideally, the result log would show how an error condition would evolve,
+ultimately seeing both the beginning of the CM's vnode operation to the
+end where it returns the error code that is passed to your test as an
+errno value that you do not expect.
+
+                Craig
+>From yamaur_t@soft.hitachi.co.jp Tue Mar 26 01:24:10 1996
+From: yamaur_t@soft.hitachi.co.jp
+Subject: Re: Re: A bug in DFS ??
+To: cfe+@transarc.com
+Date: Tue, 26 Mar 96 15:23:08 JST
+Cc: mcg@osf.org, marty@osf.org, mstaff@osf.org, dce12-pm@osf.org,
+        nick@alphaville.osf.org, Vikram_Biyani@transarc.com,
+        Jason_Gait@transarc.com
+Mailer: Elm [revision: 70.85]
+
+     Dear Craig:
+
+            Thank you very much for your quick suggestions.
+     Now the trace command works.  We are trying to reproduce
+     the memory shortage.  We will send you the trace file 
+     when we catch the problem.
+
+                                  Thank you very much again.
+                                  Tsuneo Yamaura
+
+
+

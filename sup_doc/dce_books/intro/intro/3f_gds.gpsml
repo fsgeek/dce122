@@ -1,0 +1,680 @@
+...\"  @OSF_COPYRIGHT@
+...\"  COPYRIGHT NOTICE
+...\"  Copyright (c) 1990, 1991, 1992, 1993 Open Software Foundation, Inc.
+...\"  ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE in the
+...\"  src directory for the full copyright text.
+...\"
+...\"
+...\" HISTORY
+...\" $Log: 3f_gds.gpsml,v $
+...\" Revision 1.1.6.1  1996/10/14  16:39:10  weir
+...\" 	No change
+...\" 	[1996/10/14  16:38:22  weir]
+...\"
+...\" Revision 1.1.4.11  1995/06/02  15:24:57  buckler
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/06/01  20:58:55  buckler]
+...\" 
+...\" 	Incorporated 1.1 edits.
+...\" 	[1995/05/05  22:15:55  buckler]
+...\" 
+...\" Revision 1.1.4.10  1994/11/04  00:04:33  neilson
+...\" 	Substituted macros for book names in cross refs.
+...\" 	[1994/11/03  12:24:01  neilson]
+...\" 
+...\" Revision 1.1.4.9  1994/10/19  20:23:33  willie
+...\" 	{enh, 11783, R1.1}
+...\" 	Incorporated selected edits from edit pass.
+...\" 	[1994/10/19  20:22:50  willie]
+...\" 
+...\" Revision 1.1.4.8  1994/09/23  19:27:14  willie
+...\" 	{enh, 11783, R1.1}
+...\" 	Fixed typo and books references.
+...\" 	[1994/09/23  19:26:40  willie]
+...\" 
+...\" Revision 1.1.4.7  1994/09/22  20:49:13  willie
+...\" 	{enh, 11783, R1.1}
+...\" 	Added gdscp, gdssetup, GDS authentication, and GDS ACLs.
+...\" 	[1994/09/22  20:48:51  willie]
+...\" 
+...\" Revision 1.1.4.6  1994/04/04  17:08:22  zahn
+...\" 	{enh,7501,R1.1}
+...\" 
+...\" 	Moved text and figure from Admin Guide Vol 1
+...\" 	(file is admin_gd/overview/overview/4_serv.gpsml)
+...\" 	to this file.  Note that figure is embedded in text
+...\" 	rather than pointed to.
+...\" 	[1994/04/04  17:08:04  zahn]
+...\" 
+...\" Revision 1.1.4.5  1993/01/29  17:18:06  cjd
+...\" 	Embedded copyright notice
+...\" 	[1993/01/29  17:01:38  cjd]
+...\" 
+...\" Revision 1.1.4.4  1992/12/14  17:24:25  steiner
+...\" 	CR 6150 remove Release 1.0 reference
+...\" 	[1992/12/14  17:07:23  steiner]
+...\" 
+...\" Revision 1.1.4.3  1992/11/24  15:44:55  steiner
+...\" 	Fixed coding conventions.
+...\" 	[1992/11/24  15:26:12  steiner]
+...\" 
+...\" Revision 1.1.4.2  1992/09/01  15:59:25  weir
+...\" 	Moved to 1.0.2 tree
+...\" 	[1992/09/01  15:48:17  weir]
+...\" 
+...\" Revision 1.1.2.2  1992/03/06  16:30:50  steiner
+...\" 	Eddie's edits.
+...\" 	[1992/03/06  15:18:54  steiner]
+...\" 
+...\" Revision 1.1  1992/01/29  15:43:04  damon
+...\" 	Initial revision
+...\" 
+...\" $EndLog$
+...\"
+.H 3 "DCE Global Directory Service"
+.iX "-![" "GDS"
+.P
+DCE GDS is a directory service implementation
+based on the international standard CCITT X.500/ISO 9594.
+When present in a DCE cell, GDS can serve two basic functions.
+First, it can participate in a high-level, possibly worldwide
+directory service tying together independent DCE cells.
+Second, it can be used as an additional directory service to CDS for
+storing object names and attributes in a central place.
+.P
+Like CDS, GDS is a replicated, distributed
+database.
+The GDS database
+contains information that can be distributed over several
+GDS servers.
+In addition, copies of information can be stored in multiple GDS
+servers,
+and the information can also be cached.
+The unit of replication in GDS is the directory entry (whole subtrees
+can also be specified).
+.P
+The GDS directory is structured differently from CDS, and names
+are also different in that they are typed, as described later.
+Programmers can access
+both DCE Directory Services, however,
+using the X/Open Directory Service API
+(see Section 3.3.5 for a description
+of XDS).
+.P
+The following subsections describe the GDS components, possible
+GDS configurations,
+the GDS database and names,
+an overview of how GDS works, and the relationship of DCE GDS to
+underlying network services and international standards.
+.nL
+.ne 12
+.H 4 "What is GDS?"
+.iX "GDS" "components"
+.P
+There are several components that work together to
+provide DCE GDS:
+.ML
+.LI
+Directory System Agent (DSA)
+.iX "-: DSA" "Directory System Agent"
+.iX "DSA"
+.P
+This process runs on the GDS server machine and manages
+the GDS database.
+It is the server side of GDS.
+In order to handle simultaneous requests from different
+users, the GDS server machine can run several DSA
+processes.
+.LI
+Directory User Agent (DUA)
+.iX "-: DUA" "Directory User Agent"
+.iX "DUA"
+.P
+The DUA is a library that implements the GDS client;
+this library is present on all GDS client machines.
+.LI
+Directory User Agent cache
+.iX "caching" "in GDS"
+.P
+This process keeps a cache of information obtained
+from DSAs.
+One DUA cache runs on each client machine and is used by
+all the users on that machine.
+The DUA cache contains copies of recently accessed object
+entries and information about DSAs.
+The programmer specifies which information should be cached, and it
+is possible to bypass the DUA cache to obtain
+information directly from a DSA.
+This is desirable, for example, when the user wants to make sure
+the information obtained is up-to-date.
+.LI
+C-Stub and S-Stub
+.P
+The C-Stub process runs on each client machine and manages
+communications with DSAs.
+It implements the upper layers of the ISO protocol stack
+(see Section 3.3.3.5).
+Its function is similar to the RPC runtime (GDS uses OSI protocols
+instead of DCE RPC).
+The S-Stub is similar to the C-Stub, except it runs on the server
+machine and manages its communications with DUAs and other DSAs.
+.LI
+Shadow update and cache update processes
+.P
+.iX "consistency" "in GDS"
+Unlike the processes listed previously, which run continuously,
+the processes for updating replicas in DSAs and DUA caches
+run as needed and then terminate.
+The shadow update process runs on the GDS server machine; the
+cache update process runs on GDS client machines.
+.nL
+.ne 8
+.LI
+The GDS administration programs
+.P
+DCE GDS continues to provide three programs for administering 
+its service.
+The \*Lgdssysadm\*O program supports administration of the local GDS 
+installation, such as configuration, server activation, and backup.
+The \*Lgdsditadm\*O program supports remote administration of the 
+contents of a GDS database.  Finally, the \*Lgdscacheadm\*O
+program supports the administration of the contents of the local DUA
+cache.
+.P
+For Release 1.1, GDS also provides the \*Lgdscp\*O and \*Lgdssetup\*O
+programs.  The \*Lgdscp\*O program allows the administrator to enter 
+object administration functions by using command-line and interactive modes.
+It can be used as an alternative to the Object Administration 
+menu interface and part of the Cache Administration menu interface 
+of the GDS administration program.
+.PP
+The \*Lgdssetup\*O command provides the administrator with an interface to
+simplify the process of creating and initializing a directory
+configuration.  The other method of creating and initializing a
+directory configuration requires that the administrator perform
+initialization steps by using the masks of the \*Lgdsditadm\*O program
+either manually or by using batch file scripts.
+.PP
+The advantages of both of these programs are described in the \*(Ax.
+.LE
+.P
+Figure 3-11 shows the interaction between the directory service
+application, the XDS interface, and the GDS client
+and server.
+The GDS client and server use the Directory Access Protocol (DAP)
+to communicate.
+The GDS servers use the Directory System Protocol (DSP) to communicate
+with one another.
+DAP and DSP perform functions similar to the function that the DCE RPC
+protocols perform
+in other DCE services.
+The DAP and DSP protocols are defined in the X.500 standard, enabling
+worldwide interoperability among directory services.
+...\"figure 3-11 is same as 3f_gds_10.pic
+.PP
+.ne 3.0i
+.FG "GDS Components"
+...\" .so intro/pic/3f_gds_10.pic
+.PS
+.in +.5i
+scale = 80
+"\fR\s8GDS Client\s0\fP"  at 28, 208
+line ->  from 108, 152 \
+	to 108, 136 
+"\fR\s8DUA\s0\fP"  at 108, 128
+"\fR\s8Cache\s0\fP"  at 108, 120
+box  wid 40 ht 24 at 108, 124
+box  wid 144 ht 96 at 72, 152
+"\fR\s8DAP\s0\fP"  at 168, 80
+"\fR\s8XDS\s0\fP"  at 68, 168
+box  wid 40 ht 24 at 28, 164
+box  wid 40 ht 24 at 108, 164
+box  wid 40 ht 24 at 228, 164
+box  wid 40 ht 24 at 228, 44
+"\fR\s8Appl\s0\fP"  at 28, 164
+"\fR\s8DUA\s0\fP"  at 110, 164
+"\fR\s8DSA\s0\fP"  at 228, 164
+"\fR\s8DSA\s0\fP"  at 226, 46
+line ->  from 48, 160 \
+	to 88, 160 
+line -> dotted from 128, 168 \
+	to 208, 168 
+line -> dotted from 128, 160 \
+	to 208, 48 
+line <-> dotted from 224, 152 \
+	to 224, 56 
+"\fR\s8DAP\s0\fP"  at 176, 176
+ellipse wid 16 ht 4 at 272, 22
+ellipse wid 16 ht 4 at 272, 30
+line   from 264, 28 \
+	to 264, 24 
+line   from 280, 28 \
+	to 280, 20 
+line   from 248, 40 \
+	to 264, 32 
+"\fR\s8DSP\s0\fP"  at 240, 104
+line   from 248, 160 \
+	to 264, 152 
+line   from 280, 148 \
+	to 280, 140 
+line   from 264, 148 \
+	to 264, 144 
+ellipse wid 16 ht 4 at 272, 150
+ellipse wid 16 ht 4 at 272, 142
+box  wid 112 ht 56 at 248, 156
+box  wid 112 ht 64 at 248, 32
+"\fR\s8GDS Server\s0\fP"  at 280, 192
+"\fR\s8GDS Server\s0\fP"  at 280, 72
+.in -.5i
+.PE
+.H 4 "GDS Configurations"
+.iX "GDS" "configuration"
+.P
+A GDS machine can be configured in two ways:
+.ML
+.LI
+Client-only
+.P
+A node can contain only the client side of GDS.
+This node can access remote DSAs and cache some information
+in the DUA cache.
+.LI
+Client/Server
+.P
+A machine can be configured with both the GDS client and server.
+This is the typical configuration for a machine acting
+as a GDS server.
+This configuration can be useful even if a node acts mainly as a client
+because the DSA can be used as a larger, more permanent cache
+of information contained in remote DSAs.
+.LE
+.P
+Figure 3-12 shows a GDS client configuration
+that goes through the network to access a DSA on another machine running
+the GDS client/server configuration.
+.PP
+.ne 4.0i
+.FG "GDS Configurations"
+.PS
+.in +.5i
+scale = 80
+line   from 96, 0 \
+	to 136, 0
+line   from 96, 96 \
+	to 136, 96
+"\fR\s10Client/Server\s0\fP"  at 112, 104
+line   from 136, 248 \
+	to 232, 248
+"\fR\s10Communication\s0\fP"  at 184, 240
+"\fR\s10Layer\s0\fP"  at 184, 224
+"\fR\s10DUA\s0\fP"  at 184, 264
+line   from 136, 280 \
+	to 232, 280
+line ->  from 184, 176 \
+	to 184, 208
+line <-  from 176, 176 \
+	to 176, 208
+"\fR\s10Application\s0\fP"  at 184, 296
+line ->  from 176, 144 \
+	to 176, 144 \
+	to 176, 96
+"\fR\s10Network\s0\fP"  at 184, 160
+ellipse wid 80 ht 32 at 184, 160
+line ->  from 184, 96 \
+	to 184, 144
+box  wid 0 ht 0 at 40, 8
+line <->  from 232, 32 \
+	to 280, 32
+line   from 280, 56 \
+	to 280, 8
+ellipse wid 32 ht 16 at 296, 8
+line   from 312, 56 \
+	to 312, 8
+ellipse wid 32 ht 16 at 296, 56
+"\fR\s10Database\s0\fP"  at 296, 72
+box  wid 96 ht 96 at 184, 48
+"\fR\s10Communication\s0\fP"  at 184, 88
+"\fR\s10Layer\s0\fP"  at 184, 72
+"\fR\s10DSA\s0\fP"  at 184, 32
+box  wid 96 ht 96 at 184, 256
+"\fR\s10Client\s0\fP"  at 184, 320
+box  wid 96 ht 96 at 48, 48
+line <-  from 136, 48 \
+	to 96, 48
+line ->  from 136, 40 \
+	to 96, 40
+line   from 0, 56 \
+	to 96, 56
+line   from 0, 24 \
+	to 96, 24
+line   from 136, 56 \
+	to 232, 56
+"\fR\s10Application\s0\fP"  at 48, 16
+"\fR\s10DUA\s0\fP"  at 48, 40
+"\fR\s10Communication\s0\fP"  at 48, 88
+"\fR\s10Layer\s0\fP"  at 48, 72
+.in -.5i
+.PE
+.H 4 "The GDS Database"
+.iX "database" "GDS"
+.P
+The GDS database is a hierarchical, object-oriented database.
+The OSF DCE reference implementation of GDS
+uses the C-ISAM database software.
+The information that makes up GDS takes
+the following forms: 
+.ML 
+.LI
+Object entry
+.iX "object entry" "in GDS"
+.P
+An
+\*Eobject entry\*O
+is an entry in the database that names and describes an
+object, such as a person, machine, or server.
+It consists of one or more attributes, and each of the
+attributes has a type and a value.
+For example, an attribute type might be \*LCOMMON NAME\*O (or \*LCN\*O)
+and the value might be snowpaws; another attribute might be type
+\*LMACHINE ADDRESS\*O and the value might be \*L100.100.1.177\*O.
+Some attributes may have more than one value.
+Each object entry has an attribute of type \*LOBJECT CLASS\*O, and
+its value specifies what the object's class is, which
+determines what other attributes the object entry has.
+The name of an entry consists of one or more of its attributes
+(see Figure 3-13).
+...\"figure 3-13 is the same 3f_gds_11.pic
+.PP
+.FG "GDS Object Entry"
+...\" .so intro/pic/3f_gds_11.pic
+.PS
+.in +.5i
+scale = 80
+"\fR\s10Object Entry\s0\fP"  at 36, 112
+box  wid 444 ht 100 at 222, 50
+"\fR\s8(RDN)\s0\fP"  at 380, 20
+"\fR\s8(Class)\s0\fP"  at 268, 16
+"\fR\s8(Multivalued)\s0\fP"  at 164, 16
+"\fR\s8Attribute\s0\fP"  at 164, 28
+"\fR\s8Attribute\s0\fP"  at 380, 32
+"\fR\s8NAME\s0\fP"  at 356, 56
+"\fR\s8Attribute\s0\fP"  at 268, 28
+"\fR\s8Attribute\s0\fP"  at 56, 28
+"\fR\s8class\s0\fP"  at 288, 56
+box  wid 80 ht 40 at 268, 60
+box  wid 24 ht 16 at 288, 56
+box  wid 24 ht 16 at 186, 62
+"\fR\s8VAL\s0\fP"  at 80, 56
+"\fR\s8TYPE\s0\fP"  at 40, 56
+box  wid 24 ht 16 at 80, 56
+box  wid 24 ht 16 at 40, 56
+box  wid 80 ht 40 at 60, 60
+box  wid 24 ht 16 at 180, 58
+box  wid 24 ht 16 at 176, 54
+box  wid 24 ht 16 at 144, 54
+box  wid 80 ht 40 at 164, 58
+"\fR\s8TYPE\s0\fP"  at 144, 52
+"\fR\s8COMMON\s0\fP"  at 356, 64
+box  wid 92 ht 40 at 376, 60
+box  wid 44 ht 20 at 356, 62
+box  wid 36 ht 20 at 400, 62
+"\fR\s8snow-\s0\fP"  at 400, 66
+"\fR\s8paws\s0\fP"  at 400, 58
+"\fR\s8CLASS\s0\fP"  at 252, 54
+"\fR\s8OBJECT\s0\fP"  at 252, 62
+box  wid 40 ht 22 at 252, 59
+.in -.5i
+.PE
+.sp .5
+.LI
+Relative Distinguished Name (RDN)
+.iX "-: RDN" "Relative Distinguished Name"
+.iX "RDN"
+.P
+The name attribute of an object contains the object's RDN.
+An RDN contains both the type and value of the naming
+attribute;
+for example, \*LCN = snowpaws\*O
+or \*LMACHINE NAME = MachineA\*O.
+(In DCE Directory Service notation, the type and value of an attribute
+are separated by an equal sign.)
+.LI
+Distinguished Name (DN)
+.iX "-: DN" "Distinguished Name"
+.iX "DN"
+.P
+The DN is the concatenation of the
+object's RDN and the RDNs of all its ancestors in the GDS
+naming hierarchy, like a full pathname for a file in a
+UNIX file system.
+An example of a DN might be
+\*L/.../C=US/O=OSF/OU=DCE/CN=snowpaws\*O.
+(In DCE Directory Service notation, the RDNs are separated by slashes.)
+.LI
+Directory Information Base (DIB)
+.iX "-: DIB" "Directory Information Base"
+.iX "DIB"
+.P
+The DIB consists of all the object entries
+in all the DSAs in GDS.
+.LI
+Directory Information Tree (DIT)
+.iX "-: DIT" "Directory Information Tree"
+.iX "DIT"
+.P
+The DIT is the structure of the GDS namespace;
+it determines the hierarchy of GDS names.
+For example, the DIT might specify that the only
+entries that can come directly under the DIT root are
+entries describing countries, such as
+\*L/.../C=US\*O
+or
+\*L/.../C=JP\*O.
+.LI
+Directory schema
+.iX "schema"
+.P
+The directory schema contains structuring rules for the GDS information.
+This includes object classes, their attributes, and their syntax.
+.nL
+.ne 8
+.LI
+Authentication
+.iX "authentication"
+.P
+The directory service supports simple user authentication using name
+and password.  In addition to simple authentication, GDS 
+supports DCE authentication as a security method for accessing DSAs 
+in the DCE environment.  DCE authentication requires that users 
+and the DSAs these users want to access are registered in the DCE 
+registry.  The extended attributes feature of the DCE registry 
+is used for this purpose.
+.LI
+GDS access control lists (ACLs)
+.iX "ACLs" "in GDS"
+.P
+GDS internally uses ACLs, but GDS ACLs are different
+from other DCE ACLs.
+Each object entry has an ACL associated with it.
+It specifies permission to access the object's attributes.
+The attributes can be classified as \*LPUBLIC\*O, \*LSTANDARD\*O, or
+\*LSENSITIVE\*O.
+The object's ACL grants a user or group of users five different types
+of permission: modify \*LPUBLIC\*O attributes, read or modify \*LSTANDARD\*O
+attributes, read or modify \*LSENSITIVE\*O attributes.
+When a new object entry is created in the GDS directory, it
+inherits the security characteristics of its parent entry by default.
+An object entry's ACLs are attributes of the object entry.
+.LE
+.H 4 "How GDS Works"
+.iX "GDS" "how it works"
+.P
+When an application
+program makes a GDS call using the XDS API,
+the call is handed to the DUA library.
+The DUA first looks in the DUA cache (if specified)
+to see if the requested information
+is already available on the local node.
+If it is not, the DUA queries a DSA.
+The DSA may have the requested information and, if it does, it returns
+the results to the DUA.
+If it does not, the query can proceed in one of two ways.
+Either the DSA can query a different DSA on behalf of the DUA,
+or the DSA can return information such that the DUA can query
+a second DSA itself.
+The first method is called
+\*Echaining\*O
+.iX "chaining" "in GDS"
+and the second method is called
+\*Ereferral\*O.
+.iX "referral" "in GDS"
+In either case, different DSAs are queried until the information
+is found.
+It is cached (if specified)
+in the DUA cache and the results are returned to the GDS
+application program.
+.H 4 "GDS and Network Services"
+.iX "GDS" "and network services"
+.iX "DCE" "and related software" "network"
+.P
+The X.500 directory service standard was written to run
+on top of the OSI communications protocols.
+The OSI protocols are divided into seven layers:
+the Physical,
+Data Link,
+Network,
+Transport,
+Session,
+Presentation, and
+Application Layers (see Figure 3-14).
+The upper three layers are usually implemented as libraries that are
+linked together with the application process.
+The lower layers are part of the operating system, and their services are
+made available to the upper layers through a transport interface.
+The transport interface is the double line in Figure 3-14.
+...\"figure 3-14 is same as 3f_gds_12.pic
+.PP
+.FG "The OSI Protocol Layers"
+...\" .so intro/pic/3f_gds_12.pic
+.PS
+scale = 80
+line ->  from 73, 64 \
+	to 93, 64 
+"\fR\s8Transport Interface\s0\fP"  at 33, 64
+line   from 97, 64 \
+	to 177, 64 
+line   from 97, 66 \
+	to 177, 66 
+"\fR\s8Physical Layer\s0\fP"  at 137, 8
+"\fR\s8Data Link Layer\s0\fP"  at 137, 24
+"\fR\s8Network Layer\s0\fP"  at 137, 40
+"\fR\s8Transport Layer\s0\fP"  at 137, 56
+"\fR\s8Session Layer\s0\fP"  at 137, 72
+"\fR\s8Presentation Layer\s0\fP"  at 137, 88
+"\fR\s8Application Layer\s0\fP"  at 137, 104
+box  wid 80 ht 112 at 137, 56
+line   from 97, 96 \
+	to 177, 96 
+line   from 97, 80 \
+	to 177, 80 
+line   from 97, 48 \
+	to 177, 48 
+line   from 97, 32 \
+	to 177, 32 
+line   from 97, 16 \
+	to 177, 16 
+.PE
+.sp .5
+.PP
+The directory service is an application layer protocol.
+Its specification requires the use of the underlying
+layers and two other Application Layer
+service elements: 
+Association Control Service Element (ACSE) and
+Remote Operation Service Element (ROSE).  ROSE and 
+ACSE of Layer 7, and the presentation service of Layer 6,
+are implemented in GDS by the Remote Operation Service 
+(ROS) library.
+The OSI Session Service (Layer 5) is implemented in GDS by the
+OSI Session Service (OSS) library.
+These layers are equivalent to the communications
+support supplied by the DCE RPC runtime system,
+which also fills in the gap between
+an application and the underlying transport communications.
+Although GDS supplies support for these upper OSI layers,
+they are used only for the directory service
+and are not made available for application programmers.
+.P
+DCE assumes that the system it runs on provides support
+for transport layer communications (either OSI transport
+or IP transport).
+The OSI protocols running above the transport layer were
+originally designed to run over OSI transport protocols.
+Many DCE systems run TCP/IP, so GDS provides
+the capability for running over the TCP/IP transport protocol
+as specified in RFC 1006.
+.P
+The GDS software includes
+a compiler and a runtime library called
+MAVROS.
+The compiler takes specifications written in the Abstract
+Syntax Notation (ASN.1) and compiles them into C language code for
+header files and encoding/decoding routines,
+much as the RPC IDL compiler takes an IDL
+specification and compiles it into a header file and
+client and server stubs.
+MAVROS is used to encode/decode the DAP and DSP protocols and their data
+values.
+.H 4 "GDS Relation to Standards"
+.iX "GDS" "and standards"
+.iX "standards" "and GDS"
+The OSI software provided in DCE is based on the following ISO standards:
+.ML
+.LI
+X.500/ISO 9594
+.P
+The CCITT 1988 version (Blue Book), which shares the same text
+as ISO Directory
+Standard 9594 (v1) published in 1990.
+.LI
+ROSE/ACSE/Presentation/Session
+.P
+ISO 9072 (v1:1989), 8650 (v1:1988),
+8649,
+8823 (v1:1988), and 8327 (v2:1988) Protocol International Standards.
+The implementation follows EWOS agreements.
+.LI
+ASN.1/BER
+.P
+The ASN.1 compiler accepts ASN.1 syntax conformant to ISO 8824
+and generates routines to encode/decode data conformant to ISO 8825 
+Basic Encoding Rules.
+.LE
+.P
+The GDS software provides functional
+extensions to the standards in the following
+areas:
+.ML
+.LI
+Replication
+.iX "replication" "in GDS"
+.LI
+Knowledge information modeling and administration
+.LI
+Schema modeling and administration
+.LI
+Subtree administration
+.LI
+Caching
+.LI
+Remote administration
+.LI
+Security (access control)
+.LE
+.H 4 "Additional Information on GDS"
+.iX "GDS" "additional information"
+.P
+In addition to the standards listed in the previous section,
+information on DCE GDS and
+related standards can be found in the \*(Ax.
+.iX "-]" "GDS"

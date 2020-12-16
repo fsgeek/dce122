@@ -1,0 +1,1171 @@
+CR Number                     : 13389
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : dcedoc
+Short Description             : wrong headerfile in dce_printf manpage
+Reported Date                 : 3/15/96
+Found in Baseline             : 1.1
+Found Date                    : 3/15/96
+Severity                      : D
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[3/15/96 public]
+
+The manpage for dce_printf gives dce/dce.h as the required header file.
+In fact, this function is declared in dce/dce_svc.h.
+
+[3/15/96 public]
+I was too hasty - dce.h #includes dce_svc.h, so I'm cancelling this OT.
+
+
+
+CR Number                     : 13310
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 10632
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : acl
+Short Description             : dce_rdacl_replace() should check for illegal entries
+Reported Date                 : 2/7/96
+Found in Baseline             : 1.1
+Found Date                    : 2/7/96
+Severity                      : B
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : dce/utils/acldb/aclimpl.c
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[2/7/96 public]
+This parallels OT#10632. There are two independent paths to ACL storage.
+One is through the dce_acl_obj_add_XXX() routines, the other is through
+dce_rdacl_replace(). They should both check for illegal entries before writing
+the ACL out. It might be better to reimplement dce_rdacl_replace() using the
+dce_acl_obj_add_XXX() routines and do the check in one place.
+
+[7/25/96 public]
+With Nick's concent, I'm cancelling this OT.
+
+
+
+CR Number                     : 13279
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : acldb/acl evaluation
+Short Description             : ACLDB acl evaluation group checks semi-broken
+Reported Date                 : 1/10/96
+Found in Baseline             : 1.1
+Found Date                    : 1/10/96
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : dce/utils/acldb/acleval.c
+Sensitivity                   : public
+
+[1/10/96 public]
+
+While inspecting the ACLDB code a little more thoroughly after being
+told about a foreign_group ACL problem (another OT), I discovered that
+the regular group access checks look partly broken too.
+
+This code was generated using the security server (and example)'s ACL
+access checks as a starting point/guideline, but was changed so
+drastically (for unknown reasons) that it can no longer be put to a
+side by side comparison anymore.  But, on first glance, it appears that
+during the conversion, they inadvertently lost the functionality that
+provides the *union* of group access, if more than one group matched
+the identity.  In fact, the comment in dce_acl__permset_alg() implies
+that this functionality is there, but the group_access assignments
+in the above loop lose any previous access value each time through the
+loop (compare it to the loop in security/server/rsdb/rsdb_daclmgr.c ).
+
+I don't have a good way of verifying it at the moment (obviously the
+test doesn't check for group union access or somebody would have found this
+by now), but I still believe that it's broken and should be fixed asap
+(this the A1 sev/pri).
+
+[2/12/96 public]
+Ugh, I was seeing things...
+It actually is accumulating group access throughout multiple iterations
+of the group loop (just differently than the code that it was based on).
+JohnR just tested that it isn't broken, and we both re-reviewed the code
+to make sure I was seeing things above, so I'm cancelling this defect.
+
+
+
+CR Number                     : 12803
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : 
+Short Description             : dce_svc__debug doesn't check for NULL pointers.
+Reported Date                 : 2/23/95
+Found in Baseline             : 1.1
+Found Date                    : 2/23/95
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : dce/utils/svc/svcprintf.c
+Sensitivity                   : public
+
+[2/23/95 public]
+
+The dce_svc_printf, dce_svc__debug, and dce_svc_bin_log functions do not
+check the "handle" parameter to see if it's NULL. SIGSEGV results from this
+non-checking if a null pointer is passed.
+
+[02/24/95 public]
+That's right.  Neither does fopen, strcpy, etc.  DCE should not be spending
+its time looking for NULL pointers -- better to get a quick coredump and
+fix the programming error.
+
+[levy 2/25/95 public] 
+
+This problem was actually detected in a core dump of one of the DCE
+daemons. The person who reported the problem can not remember which one,
+but I am re-opening the OT at least as a record of the problem (there are a
+number of open OTs in that category). Besides, there is a long standing
+debate about whether or not functions should do argument validation. If you
+don't think this is a defect then please leave it as an enhancement.
+
+[02/26/95 public]
+Sorry, Marc, but no.
+
+We had this discussion shortly after I joined OSF.  After about a year,
+it was decided:  DCE should not waste time or codespace checking for
+things like NULL pointers.  I explained how it can actually HURT debugging,
+letting a program try to proceed when malloc failed, or an earlier
+return code was not checked, or what-have-you.
+
+If you want to open an OT that says little more then "a DCE daemon died"
+I suppose you could. :-)
+
+
+
+CR Number                     : 12657
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : acldb
+Short Description             : dbopen.c missing casts
+Reported Date                 : 10/18/94
+Found in Baseline             : 1.1
+Found Date                    : 10/18/94
+Severity                      : D
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : dbopen.c
+Sensitivity                   : public
+
+[10/18/94 public]
+
+From dbimpl.h:
+
+> struct db_info_s_t {
+>     unsigned32		index_type;	/* index_type from dce_db_handle_s_t */
+>     dce_db_header_type_t header_type;	/* standard, ACL, or no header? */
+>     utc_t		created;	/* date db created */
+>     utc_t		modified;	/* date db last modified */
+> };
+> typedef struct db_info_s_t db_info_t;
+> 
+> struct dce_db_handle_s_t {
+>     DB			*db;		/* dbm handle */
+>     unsigned32		iter_state;	/* iteration state */
+>     unsigned32		index_type;	/* by uuid or name */
+>     boolean		readonly;	/* opened database read-only? */
+>     db_info_t		*info;		/* database info */
+>     dce_db_convert_func_t	convert;
+>     pthread_mutex_t	mutex;		/* for lower-level db i/o */
+>     pthread_mutex_t	app_mutex;	/* for dce_db_lock/unlock */
+>     uuid_t		uuidkey;	/* for dce_db_iter_next{_by_uuid} */
+>     char		*namekey;	/* for dce_db_iter_next{_by_name} */
+> };
+  
+From dbopen.c:
+  
+>     (*h) = (dce_db_handle_t)malloc(sizeof(struct dce_db_handle_s_t));
+>     memset(*h, 0, sizeof(struct dce_db_handle_s_t));
+
+OK so far.  h->info later gets initialized, but the void pointer returned by
+malloc and calloc is never cast to be a pointer to a db_info_t struct.  Here
+are the diffs to fix it:
+
+
+*** dbopen.c	Tue Oct 18 15:42:29 1994
+--- dbopen.c.fix	Tue Oct 18 15:47:58 1994
+***************
+*** 286,292 ****
+      utc_t		now;
+  
+      *st = error_status_ok;
+!     h->info = calloc(1, sizeof(db_info_t));
+      utc_gettime(&now);
+      h->info->created	= now;
+      h->info->modified	= now;
+--- 286,292 ----
+      utc_t		now;
+  
+      *st = error_status_ok;
+!     h->info = (db_info_t *)calloc(1, sizeof(db_info_t));
+      utc_gettime(&now);
+      h->info->created	= now;
+      h->info->modified	= now;
+***************
+*** 313,319 ****
+  	return;
+      }
+      if (!h->info) {
+! 	h->info = malloc(sizeof(db_info_t));
+      }
+      memcpy(h->info, content.data, sizeof(db_info_t));
+      pthread_mutex_unlock(&h->mutex);
+--- 313,319 ----
+  	return;
+      }
+      if (!h->info) {
+! 	h->info = (db_info_t *)malloc(sizeof(db_info_t));
+      }
+      memcpy(h->info, content.data, sizeof(db_info_t));
+      pthread_mutex_unlock(&h->mutex);
+
+[1/18/94 public]
+With ANSI C say you never need to cast a function that returns (void *),
+like malloc and friends, when doing such an assignment.  If your compiler
+does not like this, then it is not ANSI C-compliant.
+I'll consult Rich S, and probably cancel this.
+
+[10/18/94 public]
+
+You're quite right.  I was a bit confused by this line in dbopen.c:
+
+>     (*h) = (dce_db_handle_t)malloc(sizeof(struct dce_db_handle_s_t));
+
+but I will have to assume that opaque datatypes require special treatment.
+db_info_t is not opaque, so no need for the cast.
+
+And I'll ask the customer about their stdlib.h.
+
+[10/19/94 public]
+If properly declared, the return value of malloc never needs to be cast.
+Our source has an extra cast in it, it seems; oh well.  Cancel this.
+
+(PS:  calloc?  ick.)
+
+[1/2/94 public]
+Yes, calloc, and yes, ick.
+
+Even if the customer's (Hitachi's) stdlib.h is right, their compiler
+may be wrong...
+
+
+
+CR Number                     : 12607
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : variables uninited in svc
+Reported Date                 : 10/12/94
+Found in Baseline             : 1.1b21
+Found Date                    : 10/12/94
+Severity                      : C
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/12/94 public]
+
+          (IBM svc defect 10728):
+
+          dce_svc_g_map and dce_svc_g_map_size uninitialized
+
+
+          The variables dce_svc_g_map and dce_svc_g_map_size
+          are uninitialized, causing the shutdown routine
+          to process invalid addresses in the map table in some cases.
+          Initializing the variables to 0 in svcreg.c ensures that
+           the table is always valid during dce_svc__shutdown.
+
+          If you have any explicit questions contact Gerry at
+          gthome@dss1.austin.ibm.com, (512)838-2256.
+
+[10/13/94 public]
+No, they are implicitly initialized to zero by defining them as global
+variables in svcreg.c.  Buggy C compiler?  I think this should be cancelled.
+
+[1/13/94 public]
+What Rich says is true.  These are defined in svcreg.c by:
+    dce_svc_handle_t        *dce_svc_g_map;
+    int                     dce_svc_g_map_size;
+which initialized them to nulls.  Canceling.
+
+
+
+CR Number                     : 12499
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : 
+Short Description             : dce.clean/ce_shutdown should
+clean old audit trail files.
+Reported Date                 : 10/4/94
+Found in Baseline             : 1.1b20
+Found Date                    : 10/4/94
+Severity                      : B
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/4/94 public]
+
+dce.clean/dce_shutdown does not clean, between re-starts, the files 
+with names
+
+	sec_audit_trail.1994-09-29-21-32-02
+	sec_audit_trail.1994-09-29-21-32-02.md_index
+
+created in /opt/dcelocal/var/security. 
+
+The accumulation of these files in this directory eats the
+resources needed by DCE.
+
+[10/4/94 public]
+
+Mike Burati says this is not a good thing to do...
+
+He wrote....
+
+ 		....             it's not a good idea for dce.clean 
+to remove these files.  They are not current state files, they are 
+persistent state files.  The whole purpose of the files is for an 
+administrator to be able to go back and figure out who broke something 
+or who broke into what account at what time... any time in the future.  
+People may use dce.clean to stop daemons before rebooting their machine, 
+just to be safe.  You don't want to wipe out their audit trails when 
+doing that.  It must be an explicit action on the administrator's 
+behalf that removes an audit trail.
+
+
+
+CR Number                     : 12497
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : SVC FVT
+Short Description             : Need SVC FVT ASAP
+Reported Date                 : 10/4/94
+Found in Baseline             : 1.1b20
+Found Date                    : 10/4/94
+Severity                      : A
+Priority                      : 0
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/4/94 public]
+Need SVC FVTs ASAP
+
+[10/05/94 public]
+Did you have anything particular in mind?  The SVC functional tests
+are currently a hand-test based on Doug Weir's example code.
+
+[10/5/94 public]
+Seemed like a good idea...... cancelled.
+
+
+
+CR Number                     : 12363
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : utils
+Subcomponent Name             : acl
+Short Description             : acl test dumps core
+Reported Date                 : 9/27/94
+Found in Baseline             : 1.1b18
+Found Date                    : 9/27/94
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[9/27/94 public]
+The acl test dumps core on the HP.
+Also fails to run "add_principals.tcl".
+Also, catches wrong signal on HP (HP: 20, osf1: 26)
+(perhaps should not catch any).
+
+[1/3/94 public]
+Fixed the add_principals.tcl part last week.
+
+The coredump is in ./test/lib/libdcetst/tst_dce_login.c: tst_dce_login()
+in a sec_login_* call.  (Not a whole lot goes on between main() and here
+and it's doing pretty much what dce_login does.  Mysterious.)
+
+[1/3/94 public]
+Unrelated problem:  I think this is just a warning.  On 486, I get this
+message, which I ignore (and the tests all report PASS):
+    Current site is: registry server at /.../bigred/subsys/dce/sec/master 
+    ?(rgy_edit) Unable to add key - Specified key already exists in key store (dce / sec)
+
+[1/27/94 public]
+Will not make it to 1.1.  The only problem of concern seems to be the core
+dump on the HP.  I can not figure out why, not could others who have looked
+at the code.  First thing I'd try is to take the steps that tst_dce_login()
+does, and put them in-line, where the calls to setup() are.
+
+Why am I not worried?  None of the real (non-test) code has problems with
+these ACL calls, so I'm confident it's the test code.
+
+[9/3/96 public]
+Don't see any core dumps when running these tests.
+
+
+
+CR Number                     : 12202
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 12204
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : app_ref
+Short Description             : need to create dce_db_intro.3dce
+Reported Date                 : 9/15/94
+Found in Baseline             : 1.1doc
+Found Date                    : 9/15/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/15/94 public]
+
+I'm opening this CR for Hal Lichtin...the dce_db* routines
+need their own intro page. Assigning this CR to Peter Neilson
+(OSF backing store writer).
+
+[10/04/94 public]
+I'm cancelling this because Julie Buckler already wrote the dce_db_intro
+page in the course of her work on CR 12204.
+
+
+
+CR Number                     : 11819
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : attr
+Short Description             : A xattrschema rpc_if_handle should be used to import a binding
+Reported Date                 : 8/22/94
+Found in Baseline             : 1.1
+Found Date                    : 8/22/94
+Severity                      : C
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/22/94 public]
+Nav at Hp caught the problem when a wrong name was supplied to
+dce_attr_sch_bind(). The dce_attr_sch_bind() should have retruned a
+error in that case, but it returned ok instead, so of course the following
+rpc call was rejected by "unknown interface". The reason is that a NULL
+rpc_if_handle is used while importing a binding and the wrong name can
+be partial resolved and there also happens to be a bining exported to the 
+resolved name (entry). The dced binding code has the same problem and need 
+be fixed too.
+
+[08/23/94 public]
+Not so fast.  I assume you're importing with a NULL if_handle right now.
+That is really the right thing to do for "generic" interfaces like
+rdacl, svc, and xattr.  Putting the if_handle there requires everyone to
+export the interface into the namespace which should not be necessary.
+(Try acl_edit /.:/hosts/HOSTNAME/self)
+
+[08/23/94 public]
+But what if it binds to a "wrong" server which doesn't provide the i/f
+at all? Is that a reasonable scenario?
+
+[08/23/94 public]
+Yes, it's a trade-off.  Try my acl_edit experiment.
+
+[08/23/94 public]
+Cancelled by the reason Rich gives.
+
+
+
+CR Number                     : 11736
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : Serviceability debug
+routine corrupts global memory
+Reported Date                 : 8/17/94
+Found in Baseline             : 1.1b14
+Found Date                    : 8/17/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/17/94 public]
+
+In dtsd, a call to the DCE_SVC_DEBUG() macro (dce_svc__debug) function
+corrupts global memory. A (file static) global pointer is overwritten
+such that uninitialized data is used in utc_adjtime(), which results
+in a floating-point violation and a core dump.
+
+The call is at line 838 in time/service/dtss_service_main.c If this
+call is removed, subsequent calls to the serviceability debug code
+don't seem to manifest this problem. 
+
+Further info: doesn't seem to be happening on the AT386.
+
+[8/18/94 public]
+Not this time. Cancelled. This looks to be an initialization shoot-out
+between two DTS functions.
+
+
+
+CR Number                     : 11622
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : 
+Short Description             : need more info/better examples for s12y routing
+Reported Date                 : 8/9/94
+Found in Baseline             : 1.1b14
+Found Date                    : 8/9/94
+Severity                      : E
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : /opt/dcelocal/var/svc/routing
+Sensitivity                   : public
+
+[8/9/94 public]
+
+The routing file/template needs more/better examples. In particular,
+it would be REALLY nice if it listed all the available component
+abbreviations ...
+
+[08/12/94 public]
+Perhaps this is more appropriate for the porting&testing book, and not
+the sample file.  Certainly knowing that "sec" "rpc" "dts" etc are
+valid component names for debug messaging isn't very useful without
+knowing that the sub-components mean.  But I could be wrong.  I think
+you should feel free to add (as comments) more useful examples if
+you want as a way of fixing this CR.
+
+[8/15/94 public]
+You're right - I meant to say sub-components as well - if it IS too
+much to make a useful table/template w/in this file
+(/opt/dcelocal/var/svc/routing), then yes, this
+is info that should be in the porting and testing guide. I'm adding
+the component names here and switching this to a doc bug - if the
+end result is that we can plug a useful subset of what's in the
+guide directly in the file, I'll be getting what I want ...
+
+admin
+	dced/idl/dhd.sams:		dhd
+	dcecp/dcp.sams:			dcp
+	tcl_dce/tcl.sams:		tcl
+	dce/utils
+	svc/svc.sams:			svc
+	dcecf/cfg.sams:			cfg
+	misc/lib.sams:			lib
+directory
+	cds/includes/cds.sams:		cds
+	gds/sams/gds.sams:		gds
+rpc
+	idl/uuidgen/uid.sams:		uid
+	sys_idl/rpc.sams:		rpc
+	csrc/csr.sams:			csr
+security
+	h/sad.sams:			sad
+	idl/sec.sams:			sec
+	audit/libaudit/aud.sams:	aud
+	gssapi/gss.sams:		gss
+time
+	common/dts.sams:		dts
+file
+	afsd/dsd.sams:			dsd
+	dfsbind/dsb.sams:		dsb
+	fsprobe/fsp.sams:		fsp
+	gtx/gtx.sams:			gtx
+	pxd/fxd.sams:			fxd
+	tools/cmd/cmd.sams:		cmd
+	update/udt.sams:		udt
+	userInt/cm/cmu.sams:		cmu
+	xaggr/xag.sams:			xag
+	gateway/dfsgwd/gwy.sams:	gwy
+
+NOTE that file s12y is NOT fully implemented so ROUTING
+is NOT available in dce1.1
+
+[8/24/94 public]
+
+Assigned to port guide owner
+
+[08/25/94 public]
+Filled in the "Fix By Baseline" field for housekeeping purposes.
+This may change when Doug (Resp. Eng.) reviews the priority
+and severity for this CR.
+
+[10/26/94 public]
+I may not be marking this correctly, but here's what has happened.
+It was finally decided that  the component and sub-component abbreviations
+ought not to appear in the manpage, so they were taken out. However,
+such lists do appear in the Porting Guide, and they are being updated
+for 1.1. I do not know if these lists appear anywhere else in the
+documentation.
+
+
+
+CR Number                     : 11605
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : dce_config
+Short Description             : interactive dce_config asks
+for "Cell Administrator" on OSF1 but not on HPUX.
+Reported Date                 : 8/8/94
+Found in Baseline             : 1.1b14
+Found Date                    : 8/8/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/8/94 public]
+
+Using NB -
+
+On an HPUX, runing dce_config interactively it asks:
+
+
+        Enter desired principal name for the Cell Administrator:
+(cell_admin) 
+        Enter desired password for the Cell Administrator: 
+        Re-enter desired password: 
+
+on an OSF1, dce_config leaves these out. I have not tried on
+RIOS.
+
+Example:
+
+On OSF1:
+========
+
+        Enter the name of your cell (without /.../): test1
+S:****** Starting dced...
+WARNING: If "dced" was recently running, and was using the TCP protocol
+sequence to listen for calls to the server, then a TCP shutdown period of
+up to 4 minutes is required before restarting "dced" in order to avoid
+"cannot bind socket" errors.
+        Press <RETURN> to continue, CTRL-C to exit: 
+S:****** Initializing dced...
+DCED listening...
+        Enter keyseed for initial database master key: 
+
+S:****** The current highest UNIX ID for persons on this node is 1417.
+        Enter the starting point to be used for UNIX ID's that
+        are automatically generated by the Security Service
+        when a principal is added using "rgy_edit": (1517) 
+S:****** The current highest UNIX ID for groups is 1000.
+        Enter the starting point to be used for UNIX ID's that
+        are automatically generated by the Security Service
+        when a group is added using "rgy_edit": (1100) 
+
+On HPUX:
+========
+
+        Enter the name of your cell (without /.../): test2
+S:****** Starting dced...
+WARNING: If "dced" was recently running, and was using the TCP protocol 
+         sequence to listen for calls to the server, then a TCP shutdown
+period
+         of up to 4 minutes is required before restarting "dced" in order
+to 
+         avoid "cannot bind socket" errors.
+        Press <RETURN> to continue, CTRL-C to exit: 
+S:****** Initializing dced...
+DCED listening...
+        Enter keyseed for initial database master key: 
+
+
+        Enter desired principal name for the Cell Administrator:
+(cell_admin) 
+        Enter desired password for the Cell Administrator: 
+        Re-enter desired password: 
+
+S:****** The current highest UNIX ID for persons on this node is 12338.
+        Enter the starting point to be used for UNIX ID's that
+        are automatically generated by the Security Service
+        when a principal is added using "rgy_edit": (12438) 
+S:****** The current highest UNIX ID for groups is 5000.
+        Enter the starting point to be used for UNIX ID's that
+        are automatically generated by the Security Service
+        when a group is added using "rgy_edit": (5100) 
+S:****** Starting secd...
+
+[8/8/94 public]
+This is not a bug, you probably have your CELL_ADMIN and CELL_ADMIN_PW
+environment variables set on the OSF/1 machine.
+
+[8/8/94 public]
+
+Tom, you are right. The .profile in my home machine is not exactly 
+the same as on the test machines. Sorry about that. I'll cancell this.
+
+
+
+CR Number                     : 11283
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : 
+Short Description             : dce64.h contains platform
+specific code
+Reported Date                 : 7/13/94
+Found in Baseline             : 1.1
+Found Date                    : 7/13/94
+Severity                      : C
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/13/94 public]
+
+The file dce/utils/misc/dce64.h contains macro definitions which are
+platform specific (e.g. assumes 32 bit longs), and that really depend
+on the type definitions of the unsigned64 data type, defined in
+dce.h. This file should moved to a platform specific directory, or at
+least a "platform-neutral" one (e.g. POSIX).
+
+[7/29/94 public]
+After discussion, we have decided that this file can remain in
+utils/misc, since different architectures (i.e. those that support 
+longs larger that 32 bits) can be supported using the following macro.
+
+#if LONG_BIT >= 64. 
+...
+#endif
+
+LONG_BIT is a XPG4 blessed macro, and is thus not platform dependent.
+
+
+
+CR Number                     : 11144
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : can't build svcbin_cstub.c because utctypes.h is missing
+Reported Date                 : 6/30/94
+Found in Baseline             : 1.1
+Found Date                    : 6/30/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : /dev/null
+Sensitivity                   : public
+
+[6/30/94 public]
+
+I created a totally new sandbox  named j on AT386
+(base: /tmp/jk, backed against /project/dce/build/dce1.1), did
+
+mkdir -p dce/utils/svc
+cd dce/utils/svc
+build
+
+and got:
+
+relative path: ./dce/utils/svc
+mkdir ../../../../obj/at386/dce
+mkdir ../../../../obj/at386/dce/utils
+mkdir ../../../../obj/at386/dce/utils/svc
+cd ../../../../obj/at386/dce/utils/svc
+exec make MAKEFILE_PASS=AUTOGEN  _SUBMAKE_=_IS_SUBMAKE_  build_all
+/project/dce/build//dce1.1/tools/at386/bin/sams  -oh /project/dce/build/dce1.1/src/dce/utils/svc/svc.sams
+/project/dce/build//dce1.1/tools/at386/bin/sams  -ot /project/dce/build/dce1.1/src/dce/utils/svc/svc.sams
+/project/dce/build//dce1.1/tools/at386/bin/sams  -omc /project/dce/build/dce1.1/src/dce/utils/svc/svc.sams
+rm -rf service.h
+/project/dce/build//dce1.1/tools/at386/bin/idl -cpp_cmd "/project/dce/build//dce1.1/tools/at386/macho/cpp"     -no_mepv -keep c_source   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -client none -server none /project/dce/build/dce1.1/src/dce/utils/svc/service.idl
+rm -rf svcbin.h
+/project/dce/build//dce1.1/tools/at386/bin/idl -cpp_cmd "/project/dce/build//dce1.1/tools/at386/macho/cpp"     -no_mepv -keep c_source  -I../../../time/common -I/tmp/jk/j/src/time/common -I/tmp/jk/j/src/time/common -I/project/dce/build/dce1.1/src/time/common -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -client none -server none /project/dce/build/dce1.1/src/dce/utils/svc/svcbin.idl
+rm -rf /tmp/jk/j/export/at386/usr/include/dce/service.h
+makepath /tmp/jk/j/export/at386/usr/include/dce/service.h
+(cd .; tar cfh - service.h) |  (cd /tmp/jk/j/export/at386/usr/include/dce; tar xf -)
+rm -rf /tmp/jk/j/export/at386/usr/include/dce/svcbin.h
+makepath /tmp/jk/j/export/at386/usr/include/dce/svcbin.h
+(cd .; tar cfh - svcbin.h) |  (cd /tmp/jk/j/export/at386/usr/include/dce; tar xf -)
+exec make MAKEFILE_PASS=FIRST  _SUBMAKE_=_IS_SUBMAKE_  build_all
+rm -rf /tmp/jk/j/export/at386/usr/include/dce/dcesvcmsg.h
+makepath /tmp/jk/j/export/at386/usr/include/dce/dcesvcmsg.h
+(cd .; tar cfh - dcesvcmsg.h) |  (cd /tmp/jk/j/export/at386/usr/include/dce; tar xf -)
+exec make MAKEFILE_PASS=FIRSTA  _SUBMAKE_=_IS_SUBMAKE_  build_all
+exec make MAKEFILE_PASS=FIRSTB  _SUBMAKE_=_IS_SUBMAKE_  build_all
+exec make MAKEFILE_PASS=THIRD  _SUBMAKE_=_IS_SUBMAKE_  build_all
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/msgdeftable.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/msggetdef.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/msggetmsg.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/msgget.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/msgtable.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/msgtrans.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/msgxpgcat.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/msgpthread.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/rpmatch.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/dceassert.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/dceprintf.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/svcprintf.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/svcreg.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/svcroute.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/svcfilter.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/svclog.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/svcpthread.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/svcremimpl.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/svcacl.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/svcaclacc.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/svcaclconv.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   /project/dce/build/dce1.1/src/dce/utils/svc/svcaclstore.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   dcesvcmsg.c
+rm -rf service_sstub.c
+/project/dce/build//dce1.1/tools/at386/bin/idl -cpp_cmd "/project/dce/build//dce1.1/tools/at386/macho/cpp"     -no_mepv -keep c_source   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -client none -header /tmp/service.h /project/dce/build/dce1.1/src/dce/utils/svc/service.idl
+rm -rf /tmp/service.h
+rm -rf svcbin_cstub.c
+/project/dce/build//dce1.1/tools/at386/bin/idl -cpp_cmd "/project/dce/build//dce1.1/tools/at386/macho/cpp"     -no_mepv -keep c_source  -I../../../time/common -I/tmp/jk/j/src/time/common -I/tmp/jk/j/src/time/common -I/project/dce/build/dce1.1/src/time/common -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -server none -header /tmp/svcbin.h /project/dce/build/dce1.1/src/dce/utils/svc/svcbin.idl
+rm -rf /tmp/svcbin.h
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc   -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   service_sstub.c
+/project/dce/build//dce1.1/tools/at386/macho/gcc -B/project/dce/build//dce1.1/tools/at386/macho/  -c    -D_SHARED_LIBRARIES -O      -I. -I/tmp/jk/j/src/dce/utils/svc -I/tmp/jk/j/src/dce/utils/svc -I/project/dce/build/dce1.1/src/dce/utils/svc  -I../../../time/common -I/tmp/jk/j/src/time/common -I/tmp/jk/j/src/time/common -I/project/dce/build/dce1.1/src/time/common -I/tmp/jk/j/export/at386/usr/include -I/tmp/jk/j/export/at386/usr/include -I/project/dce/build//dce1.1/export/at386/usr/include   -pic-lib   -L/tmp/jk/j/export/at386/usr/shlib -L/tmp/jk/j/export/at386/usr/shlib -L/project/dce/build//dce1.1/export/at386/usr/shlib -L/usr/shlib -L/tmp/jk/j/export/at386/usr/lib     -L/tmp/jk/j/export/at386/usr/lib     -L/project/dce/build//dce1.1/export/at386/usr/lib    -ldce   svcbin_cstub.c
+In file included from svcbin_cstub.c:5:
+./svcbin.h:21: utctypes.h: No such file or directory
+*** Error code 1
+`build_all' not remade because of errors.
+*** Error code 1
+`build_all' not remade because of errors.
+
+
+I think utctypes.h should be included with <dce/utctypes.h>. (??)
+
+[06/30/94 public]
+OK - you have to build time/common first. Then utctypes.h is copied
+to <my_sb>/obj/at386/time/common, and SVC finds it there via INCFLAGS.
+
+I think svcbin.h should really include <dce/utctypes.h>.
+It is not a good style to include header files from the object tree.
+
+[6/3/94 public]
+
+In general you can not create an empty sandbox, "cd" someplace, and build.
+This is what makes it work for most components: "build export_all_EXPINC"
+from the top of the tree in your sandbox.  (takes 15 min?)
+
+You can't include <dce/utctypes.h>, because during the export pass, when
+we're in svc, utctypes.h has not yet been exported.  The comment in
+svcbin.idl says:
+	/* Change back when top-level Makefile visits time (or time/common?)
+	 * before dce/utils/svc in the export pass. */
+	/*import "dce/utctypes.idl";*/
+	import "utctypes.idl";
+I am told that there are plans to fix this and a lot of similar cases (all
+at the same time).  (Don't know the CR)
+
+
+
+CR Number                     : 10676
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 12232
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : db
+Short Description             : db_store does not perform proper locking of the BS.
+Reported Date                 : 5/17/94
+Found in Baseline             : 1.1
+Found Date                    : 5/17/94
+Severity                      : B
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/17/94 public]
+
+In FVT ./dce/utils/acldb/ts/db/dce_db_misc.c[db_lock], the dce_db_store()
+routine succeeds in inserting into a locked BS when I believe it should
+return db_s_already_locked.
+
+The same may or may not be true for other DB update operations should as 
+dce_db_delete(), etc.
+
+[9/6/94 public]
+Reran FVT's.  Looks like same thing still happens.
+
+[9/16/94 public]
+It's supposed to behave this way.  One big reason: you may want to lock the
+backing store to do multiple stores (or deletes).  I'll adjust the FVT.
+
+Peter, would you check that the doc for dce_db_store* and delete* say
+that if you want the thing locked, lock it yourself?  Then update this CR
+(and I'll close it when the FVT is checked in).
+
+[10/19/94 public]
+I'm cancelling this CR because 12232 addresses the matter directly, and I
+fixed the documentation as it requested.
+
+
+
+CR Number                     : 10638
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 10456
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : editline
+Short Description             : ALT doesn't work in readline
+Reported Date                 : 5/13/94
+Found in Baseline             : 1.1
+Found Date                    : 5/13/94
+Severity                      : D
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/13/94 public]
+
+In the dcecp command line editor, ALT+key does not act like ESC-key
+(the way it does in emacs and tcsh). It would be really nice if it
+did. (I could swear that it did work until fairly recently -- maybe
+about bl 6 or 7.)
+
+[05/16/94 public]
+This was removed when editline was changed to support 8bit characters.
+Cancelling.
+
+
+
+CR Number                     : 10525
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : svc_c_action_exit_bad does not exit
+Reported Date                 : 5/4/94
+Found in Baseline             : 1.1
+Found Date                    : 5/4/94
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/4/94 public]
+
+Some audit testcases (auditd_startup03) rely on the exit that 
+dce_svc_printf with attribute svc_c_action_exit_bad provides,
+and this ceased to work about a week or so ago.
+
+[6/1/94 public]
+In baseline9, it happens on HP only, does not happen on RIOS anymore.
+To recreate, run "auditd -i".  auditd should not start.
+
+[6/7/94 public]
+Using new svc source code sent by John Bowe, the rest being still baseline 9,
+the problem has disappeared on HP as well.
+
+
+
+CR Number                     : 10477
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : Exporting remote interfaces in GDS?
+Reported Date                 : 4/28/94
+Found in Baseline             : 1.1
+Found Date                    : 4/28/94
+Severity                      : D
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/28/94 public]
+
+Is it necessary for the GDS, to export the remote interfaces
+"dce_svc_inq_components" and "dce_svc_inq_table" ?
+Only one of the GDS servers (the IPC monitoring process) will
+export the remote interface. As the setting of the routing
+specification might be different for each of the GDS servers on
+a particular machine, there is no well defined result for these
+functions. To achieve this, the interface should be changed to
+specify the particular server, whose setting is inquired.
+
+[09/08/94 public]
+Let me make sure that I understand.  Only one GDS program exports the
+DCE serviceability interface.  You would like the IDL file changed so
+that "inq_components" took in a string that could be used to identify
+the actual GDS process, and similarly for inq_table?  If so, then I am
+cancelling this.  It's not required and goes against the DCE philosophy:
+servers should speak DCE.  Yes, GDS is different, but I think here
+the philosophy is more important.  It was never a requirement that GDS
+be able to change routings and such on the fly -- we were (and still
+are)very pleased by the amount of SVC work SNI has done.
+
+If you want to change the GDS DCE server sp that it returns "operation
+not supported" or some such, that is fine.  (Just remember to set the count
+field to zero so IDL doesn't try to marshall garbage. :-)
+
+
+

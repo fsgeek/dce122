@@ -1,0 +1,105 @@
+#!/bin/sh
+# 
+# @OSF_COPYRIGHT@
+# 
+# 
+# HISTORY
+# $Log: makeidx,v $
+# Revision 1.1.2.3  1996/12/04  21:47:27  weir
+# 	No change
+# 	[1996/12/04  21:47:03  weir]
+#
+# Revision 1.1.2.2  1996/11/27  21:34:34  weir
+# 	Modified by Rich Salz for SGML
+# 	[1996/11/27  21:34:14  weir]
+# 
+# Revision 1.1.2.1  1996/11/27  20:19:20  weir
+# 	Initial submission
+# 	[1996/11/27  20:18:58  weir]
+# 
+# $EndLog$
+# 
+# 
+# 
+# COPYRIGHT NOTICE
+# Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+# ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+# the full copyright text.
+# 
+# 
+# OLD HISTORY
+# 
+# Revision 1.1.2.3  1994/10/21  18:10:20  steto
+# 	{enh, CR9951, R1.1, Repalaced the contents with final version of script.}
+# 	[1994/10/21  18:10:01  steto]
+# 
+# Revision 1.1.2.2  1994/06/13  16:18:16  devobj
+# 	cr10872 - fix copyright
+# 	[1994/06/13  16:14:07  devobj]
+# 
+# Revision 1.1.2.1  1994/06/06  16:02:44  digan
+# 	Initial submission
+# 	[1994/06/06  16:02:08  digan]
+# 
+# 	{enh, CR9951, R1.1}
+# 	This script is to be used to create the two tables for the sams index.
+# 
+# 
+# makeidx
+# We assume this script is run in the directory where all
+# the individual SAMS files have been processed to get the
+# separate .idx files, as in
+#       sams -sn -ox XXX.sams
+#       sams -sn -ox YYY.sams
+#       ... and so on.
+# This creates dceXXXmsg.idx, dceYYYmsg.idx, etc., sorted by
+# numeric value.
+
+# Merge all the idx files into one master sorted file.
+cat dce*msg.idx | sed -e 's/ *@ */@/g' -e 's/\\n//' >full.idx
+
+# Create idx-part-1, which has two columns in numeric order:
+#       0x10d0a0a4      CDSCP_ACC_DENIED
+sort -t@ -n +2 -d full.idx | awk -F@ '{print $3, "@", $2 }' >idx-part-1
+
+# Sort alphabetically and create idx-part-2, which looks like:
+#       Acess Denied    CDSCP_ACC_DENIED
+cat <<EOF >idx-part-2
+<!-- -->
+<informaltable>
+<!------------------------------------------------------------- -->
+<tgroup cols="2" colsep="0" rowsep="0">
+<!------------------------------------------------------------- -->
+<colspec colwidth="3in">
+<colspec colwidth="3in">
+<!-- -->
+<thead>
+<row>
+<entry align="left" valign="top">
+Message Text</entry>
+<entry align="left" valign="top">
+Symbolic Name</entry>
+</row>
+</thead>
+<tbody>
+<!------------------------------------------------------------- -->
+<!-- -->
+EOF
+
+sort -t@ -f -d +3 full.idx | awk -F@ '{
+    if ($2 != "" && $4 != "") {
+	printf("<row><entry>%s</entry><entry>%s</entry></row>", $4, $2);
+    }
+}' >>idx-part-2
+
+cat <<EOF >>idx-part-2
+<!-- -->
+<!------------------------------------------------------------- -->
+</tbody>
+</tgroup>
+</informaltable>
+<!------------------------------------------------------------- -->
+EOF
+
+# We're done.
+exit

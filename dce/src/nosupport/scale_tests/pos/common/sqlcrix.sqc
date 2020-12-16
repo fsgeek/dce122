@@ -1,0 +1,165 @@
+/*********************************************************************/
+/* SQLCRIX.SQC Creates Indexes and RUNSTATS for DB2/2 Tables for POS */
+/*********************************************************************/
+/*** IBM Corporation                                               ***/
+/*** OS/2-AIX PSP Systems Performance                              ***/
+/*** Department 57LS                                               ***/
+/*** 11400 Burnet Road                                             ***/
+/*** Austin Texas 78759                                            ***/
+/*** Bob Russell, ZIP 9151                                         ***/
+/*** (512) 838-0844 TL 678-0844                                    ***/
+/*** robert_russell@vnet.ibm.com                                   ***/
+/*********************************************************************/
+/*****************************************************************************
+ * COPYRIGHT:                                                                *
+ * ----------                                                                *
+ * Copyright (C) International Business Machines Corp., 1993,1994,1995,1996. *
+ *                                                                           *
+ * DISCLAIMER OF WARRANTIES:                                                 *
+ * -------------------------                                                 *
+ * The following [enclosed] code is sample code created by IBM               *
+ * Corporation.  This sample code is not part of any standard IBM product    *
+ * and is provided to you solely for the purpose of assisting you in the     *
+ * development of your applications.  The code is provided "AS IS",          *
+ * without warranty of any kind.  IBM shall not be liable for any damages    *
+ * arising out of your use of the sample code, even if they have been        *
+ * advised of the possibility of such damages.                               *
+ *****************************************************************************/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <os2.h>
+#include <os2def.h>
+
+#include <sys\stat.h>
+#include <sys\timeb.h>
+#include <sys\types.h>
+#include "pos.h"
+
+#include "sql.h"
+#include "sqlenv.h"
+#include "sqlca.h"
+#include "sqlcodes.h"
+#include "sqlutil.h"
+#include "sqlda.h"
+
+/* * * * * * * * * * * * * * * global/external variables  * * * * * * * * * */
+void dump_sqlca(void);
+
+EXEC SQL INCLUDE SQLCA;
+
+/***********************************************
+ Begin MAIN
+ ***********************************************/
+
+
+void main(short argc, unsigned char * argv[]);
+void main(short argc, unsigned char * argv[])
+{
+  char          * env_ptr = NULL;
+  unsigned char database[24]={"POS96"};
+  char          *indexlist[1];
+
+  EXEC SQL BEGIN DECLARE SECTION;
+
+    char       cmdstring[150];
+
+  EXEC SQL END DECLARE SECTION;
+
+  /******************************************************/
+   printf("*******************************************\n");
+   printf("*        IBM Corporation(c) 1995          *\n");
+   printf("*        PSP Systems Performance          *\n");
+   printf("*       Point of Sale DCE Benchmark       *\n");
+   printf("*           Department 59LS               *\n");
+   printf("*             Austin, TX                  *\n");
+   printf("*******************************************\n");
+  /************* GET DB2/2 database name ****************/
+  if (!(env_ptr = getenv("POSDBNAME")))
+    strcpy(database,"POS96");
+  else
+    sprintf(database,env_ptr);
+
+  /************* Open the Database *********************/
+  printf("Start Using Database <%s> ", database);
+  sqlestrd( database, SQL_USE_SHR, &sqlca);
+  printf("SQLCODE= %ld\n",sqlca.sqlcode);
+  if (SQLCODE) dump_sqlca();
+
+  /**************************************************************************/
+  /****  Create indices                                                  ****/
+  /**************************************************************************/
+
+  printf("create unique index cust_phone on posadmin.customer(area_code,phone_no)\n");
+
+  EXEC SQL
+    CREATE UNIQUE INDEX cust_phone ON posadmin.customer(area_code,phone_no);
+
+  if (SQLCODE)  dump_sqlca();
+
+  EXEC SQL COMMIT;
+
+  if (SQLCODE) printf("COMMIT sqlcode= %8ld\n",sqlca.sqlcode);
+
+  printf("create unique index price_item on posadmin.price(item_no)\n");
+
+  EXEC SQL
+    CREATE UNIQUE INDEX price_item ON posadmin.price(item_no);
+
+  if (SQLCODE)  dump_sqlca();
+
+  EXEC SQL COMMIT;
+
+  if (SQLCODE) printf("COMMIT sqlcode= %8ld\n",sqlca.sqlcode);
+  /************************************/
+
+  printf(" RUNSTATS ON posadmin.customer BOTH.....\n");
+
+  sqlustat("POSADMIN.customer",0,indexlist,'B','R',&sqlca);
+
+  if (SQLCODE) printf("RUNSTATS sqlcode= %8ld\n",sqlca.sqlcode);
+
+  printf(" RUNSTATS ON posadmin.price BOTH.....\n");
+
+  sqlustat("POSADMIN.price",0,indexlist,'B','R',&sqlca);
+
+  if (SQLCODE) printf("RUNSTATS sqlcode= %8ld\n",sqlca.sqlcode);
+
+  /************************************************************************/
+  printf ("STOP USING DATABASE. ");
+  sqlestpd(&sqlca);
+  printf("SQLCODE= %ld\n",sqlca.sqlcode);
+
+  exit;
+}
+/***********************************************
+ End of Main
+ ***********************************************/
+/*****************************/
+void dump_sqlca(void)
+{
+int j=0,k=0,i=0;
+  printf("Error: SQLCODE=%ld\n", sqlca.sqlcode);
+
+  printf("sqlcabc = %ld sqlcode = %ld sqlerrml = %d\n",
+          sqlca.sqlcabc, sqlca.sqlcode, sqlca.sqlerrml);
+
+  printf("slerrmc[]:\n");
+  for(j=0; j < 7 && i < sqlca.sqlerrml; j++)
+  {
+     for(k= 0; k < 10 && i < sqlca.sqlerrml; k++)
+        printf("%x ", sqlca.sqlerrmc[j*10+k]);
+        i++;
+     printf("\n");
+  }
+  printf("sqlerrp[]: ");
+  for(j=0; j< 8; j++) printf("  %x", sqlca.sqlerrp[j]);
+  printf("\nsqlerrd[]: ");
+  for(j=0; j< 6; j++) printf(" %x", sqlca.sqlerrd[j]);
+
+  printf("\nsqlwarn[]");
+  for(j=0; j< 8; j++) printf(" %x", sqlca.sqlwarn[j]);
+  printf("\n");
+}

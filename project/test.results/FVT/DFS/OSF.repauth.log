@@ -1,0 +1,103 @@
+
+---------------------------------------------------------
+
++ sectest.pl: Begin test initialization.
+
+
++ Creating local-cell filesets required for tests
+cm checkfilesets
+All backup filesets checked.
+fts create -ftname cmXSecTest -server slab -aggregate epi0
+cmXSecTest
+	readWrite   ID 0,,38  valid
+	readOnly    ID 0,,39  invalid
+	backup      ID 0,,40  invalid
+number of sites: 1
+   server           flags     aggr   siteAge principal      owner
+slab.transarc.com   RW       epi0    0:00:00 hosts/slab     <nil>               
+Fileset 0,,38 created on aggregate epi0 of slab
+fts crmount -dir /.../slab.dce.transarc.com/fs/cmXSecTest.RW -fileset cmXSecTest -rw
+chmod 777 /.../slab.dce.transarc.com/fs/cmXSecTest.RW
+dcecp -c acl modify /.../slab.dce.transarc.com/fs/cmXSecTest.RW -add {any_other rx}
+
+fts setrepinfo -fileset cmXSecTest -sched
+fts setrepinfo -fileset cmXSecTest -minrepdelay 60s -defaultsiteage 180s
+fts addsite -fileset cmXSecTest -server slab -aggregate epi0
+Added replication site slab epi0 for fileset cmXSecTest
+fts addsite -fileset cmXSecTest -server melkor -aggregate epi0
+Added replication site melkor epi0 for fileset cmXSecTest
+fts crmount -dir /.../slab.dce.transarc.com/fs/cmXSecTest.RO -fileset cmXSecTest.readonly 
+
++ Sleeping 30 seconds to ensure sites are created
+
++ Creating local-cell files required for tests
+Creating file /.../slab.dce.transarc.com/fs/cmXSecTest.RW/Testfile.txt
+chmod 666 /.../slab.dce.transarc.com/fs/cmXSecTest.RW/Testfile.txt
+dcecp -c acl modify /.../slab.dce.transarc.com/fs/cmXSecTest.RW/Testfile.txt -add {any_other r}
+
+fts update -fileset cmXSecTest -all
+fts update: Repserver on slab.transarc.com requested to update fileset 0,,39
+fts update: Repserver on melkor.transarc.com requested to update fileset 0,,39
+
++ Sleeping 30 seconds to ensure replicas are updated
+
+---------------------------------------------------------
+
++ sectest.pl: Starting test repauth
+
+]0;gait @ melkor
+		Server RPC Authentication Test - Repserver
+
+secTestRepAuth.pl: dfstrace clear -cds /.../slab.dce.transarc.com/hosts/slab/repserver
+secTestRepAuth.pl: dfstrace clear -cds /.../slab.dce.transarc.com/hosts/melkor/repserver
+
+secTestRepAuth.pl: fts setrepinfo -fileset cmXSecTest -maxage 240s
+secTestRepAuth.pl: Sleeping 30 seconds to ensure rep info is propagated
+
+secTestRepAuth.pl: dfstrace dump -cds /.../slab.dce.transarc.com/hosts/slab/repserver
+secTestRepAuth.pl: dfstrace dump -cds /.../slab.dce.transarc.com/hosts/melkor/repserver
+
+secTestRepAuth.pl: Searching for authenticated REP_{All}CheckReplicationConfig to /.../slab.dce.transarc.com/hosts/slab/repserver
+secTestRepAuth.pl: Found authn RPC to /.../slab.dce.transarc.com/hosts/slab/repserver (/.../slab.dce.transarc.com/hosts/slab/dfs-server, 5)
+secTestRepAuth.pl: Searching for authenticated REP_{All}CheckReplicationConfig to /.../slab.dce.transarc.com/hosts/melkor/repserver
+secTestRepAuth.pl: Found authn RPC to /.../slab.dce.transarc.com/hosts/melkor/repserver (/.../slab.dce.transarc.com/hosts/melkor/dfs-server, 5)
+
+secTestRepAuth.pl: dfstrace clear -cds /.../slab.dce.transarc.com/hosts/slab/repserver
+secTestRepAuth.pl: dfstrace clear -cds /.../slab.dce.transarc.com/hosts/melkor/repserver
+
+secTestRepAuth.pl: cat /.../slab.dce.transarc.com/fs/cmXSecTest.RO/Testfile.txt > /dev/null
+secTestRepAuth.pl: touch /.../slab.dce.transarc.com/fs/cmXSecTest.RW/Testfile.txt
+secTestRepAuth.pl: Sleeping maxage of cmXSecTest (240 seconds)
+
+secTestRepAuth.pl: cat /.../slab.dce.transarc.com/fs/cmXSecTest.RO/Testfile.txt > /dev/null
+
+secTestRepAuth.pl: dfstrace dump -cds /.../slab.dce.transarc.com/hosts/slab/repserver
+secTestRepAuth.pl: dfstrace dump -cds /.../slab.dce.transarc.com/hosts/melkor/repserver
+
+secTestRepAuth.pl: Searching for authenticated REP_GetVolChangedFiles to /.../slab.dce.transarc.com/hosts/slab/repserver or /.../slab.dce.transarc.com/hosts/melkor/repserver
+secTestRepAuth.pl: Found authn RPC to /.../slab.dce.transarc.com/hosts/melkor/repserver (/.../slab.dce.transarc.com/hosts/melkor/dfs-server, 5)
+
+sectest.pl: Test repauth completed without error
+
+
+---------------------------------------------------------
+
++ sectest.pl: Restoring environment.
+
+
++ Removing files, filesets and mount-points created for tests.
+fts delmount -dir /.../slab.dce.transarc.com/fs/cmXSecTest.RO
+fts rmsite -fileset cmXSecTest -server melkor -aggregate epi0
+Removed replication site melkor 1 for fileset cmXSecTest
+fts rmsite -fileset cmXSecTest -server slab -aggregate epi0
+Removed replication site slab 2 for fileset cmXSecTest
+fts delmount -dir /.../slab.dce.transarc.com/fs/cmXSecTest.RW
+fts delete -fileset cmXSecTest -server slab -aggregate epi0
+Fileset 0,,38 on aggregate epi0 server slab deleted
+
+---------------------------------------------------------
+
++ sectest.pl: Testing complete.
+
+
++ sectest.pl: All tests completed without error

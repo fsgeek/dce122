@@ -1,0 +1,237 @@
+CR Number                     : 13219
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : rpc
+Subcomponent Name             : 
+Short Description             : 
+	This completes submission of XIDL code in the area of C interfacing
+	to C++.  Fix will be in /afs/dce/project/dce/dec/ot13219tar.Z,
+	which will include changed files hdgen.c and cstubmts.c.
+Reported Date                 : 12/5/95
+Found in Baseline             : 1.2.1
+Found Date                    : 12/5/95
+Severity                      : C
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.1
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : 
+		src/rpc/idl/idl/compiler/{hdgen.c,cstubmts.c}
+Sensitivity                   : public
+
+[12/5/95 public]
+
+Interface C to C++ will work on AIX with the addition of the two new
+files hdgen.c and cstubmts.c.
+
+
+
+CR Number                     : 12682
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : i18n
+Short Description             : UHYP: small memory leak in the character compat check routine
+Reported Date                 : 10/20/94
+Found in Baseline             : 1.1b22
+Found Date                    : 10/20/94
+Severity                      : B
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : cs_s_eval.c
+Sensitivity                   : public
+
+[10/20/94 public]
+
+  I found a small memory leak within RPC runtime rpc_cs_char_set_compat_check()
+routine.  This routine accesses OSF code set registry to get an array of 
+character sets which a code set encodes.  The code set registry access 
+routine (dce_cs_rgy_to_loc) will allocate a space for the supported character 
+sets array, and the user of the routine should free it after it is used.
+(Since a user needs to free the space, dce_cs_rgy_to_loc() uses malloc to
+allocate the space, instead of using RPC_MEM_ALLOC macro.)
+
+  The rpc_cs_char_set_compat_check() routine should have freed the space
+after it finished the character sets compatibility checking, but currently it 
+does not.
+
+  The fix is the following.  I already fixed the problem within my sandbox,
+built libdce of both HP and 486, then executed the RPC I18N API functional
+tests to verify the fix does not break anything.
+
+diff cs_s_eval.c /project/dce/build/dce1.1/src/rpc/runtime/cs_s_eval.c
+908c908
+<       unsigned16      *client_char_sets_value, *c_sets_save;
+---
+>       unsigned16      *client_char_sets_value;
+910c910
+<       unsigned16      server_char_sets_number, *s_sets_save;
+---
+>       unsigned16      server_char_sets_number;
+922,924c922
+<
+<       c_sets_save = client_char_sets_value;
+<
+---
+>
+933,934d930
+<       {
+<               free(c_sets_save);
+936d931
+<       }
+938,939d932
+<       s_sets_save = server_char_sets_value;
+<
+973,975d965
+<
+<       free(c_sets_save);
+<       free(s_sets_save);
+
+  I think this CR deserves UHYP category, but I leave the decision to OSF 
+management.  (I left the priority to 1).
+
+[10/20/94 public]
+
+Approved for UHYP, upgraded to P0.
+
+[10/20/94 public]
+
+  Fix was submitted.
+
+
+
+CR Number                     : 7024
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : rpc
+Subcomponent Name             : endpoint mapper
+Short Description             : UDP binding info disappears under stress
+Reported Date                 : 1/26/93
+Found in Baseline             : 1.0.2b10
+Found Date                    : 1/26/93
+Severity                      : D
+Priority                      : 3
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : admin/dced/server/oeops.c
+Sensitivity                   : public
+
+[mhickey 1/26/93 public] 
+  While running the rpc.sec.2 system test, the UDP binding in the
+endpoint map disappears during the run.  The information usually
+disappears in the first couple of hours of the run.
+
+  If this is really an RPC  stress related issue, then it is a serious
+problem, hence the high priority assigned.
+
+  Configuration:
+
+       Cell:   1 PMAX (dce3) 
+                   SEC and CDS server
+               1 RIOS (soldier)
+                   DCE client
+
+       Test:   4 TCP and 1 UDP clients on PMAX (dce3)
+               1 TCP and 3 UDP clients on RIOS (soldier)
+               test server is running on PMAX (dce3)
+
+               For security stress, maximum ticket lifetime 
+               is 5 minutes, and all clients and the server
+               were refreshing their id's at 4 minute intervals.
+
+               For RPC stress, all calls are fully authenticated
+               (ie: protection level is pkt_level_privacy).
+
+  I can provide logs on request, they are a bit much for the 
+  defect report.
+
+[2/1/93 public]
+
+It is possible that what you are seeing is rpcd deleting the  endpoints
+because it unsuccessfully pings the server the endpoint belongs to.
+The slive1 & s slive2 threads  call rpc_mgmt_is_server_listening about 5
+times (the first with a short com timeout) and if the server does not
+respond t, that endpoint gets removed from the map.  Under stress, we have
+seen this happen on a regular basis (apparently the server's call queue
+gets backed up and  the ping packets get dropped like any other rpc's,
+that is they are not out-of-band or anything exotic like that).  Our
+creative solution was to double the total number of tries to 10 and  set
+the com timeout for the last nine to 60 seconds.  Because a single thread,
+slive2, does the final 9 pings, and spends alot of time waiting for 
+the com timeouts to occur, a few crashed servers render "stale endpoint
+deletion" feature ofof rpcd rather  non-real time.  If you discover this
+(rpcd deleting the endpoints) to be your problem, you may find yourself
+digressing into a nasty architectural debate pretty quickly.  I'd be
+happy to share our thoughts on the issue as a 1.1 sort of enhancement.
+For the time being, you might try the longer timeout.
+
+I apologize for textual errors.  I'm trying toedit this over the internet
+since DCEnet is down.
+
+[2/3/93 public]
+
+This does appear to be a case of the rpcd pulling the entry out of the 
+endpoint map when it is not able to make the is_server_listening call to
+the server.  Mark Hickey informs me that he is seeing failures from the
+clients also, so it's not too suprising that the rpcd would not be able
+to reach the server.
+
+I think the 'real' solution to this problem would be to make rpcd find
+some other way of determining if a server is still alive, since it is *not*
+the case that it will always be able to make an rpc to an overloaded 
+server.  (Imagine a server with 1 call executor thread, running calls that
+take 30 minutes to finish.)   There are several ways to do this, none of 
+them simple.
+
+In the meantime, I think the work-around Scott describes is sufficient.
+Except that rather than making 9 calls with 60 second timeouts, I think
+it would be better to make 20 calls with the normal  30 second timeout.
+Spacing the calls over a longer period of time will increase the chances
+that any one call will get through.
+
+[2/10/93 public]
+
+I've submitted the work-around/fix described above.  However, I still have 
+reservations about the assumptions rpcd is making in regard to its ability to reach
+servers.  If we want to make this a safe assumption, then we need to make some
+provision for giving priority to these is_server_listening calls (and possiby
+all of the mgmt operations).  Currently, I think the best solution would be
+to have the runtime create a private thread pool (with 1 thread) for handling
+the mgmt interface.
+
+On the other hand, creating a private thread pool may be too heavy-handed for
+this problem.  For now, I'm changing this CR to an enhancement because it
+probably deserves more thought before actually closing it.
+
+[8/27/93 public]
+
+The current plan is for the dced to maintain server process IDs.  If this
+is the case, the dced should use this information for deciding whether
+servers are still alive, rather than trying to actually call them.
+
+[2/8/96 public]
+
+dced now listens to the ICMP port unreachable message. It removes a DG
+endpoint only if it receives this message. Also, it does not remove a CN
+endpoint if the server is too busy or TCP/IP listen backlog is full.
+
+
+

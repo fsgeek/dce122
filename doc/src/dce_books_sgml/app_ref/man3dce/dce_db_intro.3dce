@@ -1,0 +1,490 @@
+<!--
+# COPYRIGHT NOTICE
+# Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+# ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+# src directory for the full copyright text. 
+# 
+# 
+# HISTORY
+# $Log: dce_db_intro.3dce,v $
+# Revision 1.1.2.7  1996/12/17  20:49:56  damon
+# 	Expanded OSF C O P Y R I G H T   N O T I C E
+# 	[1996/12/17  20:47:07  damon]
+#
+# Revision 1.1.2.6  1996/12/10  20:53:05  carrig
+# 	{enh,R1.2.2}
+# 	Synopses, fonts in PgmListing Listing
+# 	[1996/12/09  21:16:28  carrig]
+# 
+# Revision 1.1.2.5  1996/12/04  17:12:52  carrig
+# 	{enh,R1.2.2}
+# 	VarListEntry
+# 	[1996/12/04  17:09:12  carrig]
+# 
+# Revision 1.1.2.4  1996/12/03  21:14:02  wardr
+# 	{edit,R1.2.2}
+# 	Fixed some Conversion probs
+# 	[1996/12/03  20:58:29  wardr]
+# 
+# Revision 1.1.2.3  1996/12/01  19:13:04  weir
+# 	Removed thinsp entities
+# 	[1996/12/01  19:10:08  weir]
+# 
+# Revision 1.1.2.2  1996/11/29  19:22:34  weir
+# 	Added fragmentary FPIs
+# 	[1996/11/29  19:19:35  weir]
+# 
+# Revision 1.1.2.1  1996/11/29  16:24:38  weir
+# 	Initial submission
+# 	[1996/11/29  16:21:31  weir]
+# 
+# $EndLog$
+# 
+-->
+<!-- Fragment document type declaration subset:
+ArborText, Inc., 1988-1993, v.4001
+<!DOCTYPE Book PUBLIC "-//Davenport//DTD DocBook V2.4//EN" [
+]>
+-->
+<RefEntry Id="DCEADR.MAN3.rsml.1">
+<RefMeta>
+<RefEntryTitle>dce_db_intro</RefEntryTitle>
+<ManVolNum>3dce</ManVolNum>
+</RefMeta>
+<RefNameDiv>
+<RefName><Literal>dce_db_intro</Literal></RefName>
+<RefPurpose>Introduction to the DCE backing store interface</RefPurpose>
+</RefNameDiv>
+<!-- OLD HISTORY-->
+<!-- Revision 1.1.4.1  1996/11/18  16:59:34  wardr-->
+<!-- 	{edit,R1.2.2}-->
+<!-- 	Init capped heads and added PDG pointer-->
+<!-- 	[1996/11/18  16:56:20  wardr]-->
+<!---->
+<!-- Revision 1.1.2.4  1995/06/21  19:16:35  buckler-->
+<!-- 	More 1.1 edits.-->
+<!-- 	[1995/06/21  18:34:19  buckler]-->
+<!-- -->
+<!-- Revision 1.1.2.3  1995/06/21  13:19:41  buckler-->
+<!-- 	More 1.1 edits.-->
+<!-- 	[1995/06/19  15:18:26  buckler]-->
+<!-- -->
+<!-- Revision 1.1.2.2  1995/05/31  17:05:15  buckler-->
+<!-- 	1.1 edits.-->
+<!-- 	PRENTICE HALL reformat.-->
+<!-- 	[1995/05/30  22:45:31  buckler]-->
+<!-- -->
+<!-- Revision 1.1.2.1  1994/09/30  22:04:58  buckler-->
+<!-- 	{enh, 12204, R1.1}-->
+<!-- 	Created this new intro page.-->
+<!-- 	[1994/09/30  22:04:31  buckler]-->
+<!-- -->
+<RefSect1>
+
+<Title>Description</Title>
+<Para>The DCE backing store interface allows you to maintain typed data 
+between program invocations.  For example, you might store 
+application-specific configuration data in a backing store, and 
+then retrieve it from the backing store when the application 
+restarts.  The backing store routines can be used in servers, in
+clients or in standalone programs that do not involve remote procedure
+calls (RPCs).  A program can have more than one backing store open 
+at the same time.
+</Para>
+<Para>Sometimes the backing store is called a database.  For instance, the
+associated IDL file is <Filename>dce/database.idl</Filename>, and the name of the
+backing store routines begin with <Literal>dce_db_</Literal>.  The backing store
+is, however, not a full-fledged database in the conventional sense,
+and it has no support for SQL or for any other query system.
+</Para>
+<RefSect2>
+<Title>Backing Store Data</Title>
+<Para>The backing store interface provides for the tagged storage and 
+retrieval of typed data.  The tag (or retrieval key) can be either 
+a UUID or a standard C string.  For a specific backing store, the 
+data type must be specified at compile time, and is established 
+through the IDL encoding services.  Each backing store can contain 
+only a single data type.
+</Para>
+<Para>Each data item (also called a data object or data record)
+consists of the data stored by a single call to a storage routine 
+(<Function>dce_db_store()</Function>, <Function>dce_db_store_by_name()</Function>, or 
+<Function>dce_db_store_by_uuid()</Function>).  Optionally, data items can 
+have headers.  If a backing store has been
+created to use headers, then every data item must have a header. 
+For a description of the data item header, see the section
+in this reference page entitled <Literal>Data Types and Structures</Literal>.
+</Para>
+</RefSect2>
+<RefSect2>
+<Title>Encoding and Decoding in the Backing Store</Title>
+<Para>When an RPC sends data between a client and a server, it
+serializes the user's data structures by using the IDL encoding
+services (ES), described in the &DCEDg;.
+</Para>
+<Para>The backing store uses this same serialization scheme for
+encoding and decoding, informally called <Replaceable>pickling</Replaceable>, when storing data
+structures to disk.  The IDL compiler, <Literal>idl</Literal>, writes the routine
+that encodes and decodes the data.  
+</Para>
+<Para><?sml-need 7>This routine is passed to
+<Function>dce_db_open()</Function>, remembered in the handle, and used by the store
+and fetch routines:
+<!--no-op:  l-->
+</Para>
+<ItemizedList>
+<ListItem>
+<Para><Function>dce_db_fetch()</Function>
+</Para>
+</ListItem>
+<ListItem>
+<Para><Function>dce_db_fetch_by_name()</Function>
+</Para>
+</ListItem>
+<ListItem>
+<Para><Function>dce_db_fetch_by_uuid()</Function>
+</Para>
+</ListItem>
+<ListItem>
+<Para><Function>dce_db_header_fetch()</Function>
+</Para>
+</ListItem>
+<ListItem>
+<Para><Function>dce_db_store()</Function>
+</Para>
+</ListItem>
+<ListItem>
+<Para><Function>dce_db_store_by_name()</Function>
+</Para>
+</ListItem>
+<ListItem>
+<Para><Function>dce_db_store_by_uuid()</Function>
+</Para>
+</ListItem>
+</ItemizedList>
+<!--no-op:  b-->
+</RefSect2>
+<RefSect2>
+<Title>Memory Allocation</Title>
+<Para>When fetching data, the encoding services allocate memory for the
+data structures that are returned.  These services accept a structure,
+and use <Function>rpc_sm_allocate()</Function> to provide additional memory needed
+to hold the data.
+</Para>
+<Para>The backing store library does not know what memory has been allocated, and
+therefore cannot free it.  For fetch calls that are made from a server
+stub, this is not a problem, since the memory is freed automatically
+when the server call terminates.  For fetch calls that are made from a
+nonserver, the programmer is responsible for freeing the memory.
+</Para>
+<Para>Programs that call the fetch or store routines, such as <Function>dce_db_fetch()</Function>,
+outside of a server operation (for instance, if a server does some
+backing store initialization, or in a standalone program) must call
+<Function>rpc_sm_enable_allocate()</Function> first.
+</Para>
+</RefSect2>
+<RefSect2>
+<Title>The Backing Store Routines</Title>
+<Para>Many of the backing store routines appear in three versions: plain, by
+name, and by UUID.  The plain version will work with backing
+stores that were created to be indexed either by name, or by UUID,
+while the restricted versions accept only the matching type.  It is
+advantageous to use the restricted versions when they are appropriate,
+because they provide type checking by the compiler, as well as
+visual clarity of purpose.
+</Para>
+<Para>The backing store routines are as follows, listed in alphabetical order:
+</Para>
+<VariableList>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_close()</Function></Term>
+<ListItem>
+<Para>Frees the handle returned by <Function>dce_db_open()</Function>.  It closes any
+open files and releases all other resources associated with the
+backing store.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_delete()</Function></Term>
+<ListItem>
+<Para>Deletes an item from a backing store that is indexed by
+name or by UUID.  The key's type must match the flag that was used in
+<Function>dce_db_open()</Function>.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_delete_by_name()</Function></Term>
+<ListItem>
+<Para>Deletes an item only from a backing store that is indexed by
+name.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_delete_by_uuid()</Function></Term>
+<ListItem>
+<Para>Deletes an item only from a backing store that is indexed by
+UUID.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_fetch()</Function></Term>
+<ListItem>
+<Para>Retrieves data from a backing store that is indexed by
+name or by UUID.  The key's type must match the flag that was used in
+<Function>dce_db_open()</Function>.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_fetch_by_name()</Function></Term>
+<ListItem>
+<Para>Retrieves data only from a backing store that is indexed 
+by name.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_fetch_by_uuid()</Function></Term>
+<ListItem>
+<Para>Retrieves data only from a backing store that is indexed 
+by UUID.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_free()</Function></Term>
+<ListItem>
+<Para>Releases the data supplied from a backing store.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_header_fetch()</Function></Term>
+<ListItem>
+<Para>Retrieves a header from a backing store.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_inq_count()</Function></Term>
+<ListItem>
+<Para>Returns the number of items in a backing store.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_iter_done()</Function></Term>
+<ListItem>
+<Para>Terminates and iteration operation initiated by <Function>dce_db_iter_start()</Function>.  
+It should be called when iteration is done.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_iter_next()</Function></Term>
+<ListItem>
+<Para>Returns the key for the next item from a backing store
+that is indexed by name or by UUID.  The <Literal>db_s_no_more</Literal> return 
+value indicates that there are no more items.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_iter_next_by_name()</Function></Term>
+<ListItem>
+<Para>Returns the key for the next item only from a backing store
+that is indexed by name.  The <Literal>db_s_no_more</Literal> return 
+value indicates that there are no more items.
+<?sml-break><?sml-need 6></Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_iter_next_by_uuid()</Function></Term>
+<ListItem>
+<Para>Returns the key for the next item only from a backing store
+that is indexed by UUID.  The <Literal>db_s_no_more</Literal> return 
+value indicates that there are no more items.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_iter_start()</Function></Term>
+<ListItem>
+<Para>Prepares for the start of iteration.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_lock()</Function></Term>
+<ListItem>
+<Para>Locks a backing store.  A lock is associated
+with an open backing store's handle.  The storage routines,
+<Function>dce_db_store()</Function>, <Function>dce_db_store_by_name()</Function>, and
+<Function>dce_db_store_by_uuid()</Function>, all acquire the lock before updating.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_open()</Function></Term>
+<ListItem>
+<Para>Creates a new backing store or opens an existing one.  The 
+backing store is identified by a filename.  Flags allow you to
+<!--no-op:  l-->
+</Para>
+<ItemizedList>
+<ListItem>
+<Para>Create a new backing store, or open an existing one.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Create a new backing store indexed by name, or indexed by UUID.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Open an existing backing store read/write, or read-only.
+</Para>
+</ListItem>
+<ListItem>
+<Para>Use the standard data item header, or not.
+</Para>
+</ListItem>
+</ItemizedList>
+<!--no-op:  b-->
+<Para>The routine returns a handle by which subsequent routines can reference 
+the opened backing store.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_std_header_init()</Function></Term>
+<ListItem>
+<Para>Initializes a standard backing store header retrieved by 
+<Function>dce_db_header_fetch()</Function>.  It only places the values 
+into the header, and does not write into the backing store.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_store()</Function></Term>
+<ListItem>
+<Para>Stores a data item into a backing store that is indexed by name or
+by UUID.  The key's type must match the flag that was used in
+<Function>dce_db_open()</Function>.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_store_by_name()</Function></Term>
+<ListItem>
+<Para>Stores a data item only into a backing store that is indexed 
+by name.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_store_by_uuid()</Function></Term>
+<ListItem>
+<Para>Stores a data item only into a backing store that is indexed 
+by UUID.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Function>dce_db_unlock()</Function></Term>
+<ListItem>
+<Para>Unlocks a backing store.
+</Para>
+</ListItem>
+</VarListEntry>
+</VariableList>
+</RefSect2>
+<RefSect2>
+<Title>Data Types and Structures</Title>
+<VariableList>
+<VarListEntry role="linebreak">
+<Term><StructName Role="typedef">dce_db_handle_t</StructName></Term>
+<ListItem>
+<Para>An opaque handle to a backing store.  Use <Function>dce_db_open()</Function> 
+to acquire the handle.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><StructName Role="typedef">dce_db_header_t</StructName></Term>
+<ListItem>
+<Para>The data structure that defines a standard backing 
+store header for data items.  Use <Function>dce_db_header_fetch()</Function> to 
+retrieve it from a backing store and <Function>dce_db_std_header_init()</Function>
+to initialize it.
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><StructName Role="typedef">dce_db_convert_func_t</StructName></Term>
+<ListItem>
+<Para>An opaque pointer to the data conversion function to be used when 
+storing or retrieving data.  This function is specified as an argument 
+to <Function>dce_db_open()</Function> at open time.  It converts between native format 
+and on-disk (serialized) format.  It is generated from the IDL file 
+by the IDL compiler.
+</Para>
+</ListItem>
+</VarListEntry>
+</VariableList>
+</RefSect2>
+</RefSect1>
+<RefSect1>
+<Title>Cautions</Title>
+<Para>You can not use conformant arrays in objects stored to a backing store.
+This is because the idl-generated code that encodes (pickles) the structure
+has no way to predict or detect the size of the array.  When the
+object is fetched, there will likely be insufficient space provided
+for the structure, and the array's data will destroy whatever is
+in memory after the structure.
+</Para>
+</RefSect1>
+<RefSect1>
+<Title>Files</Title>
+<VariableList>
+<VarListEntry>
+<Term><Filename>database.idl</Filename></Term>
+<ListItem>
+<Para></Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry>
+<Term><Filename>database.h</Filename></Term>
+<ListItem>
+<Para></Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry>
+<Term><Filename>db.h</Filename></Term>
+<ListItem>
+<Para></Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry>
+<Term><Filename>dbif.h</Filename></Term>
+<ListItem>
+<Para></Para>
+</ListItem>
+</VarListEntry>
+</VariableList>
+</RefSect1>
+<RefSect1>
+<Title>Related Information</Title>
+<Para>Books:
+&DCEDg;
+</Para>
+</RefSect1>
+<!--+ 11/27/96 19:46:25
+    | tagMorph:  $Id: dce_db_intro.3dce,v 1.1.2.7 1996/12/17 20:49:56 damon Exp $
+    | tagMorph library:  $Id: dce_db_intro.3dce,v 1.1.2.7 1996/12/17 20:49:56 damon Exp $
+    | sml-to-docbook:  1.25
+    +-->
+</RefEntry>

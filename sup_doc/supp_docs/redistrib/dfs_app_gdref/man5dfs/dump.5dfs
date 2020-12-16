@@ -1,0 +1,313 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: dump.5dfs,v $
+...\" Revision 1.1.2.2  1994/06/10  21:16:05  devobj
+...\" 	cr10872 - fixed copyright
+...\" 	[1994/06/10  20:56:00  devobj]
+...\"
+...\" Revision 1.1.2.1  1994/04/05  15:20:06  rom
+...\" 	{enh, 10283, R1.1}
+...\" 	Fix incorrect comment leaders.
+...\" 	[1994/04/05  14:17:45  rom]
+...\" 
+...\" 	{enh, 10283, R1.1}
+...\" 	Moved from dce_books/app_ref/man5dfs/dump.5dfs to
+...\" 	supp_docs/redistrib/dfs_app_gdref/man5dfs/dump.5dfs.
+...\" 	[1994/04/05  13:34:11  rom]
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc. ALL RIGHTS RESERVED
+...\"Copyright (C) 1989, 1991, 1992, 1993 Transarc Corporation
+...\"The Gulf Tower
+...\"707 Grant Street
+...\"Pittsburgh, PA  15219
+.TH "dump" "5dfs" "" "" ""
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.iX "functions"  "in DFS"  "\*Ldump\*O"
+.iX "fileset"  "in DFS"  "dump format"
+.iX "\*Ldump\*O"  "in DFS"  "format"
+.SH "NAME"
+.PP
+\*Ldump\*O - The fileset dump format
+.SH "DESCRIPTION"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.iX "\*Ldump\*O"  "in DFS"  "opcodes"
+.PP
+A fileset dump consists of a fileset header dump followed by a set of
+individual vnode dumps, followed by an end-of-fileset opcode. Individual
+vnode dumps consist of a vnode start opcode, many vnode descriptor
+opcodes, and an end-of-vnode opcode.
+.PP
+A field is generally represented as a 2-byte opcode followed by a 2-byte or
+6-byte field length (with the length not including the opcode and length
+fields), followed by data. The length field is 6 bytes if the opcode
+represents a data opcode. A data opcode is recognized as such if the
+test \*L(opcode & 0xf000) == 0xf000\*O is TRUE.
+These opcodes are followed by a 48-bit length that
+follows the 16-bit opcode. The length bytes are represented MSB
+(Most Significant Byte) to LSB (Least Significant Byte).
+.PP
+Some fields contain \*Lshort\*O words,
+which are represented as 2 bytes, MSB first.
+\*Llong\*O words are represented
+as 4 bytes, MSB first. \*Lhyper\*O words are represented as 8
+bytes, MSB first. Strings are represented as \*LNULL\*O-terminated arrays of bytes.
+In many cases the null terminator is redundant, as the overall field length
+implies where the null-terminator must appear in the string.
+.PP
+The various opcodes that are part of the dump are listed here in the order
+in which they can appear, along with the legal values associated with them.
+.VL 1.5m
+.LI "\*L\(bu\*O"
+\*VStart of dump\*O is represented by the opcode
+\*LVOLS_DUMP_HEADER_START\*O
+(0x80), followed by a long number \*LVOLS_DUMP_HEADER_STARTMAGIC\*O
+(0x343833af). The length field is set to 4 bytes.
+.LI "\*L\(bu\*O"
+.zA"defect,6761,r1.0.2, review comments"
+\*VMaximum counter\*O is the value of the highest unique counter state
+in use.  It is represented by the opcode
+\*LVOLS_DUMP_HEADER_UNIQUEGEN\*O (0x100). The length field is 32 bytes.
+Currently only 8 bytes of these (MSB) are filled.
+.zZ"defect,6761,r1.0.2, review comments"
+.LI "\*L\(bu\*O"
+\*VMaximum quota\*O is represented by the opcode
+\*LVOLS_DUMP_HEADER_MAXQUOTA\*O
+(0x101). Its length is 4 bytes.
+.zA"defect,6918,r1.0.2, minor wording change"
+The value (a \*Llong\*O) indicates the maximum number of 1-KB blocks that the
+fileset can grow to. If it is 0 (zero), there is no quota.
+.zZ"defect,6918,r1.0.2, minor wording change"
+.LI "\*L\(bu\*O"
+\*VMinimum quota\*O is represented by the opcode
+\*LVOLS_DUMP_HEADER_MINQUOTA\*O
+(0x102). Its length is 4 bytes.
+The value (a \*Llong\*O) indicates the minimum number of 1-KB blocks that the
+fileset has reserved. If it is 0 (zero), there is no reservation.
+.LI "\*L\(bu\*O"
+\*VMaxinum index\*O is represented by the opcode
+\*LVOLS_DUMP_HEADER_INDEX_MAX\*O; its length is 4 bytes and it represents
+the maximum node value that may be used in the fileset.
+.LI "\*L\(bu\*O"
+\*VDisk usage\*O is represented by the opcode
+\*LVOLS_DUMP_HEADER_DISKUSED\*O (0x103). Its length is
+4 bytes. The value (a \*Llong\*O)
+indicates the number of 1-KB blocks actually used by the fileset.
+.LI "\*L\(bu\*O"
+\*VFile count\*O is represented by the opcode
+\*LVOLS_DUMP_HEADER_FILECOUNT\*O (0x104). The length is 4 bytes.
+The value (a \*Llong\*O) indicates the number of files in the fileset.
+.LI "\*L\(bu\*O"
+\*VOwner\*O is represented by the opcode \*LVOLS_DUMP_HEADER_OWNER\*O
+(0x105). The length is 4 bytes. The value
+(a \*Llong\*O) indicates the ID of the
+owner of the fileset.
+.LI "\*L\(bu\*O"
+\*VCreation date\*O is represented by the opcode
+\*LVOLS_DUMP_HEADER_CREATION_DATE\*O (0x106). The length is 8 bytes. The value
+(2 \*Llong\*O words) represents the date that the fileset ID was first
+used by this fileset, in seconds and microseconds since January 1, 1970.
+.LI "\*L\(bu\*O"
+\*VAccess date\*O is represented by the opcode
+\*LVOLS_DUMP_HEADER_ACCESS_DATE\*O (0x107). The length is 8 bytes. The value
+(2 \*Llong\*O words) represents the date that the fileset was last accessed,
+in seconds and microseconds since January 1, 1970.
+.LI "\*L\(bu\*O"
+\*VUpdate date\*O is represented by the opcode
+\*LVOLS_DUMP_HEADER_UPDATE_DATE\*O
+(0x108). The length is 8 bytes. The value
+(2 \*Llong\*O words)
+represents the date that the fileset was last updated,
+in seconds and milliseconds since January 1, 1970.
+.LI "\*L\(bu\*O"
+\*VMessage of the day\*O is represented by the opcode
+\*LVOLS_DUMP_HEADER_MOTD\*O (0x109). The length is the length of the message
+string. The fileset message of the day is a string that gives human readable
+information about the particular state of this fileset (why the fileset is
+unavailable, when it is to be back, and so forth).
+.zA"defect,6761,r1.0.2, review comments"
+.LI "\*L\(bu\*O"
+\*VBeginning of vnode\*O is represented by the opcode 
+\*LVOLS_DUMP_HEADER_VNODE\*O (0x10a), which indicates the beginning of the 
+bnode dump.  The opcode is followed by a \*Lhyper\*O that indicates the 
+vnode unique identifier for this file.
+.LI "\*L\(bu\*O"
+\*VDeleted vnodes\*O are represented by the opcode
+\*LVOLS_DUMP_HEADER_NOVNODE\*O (0x10b); this opcode is followed by a 
+\*Lhyper\*O indicating the vnode unique identifier for the file.
+.zZ"defect,6761,r1.0.2, review comments"
+.LI "\*L\(bu\*O"
+\*VFileset version\*O is represented by the opcode
+\*LVLS_DUMP_HEADER_VOLVERSION\*O (0x10c), an 8-byte value.
+.LI "\*L\(bu\*O"
+\*VDeleted vnodes\*O are indicated by the opcode
+\*LVOLS_DUMP_HEADER_ENDVNODES\*O.  It
+introduces a hyper giving in the high word a node 
+index, and in the low word an ignored uniquifier value.  This code indicates 
+that all nodes from this index to the end of the fileset should be deleted. 
+This is more general than a collection of explicit 
+\*LVOLS_DUMP_HEADER_NOVNODE\*O items, because it allows one to make a dump 
+of a fileset with a small fixed node table and then restore it into a 
+fileset with a larger fixed node table.
+.LI "\*L\(bu\*O"
+\*VSource type\*O for a fileset dump is represented by the opcode
+\*LVOLS_DUMP_HEADER_BASETYPE\*O (0x10d). Its length is 8 bytes, organized
+as 2 \*Llong\*O words. The first \*Llong\*O
+is the aggregate type (\*LAG_TYPE_EPI\*O
+or \*LAG_TYPE_UFS\*O), as in the \*LFTSERVER_AggregateInfo\*O call.
+The second \*Llong\*O is reserved to indicate a subtype.
+.zA"defect,6761,r1.0.2, review comments"
+.LI "\*L\(bu\*O"
+\*VDump source style\*O is indicated by the opcode 
+\*LVOLS_DUMP_HEADER_DUMP_STYLE\*O (0x10e).
+The dump source style records how the information in the source was selected.
+It is represented as 8 \*Llong\*Os: a flag word, a time value in two words,
+a version number in two words, and three \*Llong\*O spare words.
+If the source was a full dump, the flag word is zero.
+If the source was incremental by date, the flag word is 1 and
+the time value gives the cutoff date.
+If the source was incremental by version, the flag word is 2 and the
+version is the cutoff volume version number.
+.zZ"defect,6761,r1.0.2, review comments"
+.LI "\*L\(bu\*O"
+\*VVnode type\*O is represented by the opcode \*LVOLS_DUMP_VNODE_TYPE\*O
+(0x200). The length is 4 bytes. The value represents the type of the vnode.
+.LI "\*L\(bu\*O"
+\*VVnode link count\*O is represented by the opcode
+\*LVOLS_DUMP_VNODE_LINKCOUNT\*O
+(0x201). The length is 4 bytes. The value is a
+\*Llong\*O and represents the link count of the vnode.
+.LI "\*L\(bu\*O"
+\*VVnode data version\*O is represented by the opcode
+\*LVOLS_DUMP_VNODE_DATAVERSION\*O (0x202). The length is
+8 bytes. The value is a
+\*Lhyper\*O and represents the data version number of the file
+corresponding to the vnode.
+.LI "\*L\(bu\*O"
+\*VVnode fileset version\*O is represented by the opcode
+\*LVOLS_DUMP_VNODE_VOLVERSION\*O (0x203). The length is 8 bytes. The value is a
+\*Lhyper\*O and represents the
+data version number of the fileset that was current
+when this vnode was last updated.
+This is a monotonically increasing quantity that
+changes with every update to the file's data or status.
+.LI "\*L\(bu\*O"
+\*VVnode access time\*O is represented by the opcode
+\*LVOLS_DUMP_VNODE_ACCESSTIME\*O (0x204). The length is 8 bytes. The value is a
+\*Ltimeval\*O structure and represents the time the file was last
+accessed.
+This opcode corresponds to \*Latime\*O under UNIX.
+...\" \ UNIX
+.LI "\*L\(bu\*O"
+\*VVnode modify time\*O is represented by the opcode
+.zA"defect,6761,r1.0.2, review comments"
+\*LVOLS_DUMP_VNODE_MODTIME\*O 
+.zZ"defect,6761,r1.0.2, review comments"
+(0x205). The length is 8 bytes. The value is
+a \*Ltimeval\*O structure and represents the time the file was last
+modified.
+It corresponds to \*Lmtime\*O under UNIX.
+...\" \ UNIX
+.LI "\*L\(bu\*O"
+\*VVnode change time\*O is represented by the opcode
+\*LVOLS_DUMP_VNODE_CHANGETIME\*O (0x206). The length is 8 bytes. The value is
+a \*Ltimeval\*O structure and represents the time the file's status was last
+changed.
+It corresponds to \*Lctime\*O under UNIX.
+...\" \ UNIX
+.LI "\*L\(bu\*O"
+\*VVnode true modify time\*O is represented by the opcode
+\*LVOLS_DUMP_VNODE_SERVERMODTIME\*O (0x207). The length is 8 bytes. The value
+is a \*Ltimeval\*O and represents the true time the file was
+last modified, as opposed to the value stored in the \*Lmtime\*O field. The
+value stored in the \*Lmtime\*O field is written when the \*Vclient\*O, not the
+\*Vserver\*O, records that the file has been modified; the actual modification
+time could be different by a small amount, or the client could supply an
+incorrect time. This modification time can only be written by the server.
+.LI "\*L\(bu\*O"
+\*VVnode group\*O is represented by the opcode
+\*LVOLS_DUMP_VNODE_GROUP\*O (0x208). The length is 4 bytes. The value is a
+32-bit integer, representing the UNIX group owner of the file.
+.LI "\*L\(bu\*O"
+\*VVnode author\*O is represented by the opcode
+\*LVOLS_DUMP_VNODE_AUTHOR\*O (0x209). The length is 4 bytes. The value is a 32
+bit integer, representing the identity of the person who last changed the
+file's status or data, except for implicit changes to an inode's access time.
+.LI "\*L\(bu\*O"
+\*VVnode owner\*O is represented by the opcode
+\*LVOLS_DUMP_VNODE_OWNER\*O (0x20a). The length is 4 bytes. The value is a 32
+bit integer, representing the UNIX owner of the file.
+.LI "\*L\(bu\*O"
+\*VVnode mode\*O is represented by the opcode
+\*LVOLS_DUMP_VNODE_UNIXMODE\*O (0x20b). The length is 4 bytes. The value is a
+\*Llong\*O, representing the UNIX mode bits for the file.
+.LI "\*L\(bu\*O"
+\*VVnode ACLs\*O are represented either by opcode
+\*LVOLS_DUMP_VNODE_ACL_INLINE\*O (0x20e) or \*LVOLS_DUMP_VNODE_ACL_COPY\*O
+(0x20f). The date for the former is a \*Llong\*O indicating which ACL is to
+be set, followed by the external representation of the ACL itself. The
+data for the latter is 16 bytes, organized as 2 \*Llong\*O words
+and a \*Lhyper\*O.  The first word
+indicates which ACL of the current vnode is to be set;
+the second indicates which ACL of another vnode is to
+be copied. The \*Lhyper\*O
+gives the vnode index and uniquifier value for a vnode, one of whose
+ACLs is to be copied as the ACL of the current vnode.
+.LI "\*L\(bu\*O"
+\*VVnode size\*O is represented by the opcode \*LVOLS_DUMP_VNODE_SIZE\*O
+(0x20d). The length is 8 bytes. The value is a \*Lhyper\*O giving the size of
+the file in bytes.
+.LI "\*L\(bu\*O"
+\*VVnode data\*O is represented by the opcode \*LVOLS_DUMP_VNODE_DATA\*O
+(0xf001). The length is the size of the chunk of data, plus 8 bytes.
+Data follows the length. The
+first 8 bytes of the data are a \*Lhyper\*O and indicate the offset within the
+file of the data. (Large files can be broken into smaller chunks; the offset
+is used to properly ``position'' this chunk of data within the file.)
+The rest are file data.
+.zA"defect,6761,r1.0.2, review comments"
+.LI "\*L\(bu\*O"
+\*VDirectory contents\*O are represented by the opcode
+\*LVOLS_DUMP_VNODE_DIR\*O (0xf002).  This is used to differentiate raw
+data from directory data.  A version number follows this opcode.  This
+number can be used to modify the directory format while preserving
+compatibility with older versions.  The version number is an unsigned,
+16-bit integer in network byte order, and the initial version number
+is 1.  Each directory entry is introduced with \*LVOLS_DUMP_VNODE_DIR_ENTRY\*O
+(0x210).  Three fields follow this opcode: this
+entry's offset in the directory, the vnode number, and the file 
+name.  Both the offset and the vnode number are signed, 32-bit integers in
+network byte order.  The filename is a string of ASCII
+characters.  The end of the directory is marked with 
+\*LVOLS_DUMP_VNODE_DIR_END\*O (2 bytes).
+.LI "\*L\(bu\*O"
+\*VEnd of directory\*O is indicated by the opcode
+\*LVOLS_DUMP_VNODE_DIR_END\*O (0x211).
+.zZ"defect,6761,r1.0.2, review comments"
+.LI "\*L\(bu\*O"
+\*VVnode end marker\*O is represented by the opcode
+\*LVOLS_DUMP_VNODE_EOF\*O (0x2ff). The length is 0 bytes; no data
+follows the opcode.
+.LI "\*L\(bu\*O"
+\*VEnd of dump marker\*O is represented by the opcode
+\*LVOLS_DUMP_HEADER_END\*O (0x81). The length is 4 bytes. The value is a magic
+number \*LVOLSS_DUMP_HEADER_ENDMAGIC\*O (0x4383faf7),
+which is a \*Llong\*O.
+Occurrence of this opcode signals the end of the dump.
+.LE
+.br
+.ne .75i
+.SH "RELATED INFORMATION"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.ad l
+.PP
+Functions:
+\*LFTSERVER_Dump(3dfs), VC_DumpVolume(3dfs)\*O.
+.ad b

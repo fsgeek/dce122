@@ -1,0 +1,174 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: VL_ListByAttributes.3dfs,v $
+...\" Revision 1.1.2.3  1994/08/30  00:21:03  jeff
+...\" 	{defect, 11947, R1.1}
+...\" 	Correct/clarify some DFS APIs.
+...\" 	[1994/08/30  00:19:48  jeff]
+...\"
+...\" Revision 1.1.2.2  1994/06/10  21:15:41  devobj
+...\" 	cr10872 - fixed copyright
+...\" 	[1994/06/10  20:55:22  devobj]
+...\" 
+...\" Revision 1.1.2.1  1994/04/05  15:19:38  rom
+...\" 	{enh, 10283, R1.1}
+...\" 	Moved from dce_books/app_ref/man3dfs/VL_ListByAttributes.3dfs to
+...\" 	supp_docs/redistrib/dfs_app_gdref/man3dfs/VL_ListByAttributes.3dfs.
+...\" 	[1994/04/04  22:09:44  rom]
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc. ALL RIGHTS RESERVED
+.TH "VL_ListByAttributes" "3dfs" "" "" ""
+...\'wH NOT_HANDLED{hspace{.15 in}}
+...\" .iX "functions"  "in DFS"  "\*LVL_ListByAttributes(\|)\*O"
+...\" .iX "\*LVL_ListByAttributes(\|)\*O"
+.iX "Fileset Location Database"  "listing selected entries (DFS)"
+.iX "listing selected FLDB entries"
+.SH "NAME"
+.PP
+\*LVL_ListByAttributes\*O - Returns selected FLDB entries
+.SH "SYNOPSIS"
+.PP
+.sS
+\*Lerror_status_t VL_ListByAttributes(
+.nL
+\*Lhandle_t \*VrpcBinding\*L,
+.nL
+\*LVldbListByAttributes *\*Vattributes\*L,
+.nL
+\*Lunsigned32 \*VCookie\*L,
+.nL
+\*Lunsigned32 *\*Vnentries\*L,
+.nL
+\*Lbulkentries *\*Vblkentries\*L,
+.nL
+\*Lunsigned32 *\*Vnextcookiep\*L,
+.nL
+\*Lunsigned32 *\*Vflagsp\*L)
+.sE
+.br
+.ne 1.5i
+.SH "PARAMETERS"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.SS Input
+.VL 8m
+...\'wH UNDEFINED{tightenlist}
+.LI "\*VrpcBinding\*O"
+The RPC handle.
+.LI "\*Vattributes\*O"
+The attributes to search for.
+.LI "\*VCookie\*O"
+The iterator; start with 0 (zero).
+.LE
+.SS Output
+.VL 8m
+.LI "\*Vnentries\*O"
+The number of entries contained in \*Vblkentries\*O.
+.LI "\*Vblkentries\*O"
+The entries.
+.LI "\*Vnextcookiep\*O"
+The next iterator value to use.
+.LI "\*Vflagsp\*O"
+A flag indicating whether there are more entries to return.
+.LE
+.br
+.ne 1.5i
+.SH "DESCRIPTION"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.iX "\*LVldbListByAttributes(\|)\*O structure (DFS)"
+.PP
+\*LVL_ListByAttributes(\|)\*O addresses
+two limitations in the
+\*LVL_ListEntry(\|)\*O mechanism: that each FLDB entry is returned in
+individual RPC calls, and that no selection of FLDB entries is done at
+the database site itself. \*LVL_ListByAttributes(\|)\*O uses a selector
+structure (\*LVldbListByAttributes\*O) that describes the subset of
+the FLDB entries that should be returned. The results are returned as
+a bulk array (\*Vblkentries\*O).
+.PP
+As usual, the \*VCookie\*O parameter (the iterator) should be 0 (zero) for the
+first call and the value returned via \*Vnextcookiep\*O on subsequent
+calls. The low-order bit of the
+\*Lunsigned32\*O returned via \*Vflagsp\*O is 0 (zero)
+if there are more entries to return, and 1 if this
+return includes the last matching entry.
+.PP
+The \*LVldbListByAttributes\*O structure is as follows:
+...\'wH UNDEFINED{footnotesize}
+.iS
+/*  Structure used by the VL_ListByAttributes routine */
+struct VldbListByAttributes {
+\&        unsigned32 Mask;
+\&        struct afsNetAddr site;
+\&        unsigned32 partition;
+\&        unsigned32 volumetype;
+\&        struct afsHyper volumeid;
+\&        unsigned32 flag;
+\&        unsigned32 spare1;
+\&        unsigned32 spare2;
+\&        unsigned32 spare3;
+\&        unsigned32 spare4;
+\&        unsigned32 spare5;
+};
+
+/* struct VldbListByAttributes Mask bit values */
+const   VLLIST_SITE=            0x1;
+const   VLLIST_PARTITION=       0x2;
+const   VLLIST_VOLUMETYPE=      0x4;
+const   VLLIST_VOLUMEID=        0x8;
+const   VLLIST_FLAG=            0x10;
+
+struct bulkentries {
+\&        unsigned32 bulkentries_len;
+\&        struct vldbentry bulkentries_val[MAXBULKLEN];
+};
+.iE
+.PP
+The \*LMask\*O field
+of the structure contains the bitwise OR of a
+selection of \*LVLLIST\*O_\*Vxxx\*O flag bits. For each flag bit
+that is set, the
+value of the corresponding field further limits the selection of FLDB
+entries. Thus, all the FLDB entries that are on a particular site and
+a particular aggregate may be selected by specifying a \*LMask\*O value of
+\*LVLLIST_SITE\*O compared by a bitwise OR
+with \*LVLLIST_PARTITION\*O and
+placing in the \*Lsite\*O and \*Lpartition\*O
+fields the values that are to be matched.
+.PP
+Selection by \*LVLLIST_VOLUMEID\*O
+overrides all other selections. That is, if a search is being done by
+fileset ID, all the other search criteria are ignored.
+.br
+.ne 1.5i
+.SH "ERRORS"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.VL 10.5m
+...\'wH UNDEFINED{tightenlist}
+.LI "\*LVL_IO\*O"
+Some error from an underlying database occurred.
+.LI "\*LVL_NOMEM\*O"
+The operation ran out of room allocating space for the results.
+.LI "\*LVL_SIZEEXCEEDED\*O"
+The operation ran out of room allocating space for the results.
+.LI "\*LVL_BADVOLTYPE\*O"
+There is a bad \*Vvolumetype\*O value in the \*Lattributes\*O structure.
+.LI "\*LVL_ENDOFLIST\*O"
+The \*VCookie\*O parameter points past the end of the FLDB.
+.LE
+.br
+.ne 1.0i
+.SH "RELATED INFORMATION"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.ad l
+.PP
+Functions:
+\*LVL_ListEntry(3dfs)\*O.
+.ad b

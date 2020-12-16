@@ -1,0 +1,1158 @@
+CR Number                     : 13698
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : 
+Short Description             : db44 potential for btree corruption
+Reported Date                 : 1/16/97
+Found in Baseline             : 1.2.2
+Found Date                    : 1/16/97
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[1/16/97 public]
+
+The bug in db44 1.85 causes a stale value for the head of the page table
+to remain on disk after a close.  This is more likely to happen when
+a database is re-opened, than the first time it is created, but the
+fact remains that it can happen.  At best, this will cause db44 to 
+miss the opportunity to re-use a free page.  At worst, it can cause
+database corruption.
+
+The fix is simple.  In module bt_page.c, update routines bt_new() and
+bt_free() to include the following line when t->bt_free is modified:
+
+F_SET(t, B_METADIRTY);
+
+That will cause bt_close() to write the metadata page when closing
+the database, thus updating the head of the free page list on disk.
+
+
+
+CR Number                     : 13683
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : sams
+Short Description             : sams generates duplicate SGML field
+Reported Date                 : 12/14/96
+Found in Baseline             : 1.2.2
+Found Date                    : 12/14/96
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[12/14/96 public]
+
+Where a sams file contains a sub-component field, the generated
+SGML will contain duplicate <MsgOrig> field, one with the Compon-
+ent alone, the other with both the Component and Sub-component.
+Only the second should be there.
+
+
+
+CR Number                     : 13678
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : dcecf
+Short Description             : dcecf/cfg.sams hardcodes error values
+Reported Date                 : 12/5/96
+Found in Baseline             : 1.1
+Found Date                    : 12/5/96
+Severity                      : B
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : dce/utils/dcecf/cfg.sams
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[12/5/96 public]
+
+The cfg.sams file hard codes error values for all of its
+error messages.  It's probably okay to hard code dce_sf_st_ok=0,
+because this is consistent with other success codes (e.g. error_status_
+ok).  However, the other errors should not be hard coded for
+a number of reasons.  One is that these codes may be incompatible
+with error message formats of some systems.
+
+
+
+CR Number                     : 13677
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : dce_svc_printf ignores debug levels
+Reported Date                 : 12/3/96
+Found in Baseline             : 1.1
+Found Date                    : 12/3/96
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : svcprintf.c
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[12/3/96 public]
+
+A customer reported that when dce_svc_printf() is called with one of 
+the debug message level attributes the message was always printed 
+even when the debug level exceeded the value set in the environment 
+variable.  
+
+The code for dce_svc_printf calls dce_svc__debug_fillin() to fill in the 
+debug routing but ignores the debug levels found.  The following code
+appears to fix the problem:
+
+rcsdiff -c -r12.4 -r13.3 dce/utils/svc/svcprintf.c
+===================================================================
+RCS file: dce/utils/svc/RCS/svcprintf.c,v
+retrieving revision 12.4
+retrieving revision 13.3
+diff -c -r12.4 -r13.3
+*** 12.4        1995/08/10 20:42:37
+--- 13.3        1996/12/03 19:12:43
+***************
+*** 523,528 ****
+--- 527,535 ----
+            /* It's a debug message; fill in debug values. */
+            if (!handle->setup && !dce_svc__debug_fillin(handle, &st))
+                goto Done;
++           /* Ignore this level? */
++           if (handle->table[table_index].sc_level <
++               (attributes & svc__c_debugmask)) goto Done;
+            rp = handle->routes.routes;
+            i = handle->routes.nroutes;
+        }
+
+
+
+CR Number                     : 13649
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : dce_svc__lock_for_write
+doesn't check fcntl status
+Reported Date                 : 10/3/96
+Found in Baseline             : 1.1, 1.2.2
+Found Date                    : 10/3/96
+Severity                      : B
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/3/96 public]
+
+dce_svc__lock_for_write() is used to take a write lock on message
+routing files that were previously opened with shared R/W@ access.
+It calls fcntl() to set the lock.
+
+However, fcntl() is non-blocking, and may return with status indicating
+that the lock could not be set.  This status is not checked.
+
+[10/03/96 public]
+I thought fcntl would only return something like EWOULDBLOCK if you
+used the non-blocking version of the param.  Is this a threads bug?
+
+
+
+CR Number                     : 13552
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : acldb
+Short Description             : incorrect parameter in call to dce_db_fetch
+Reported Date                 : 6/26/96
+Found in Baseline             : 1.1
+Found Date                    : 6/26/96
+Severity                      : C
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : dce/utils/acldb/aclimpl.c
+Diff supplied by              : user
+Diff release                  : 1.1
+Sensitivity                   : public
+
+[6/26/96 public]
+dce_acl_resolve_by_name passes in &component_name (a char **) when
+dce_db_fetch expects a char *.  It should just pass component_name.
+
+*** aclimpl.c~	Wed Jun 26 15:53:18 1996
+--- aclimpl.c	Wed Jun 26 15:54:23 1996
+***************
+*** 764,770 ****
+       */
+      db_h = (dce_db_handle_t)resolver_arg;
+  /*    dce_db_fetch_header(db_h, &component_name, &dbh, st);*/
+!     dce_db_fetch(db_h, &component_name, &dbh, st);
+      STAT_CHECK_RET(*st);
+  
+      /* Get the appropriate ACL based on the ACL type. */
+--- 764,770 ----
+       */
+      db_h = (dce_db_handle_t)resolver_arg;
+  /*    dce_db_fetch_header(db_h, &component_name, &dbh, st);*/
+!     dce_db_fetch(db_h, component_name, &dbh, st);
+      STAT_CHECK_RET(*st);
+  
+      /* Get the appropriate ACL based on the ACL type. */
+
+
+
+CR Number                     : 13275
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : ACL library
+Short Description             : ACL lib needs pac-based evaluation
+Reported Date                 : 1/7/96
+Found in Baseline             : 1.1
+Found Date                    : 1/7/96
+Severity                      : A
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[1/7/96 public]
+
+The ACL library needs a routine like
+	dce_acl_inq_permset_for_pa
+or	dce_acl_inq_permset_for_pac
+
+Servers that use name-based authorization but then ask the DCE registry
+for principal data (e.g., those that might wish to accept KRB5 GSSAPI on a
+"legacy" port) need this routine.  The dce-web project also needs this
+routine, so we might write it:  it seems to be not much more than a
+wrapper around the internal dce_acl__permset_alg routine, but we'd like
+feedback.
+
+
+
+CR Number                     : 13163
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : 
+Short Description             : Segmentation fault restoring consumer table from backing store
+Reported Date                 : 10/26/95
+Found in Baseline             : 1.1
+Found Date                    : 10/26/95
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/26/95 public]
+
+The problem is that the btree code is trying to delete the same thing twice,
+and the second time, since the entry no longer exists, when it tries to close
+up the gap it gets a negative length for memmove, and tries to move the whole
+address space.
+
+There's some sort of confusion with the B_DELCRSR flag, and when it should be
+set and cleared.  In bt_bdelete, if the entry to be deleted is pointed at by
+the cursor, instead of deleting the entry they just set the B_DELCRSR flag,
+and later on when they sync the file, if the B_DELCRSR flag is set it really
+does the delete of the entry, flushes the page to disk, and then it restores
+the old page with the entry still undeleted.  Apparently it's important for the
+cursor to point to an undeleted entry.  The problem arises when another entry
+is deleted, and the index entries on the page are shifted in __bt_dleaf.  Now
+that the entries have shifted, the cursor index is no longer valid.  The next
+time the file is synced, the delete gets done again since the flag is still set,
+but the cursor is an invalid entry.  It should have been updated when the index
+entries were shifted, I guess.
+
+I think the right thing would be in __bt_dleaf, check to see if the pgno of
+bt_bcursor is the same as that of the current page, and if the index of the 
+bt_bcursor is less than the index being deleted.  If so, decrement the index 
+of bt_bcursor.  This should probably be done at the end just before returning
+RET_SUCCESS.
+
+[7/19/96 public]
+Since IBM has a fix for this can they submit the diffs here?
+
+[9/3/96 public]
+No answer back from IBM yet, downgrading due to lack of information and
+a test case.
+
+
+
+CR Number                     : 13131
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : sams
+Short Description             : flag for generating short filenames
+Reported Date                 : 10/1/95
+Found in Baseline             : 1.1
+Found Date                    : 10/1/95
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/1/95 public]
+
+In the interests of portability to some operating systems, sams should
+have a standard flag on all ports that means "generate filenames that
+fit into an 8.3 naming scheme."  The consensus is to use the -l flag,
+for littler filenames I suppose.
+
+If either IBM or Gradient update the OT with the fix, then someone should
+open a doc defect.
+
+[7/18/96 public]
+
+Haven't seen any response from interested parties. Marking it an enhancement
+request.
+
+
+
+CR Number                     : 13092
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : app_gd
+Short Description             : should SVC_BRIEF turn off message prologs for non debug messages?
+Reported Date                 : 9/1/95
+Found in Baseline             : 1.1
+Found Date                    : 9/1/95
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/1/95 public]
+
+Section 4.3.7 of the App. Dev. Guide states that:
+
+	you can suppress the "prolog" ... of all serviceability
+	messages ... by setting the value of ... SVC_BRIEF to 1
+
+I have not looked at the code but it certainly doesn't seem to be true
+(i.e. I've tried it and it does not work that way) & OT11512 does state
+that:
+
+	the env variable only affects debug messages, not production
+
+Which is right? If 11512 is the intended use then make this an enhancement
+request to extend the reach to all svc messages. Otherwise this is a code
+bug.
+
+[5/17/96 public]
+
+I am provisionally assigning this to myself since I wrote the
+material originally and the question may be resolvable right here.
+If not I will make the necessary re-assignment.
+
+
+
+CR Number                     : 13043
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : routing has no persistent state
+Reported Date                 : 8/18/95
+Found in Baseline             : 1.1
+Found Date                    : 8/17/95
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : svcroute.c
+Sensitivity                   : public
+
+[8/18/95 public]
+
+The serviceability routing does not have a persistent state.  If file
+wrapping (generations) is enabled then *.log.1 file is always
+truncated and written over upon a DCE restart (e.g. restarting dced).
+
+Current implementation always opens the *.1 file for writing thus
+removing any history which may be relavant.  This is a problem
+specially if DCE crashed while the current file was *.1 and then
+was restarted.  It is also confusing in other scenerios when the last
+file written to was some generation other than first and last before the
+restart.
+
+For each severity, there needs to be a generations file which can
+store the current file name or generation such that upon a restart,
+"current" + 1 file will be opened for writing thus leaving the
+previous history untouched.
+
+[08/19/95 public]
+I changed this to an enhancement.  As a work-around, put the process id
+in the routing spec.
+
+[8/21/95 public]
+
+I think that the above workaround will leave a lot of files and will lead
+to an inode table full error, if not cleaned up properly.
+
+[08/22/95 public]
+Well, perhaps many open files but hard not many open inodes, since we're
+talking about persistant across server-going-down times.
+
+[8/25/95 public]
+
+I meant the case of "...:FILE.n.m:foo%ld.log" and not open inodes, but the
+inode table on the file system.
+
+The default routing shipped with dce1.1 makes log files keep growing. We
+have had a lot of user complains about log files filling up a disk and
+making a system unuseable. (For instance, dtsd logs messages everytime
+servers are down.) So the use of generations seemed a good idea, but now we
+have to revisit it because we are losing messages.
+
+
+
+CR Number                     : 12831
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 12830
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : db44
+Short Description             : Hash code doesn't replace data with same key
+Reported Date                 : 3/29/95
+Found in Baseline             : 1.1
+Found Date                    : 3/29/95
+Severity                      : B
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : hash.c
+Sensitivity                   : public
+
+[3/29/95 public]
+
+If an identical data element with the same key value is stored in
+a backing store of type "bsd4.4-btree", there is (as expected) no
+growth in the size of the backing store.  However, if the same is
+attempted with a backing store of type "bsd4.4-hash", there _is_
+growth--of unpredictable dimensions--of the backing store.  IBM
+has provided a test case which demonstrates this phenomenon.
+
+As in CR 12830, the culprit appears to be __hash_open (in hash.c) 
+and/or one of the functions it hooks into the DB structure when 
+it is called.
+
+
+Is there any status on this OT?
+
+[08/10/95 public]
+See my update in OTCR 12831.  Same thing applies here.
+
+[02/6/96 public]
+Rich probably meant 12830.
+
+
+
+CR Number                     : 12830
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : db44
+Short Description             : Memory leak in hash code
+Reported Date                 : 3/29/95
+Found in Baseline             : 1.1
+Found Date                    : 3/29/95
+Severity                      : B
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : hash.c
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[3/29/95 public]
+
+Repeatedly fetching a specific data element from a backing store of type
+"bsd4.4-hash" causes the process size to grow by the amount of data
+retrieved, even though rpc_sm_enable_allocate has previously been called
+and the pointers to this data are nominally (but, in reality, not) being
+deallocated with rpc_sm_free.  There is also some associated growth in
+the backing store.  IBM has provided a test case which demonstrates these
+phenomena.
+
+As this does not occur when the backing store is of type "bsd4.4-btree",
+the culprit appears to be __hash_open (in hash.c) and/or one of the
+functions it hooks into the DB structure when it is called.
+
+[3/29/95 public]
+
+Fixed typo.
+
+Is there any status on this OT?
+
+[08/10/95 public]
+I have been in touch with the folks at Berkeley who maintain the DB
+package.  I gave them the sample code (which, as it is DCE code isn't
+very useful to them).  They say the following info would help.  Write
+a small program to read in the DB file header (see the dbheader struct
+in the src/utils/db44 directory) and print it out and post the values,
+they want the fill factor and page size.
+
+But they're trying to reproduce the problem and will be in touch with me.
+
+[7/19/96 public]
+Any word from folks at Berkeley? Can someone post the tests here (from IBM?)?
+
+[07/19/96 public]
+You could drop a line to margo@eecs.harvard.edu; tell her I sent you.
+
+[07/19/96 public]
+I have lost the testcases I had in a machine crash.  I had sent them 
+to the OSF.  I contacted BSDI and they gave me a new version of the
+DB code that was not compatible with the version that the OSF was 
+using so I could not pull fixes out of it.
+
+[7/19/96 public]
+
+
+
+CR Number                     : 12646
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : svc_s_acl_* codes never used
+Reported Date                 : 10/17/94
+Found in Baseline             : 1.1b20
+Found Date                    : 10/17/94
+Severity                      : C
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : dce/utils/svc/svc.sams
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/17/94 public]
+The svc_s_acl_* status codes are never used and should be "removed" from
+the sams file.  (Just these: svc_s_acl_corrupt, svc_s_acl_open_error,
+svc_s_acl_read_error, svc_s_acl_write_error, I think).  You can't just
+remove them, however.  Mark them "obsolete" so the codes that follow them
+in the sams file will have the same numbers.
+
+
+
+CR Number                     : 12516
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 10474
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : "*" for multiple routing doesn't work
+Reported Date                 : 10/5/94
+Found in Baseline             : 1.1
+Found Date                    : 10/5/94
+Severity                      : D
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/5/94 public]
+
+I have to correct myself: The setting:
+
+gds:general.2,asn1.2,apdu.1,ipc.2:BINFILE.2.2000:LOG%d
+
+*:TEXTFILE.1.100:EXC%d;GOESTO:gds
+
+doesn't work completely.
+What happens is that EXC8392.1 is not correct.
+Here is the binary logfile LOG8392.1 (what is correct): (from svcdumplog)
+
+1994-10-05-19:34:16.655+02:00I----- gdsipcchk DEBUG1 gds ipc d23regproc.c 94 0x7affc268
+ENTRY_d23_reg_proc (ptype = 5, dirid = 0, otype = 1)
+1994-10-05-19:34:16.665+02:00I----- gdsipcchk DEBUG1 gds ipc d23regproc.c 183 0x7affc268
+EXIT_d23_reg_proc (registration entry = 0)
+1994-10-05-19:34:16.713+02:00I----- gdsipcchk NOTICE gds general d23svcserv.c 142 0x7affc268
+RPC-server binding info: ncacn_ip_tcp:192.35.18.17[4894]
+1994-10-05-19:34:16.722+02:00I----- gdsipcchk NOTICE gds general d23svcserv.c 142 0x7affc268
+RPC-server binding info: ncadg_ip_udp:192.35.18.17[4962]
+1994-10-05-19:34:51.673+02:00I----- gdsipcchk WARNING gds general d23svcserv.c 157 0x7affc268
+The RPC-server could not be established because of a RPC-runtime failure (status = 0x16c9a016)
+1994-10-05-19:34:51.678+02:00I----- gdsipcchk NOTICE gds general d23ipcchk.c 314 0x7affc268
+Entry monitor process
+
+And here is the EXC8392.1:
+
+1994-10-05-19:34:51.673+02:00I----- gdsipcchk WARNING gds general d23svcserv.c 157 0x7affc268 The RPC-server could not be established because of a RPC-runtime failure (status = 0x16c9a016)
+ipcchk NOTICE gds general d23svcserv.c 142 0x7affc268 RPC-server binding info: ncadg_ip_udp:192.35.18.17[4962]
+1994-10-05-19:34:51.678+02:00I----- gdsipcchk NOTICE gds general d23ipcchk.c 314 0x7affc268 Entry monitor process
+
+I think the "WARNING" overwrites the "NOTICE".
+I noticed that immediately after starting gdsipcchk the EXC file was OK:
+
+1994-10-05-19:34:16.713+02:00I----- gdsipcchk NOTICE gds general d23svcserv.c 142 0x7affc268 RPC-server binding info: ncacn_ip_tcp:192.35.18.17[4894]
+1994-10-05-19:34:16.722+02:00I----- gdsipcchk NOTICE gds general d23svcserv.c 142 0x7affc268 RPC-server binding info: ncadg_ip_udp:192.35.18.17[4962]
+
+Some seconds later the WARNING came in ...
+
+Please not that the same setting without using the "*" works:
+
+gds:general.1,ipc.2:BINFILE.2.2000:LOG%d
+
+FATAL:TEXTFILE.1.100:EXC%d;GOESTO:gds
+ERROR:GOESTO:FATAL
+NOTICE:GOESTO:FATAL
+WARNING:GOESTO:FATAL
+NOTICE_VERBOSE:GOESTO:FATAL
+
+So we use this routing specification - so we don't have to use the "*".
+
+[1/13/94 public]
+Won't make it for 1.1.  Some more investigation is needed to see
+what's really going on here.
+
+
+
+CR Number                     : 12473
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : svc inconvenient functions
+Reported Date                 : 10/3/94
+Found in Baseline             : 1.1
+Found Date                    : 10/3/94
+Severity                      : B
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/3/94 public]
+
+In order to implement SVC, a server must first do access checks then
+call the half-dozen functions that exist in libdce.  This is awkward.
+Either SVC should export a manager EPV (which ignores the handle_t
+param) so that server-writers (and DCE doc writers :-) need only
+document one function, or it should be possible to register a
+callback function similar to rpc_mgmt_set_authorization_func.
+
+
+
+CR Number                     : 11883
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : dce.h
+Short Description             : unsigned64/signed64 definition on 32bit platforms does not match hyper
+Reported Date                 : 8/25/94
+Found in Baseline             : 1.1
+Found Date                    : 8/25/94
+Severity                      : E
+Priority                      : 4
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : dce.h,dce64,h,time/*
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[8/25/94 public]
+The 32bit definitions of unsigned32 and idl_uhyper_int are reversed and the
+names of the fields differ.  This makes it hard to use the definitions for
+types going over the wire.  At the very least the ordering needs to be made
+consistant.  The best would be to define unsigned64 it the same place as
+unsinged32 and use a typedef.
+
+[8/26/94 public]
+Janet will do the code, and either check it in, or hand it off to
+someone here to do.  (I thought I got e-mail saying this, but maybe
+someone just told me.  I'll poll later to check.)
+
+[9/6/94 public]
+Last week Janet said she'd get to it this week.
+
+[9/23/94 public]
+Janet submitted yesterday (about 15 files affected).  I'll close after
+trying a successful nightly build (places that us 64-bit numbers).
+
+[09/26/94 public]
+It was tried, it broke the build, and it was backed out.  This is now
+scheduled for 1.2.  Maybe unintegrated -- we'll see.
+
+[10/19/94 public]
+
+We have a fix if you want it in unintegrated.
+
+From:	JFCL::lo "York Lo  14-Oct-1994 1521" 14-OCT-1994 15:21:34.90
+To:	tuxedo::mccann
+CC:	tuxedo::comuzzi, tuxedo::a_ferris, lo
+Subj:	unsigned64 struct change.
+
+Hi Janet,
+
+unsigned64/signed64 struct changes from your sandbox was built with the latest
+R1.1 tree, and tested on both of tinman(intel) and akimbo(hp) ssytems without 
+any problem.  The following is the details of the testing:
+	1) rantest_api passed on both system (utc_* apis test).
+	2) dtsd can synchronize with the null time provider(on akimbo system).
+	3) dtsd from tinman system can synchronize with the dtsd from akimbo.
+	4) all of the characteristics and counters of dts can be shown correctly
+		on both systems.
+
+[2/6/96 public]
+What is the status of this OT? The information here isn't enough. Can Rich S.
+look into this one and update the status? Thanks!
+
+[9/3/96 public]
+Downgraded to enhancement request - the most appropriate status due to lack
+of feedback and nature of defect.
+
+
+
+CR Number                     : 11538
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 11980
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : acl
+Short Description             : Reject user/group entries in ACL's in anonymous cell
+Reported Date                 : 8/3/94
+Found in Baseline             : 1.1b12
+Found Date                    : 8/3/94
+Severity                      : D
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[8/3/94 public]
+This CR comes from CR 7962 which is an acl_edit defect. 
+Here is the description from that CR written by rajesh@transarc.com:
+
+ For a ACL with a foreign cell (e.g. unauthenticated cell), as the
+ default realm, the uuid put in user entries in the ACL is the uuid of
+ the user in the storing cell.  Thus when you list the ACL, you do not
+ get user names but uuids as acl_edit is not able to map the uuid to
+ names in the "unauthenticated cell". One fix would be to prevent
+ additon of "user" and "group" entries in an ACL with the
+ "unauthenticated cell" as default realm, since all unauth users are
+ mapped into anonymous@anonymousCell anyway and so the user and group
+ entries in such an ACL will never be used
+ Similarly for group entries
+
+[8/24/94 public]
+Now that I understand this, it is not the job of the ACL client to do this
+but rather the ACL manager.  The suggested fix is that if the default cell
+is the anonymous cell then user and group ACL entries should not be
+allowed.  I changed this to utils in that it *should probably* go into the
+ACL manager library at some point (not necessarily 1.1).  John...
+
+[08/27/94 public]
+This would be useful to dced.
+What is the uuid of the anonymous cell?
+
+[9/14/94 public]
+Now we know the anon cell uuid is dce_acl_anon_cell.
+
+Where is the right place to put the check?  The dce_rdacl_replace()
+operation seems right, as it does some other checks there.
+
+The convenience routines [ dce_acl_obj_add_xxx() ] would be a good place to
+catch problems earlier, if people use them.  (There's an open CR to do
+better error checking in dce_acl_obj_add_xxx() routines.)
+
+[09/14/94 public]
+HP disagrees with dce_acl_anon_cell.  There will be UUID strings in some
+security IDL file that the ACL lib can turn into globals if it wants
+via uuid_from_string done in its pthread_once block.  Still should be
+done, tho, and your comments about where to check seem right.
+
+[10/03/94 public]
+The "some security IDL file" is sec_cred.idl
+
+[2/6/96 public]
+Is this suppose to be cancelled? Any update?
+
+[02/06/96 public]
+It's a useful enhancement; other changes to dced have made it not
+a requirement now.
+
+
+
+CR Number                     : 10571
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 11513,11582
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : dce_svc_debug_set_levels should detect bad where strings
+Reported Date                 : 5/6/94
+Found in Baseline             : 1.1
+Found Date                    : 5/6/94
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[5/6/94 public]
+
+In the case where dce_svc_debug_set_levels does "lazy"
+evaluation of the "where" string -- i.e., the component
+name isn't yet mapped to a handle, so the string is just
+stored until it can be evaluated later -- no error checking
+is done on the string.  This could result, for example, in
+a bogus "where" string going undetected for days or weeks
+while an application runs, until one day an error occurs
+and debug output should be printed, but isn't because the
+evaluation of the "where" string fails.
+
+It may not be possible to detect bad component or sub-component
+names before everything is registered, but checking the general
+form of the "where" string, at least, is possible and useful.
+
+[08/27/94 public]
+This defect is the catch-call for all requests for SVC to validate its
+routing when changed, not when used.  See the Inter-dependent CRs for
+various bits and pieces of the puzzle that people want addressed.
+
+[1/3/94 public]
+Won't be in 1.1.
+
+
+
+CR Number                     : 10473
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : svc
+Short Description             : interface changes for dce_svc_routing and dce_svc_debug_routing
+Reported Date                 : 4/28/94
+Found in Baseline             : 1.1
+Found Date                    : 4/28/94
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[4/28/94 public]
+
+On February 10th a change of the interfaces dce_svc_routing and
+dce_svc_debug_routing was announced, however it is not yet in the
+source.
+
+[4/28/94 public]
+
+Please note that I proposed a change to the proposed change :-).
+(I can't recall whether I sent this to Rich S only or to dce-tech ). 
+
+Proposal on Feb 10th:
+
+    As mentioned in the tech call minutes, security needs to be able to
+    temporary "push" a new serviceability routing, log some data, and then
+    restore it.  I think the best way to handle this is to change the API
+    to look like this:
+
+	extern void dce_svc_routing(
+	    unsigned char*		/* where */,
+	    unsigned char**		/* old_value */,	<<NEW
+	    error_status_t*		/* status */
+	);
+
+
+	void dce_svc_debug_routing(
+	    unsigned char*		/* where */,
+	    unsigned char**		/* old_value */,	<<NEW
+	    error_status_t*		/* status */
+	);
+
+    If not NULL, then old_value will be given a malloc'd string that represents
+    the current routing.  In the case where no routing has been set, the
+    functions will build up fake strings that represent the default.
+
+    Comments, complaints?
+	/r$
+
+I thought the following would be useful.
+
+   if where is NULL, then return previous value of routing in old_value
+   but don't set the routing. If no routing set then return fake strings 
+   that represent the default (just like you are doing above).
+
+   This is useful when trying to determine current routing but no
+   changes are to be made to the routing. Any problems with this ?
+
+[09/07/94 public]
+This is not going to happen for 1.1.  In a future release there should
+be a function that gives you the current route (or debug routes) and
+then the push/pop model originally requested can be built on top of
+that.
+
+
+
+CR Number                     : 10182
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : utils
+Subcomponent Name             : sams
+Short Description             : attributes message does not allow "|"
+Reported Date                 : 3/18/94
+Found in Baseline             : 1.1
+Found Date                    : 3/18/94
+Severity                      : E
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[3/18/94 public]
+When I tried to use multiple attributes on this line it failed.
+You are only allowing a single tID token, if I am interpreting
+the yacc file correctly.
+
+[03/29/94 public]
+You're sort-of interpreting the grammar right.  You CAN do this:
+	attributes "svc_c_sev_fatal | svc_c_action_exit_bad"
+A "tID" token can be a text string.
+
+It might be useful to have sams check the contents of the attribute
+field, but I am worried about strict compliance with vendor-value-added
+fields (e.g., if a licensee adds
+	#define svc_c_action_hcf svc_c_actroute_vendor1
+to their dce_svc.h, SAMS users on that platform should be able to generate
+"halt and catch fire" routings if they want.)
+
+I'm going to cancel this.  I'm would not put up too much fuss if it
+were re-opened, but I'd probably defer it.
+
+[02/06/96 public]
+Redefined as Enh Req.
+
+
+
+CR Number                     : 10163
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : backing store
+Short Description             : dce_db_free() not implemented
+Reported Date                 : 3/17/94
+Found in Baseline             : 1.1b0
+Found Date                    : 3/17/94
+Severity                      : D
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[3/17/94 public]
+dce_db_free() is not implemented.  There is no reasonably easy way
+to free all the memory allocated by the encoding services (and it may
+not be possible at all).
+
+It is not worth doing all the work because in almost all cases,
+dce_db_fetch() will be called from server stubs, where allocated
+memory is freed by the rpc runtime when the call returns.
+
+Some ambitious soul could do something like this:
+when reading an item from a database with dce_db_fetch(), swap new memory
+allocation and free functions [with rpc_sm_swap_client_alloc_free()] that
+will remember all the things allocated, grouped by address of the structure
+fetched.  Then have dce_db_free() go through the list of things, looking for
+the address of that structure.
+
+However, the manpage for rpc_sm_swap_client_alloc_free() says this is
+used by clients, so this may not work anyway.
+
+It would be great if idl could write a free function into the stub file.
+idl knows what the structures all look like, so it may be straightforard.
+
+[7/25/96 public]
+wish list...
+
+
+

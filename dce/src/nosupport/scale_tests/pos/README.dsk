@@ -1,0 +1,240 @@
+
+The POS is a DCE Application, has a server programs. These programs require
+that a DCE cell has been configured. A rgy_edit command like the following
+"kta -p cell_admin -pw -dce-" needs to be issued on all of the DCE machines
+makeing up that cell. Before starting the application servers. The user must 
+be athenticated as the cell_admin.
+
+INDEX to the sections of this README file.
+
+
+	1 - Copy POS directory structure from diskette to a directory node.
+	2 - Generate the database files. 
+	3 - Decide on server configuration to run for the POS test.
+	4 - Preparing the primary server program.
+	5 - Start the primary server program. 
+	6 - Preparing the price server program.
+	7 - Start the price server program. 
+	8 - Preparing the customer server program.
+	9 - Start the customer server program. 
+	10 - Preparing the standalone server program.
+	11 - Start the standalone server program. 
+
+
+1 - Copy POS directory structure from diskette to a directory node of 
+    your choice. Make sure you use a filesystem that has 200 megabytes
+    available.
+
+        # YOURCHOICE=/u/pos
+        # export YOURCHOICE
+	# mkdir /u/pos
+	# cd $YOURCHOICE
+	# tar -xvf /dev/rfd0
+	# . ./Profiles
+
+    To verify that the tar extract work properly issue the following:
+
+	[root@roses:] /u/pos> ls
+	Profiles      aix           customer_srv  primary_srv
+	README        client        tools
+	README.dsk    common        price_srv
+	[root@roses:] /u/pos> 
+
+
+      The listing should look like the above output.
+
+2 - Generate the database files. The database files need to be on the
+    machine where the server application is run.
+
+    # cd /u/pos
+    # . ./Profiles
+    [root@roses:] /u/pos> mkdir  $YOURCHOICE/data
+    [root@roses:] /u/pos> mkdir  $YOURCHOICE/data/price
+    [root@roses:] /u/pos> mkdir  $YOURCHOICE/data/customer
+    [root@roses:] /u/pos> cd $YOURCHOICE/data
+    [root@roses:] /u/pos/data> cp $YOURCHOICE/tools/CATFILE .
+    [root@roses:] /u/pos/data> cd $YOURCHOICE/data/price
+    [root@roses:] /u/pos/data/price> mkprice 
+    [root@roses:] /u/pos/data/price> cd $YOURCHOICE/data/customer
+    [root@roses:] /u/pos/data/customer> mkcust 
+    [root@roses:] /u/pos/data/customer> cd $YOURCHOICE/data
+    [root@roses:] /u/pos/data> mkcats
+	
+
+3 - Decide on server configuration to run for the POS test. The standalone
+    server configuration go to sections 10 and 11. The primary and secondary
+    server configuration go to sections 6 thur 9 then go to sections 4 and 5. 
+
+NOTE:
+    The primary and secondary server configuration you must go and start the 
+    secondary servers before starting the primary server.
+
+4 - Preparing the primary server program.
+
+	# cd $YOURCHOICE/primary_srv
+	Edit $YOURCHOICE/primary_pri/runpri file and make sure that the 
+	global variables are pointing at the correct database directories, 
+	and that POSSAVE is set too.
+
+        $YOURCHOICE/primary_srv/runpri shell script should look as follows 
+	after you have edited the YOURDATA variable to where your POS database
+	is located. 
+	NOTE: If YOURCHOICE is different, change it in this shell script too.
+
+====================begin of file runpri========================
+
+YOURDATA=/u/pos/data
+YOURCHOICE=/u/pos
+
+SUMMER_CAT=$YOURDATA/summer
+SPRING_CAT=$YOURDATA/spring
+AUTUMN_CAT=$YOURDATA/autumn
+WINTER_CAT=$YOURDATA/winter
+CATDIR=$YOURDATA/cat
+PTQDIR=$YOURDATA/price
+CMRDIR=$YOURDATA/customer
+POSSAVE=$YOURCHOICE/primary_srv
+POSDIR=$YOURCHOICE/primary_srv
+SECLVL=1
+#POSPROTOCOL=ncacn_ip_tcp
+POSPROTOCOL=ncadg_ip_udp
+
+export SUMMER_CAT SPRING_CAT AUTUMN_CAT WINTER_CAT CATDIR PTQDIR CMRDIR POSPROTOCOL SECLVL
+export POSSAVE
+pos_pri 1 #2>junk
+====================end of file for runpri========================
+
+
+5 - Start the primary server program. 
+
+	# dce_login cell_admin -dce-
+	# cd $YOURCHOICE/primary_srv
+	# sh runpri 
+
+
+
+
+6 - Preparing the price server program.
+
+	# cd $YOURCHOICE/price_srv
+	Edit $YOURCHOICE/price_srv/runsec file and make sure that the 
+	global variables are pointing at the correct database directories, 
+	and that POSSAVE is set too.
+
+        $YOURCHOICE/price_srv/runpri shell script should look as follows 
+	after you have edited the YOURDATA variable to where your POS database
+	is located. 
+	NOTE: If YOURCHOICE is different, change it in this shell script too.
+
+====================begin of file runsec========================
+
+# Price secondary server
+YOURDATA=/u/pos/data
+YOURCHOICE=/u/pos
+
+PTQDIR=$YOURDATA/price
+POSSAVE=$YOURCHOICE/price_srv
+POSDIR=$YOURCHOICE/price_srv
+SECLVL=1
+#POSPROTOCOL=ncacn_ip_tcp
+POSPROTOCOL=ncadg_ip_udp
+
+export SUMMER_CAT SPRING_CAT AUTUMN_CAT WINTER_CAT CATDIR PTQDIR CMRDIR POSPROTOCOL SECLVL
+export POSSAVE
+pos_sec 3 #2>junk
+====================end of file for runsec========================
+
+7 - Start the price server program. 
+
+	# dce_login cell_admin -dce-
+	# cd $YOURCHOICE/price_srv
+	# sh runsec 
+
+
+8 - Preparing the customer server program.
+
+	# cd $YOURCHOICE/customer_srv
+	Edit $YOURCHOICE/customer_srv/runsec file and make sure that the 
+	global variables are pointing at the correct database directories, 
+	and that POSSAVE is set too.
+
+        $YOURCHOICE/customer_srv/runsec shell script should look as follows 
+	after you have edited the YOURDATA variable to where your POS database
+	is located. 
+	NOTE: If YOURCHOICE is different, change it in this shell script too.
+
+====================begin of file runsec========================
+
+# Customer secondary server
+YOURDATA=/u/pos/data
+YOURCHOICE=/u/pos
+
+CMRDIR=$YOURDATA/customer
+POSSAVE=$YOURCHOICE/customer_srv
+POSDIR=$YOURCHOICE/customer_srv
+SECLVL=1
+#POSPROTOCOL=ncacn_ip_tcp
+POSPROTOCOL=ncadg_ip_udp
+
+export SUMMER_CAT SPRING_CAT AUTUMN_CAT WINTER_CAT CATDIR PTQDIR CMRDIR POSPROTOCOL SECLVL
+export POSSAVE
+pos_sec 4 2>junk
+====================end of file for runsec========================
+
+9 - Start the customer server program. 
+
+	# dce_login cell_admin -dce-
+	# cd $YOURCHOICE/customer_srv
+	# sh runsec 
+
+
+
+
+
+
+
+
+10 - Preparing the standalone server program.
+
+	# cd $YOURCHOICE/primary_srv
+	Edit $YOURCHOICE/primary_pri/runsal file and make sure that the 
+	global variables are pointing at the correct database directories, 
+	and that POSSAVE is set too.
+
+        $YOURCHOICE/primary_srv/runsal shell script should look as follows 
+	after you have edited the YOURDATA variable to where your POS database
+	is located. 
+	NOTE: If YOURCHOICE is different, change it in this shell script too.
+
+====================begin of file runsal========================
+
+YOURDATA=/u/pos/data
+YOURCHOICE=/u/pos
+
+SUMMER_CAT=$YOURDATA/summer
+SPRING_CAT=$YOURDATA/spring
+AUTUMN_CAT=$YOURDATA/autumn
+WINTER_CAT=$YOURDATA/winter
+CATDIR=$YOURDATA/cat
+PTQDIR=$YOURDATA/price
+CMRDIR=$YOURDATA/customer
+POSSAVE=$YOURCHOICE/primary_srv
+POSDIR=$YOURCHOICE/primary_srv
+SECLVL=1
+#POSPROTOCOL=ncacn_ip_tcp
+POSPROTOCOL=ncadg_ip_udp
+
+export SUMMER_CAT SPRING_CAT AUTUMN_CAT WINTER_CAT CATDIR PTQDIR CMRDIR POSPROTOCOL SECLVL
+export POSSAVE
+pos_sal 1 #2>junk
+====================end of file for runsal========================
+
+
+11 - Start the standalone server program. 
+
+	# dce_login cell_admin -dce-
+	# cd $YOURCHOICE/primary_srv
+	# sh runsal 
+
+
+

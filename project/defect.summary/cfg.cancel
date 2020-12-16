@@ -1,0 +1,4753 @@
+CR Number                     : 13298
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce.rm
+Short Description             : dce.rm does not clean up svc area
+Reported Date                 : 2/5/96
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 2/5/96
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : config/dce.rm
+Sensitivity                   : public
+
+[2/5/96 public]
+
+Answering "y" to the question wehther you want to remvoe the old dce
+configuration data does not remove the old *.log files under the 
+svc area: /opt/dcelocal/var/svc/*.log.
+
+Here is a suggested fix:
+
+*** /project/dce/build/dce1.1-maint/src/config/dce.rm	Wed Aug 17 09:32:24 1994
+--- dce.rm	Mon Feb  5 15:59:52 1996
+***************
+*** 366,371 ****
+--- 366,377 ----
+  
+  	fi
+  
++ 	# SVC
++ 	log_msg DETAIL "dce.rm: Executing: rm -f $DCELOCAL/var/svc/*.log"
++ 	rm -f $DCELOCAL/var/svc/error.log
++ 	rm -f $DCELOCAL/var/svc/fatal.log
++ 	rm -f $DCELOCAL/var/svc/warning.log
++ 
+  	# AUD
+  	log_msg DETAIL "dce.rm: Executing: rm -f $DCELOCAL/var/audit/adm/acl"
+  	rm -f $DCELOCAL/var/audit/adm/acl
+
+[2/6/96 public]
+This is not a defect. dce.rm should remove things necessary for configuring
+a cell and not svc logs.
+
+The /opt/dcelocal/var/svc/*.log should be kept around for someone to look at
+and manually remove if desired.
+
+
+
+CR Number                     : 12571
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : dce_config of sec relica hangs
+Reported Date                 : 10/10/94
+Found in Baseline             : 1.1b21
+Found Date                    : 10/10/94
+Severity                      : C
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/10/94 public]
+
+In the function "config_secreplica" the following code currently will
+loop forever:
+
+        not_uptodate=`dcecp -c registry verify`
+        while [ ! -z "$not_uptodate" ]
+        do
+                sleep 5
+                log_msg DETAIL "Executing: dcecp -c registry verify"
+                not_uptodate=`dcecp -c registry verify`
+        done
+
+When I executed "dcecp -c registry verify" on the command line, the
+following error is returned:
+
+Error: invalid command name "_dcp_registry_verify"
+
+I assume that something in dcecp is not implemented or this code is
+incorrect.
+
+[10/11/94 public]
+We configure security replicas every day on both the HP and RIOS
+machines for smoketest.
+
+It appears that you do not have the auxillary script 'registry_verify'
+installed on the system you are configuring.
+Please check the file 
+	/opt/dcelocal/dcecp/registry.dcp
+which is where this script lives (and gets installed by dce_config).
+
+
+
+CR Number                     : 12135
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_com_utils
+Short Description             : function chk_rpccp() does not detect all rpccp errors.
+Reported Date                 : 9/12/94
+Found in Baseline             : 1.1b16
+Found Date                    : 9/12/94
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : dce_config
+Sensitivity                   : public
+
+[9/12/94 public]
+Function chk_rpccp() in dce_com_utils is used by all dce_config scripts
+to check for errors in a call to rpccp.  Due to changes in the wording
+of errors since dce1.0.3, this function no longer detects all rpccp
+errors, which can lead to erroneous dce_config execution.
+
+Change needed: in dce_com_utils function "chk_rpccp()", change string
+being tested from "error:" to "^>>> ".
+
+[9/12/94 public]
+More complicated change really needed: there are no invariant patterns
+that distinguish error output from normal output in rpccp; both errors
+and normal completion reports can begin with ">>>".
+
+What is invariant is that all error reports go to stderr, and all
+normal completion reports go to stdout.  All scripts that plan to use
+chk_rpccp should pipe stdout to /dev/null and stderr to rpccp_out$$.
+Then chk_rpccp() should test for "^>>> " as suggested above.
+
+[9/12/94 public]
+After looking this over with Tom Jordahl, we decided that the existing
+test in chk_rpccp() is adequate for the existing uses of it in all the
+dce_config scripts: rpccp errors that do not contain the string "error:"
+are all either errors in command-line syntax or are failures to find
+an object in response to a query.  chk_rpccp is currently called only
+to check output of update commands, and from scripts errors in command
+line syntax are not a big issue.
+
+
+
+CR Number                     : 11899
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : multi-machine smoketest on mudslide
+Reported Date                 : 8/25/94
+Found in Baseline             : 1.1
+Found Date                    : 8/25/94
+Severity                      : A
+Priority                      : 0
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/25/94 public]
+
+S:****** Check for active sec_client service
+valid 1rst:387063936
+ERROR:   rgy_edit - creating ktab entry in registry database.
+  Message from rgy_edit:
+  Current site is: registry server at /.../sif_cell/subsys/dce/sec/master 
+Domain changed to: principal
+?(rgy_edit) Unable to add principal "hosts/mudslide/self" - Principal already ex
+ists (Registry Edit Kernel)
+ (dce / sad)
+Domain changed to: account
+?(rgy_edit) Unable to add "hosts/mudslide/self" - Specified object already exist
+s (Registry Edit Kernel)
+ (dce / sad)
+Domain changed to: account
+?(rgy_edit) Unable to add "hosts/mudslide/self" - Specified object already exist
+s (Registry Edit Kernel)
+ (dce / sad)
+?(rgy_edit) Unable to add key - Requested key is unavailable (dce / sec)
+bye.
+        Press <RETURN> to continue, CTRL-C to exit: Setup 1rst: Could not get cu
+rrent contxt:387064044
+Setup 1rst: Could not get current contxt:387064044
+Setup 1rst: Could not get current contxt:387064044
+Setup 1rst: Could not get current contxt:387064044
+Setup 1rst: Could not get current contxt:387064044
+Setup 1rst: Could not get current contxt:387064044
+Setup 1rst: Could not get current contxt:387064044
+Setup 1rst: Could not get current contxt:387064044
+Setup 1rst: Could not get current contxt:387064044
+Setup 1rst: Could not get current contxt:387064044
+Setup 1rst: Could not get current contxt:387064044
+Setup 1rst: Could not get current contxt:387064044
+Setup 1rst: Could not get current contxt:387064044
+Setup 1rst: Could not get current contxt:387064044
+Setup 1rst: Could not get current contxt:387064044
+
+[8/25/94 public]
+
+This error appears if a machine principal already exists in the
+registry and an attempt to add the same machine principal (w/ a
+different uuid) is made. This happens when you attempt
+to reconfigure without unconfiguring. I looked at the
+registry and there was already a hosts/mudslide/self machine
+principal there so I unconfigured and reran the smoketest to
+see if dce_config was trying to add the machine principal
+twice in 1 config. I successfully passed this "registry
+update" portion of the smoketest AND I discovered that
+dfs daemons were already running on the machine (more
+evidence that a previous attempt at the multi-machine
+config was interfering with this run).
+
+NOTE: I DID see 2 consecutive messages:
+
+S:****** Starting sec_client service...
+S:****** Starting sec_client service
+
+(yes, one with 3 .'s and one without) - I'll let Rob Baum
+decide if this indicates a problem with the recently
+updated dce_config ...
+
+
+
+CR Number                     : 11800
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : "find" error message in dce_shutdown and rc.dce
+Reported Date                 : 8/22/94
+Found in Baseline             : 1.1b14
+Found Date                    : 8/22/94
+Severity                      : C
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/22/94 public]
+I get this message at the end of /etc/dce_shutdown and the beginning
+of /etc/rc.dce:
+    find: Cannot get the name of the current directory.
+Doesn't hurt anything, tho it is disturbing.
+
+The code is something like this:
+    find $DCELOCAL/var/security/creds -type f -print | xargs rm -f
+It should be surrounded by an "if [ -d ... ]".
+
+[8/22/94 public]
+I goofed.  I did this:
+	cd /opt/dcelocal
+	/etc/dce_config    - re-installed dce
+	/etc/rc.dce
+
+Re-installing blew away /opt/dcelocal/, which caused "find" to
+give that message.  (osf1's find must be brain-damaged...)
+
+
+
+CR Number                     : 11589
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : server time checking is broken in dce_config
+Reported Date                 : 8/8/94
+Found in Baseline             : 1.1
+Found Date                    : 8/8/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/8/94 public]
+
+
+when configuring a client, dce_config tries to get the server's time. This
+is done in function checktime. It telnets to the server for daytime. There
+are a couple of places broken in the code:
+
+1. dce_config checks client's local host's /etc/services to determine whether
+the server machine have 'daytime/tcp" line in /etc/services file. If the local
+/etc/services does not have daytime/tcp there, dce_config skips the time
+check, even though the server may well be supporting daytime/tcp. For the same
+reason, even though the client has daytime/tcp in its /etc/services, it does 
+not mean that the server supports it.
+
+2. dce_config builds command "telnet server_name daytime" to get the server
+time. The standard "telnet" interface expects a port number, not a string name
+for the service, though some OS (like AIX) does allow you to day the service
+in name. To try out, do "telnet machine daytime" on an OSF/1 machine, you will
+get "bad port number" error. But if you do it on AIX box, it will succeed 
+(provided that the server you specify does support daytime/tcp).
+
+3. Assuming you get the server time and local time, next is to get the time
+difference in get_time_diff(). The array month[] in the awk script used to 
+determine the number of days in any particular month is subscripted with 
+abbreviated month names, but is called with numeric values. This results in 
+all months having 0 days when adjusting negative times.
+        ...
+        diff_time_val=`echo $check_val | awk '\
+                BEGIN \
+                      { month["Jan"]=31; \
+                        month["Feb"]=28; \
+                        month["Mar"]=31; \
+                        month["Apr"]=30; \
+                        month["May"]=31; \
+                        month["Jun"]=30; \
+                        month["Jul"]=31; \
+                        month["Aug"]=31; \
+                        month["Sep"]=30; \
+                        month["Oct"]=31; \
+                        month["Nov"]=30; \
+                        month["Dec"]=31; \
+                      } \
+        ...
+                   if ( daydiff < 0 ) { \
+                         daydiff += month[$8]; \
+                         if ( ($7%4)==0 && $8==2 ) \
+                                daydiff++; \
+                         mondiff -= 1; \
+                   }\
+        ...
+
+
+4. $mytimei and $svrtimei are built with leading zeros. If both systems
+don't add leading zeros, incorrect conversion is done.
+
+Say system A has time Thu Aug 04 13:48:36 1994 (one example is SCO UNIX. It
+displays the date with a leading zero), which is converted to 1994804135604, 
+and system B has time Thu Aug 4 13:48:39 1994, which is converted to 
+199484134839. System B is the server and system A is the client being 
+configured into the cell. The test
+
+                if test $mytimei -lt $svrtimei
+                then
+                        sign="-1"
+                        check_val=`echo $svrtimestr $mytimestr`
+                        mesg="Time on $host is backward by "
+                else
+                        check_val=`echo $mytimestr $svrtimestr`
+                        mesg="Time on $host is forward by "
+                fi
+
+does the wrong thing and you get output like:
+
+                -1 years 11 months 30 days 23 hours 59 minutes 57 seconds
+
+even though they are only 3 seconds off.
+
+[8/8/94 public]
+
+OK, I think I got confused a little bit. Checking local /etc/services is to
+make sure that the string "daytime" in telnet command can be converted to
+a port number. But since this port number is a well known one, why not just
+use "13" instead? This way it will work for OSF/1 which does not have a
+"daytime tcp" line in /etc/services. Then just check the return from telnet.
+If the server machine does not support tcp daytime, you are out of luck
+any way.
+
+[8/8/94 public]
+There are plenty of problems with this checktime stuff.
+It is all going to be removed and replaced with a call to dts-time,
+a dts based query of the security servers dtsd time server.
+
+Canceled.
+
+
+
+CR Number                     : 11360
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cfg
+Subcomponent Name             : install_appdev
+Short Description             : symlink for libdce.a is wrong on HP
+Reported Date                 : 7/19/94
+Found in Baseline             : 1.1
+Found Date                    : 7/19/94
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/19/94 public]
+
+install_appdev installs on HP-UX the static libdce.a in /opt/dcelocal/lib.
+But it sets a symbolic link from /usr/lib/libdce.a to
+/opt/dcelocal/usr/lib/libdce.a.
+
+The fix is to change the lines
+
+                log_msg DETAIL "Executing: ln -s $DCELOCAL/usr/lib/libdce.a /us
+r/lib/libdce.a"
+                ln -s $DCELOCAL/usr/lib/libdce.a /usr/lib/libdce.a > /dev/null
+2>&1
+
+to
+
+                log_msg DETAIL "Executing: ln -s $DCELOCAL/lib/libdce.a /us
+r/lib/libdce.a"
+                ln -s $DCELOCAL/lib/libdce.a /usr/lib/libdce.a > /dev/null
+2>&1
+
+[8/24/94 public]
+Since HP just submitted changes to not build libdce.a, I am going
+to remove all this code that installs libdce.a.
+Canceled.
+
+
+
+CR Number                     : 11150
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : many debug messages in core smoketest
+Reported Date                 : 6/30/94
+Found in Baseline             : 1.1
+Found Date                    : 6/30/94
+Severity                      : B
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/30/94 public]
+
+Folks,
+
+I'm not sure who to assign this OT to.  Feel free to re-assign it.
+Anyway, I'm filing it more to make known an inconvenience than to
+assign a bug for immediate fixing.
+
+The core smoketests now output to their logs thousands (from 3000+ on the
+486 to 8440 on the RIOS) of the following "dts DEBUG1" messages.  Added
+to the warnings from serviceability already output to the logs, it makes
+examining the core smoketest logs a bit arduous:
+
+(eg, on the RIOS mudslide:) 
+
+....
+
+1994-06-30-11:40:03.315+00:00I----- dtsd DEBUG1 dts threads 0x005cf300
+--> Waking Main Thread
+
+1994-06-30-11:40:03.315+00:00I----- dtsd DEBUG1 dts threads 0x005cf300
+TP:  Waiting for main to process TP ctrl
+
+1994-06-30-11:40:03.315+00:00I----- dtsd DEBUG1 dts threads 0xa4471bc4
+Main:  awakened with event
+
+1994-06-30-11:40:03.315+00:00I----- dtsd DEBUG1 dts threads 0xa4471bc4
+Main:  Got ETprvdrFail event
+
+1994-06-30-11:40:03.315+00:00I----- dtsd DEBUG1 dts states 0xa4471bc4
+INrcvdTPresponse
+1994-06-30-11:40:03.325+00:00I----- dtsd DEBUG1 dts states 0xa4471bc4
+to state STprvdrWTMO, at 94-06-30-11:40:03.315 GMT
+
+1994-06-30-11:40:03.325+00:00I----- dtsd DEBUG1 dts threads 0xa4471bc4
+Main:  Processsing TP control message
+
+1994-06-30-11:40:03.325+00:00I----- dtsd DEBUG1 dts states 0xa4471bc4
+No response from TP on request 22447
+
+Etc.
+
+[6/30/94 public]
+
+Reassigned OT - Roger Woodbury's no longer at OSF.
+
+[6/30/94 public]
+
+I have never seen DTS debug messages are never printed unless an
+explicit routing directive exists in a routing file. This will either
+be the default routing file (in /opt/dcelocal/var/svc/routing, I
+believe) or a file specified by the presence of an environment
+variable (DCE_SVC_ROUTING_FILE [I believe]).
+
+The short answer is: debug messages must be turned on explicitly. Turn
+them off.
+
+[7/1/94 public]
+
+This is not a DTS bug, but rather a "configuration/setup" problem. 
+Therefore, I'm cancelling the bug, and, at Ron's suggestion, asking
+Gail to look into this.
+
+[7/1/94 public]
+
+Sally and I spent about half an hour playing on one of the smoketest
+machines (sif, a AT486 machine). When logged in as root, restarting 
+dtsd via "dtsd -s" did NOT result in debug messages being sent to to 
+either stdout or stderr. 
+
+The serviceability routing file (/opt/dcelocal/var/svc/routing) has 
+nothing enabled. 
+
+The env-variable DCE_SVC_ROUTING_FILE was not set in the environment.
+
+As a test, we uncommented the following line in .../routing 
+
+dts:*.1,arith.d:STDERR:
+
+When run in this fashion, we immediately saw debug messages, followed 
+by the warning message: too few servers... Note that this is *not* the
+case in the do_automatic_test.log, where the Warning message is seen
+first, followed (1 minute later) by the debug messages.
+
+So ... 
+
+it doesn't appear that there are any changes in the environment that
+would explain why dtsd is now printing debug messages, and it doesn't
+when started by hand (with a "clean" environment). The behavior almost
+looks like debugging was turned on via the serviceability RPC
+interface, but that may be a red herring.
+
+Re-open, assign to bld. This is *not* a dtsd error per se; rather, a 
+mystery (for the moment).
+
+[07/01/94 public ]
+Re-assined to unknown - since it doesn't seem to be a dts problem
+and it doesn't seem to be a smoketest script problem - I don't know
+who to give it to.  Is there by any chance an overriding debug mechanism
+in DCE that can override what debug level is set in the individual daemons?
+
+[8/24/94 public]
+Mystery solved.  The dcecp test script turns on the dtsd svc debug.
+Canceled.
+
+[8/24/94 public]
+FYI, here is a patch to the smoketest script:
+
+absolut u1/melman$ diff -c smoketest smoketest~
+*** smoketest   Mon Aug 22 15:03:45 1994
+--- smoketest~  Mon Aug 22 15:03:45 1994
+***************
+*** 122,128 ****
+  log modify /.:/hosts/$hostname/dts-entity -change dts:*.5:STDOUT:
+  log show /.:/hosts/$hostname/dts-entity 
+  log show /.:/hosts/$hostname/dts-entity -debug
+- log modify /.:/hosts/$hostname/dts-entity -change dts:*.5:DISCARD:
+  #dts deactivate /.:/hosts/$hostname/dts-entity
+  #dts stop /.:/hosts/$hostname/dts-entity
+  #exec /opt/dcelocal/bin/dtsd -s &
+--- 122,127 ----
+
+
+
+CR Number                     : 11139
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : Syntax error in dce_config
+Reported Date                 : 6/30/94
+Found in Baseline             : 1.1
+Found Date                    : 6/30/94
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/30/94 public]
+This occured while shutting down my single machine cell.  dce_config is
+from NB of 6/29.
+
+        selection:  4 
+S:****** Attempting to stop all running DCE daemons...
+waitfor[4]: 5160 5322: Syntax error
+
+[8/24/94 public]
+I don't think anyone has seen this since Rich has.
+The problem is the awkward way in which we use 'ps' to get
+the pid's of the daemons.  If you have any other processes
+which have the same name as one of the daemons, the scripts
+will pick up this process.
+
+This wont happen on any system that has a POSIX compliant ps
+because you can limit the output to just the actual command
+that is running.
+
+I could try to prevent the syntax error, but I can never make
+the base problem go away until dced start/stops all the servers
+or the daemons put their pids into a pid file.
+
+
+
+CR Number                     : 10937
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dfs smoketests runtime
+Short Description             : DFS smoketest
+Reported Date                 : 6/13/94
+Found in Baseline             : 1.1
+Found Date                    : 6/13/94
+Severity                      : A
+Priority                      : 0
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/13/94 public]
+
+While running the DFS smoketests on budapest
+the following errors appeared. 
+
+root@sif> 1994-06-13-14:35:02.196-04:00I----- dtsd WARNING dts config 0xa446ead0
+Too fews servers (1), need 3 servers
+1994-06-13-14:37:32.804-04:00I----- dtsd WARNING dts config 0xa446ead0
+
+S:****** Starting rpcd...
+S:****** Starting sec_clientd...
+S:****** Waiting for node self-identity to be established...
+S:****** This node is now a security client.
+S:****** Starting cdsadv...
+1994-06-13-14:40:07.261-04:00I----- cdsadv(3648) WARNING cds adver 0x7aff8450
+No acl file, error: 2 - Creating a default ACL
+
+[6/13/94 public]
+Of course, as the messages say, these are only WARNINGs.
+A result of serviceability that will go away after beta.
+Bug canceled.
+
+
+
+CR Number                     : 10859
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : dce_config assumes EPMAP is
+set
+Reported Date                 : 6/3/94
+Found in Baseline             : 1.1
+Found Date                    : 6/3/94
+Severity                      : C
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/3/94 public]
+I encountered the follow error when configuring a cell using bl9.4.
+(Occurs on both HPUX and AT386)
+
+S:****** Configuring initial cell...
+
+
+
+
+
+
+         Initial Cell Configuration ( on prague )
+
+
+         1. Initial Security Server
+         2. Initial CDS Server
+         3. Initial DTS Server
+
+
+        98. Return to previous menu
+        99. Exit
+
+
+
+        selection:  1
+S:****** Configuring initial Security Server...
+
+
+        Enter the name of your cell (without /.../): prague
+usage:
+ grep  [-E|-F] [-cbilnqsvx] [-e expression [-e expression] ... | -f file]
+ [expression] [file ...]
+ egrep [-cbilnqsvx] [-e expression [-e expression] ... | -f file]
+ [expression] [file ...]
+ fgrep [-cbilnqsvx] [-e expression [-e expression] ... | -f file]
+ [expression] [file ...]
+S:****** Starting ...
+
+
+WARNING: If "" was recently running, and was using the TCP protocol sequence to listen for calls to the server, then a TCP shutdown period of up to 4 minutes is required before restarting "" in order to avoid "cannot bind socket" errors.
+        Press <RETURN> to continue, CTRL-C to exit:   
+S:****** Initializing dced...
+Failed opening Hostdata.db.
+Database open failure
+ERROR:   dced -i failed to start.
+        Press <RETURN> to continue, CTRL-C to exit: 
+
+
+The problem seems to be that dce_config expects the environment variable
+EPMAP to be set.  If not, the errors above occur.  
+
+dce_config should test for the existence of the variable rather than
+assuming that it exists.
+
+[6/3/94 public]
+It assumes it it set because it gets set in dce_com_env:
+: ${EPMAP:=rpcd}                       # use dced not rpcd?
+
+Did you use the -i switch when installing from a new install area?
+
+[06/03/94 public]
+No, Rich Z did not use the "-i" switch and as penance has agreed to
+have your admonition tattooed on a body part of your choice.
+Or not.
+Cancelling.
+
+
+
+CR Number                     : 10834
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce.rm
+Short Description             : dce.rm doesn't remove everything
+Reported Date                 : 6/2/94
+Found in Baseline             : 1.1
+Found Date                    : 6/2/94
+Severity                      : D
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/2/94 public]
+I believe I'm using the nightly of 5/23/94.
+
+I ran dce.rm and it completed without warnings or errors.  I then did a
+find under /opt/dcelocal for all files.  Many things were left that I
+don't think should have been:
+
+./bin/sec_create_db
+./bin/sec_salvage_db
+./bin/secd
+./bin/rpcd
+./bin/cdsadv
+./bin/cdsclerk
+./bin/dtsd
+./bin/sec_clientd
+./bin/auditd
+./bin/dtstimed
+./bin/dts_null_provider
+./bin/dts_ntp_provider
+./bin/rpccp
+./bin/uuidgen
+./bin/cdscp
+./bin/getcellname
+./bin/getip
+./bin/acl_edit
+./bin/dce_login
+./bin/rgy_edit
+./bin/dtscp
+./bin/dcecp
+./bin/sec_admin
+./bin/passwd_import
+./bin/passwd_export
+./bin/auditcp
+./bin/kinit
+./bin/klist
+./bin/kdestroy
+./bin/cdsd
+./bin/gdad
+./bin/gda_child
+./var/security/sec_audit_trail
+./var/security/sec_audit_trail.md_index
+./var/security/rcache/krb5kdc_rcache
+./var/adm/time/core
+./var/svc/routing
+./var/rpc/rpcd.log
+./var/audit/adm/acl
+./var/audit/adm/central_trail
+./var/audit/adm/central_trail.md_index
+./var/audit/daemon_identity
+./var/audit/daemon_binding
+./lib/libdce.sl
+./etc/audit/ec/dce_audit_filter_modify
+./etc/audit/ec/dce_audit_filter_query
+./etc/audit/ec/dce_dts_mgt_modify
+./etc/audit/ec/dce_dts_mgt_query
+./etc/audit/ec/dce_dts_synch
+./etc/audit/ec/dce_dts_time_provider
+./etc/cds_attributes
+./etc/cds_globalnames
+./etc/cdscp.bpt
+./etc/dtscp.bpt
+./etc/dce_com_utils
+./etc/dce_com_env
+./etc/dce_config_env
+./etc/dce_config
+./etc/dce_config_utils
+./etc/dce.clean
+./etc/dce.rm
+./etc/dce.unconfig
+./etc/dfs_config
+./etc/rc.dce.template
+./etc/zoneinfo/Australia/Tasmania
+./etc/zoneinfo/Australia/Queensland
+./etc/zoneinfo/Australia/North
+./etc/zoneinfo/Australia/West
+./etc/zoneinfo/Australia/South
+./etc/zoneinfo/Australia/Victoria
+./etc/zoneinfo/Australia/NSW
+./etc/zoneinfo/Australia/Yancowinna
+./etc/zoneinfo/Australia/LHI
+./etc/zoneinfo/localtime
+./etc/zoneinfo/posixrules
+./etc/zoneinfo/Brazil/DeNoronha
+./etc/zoneinfo/Brazil/East
+./etc/zoneinfo/Brazil/West
+./etc/zoneinfo/Brazil/Acre
+./etc/zoneinfo/Canada/East-Saskatchewan
+./etc/zoneinfo/Canada/Newfoundland
+./etc/zoneinfo/Canada/Atlantic
+./etc/zoneinfo/Canada/Eastern
+./etc/zoneinfo/Canada/Central
+./etc/zoneinfo/Canada/Mountain
+./etc/zoneinfo/Canada/Pacific
+./etc/zoneinfo/Canada/Yukon
+./etc/zoneinfo/Chile/EasterIsland
+./etc/zoneinfo/Chile/Continental
+./etc/zoneinfo/Mexico/BajaNorte
+./etc/zoneinfo/Mexico/BajaSur
+./etc/zoneinfo/Mexico/General
+./etc/zoneinfo/US/Mountain
+./etc/zoneinfo/US/Eastern
+./etc/zoneinfo/US/Central
+./etc/zoneinfo/US/Michigan
+./etc/zoneinfo/US/Pacific
+./etc/zoneinfo/US/Alaska
+./etc/zoneinfo/US/Arizona
+./etc/zoneinfo/US/East-Indiana
+./etc/zoneinfo/US/Aleutian
+./etc/zoneinfo/US/Samoa
+./etc/zoneinfo/US/Hawaii
+./etc/zoneinfo/SystemV/AST4ADT
+./etc/zoneinfo/SystemV/EST5EDT
+./etc/zoneinfo/SystemV/CST6CDT
+./etc/zoneinfo/SystemV/MST7MDT
+./etc/zoneinfo/SystemV/PST8PDT
+./etc/zoneinfo/SystemV/YST9YDT
+./etc/zoneinfo/SystemV/AST4
+./etc/zoneinfo/SystemV/EST5
+./etc/zoneinfo/SystemV/CST6
+./etc/zoneinfo/SystemV/MST7
+./etc/zoneinfo/SystemV/PST8
+./etc/zoneinfo/SystemV/YST9
+./etc/zoneinfo/SystemV/HST10
+./etc/zoneinfo/Hongkong
+./etc/zoneinfo/Cuba
+./etc/zoneinfo/Jamaica
+./etc/zoneinfo/Navajo
+./etc/zoneinfo/NZ
+./etc/zoneinfo/Egypt
+./etc/zoneinfo/Libya
+./etc/zoneinfo/PRC
+./etc/zoneinfo/ROC
+./etc/zoneinfo/Singapore
+./etc/zoneinfo/Iran
+./etc/zoneinfo/Israel
+./etc/zoneinfo/Japan
+./etc/zoneinfo/ROK
+./etc/zoneinfo/Universal
+./etc/zoneinfo/GB-Eire
+./etc/zoneinfo/WET
+./etc/zoneinfo/Iceland
+./etc/zoneinfo/MET
+./etc/zoneinfo/Poland
+./etc/zoneinfo/EET
+./etc/zoneinfo/Turkey
+./etc/zoneinfo/W-SU
+./etc/zoneinfo/CET
+./etc/zoneinfo/GMT
+./etc/zoneinfo/GMT-12
+./etc/zoneinfo/GMT-11
+./etc/zoneinfo/GMT-10
+./etc/zoneinfo/GMT-9
+./etc/zoneinfo/GMT-8
+./etc/zoneinfo/GMT-7
+./etc/zoneinfo/GMT-6
+./etc/zoneinfo/GMT-5
+./etc/zoneinfo/GMT-4
+./etc/zoneinfo/GMT-3
+./etc/zoneinfo/GMT-2
+./etc/zoneinfo/GMT-1
+./etc/zoneinfo/GMT-0
+./etc/zoneinfo/GMT+0
+./etc/zoneinfo/GMT+1
+./etc/zoneinfo/GMT+2
+./etc/zoneinfo/GMT+3
+./etc/zoneinfo/GMT+4
+./etc/zoneinfo/GMT+5
+./etc/zoneinfo/GMT+6
+./etc/zoneinfo/GMT+7
+./etc/zoneinfo/GMT+8
+./etc/zoneinfo/GMT+9
+./etc/zoneinfo/GMT+10
+./etc/zoneinfo/GMT+11
+./etc/zoneinfo/GMT+12
+./etc/zoneinfo/GMT+13
+./etc/zoneinfo/GMT0
+./etc/zoneinfo/GMT1
+./etc/zoneinfo/GMT2
+./etc/zoneinfo/GMT3
+./etc/zoneinfo/GMT4
+./etc/zoneinfo/GMT5
+./etc/zoneinfo/GMT6
+./etc/zoneinfo/GMT7
+./etc/zoneinfo/GMT8
+./etc/zoneinfo/GMT9
+./etc/zoneinfo/GMT10
+./etc/zoneinfo/GMT11
+./etc/zoneinfo/GMT12
+./etc/zoneinfo/GMT13
+./etc/zoneinfo/UTC
+./etc/zoneinfo/UCT
+./etc/zoneinfo/Greenwich
+./etc/zoneinfo/Zulu
+./etc/zoneinfo/Factory
+./etc/boot_time
+./nls/msg/en_US.ASCII/dceaud.cat
+./nls/msg/en_US.ASCII/dcecds.cat
+./nls/msg/en_US.ASCII/dcecsr.cat
+./nls/msg/en_US.ASCII/dcedcp.cat
+./nls/msg/en_US.ASCII/dcedhd.cat
+./nls/msg/en_US.ASCII/dcedts.cat
+./nls/msg/en_US.ASCII/dcegds.cat
+./nls/msg/en_US.ASCII/dcegss.cat
+./nls/msg/en_US.ASCII/dcekdb.cat
+./nls/msg/en_US.ASCII/dcekdc.cat
+./nls/msg/en_US.ASCII/dcekrb.cat
+./nls/msg/en_US.ASCII/dcelib.cat
+./nls/msg/en_US.ASCII/dcerpc.cat
+./nls/msg/en_US.ASCII/dcesad.cat
+./nls/msg/en_US.ASCII/dcesec.cat
+./nls/msg/en_US.ASCII/dcesvc.cat
+./nls/msg/en_US.ASCII/dcethd.cat
+./nls/msg/en_US.ASCII/dceuid.cat
+./nls/msg/en_US.ASCII/gdsditadm.cat
+./nls/msg/en_US.ASCII/gdsdithelp.cat
+./nls/msg/en_US.ASCII/gdsproc.cat
+./nls/msg/en_US.ASCII/gdssysadm.cat
+./nls/msg/en_US.ASCII/gdssyshelp.cat
+./nls/msg/en_US.ASCII/idl.cat
+./dcecp/attr_eval.tcl
+./dcecp/dir_ops.dcecp
+./dcecp/init.dcecp
+./dcecp/verb-object.dcecp
+./tcl/init.tcl
+./tcl/parray.tcl
+./tcl/tclIndex
+
+[6/2/94 public]
+dce.rm has two modes of operation.
+Invoking it with no arguments remove all configuration files
+Invoking it with the 'install' argument removes all installation files.
+(This means doing the command rm -rf /opt/dcelocal)
+
+Canceled.
+
+
+
+CR Number                     : 10796
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 7945
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : RPC entries created with wrong class
+Reported Date                 : 5/26/94
+Found in Baseline             : 1.0.3a
+Found Date                    : 5/26/94
+Severity                      : E
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/26/94 public]
+
+A complaint from the RPC folks here:
+
+  dce_config uses cdscp to create RPC namespace entries, such as /.:/cell-profile
+  and /.:/sec-v1.  The object class is incorrectly being set for these objects.
+  Currently, dce_config sets the object class to be RPC_Profile for RPC profile
+  entries, and RPC_Group for RPC Group entries.  THIS IS WRONG.  RPC_Profile
+  and RPC_Group are attribute types, not object classes.  All RPC entries
+  should have an object class of RPC_Entry.
+
+  There is an easy solution for this problem.
+
+  dce_config should be using rpccp to create all of its RPC namespace entries.
+  This way, the details of setting object classes and attribute types is
+  handled internally by rpccp, and will be guaranteed to be consistent.
+
+  Other namespace objects being created by cdscp that should be created using
+  rpccp include:
+
+  /.:/sec                      (RPC group entry)
+  /.:/lan-profile              (RPC profile entry)
+  /.:/hosts/$HOSTNAME/profile  (RPC profile entry)
+  /.:/hosts/$HOSTNAME/self     (RPC server entry object)
+
+  Actually, there does not need to be a dce_config step to create profile or group
+  RPC objects at all.  When dce_config starts adding profile elements and group
+  members, the RPC API call that is ultimately invoked to add the group members
+  or profile elements will automatically create the object if it doesn't already
+  exist.
+
+Please modify dce_config (or dcecp, if it has already advanced to the point where it
+handles configuration)...
+
+[8/23/94 public]
+Actually, I just fixed the rpc NSI to attach these attributes to
+entries when they are created.  The assertion in *that* OT (#7945) was
+dce_config was doing it corretly and the NSI wasn't.
+
+I belive dce_config is attaching the correct attribute to the 
+entries it is creating.  Note that this attribute is universally
+ignored (especially since its always been 'wrong'), so this is all
+just kinda of a nit.
+
+Bug canceled.
+
+
+
+CR Number                     : 10795
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : problem installing pthread includes
+Reported Date                 : 5/26/94
+Found in Baseline             : 1.1b9
+Found Date                    : 5/26/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/26/94 public]
+
+
+When installing bl-9 and choosing "Application Development Environment"
+I got the following message:
+
+
+cp: pthread_exc.h: No such file or directory
+cp: pthread.h: No such file or directory
+
+
+So I chose to reinstall "Application Development Environment".
+Now I am constantly getting:
+
+        selection:  7
+S:****** installing DCE include files...
+S:****** installing
+/opt/dcelocal/share/include/dce/pthread_exc.h exists, specify -f to remove.
+/opt/dcelocal/share/include/dce/pthread.h exists, specify -f to remove.
+S:****** installing idl...
+
+[5/27/94 public]
+
+No longer happens when I try last night's build.
+Could have been something weird on my machine.
+If the problem reoccurs I will reopen this bug.
+
+
+
+CR Number                     : 10704
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : dce_config says opt/dce1.0 instead of opt/dce1.1
+Reported Date                 : 5/19/94
+Found in Baseline             : 1.1
+Found Date                    : 5/19/94
+Severity                      : C
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/19/94 public]
+
+
+        Enter the full path to the DCE binary install tree.
+        This will be a path that ends with the
+        .../opt/dce1.0 directory: /project/dce/build/dce1.1-baseline/bl-8/install/at386/opt/dce1.1
+
+
+Shouldn't this say:
+
+        Enter the full path to the DCE binary install tree.
+        This will be a path that ends with the
+        .../opt/dce1.1 directory:
+
+[5/19/94 public]
+Works for me in bl-9:
+
+        Enter the full path to the DCE binary install tree.
+        This will be a path that ends with the
+        .../opt/dce1.1 directory: 
+
+When you install dce, you should be cd'ing to the install areas 'etc'
+directory and running dce_config from there with the '-i' switch:
+
+	cd <foo>/opt/dce1.1/etc
+	./dce_config -i
+
+Bug canceled.
+
+
+
+CR Number                     : 10324
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : errors during SPLIT SERVER config
+Reported Date                 : 4/11/94
+Found in Baseline             : 1.1
+Found Date                    : 4/11/94
+Severity                      : A
+Priority                      : 0
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/11/94 public]
+
+Configuring 3 machine CHO cell with dce1.1ab2 failed with the following
+errors:
+
+m2 (CDS server, DTS server, flserver and dfs client):
+S:****** Modifying the registry database for DFS server operation...
+ERROR:   acl_edit error while adding principal to dfs-admin group for DFS
+           Message from acl_edit:
+           ERROR: not RPC entry (dce / rpc)
+         Unable to bind to object /.:/sec/principal/hosts/dce8/dfs-server
+        Press <RETURN> to continue, CTRL-C to exit:
+
+Apparently, dce_config does not support SPLIT CORE SERVER configurations
+for cells which will also contain DFS.
+
+[04/11/94 public]
+Eh?  How do you figure?
+
+What change has been made to dce_config that would make split servers not work?
+Are you sure you dce core is fuctioning correctly?
+Has /.:/sec/principal/hosts/dce8/dfs-server been created correctly?
+
+[4/11/94 public]
+
+Split core servers work - just not able to add my DFS servers to the cell ...
+I'm looking into it now.
+
+[04/12/94 public]
+Cancelling - apparently it is required that you return and continue configuring
+on the security server after configuring the cds server for the core services
+setup to be complete. That is you cannot:
+
+	- configure security server on m1
+	- configure cds and a DFS flserver on m2
+
+but must:
+	- configure security server on m1
+	- configure cds server on m2
+	- configure xxx on m1
+	- configure flserver on m2
+
+
+
+CR Number                     : 10249
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : message cat vs. header installs
+Reported Date                 : 3/30/94
+Found in Baseline             : 1.1b5
+Found Date                    : 3/30/94
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[3/30/94 public]
+dce_config installs message catalogs and header files differently.
+It does a "cp *" of the NLS files, but it explicitly lists which files
+it copies out of the the include directory.  This is a nuisance for
+people adding new facilities to DCE, converting to sams, etc.  I think
+both parts should be installed the same way.  I prefer "cp *" as opposed
+to explicitly listing everything.
+
+[03/30/94 public]
+Turns out that dce_config was already doing a"cp *" of the include
+directory as well as the message catalog directory.
+Canceled.
+
+
+
+CR Number                     : 9899
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : dce_config continues even when
+Reported Date                 : 2/7/94
+Found in Baseline             : 1.1
+Found Date                    : 2/7/94
+Severity                      : A
+Priority                      : 0
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/7/94 public]
+
+This is today's build.  Configuration is:
+
+  RIOS - Security Server
+  HPUX - Cds server
+
+When trying to perform the client cds configuration on the RIOS
+machine, the cdscp define cached server command fails with the
+following message:
+
+
+        Are you using multiple LAN's within this cell? (n) n
+./dce_config: 7356 Killed
+./dce_config: 7375 Killed
+./dce_config: 7393 Killed
+./dce_config: 7417 Killed
+./dce_config: 7180 Killed
+S:****** singsing cdsadv daemon has not received any responses to its broadcast
+for CDS servers.  Executing a "cdscp define cached server" command...
+ERROR:   cdscp error during "define cached server" command.
+  Message from cdscp:
+  Failure in routine: cprpc_get_binding_handle
+DCE text not found, dce code = 382312699, dce status = -1
+Failure in routine: cp_define_cached_server
+DCE text not found, dce code = 382312699, dce status = -1
+        Press <RETURN> to continue, CTRL-C to exit:
+
+Now don't ask me why dce_config wants to define a cached server here,
+because all of the machines are on the same LAN, this is simply a
+split server configuration - and at any rate it does not work.
+
+[2/7/93 public]
+
+This turned out to be the stupid message catalog problem.
+Dce_config will continue anyway, even if cdsadv exits
+(which happened to scroll off of my screen so I didn't notice
+what happened).
+
+It would appear to me that the client can't find the CDS server.  (obviously?)
+
+The reason dce_config does a 'cdscp defind cached server" is that the cdsadv
+could not find the cdsd with it's broadcast, so it tries to define it so
+the advertiser can access the server.  This is what would happen if you were
+running on a ncacn_ip_tcp only network (cause tcp does not support broadcasts).  
+A
+
+
+A place to start poking around may be the new EPAC code in RPC.  When I free
+up three RIOS machines I'll try this here in Austin.
+
+I've tried this on three RIOS machines here in Austin and all is 
+OK.
+
+
+
+CR Number                     : 9867
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : cfg
+Subcomponent Name             : src/config
+Short Description             : cell installation fails on AT486
+Reported Date                 : 2/1/94
+Found in Baseline             : 1.1
+Found Date                    : 2/1/94
+Severity                      : A
+Priority                      : 0
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/1/94 public]
+
+During security server installation of a core DCE cell on the AT486 sif.osf.org
+for smoketesting of the nightly build, "/sbin/lib_admin" claims it failed
+to install library "libNDS.so" even when I manually install it just before
+it's needed.  I've also altered "/etc/lib_admin.conf" in case there were
+typos breaking its stringent format requirements.  All to no avail.  The
+same error messages display no matter what I try:
+
+S:****** Successfully removed all remnants of previous DCE installations
+for all components.
+                installing sec_create_db sec_salvage_db secd ...
+                installing rpcd cdsadv cdsclerk dtsd sec_clientd...
+                installing dts_null_provider dts_ntp_provider...
+                installing rpccp uuidgen cdscp getcellname getip...
+                installing acl_edit dce_login rgy_edit dtscp...
+                installing sec_admin passwd_import passwd_export...
+                installing kinit klist kdestroy...
+                copying libdce.so to /usr/shlib...
+                installing libdce.so...
+                Run /sbin/lib_admin? (y)  y
+error installing library: No such file or directory
+installing library /usr/shlib/libNDS.so
+ERROR:   /sbin/lib_admin /etc/lib_admin.conf failed
+
+Thus when cell installation and configuration finishes, and the smoketest
+proper runs, it fails completely.
+
+[02/01/94 public]
+The /etc/lib_admin.conf file had an entry for /opt/dcelocal/shlib/libNDS.so.
+There was not a libNDS.so in /opt/dcelocal/shlib.
+
+If you install GDS on a machine, it will put this entry in to lib_admin.conf.
+If you then re-install this machine, you will get an error like the above.
+The libdce will not be installed, and everything will fail.
+
+This is a known problem with GDS install, and I believe there should
+already be a GDS config defect on it.
+
+I have removed the offending entry on sif.
+
+Canceling this bug.
+
+
+
+CR Number                     : 9677
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : rc.dce should restart gdad
+Reported Date                 : 1/4/94
+Found in Baseline             : 1.1
+Found Date                    : 1/4/94
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[1/4/94 public]
+rc.dce should restart gdad
+
+[1/4/94 public]
+My mistake; it does.
+
+
+
+CR Number                     : 9634
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cfg
+Subcomponent Name             : config
+Short Description             : daemonrunning change
+Reported Date                 : 12/20/93
+Found in Baseline             : 1.0.3
+Found Date                    : 12/20/93
+Severity                      : B
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : rc.dce
+Sensitivity                   : public
+
+[12/20/93 public]
+
+The rc.dce file need to change in routine daemonrunning.
+Every time rpcd is started, it could fail if the user did not
+wait the required 4 minutes and the socket may still be busy.
+
+If rpcd fails to start, secd may also fail to start, etc.
+
+The proposed change follows :
+
+
+daemonrunning()
+{
+        cmd=`basename $1`
+
+        grep $cmd $PSFILE >/dev/null
+        if [ $? -ne 0 ]
+        then# just return if the daemon doesn't exist
+                [ -x $1 ] || return 0
+                echo "\t$*"
+                if [ $cmd = "rpcd" ];then
+                        for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24; do
+                                $*
+                                if [ $? -eq 0 ];then
+                                        break
+                                fi
+                                sleep 10
+                        done
+                        if [ $i -ge 24 ];then
+        			err_exit "Could not start rpcd\n"
+                        fi
+                else
+                        $*
+                fi
+        fi
+}
+
+[8/24/94 public]
+The rpc runtime has been fixed to allow rpcd (or dced) to reuse
+the TCP socket.  So this change is no longer necessary.
+Bug canceled.
+
+
+
+CR Number                     : 9572
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : test, ignore this defect
+Reported Date                 : 12/3/93
+Found in Baseline             : 1.0.3
+Found Date                    : 12/3/93
+Severity                      : E
+Priority                      : 4
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : 
+Transarc Status               : closed
+
+[12/3/93 public]
+We moved the ot tools from AFS to DFS and I'm having some
+problems.  This is a test to see if open works.  I'll cancel
+this defect shortly.
+
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `' 
+Added field Transarc Status with value `open'
+
+[12/3/93 public]
+Filled in Interest List CC with `jean@austin.ibm.com'
+
+[12/3/93 public]
+Changed Status from `open' to `cancel' 
+Filled in Responsible Engr. with `dstokes@austin.ibm.com' 
+Filled in Resp. Engr's Company with `ibm' 
+Changed Transarc Status from `open' to `closed'
+
+
+
+CR Number                     : 9569
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cfg
+Subcomponent Name             : config
+Short Description             : menu2
+Reported Date                 : 12/2/93
+Found in Baseline             : 1.0.3
+Found Date                    : 12/2/93
+Severity                      : B
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : dce_config
+Sensitivity                   : public
+
+[12/2/93 public]
+
+Place a call to menu2 after calling config_morecds() from menu4.
+
+This follows the change delete the menu2 call from the end of the
+routine config_morecds() which breaks non-interactive mode.
+
+[03/30/94 public]
+I have remove all explicit calls to menu functions, so jumping to
+menu2 after configuring an additional CDS server doesn't make
+sense any more.
+Canceled.
+
+
+
+CR Number                     : 9524
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : During config, dce_config fails to check AIX times correctly
+Reported Date                 : 11/22/93
+Found in Baseline             : 1.0.3
+Found Date                    : 11/22/93
+Severity                      : B
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[11/22/93 public]
+
+  When configuring an AIX machine as a DCE client machine you will get
+the following message if the time on the security server is ahead of the
+AIX machine:
+
+****** Time on soldier is forward by 
+       -1 years 11 months -1 days 23 hours 58 minutes 59 seconds
+       compared with time on west.
+
+S:****** Time on soldier is not within specified tolerance (120 sec) of
+         time on west.
+
+        Do you want to synchronize soldier's system time to west (y/n)? (n)
+
+soldier = RS/6000 AIX
+west = HP 9000/710 HP-UX
+
+root@soldier> rsh west date ; date
+Mon Nov 22 11:39:56 EST 1993
+Mon Nov 22 11:38:55 EST 1993
+
+  If you get this message you should manually check that the AIX client
+time is within 120 seconds of the security server, if it is, answer no
+to "Do you want to synchronize soldier system time to west (y/n)?".  If
+the times are not within 120 seconds of each other you should only cor-
+rect the time on the AIX client to be the same as the time on the sec-
+urity server, DO NOT change the time on the security server.  When you
+are checking these times make sure to pay attention to the timezones
+on each machine.
+
+[11/22/93 public]
+
+After trying a few things I found that this problem is caused by sh on AIX,
+if I use a ksh it works fine:
+
+root@soldier> sh
+root@soldier> if [ 19931122153037 -lt 19931122153137 ]
+> then
+> echo 19931122153037 less than 19931122153137
+> else
+> echo 19931122153037 greater than 19931122153137
+> fi
+19931122153037 greater than 19931122153137
+
+root@soldier> ksh
+root@soldier> if [ 19931122153037 -lt 19931122153137 ]
+> then
+> echo 19931122153037 less than 19931122153137
+> else
+> echo 19931122153037 greater than 19931122153137
+> fi
+19931122153037 less than 19931122153137
+
+If only /etc/dce_config was a ksh instead of sh!!
+
+[03/28/94 public]
+Not much I can do about a shell bug on AIX.
+Suggested solution if to set the SYNC_CLOCKS environment variable to 'n'.
+Canceled.
+
+[03/28/94 public]
+Why can't we change the default for /etc/dce_config to be a ksh?
+
+
+
+CR Number                     : 9513
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cfg
+Subcomponent Name             : dfs_config
+Short Description             : CacheInfo should be created for in-memory cache.
+Reported Date                 : 11/18/93
+Found in Baseline             : 1.0.3
+Found Date                    : 11/18/93
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Delta                : 
+Transarc Herder               : 
+Transarc Status               : 
+
+[11/18/93 public]
+The CacheInfo file is needed even when the cache is in memory.  Dfs_config
+only creates it for the on-disk cache.
+Added field Transarc Delta with value `' 
+Added field Transarc Herder with value `' 
+Added field Transarc Status with value `'
+
+[11/18/93 public]
+What version of dfs_config are you using?  This was fixed in the
+OSF dfs_config on 10/5.  Cancelled.
+
+
+
+CR Number                     : 9395
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cfg
+Subcomponent Name             : config/dce_config
+Short Description             : dce_config doesn't know when remove has failed
+Reported Date                 : 11/8/93
+Found in Baseline             : 1.0.3
+Found Date                    : 11/8/93
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[11/8/93 public]
+I just got this transcript.  Notice that dce_config claims that the remove
+was successful despite the errors.
+
+        selection:  6
+    REMOVE will remove the node's ability to operate in the cell.
+   A reconfiguration of the node will be required.  If this is not
+   a server node, then this node should be unconfigured before a
+   REMOVE is done.  Do you wish to continue (y/n)? (n) y
+S:****** Attempting to stop all running DCE daemons...
+
+      Enter Cell Administrator's principal name: (cell_admin) 
+      Enter password: 
+
+NFS server blind not responding still trying
+NFS server blind not responding still trying
+NFS server blind ok
+xargs: rm not executed or returned -1
+xargs: rm not executed or returned -1
+S:****** Successfully stopped all running DCE daemons.
+S:****** Attempting to remove all remnants of previous DCE
+configurations...
+xargs: rm not executed or returned -1
+xargs: rm not executed or returned -1
+rm: Directory /opt/dcelocal/var/dfs/aggrs is not empty.
+rm: Directory /opt/dcelocal/var/dfs is not empty.
+xargs: rm not executed or returned -1
+xargs: rm not executed or returned -1
+S:****** Successfully removed all remnants of previous DCE configurations
+for all components.
+
+[11/15/93 public]
+Since I've seen no activity on this, I assume I must assign an engineer.
+
+[2/6/96 public]
+Not enough information provided. Why these NFS access messages are poing
+up? dcelocal is supposed to be local to the machine. Cancelling this defect.
+If this error shows up, provide details from /tmp/dce_config.log
+
+
+
+CR Number                     : 9384
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config - rc.dce
+Short Description             : deleting a security replica leaves the file /etc/rc.dce out of date.
+Reported Date                 : 11/5/93
+Found in Baseline             : 1.0.3
+Found Date                    : 11/5/93
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : /etc/rc.dce
+Sensitivity                   : public
+
+[11/5/93 public]
+
+Deleting a security replica leaves the file /etc/rc.dce out of date on the 
+host on which the replica was deleted. Thus, the next time /etc/rc.dce runs, 
+it tries to start secd giving the following error:
+
+        /opt/dcelocal/bin/secd
+Registry: Fatal Error - Cannot initialize server database
+ at line 366 of file /project/dce/build/dce1.0.3-snap/src/security/server/rs/rs_main.c - 0x1712207a - Registry object not found (dce / sec)
+
+[03/28/94 public]
+What do you mean, 'deleting a security replica'?
+Can dce_config do this operation?  If you did this by hand, you must also
+modify /etc/rc.dce by hand.
+
+I am going to cancel this defect, please reopen if you can point to a place
+where dce_config might make rc.dce consistant.
+
+
+
+CR Number                     : 9121
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : getcellname not described
+Reported Date                 : 10/14/93
+Found in Baseline             : 1.0.2
+Found Date                    : 10/14/93
+Severity                      : B
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/14/93 public]
+The getcellname command is not documented.  I don't know where it should be
+documented.  There needs to be a man page at least.  It's source lives in
+src/config/utils/getcellname.c.  It might only be a tool for dce_config to
+use, but I think it gets installed, and if so we need to document it.
+All it is, is a wrapper around dce_cf_get_cell_name().
+
+[10/14/93 public]
+
+For 10 points, which book is the one where no one ever expects to find
+reference documentation?  Why, the User's Guide and Reference, of course.
+Take a look at the last page.  And count this as another point in favor of
+my proposal to get rid of (or at least drastically modify) that book.
+
+I'm canceling this CR, but feel free to reopen it if you think the
+getcellname documentation is inadequate.
+
+
+
+CR Number                     : 9120
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa,i486,rs6000
+S/W Ref Platform              : hpux,osf1,aix
+Component Name                : cfg
+Subcomponent Name             : src/config
+Short Description             : dce_config cleanup fails sometimes
+Reported Date                 : 10/14/93
+Found in Baseline             : 1.0.3
+Found Date                    : 10/14/93
+Severity                      : C
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : dce_config
+Sensitivity                   : public
+
+[10/14/93 public]
+
+Sometimes "dce_config" does not clean up completely and doesn't com-
+pletely remove "/opt/dcelocal" even though the "cleanup" variables
+are set appropriately in the ".env" file, ie, set as follows:
+
+REMOVE_PREV_CONFIG="y"
+REMOVE_PREV_INSTALL="y"
+
+[10/14/93 public]
+I'm going to need more info on this.  
+What doesn't it remove?  The dce.rm script does a rm -rf command
+on /opt/dcelocal.  If you dont' have permissions (check umask!)
+or there are daemons running (dce.rm should detect this and shut them
+down, check /tmp/dce_config.log) it won't be able to remove everything
+and it will not complain about it.
+
+Since this is most probably user error, I am lowering this to a C3.
+
+[03/28/94 public]
+Haven't had any more problems with this.
+Canceled.
+
+
+
+CR Number                     : 9075
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : install gds server option also
+installs other dce core servers
+Reported Date                 : 10/8/93
+Found in Baseline             : 1.0.3
+Found Date                    : 10/8/93
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : config/dce_config
+Sensitivity                   : public
+
+[10/8/93 public]
+When selecting 'install GDS server' dce_config also installs new core
+component servers.  This should not happen.
+
+         DCE Installation Menu ( on prague )
+
+
+         1. Security Server
+         2. CDS Server
+         3. DTS Server
+         4. GDS Server
+         5. DFS Server
+
+
+         6. DCE Client
+         7. Application Development Environment
+         8. Optional Utilities
+         9. Replica Security Server
+        10. DFS Client
+
+
+        98. Return to previous menu
+        99. Exit
+
+
+        selection:  4
+
+        Do you wish to first remove all remnants of
+        previous DCE installations for all components?
+        You should do so if you plan on re-installing
+        all existing DCE components now (n): 
+                installing gdscache gdscacheupd gdschdb gdscmxl gdsconf ...
+                installing gdscrontab gdscstub gdsdaemon gdsdbread ...
+                installing gdsdbwrite gdsdeact gdsditadm gdsdsa gdsexec ...
+                installing gdsgendb gdshdlcache gdshdlupd gdsinfo gdsipcchk
+...
+                installing gdsipcinit gdsipcstat gdslog gdsmkiss gdsmkupd
+...
+                installing gdssstub gdsstart gdsstep gdssysadm gdstransfer
+...
+                installing gdsdirinfo gdsutil gdslanguage gdsdistcmd  ...
+                installing gdscacheadm ...
+                installing rpcd cdsadv cdsclerk dtsd sec_clientd
+dtstimed...
+                installing dts_null_provider dts_ntp_provider...
+               installing rpccp uuidgen cdscp getcellname getip...
+                installing acl_edit dce_login rgy_edit dtscp...
+                installing sec_admin passwd_import passwd_export...
+                installing kinit klist kdestroy...
+ln: /usr/lib/libdce.a: File exists
+                copying libdce.sl to /usr/lib...
+                installing message catalogs...
+
+[10/08/93 public]
+I don't really think this is a problem...
+If you are going to install GDS with dce_config, you are probably using
+DCE.  Even if GDS doesn't *depend* on DCE running.
+
+This also is historical behavior by the way....
+
+Basically, dce_config has the rule: If you install a server, you
+will get the DCE client installed too.
+
+[10/14/93 public]
+This isn't going to change for 1.0.3 unless its really important.
+And since I don't thinks its a bug at all...
+Canceled.
+
+[10/20/93 public]
+Huh uh.  Re-opened although I will own the fix.
+
+[10/21/93 public]
+This is still a stupid thing, but I fixed it anyway.
+
+[10/22/93 public]
+Fix was incorrect.  GDS message catalogs are no longer installed.
+
+[10/22/93 public]
+Grrrrr..  This is still the right thing to do but it's too much of a pain
+in the butt to fix the problem in the time remaining.  Defect cancelled.
+
+
+
+CR Number                     : 9044
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : config additional CDS server fails if not client
+Reported Date                 : 10/5/93
+Found in Baseline             : 1.0.3
+Found Date                    : 10/5/93
+Severity                      : B
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : src/config/dce_config
+Sensitivity                   : public
+
+[10/5/93 public]
+
+Configuring an additional CDS server on a node does not work unless
+the node has first been brought up as a dce client.  There are attempts
+to do this correctly in dce_config, but the work is incomplete.  It
+would be nice if configure additional CDS server worked to bring up
+a client if needed, as do the other configure additonal server options.
+Making this work correctly is a better solution than documenting the
+deficiency.
+
+Below is an update of the dce_config routines config_morecds and
+cds_replicate which correct this behavior.  These routines have been
+tested on hppa/hpux and correctly bring up an additional CDS server
+whether or not the node has previously been configured as a dce client.
+Following the updated routines is a diff from the current code.
+
+#------------------------------------------------------
+# config_morecds()
+#
+# nth CDS Server Configuration
+#       Get the name of the Initial CDS Server. Ensure
+#             it isn't this machine.
+#	Configure this machine as a security client if needed.
+# 	If its not a CDS client, make it one.
+#	Ensure the administrative user is in the cds-admin
+#	      group, re-authenticating if necessary.
+#	Check for installation of the cdsd daemon.
+#	Update the configuration file cds.conf.
+# 	Start the cdsd daemon 
+#	Invoke the cds_replicate() routine to create additional
+#	      CDS clearinghouses
+#	Configure the GDA
+#------------------------------------------------------
+config_morecds()
+{
+	log_msg DEBUG "Executing: config_morecds()"
+
+   # Ensure an initial CDS server has been created in the cell.
+
+   this_server=${HOSTNAME}
+   #
+   # Support configuration input via environment variables
+   #
+   if [ $cache_cds_server ]; then
+	:;
+   else
+	cache_cds_server=${CACHE_CDS_SERVER:="NULL"}
+   fi
+   until [ ${cache_cds_server:="NULL"} != "NULL" ]; do
+		log_msg VERBOSE "User query: A CDS server must have already been configured.
+What is the name of a CDS server in this cell
+(if there is more than one, enter the name of 
+the server to be cached if necessary)? "
+		echo "\tA CDS server must have already been configured."
+		echo "\tWhat is the name of a CDS server in this cell"
+		echo "\t(if there is more than one, enter the name of"
+		echon "\tthe server to be cached if necessary)? "
+		read cache_cds_server
+		log_msg VERBOSE "User entry: $cache_cds_server"
+   done
+
+   cache_cds_server=${cache_cds_server:-$this_server}
+   cache_cds_server=`echo $cache_cds_server | cut -f1 -d"." 2>/dev/null`
+	
+   if [ "$cache_cds_server" = "$this_server" ]
+   then
+	err_exit "You must first configure an initial CDS server using the \
+INITIAL CELL CONFIGURATION option for a CDS Server.  \
+Continuing will return to the CONFIGURATION Menu."
+	menu2
+   else
+
+	if [ ! -f $DCELOCAL/dce_cf.db ]
+	then
+		create_dcecfdb
+	fi
+
+        # Configure as a security client if sec_clientd isn't running.
+        ps ${PSARGS} | grep -q sec_clie
+        if [ $? -ne 0 ]
+        then
+                config_secclient
+        fi
+
+        # verify that node is now a security client
+        ps ${PSARGS} | grep -q sec_clie
+        if [ $? -ne 0 ]
+        then
+                err_exit "Failed to configure node as a security client.  This node \
+must be configured as a security client before it can be configured \
+as an additional CDS server.  Continuing will return to the Additional \
+Server Configuration menu."
+                return
+        fi
+
+        # Configure as a CDS client if cdsadv isn't running.
+	ps ${PSARGS} | grep -q cdsadv > /dev/null
+	if [ $? -ne 0 ]
+	then
+		config_cdsclient
+	fi
+
+	# verify that node is now a CDS client
+        ps ${PSARGS} | grep -q cdsadv
+	if [ $? -ne 0 ]
+	then
+		err_exit "Failed to configure node as a CDS client.  This node \
+must be configured as a CDS client before it can be configured \
+as an additional CDS server.  Continuing will return to the Additional \
+Server Configuration menu."
+		return
+	fi
+
+	klist | grep cds-admin >/dev/null 2>&1
+	if [ $? != 0 ]
+	then
+		log_msg DEBUG "Executing: dcelogin (from config_morecds)"
+		dcelogin
+		if [ $? != 0 ]; then
+			menu0
+		fi
+	fi
+
+
+	# Set BIND_PE_SITE=0 so that these CDS processes don't try to use
+	# the pe_site file.  This is especially necessary for cross-cell
+	# authentication to happen correctly.
+
+	log_msg VERBOSE "Executing: BIND_PE_SITE=0"
+	BIND_PE_SITE=0
+
+	# Ensure cdsd has already been installed
+	if [ ! -f $DCELOCAL/bin/cdsd ]
+	then
+		err_exit "$DCELOCAL/bin/cdsd doesn't exist.  \
+Installation of CDS must be done prior to configuration.  \
+Continuing will return to the Main Menu."
+		menu0
+	fi
+
+	log_msg VERBOSE "Updating the cds.conf file."
+	# Update the CDS configuration file cds.conf
+	log_msg DETAIL "Executing: echo \"cds.cdsd.security.server_princ_name: \
+$cellname/hosts/$HOSTNAME/cds-server\" > $DCELOCAL/etc/cds.conf"
+	echo "cds.cdsd.security.server_princ_name: $cellname/hosts/$HOSTNAME/cds-server" > $DCELOCAL/etc/cds.conf
+	log_msg DETAIL "Executing: echo \"cds.gdad.security.server_princ_name: \
+$cellname/hosts/$HOSTNAME/gda\" >> $DCELOCAL/etc/cds.conf"
+	echo "cds.gdad.security.server_princ_name: $cellname/hosts/$HOSTNAME/gda" >> $DCELOCAL/etc/cds.conf
+	log_msg DETAIL "Executing: echo \"cds.*.security.host_princ_name: \
+hosts/$HOSTNAME/self\" >> $DCELOCAL/etc/cds.conf"
+	echo "cds.*.security.host_princ_name: hosts/$HOSTNAME/self" >> $DCELOCAL/etc/cds.conf
+	log_msg DETAIL "Executing: echo \"cds.*.security.server_group_name: \
+$SUBSYSDIR/cds-server\" >> $DCELOCAL/etc/cds.conf"
+	echo "cds.*.security.server_group_name: $SUBSYSDIR/cds-server" >> $DCELOCAL/etc/cds.conf
+        log_msg DETAIL "Executing: echo \"cds.*.security.admin_group_name: \
+$SUBSYSDIR/cds-admin\" >> $DCELOCAL/etc/cds.conf"
+        echo "cds.*.security.admin_group_name: $SUBSYSDIR/cds-admin" >> $DCELOCAL/etc/cds.conf
+
+	# Start cdsd (withOUT the -a)
+	log_msg SUMMARY "Starting cdsd..."
+        ps ${PSARGS} | grep -q cdsd
+	if [ $? = 0 ]
+	then
+		err_exit "cdsd is already running.  \
+Continuing will return to Main Menu."
+		menu0
+	fi
+        #
+        #
+        start_daemon cdsd -e\* -d
+        if [ $? != 0 ]; then
+		log_msg DETAIL "Executing: cdsd"
+        	cdsd  || { err_exit "cdsd failed to start"; }
+        fi
+	modify_rcfile cdsd
+
+        cds_replicate
+
+#	# Start gdad
+#        echo "\tStarting gdad..."
+#        ps ${PSARGS} | grep -q gdad
+#        if [ $? -eq 0 ]
+#        then
+#		err_exit "cdsd is already running.  \
+#Continuing will return to Main Menu."
+#		menu0
+#        fi
+#
+#	config_gda
+
+
+	# Set BIND_PE_SITE back for further config
+	log_msg VERBOSE "Executing: BIND_PE_SITE=1"
+	BIND_PE_SITE=1
+
+	menu2 
+   fi
+}
+
+#------------------------------------------------------
+# cds_replicate()
+#
+# nth CDS Server Configuration
+#    Prompt for name of this new clearinghouse, ensuring
+#	 it's different from the original CDS clearinghouse's
+#	 name.
+#    Create new clearinghouse on this CDS server
+#    replicate the specified directories
+#------------------------------------------------------
+cds_replicate()
+{
+	log_msg DEBUG "Executing: cds_replicate()"
+	# Get clearinghouse name, and ensure it differs from
+	# the default clearinghouse name.
+	#
+	# Support configuration input via environment variables
+	newchname=${REP_CLEARINGHOUSE:="NULL"}
+	until [ ${newchname:="NULL"} != "NULL" ]
+	do
+	    log_msg VERBOSE "User query: What is the name for this clearinghouse?  "
+	    echon "\tWhat is the name for this clearinghouse?  "
+	    read newchname
+	    log_msg VERBOSE "User entry: $newchname"
+	done
+
+	default_ch=${cache_cds_server}
+
+        while [ "$newchname" = "$default_ch" ]
+        do
+		log_msg VERBOSE "User query: New Clearinghouse name must differ from $cellname_ch.
+What is the name for this clearinghouse?"
+                echo "\tNew Clearinghouse name must differ from $cellname_ch"
+                echon "\tWhat is the name for this clearinghouse?"
+                read newchname
+		log_msg VERBOSE "User entry: $newchname"
+        done
+
+	#echo "\tCreating clearinghouse files and replica for root directory..."
+	log_msg VERBOSE "Creating clearinghouse files and replica for root directory."
+	log_msg DETAIL "Executing: cdscp create clearinghouse /.:/$newchname"
+	rm -f /tmp/cdscp_out$$
+	cdscp create clearinghouse /.:/$newchname >/tmp/cdscp_out$$ 2>&1
+	cdscp_status=$?
+	chk_cdscp "Error during creation of clearinghouse /.:/$newchname."
+
+	# Initialize namespace to reflect additional server
+	ns_addserver_init
+
+	log_msg VERBOSE "User query: Should more directories be replicated? (n)  "
+	echon "\tShould more directories be replicated? (n)  "
+	read string
+	answer=${string:-"n"}
+	log_msg VERBOSE "User entry: $answer"
+	case $answer in
+		y) replicate_more;;
+		yes) replicate_more;;
+		*) ;;
+	esac
+}
+
+
+
+5,6c5,7
+old< #	This machine is a security client, if it
+old< #	      isn't already the security server.
+---
+new> #       Get the name of the Initial CDS Server. Ensure
+new> #             it isn't this machine.
+new> #	Configure this machine as a security client if needed.
+10,14c11,12
+old< #       Get the name of the Initial CDS Server. Ensure
+old< #             it isn't this machine.
+old< #       Invoke the config_basecds() routine to do 
+old< #             configuration common to the 1st and Nth CDS
+old< #             servers.
+---
+new> #	Check for installation of the cdsd daemon.
+new> #	Update the configuration file cds.conf.
+23,26d20
+old< 	if [ ! -f $DCELOCAL/dce_cf.db ]
+old< 	then
+old< 		create_dcecfdb
+old< 	fi
+28,55d21
+old<         # Configure as a CDS client if cdsadv isn't running.
+old< 	ps ${PSARGS} | grep -q cdsadv > /dev/null
+old< 	if [ $? -ne 0 ]
+old< 	then
+old< 		config_cdsclient
+old< 	fi
+old< 
+old< 	# verify that node is now a CDS client
+old<         ps ${PSARGS} | grep -q cdsadv
+old< 	if [ $? -ne 0 ]
+old< 	then
+old< 		err_exit "Failed to configure node as a CDS client.  This node \
+old< must be configured as a CDS client before it can be configured \
+old< as an additional CDS server.  Continuing will return to the Additional \
+old< Server Configuration menu."
+old< 		return
+old< 	fi
+old< 
+old< 	klist | grep cds-admin >/dev/null 2>&1
+old< 	if [ $? != 0 ]
+old< 	then
+old< 		log_msg DEBUG "Executing: dcelogin (from config_morecds)"
+old< 		dcelogin
+old< 		if [ $? != 0 ]; then
+old< 			menu0
+old< 		fi
+old< 	fi
+old< 
+90a57,108
+new> 	if [ ! -f $DCELOCAL/dce_cf.db ]
+new> 	then
+new> 		create_dcecfdb
+new> 	fi
+new> 
+new>         # Configure as a security client if sec_clientd isn't running.
+new>         ps ${PSARGS} | grep -q sec_clie
+new>         if [ $? -ne 0 ]
+new>         then
+new>                 config_secclient
+new>         fi
+new> 
+new>         # verify that node is now a security client
+new>         ps ${PSARGS} | grep -q sec_clie
+new>         if [ $? -ne 0 ]
+new>         then
+new>                 err_exit "Failed to configure node as a security client.  This node \
+new> must be configured as a security client before it can be configured \
+new> as an additional CDS server.  Continuing will return to the Additional \
+new> Server Configuration menu."
+new>                 return
+new>         fi
+new> 
+new>         # Configure as a CDS client if cdsadv isn't running.
+new> 	ps ${PSARGS} | grep -q cdsadv > /dev/null
+new> 	if [ $? -ne 0 ]
+new> 	then
+new> 		config_cdsclient
+new> 	fi
+new> 
+new> 	# verify that node is now a CDS client
+new>         ps ${PSARGS} | grep -q cdsadv
+new> 	if [ $? -ne 0 ]
+new> 	then
+new> 		err_exit "Failed to configure node as a CDS client.  This node \
+new> must be configured as a CDS client before it can be configured \
+new> as an additional CDS server.  Continuing will return to the Additional \
+new> Server Configuration menu."
+new> 		return
+new> 	fi
+new> 
+new> 	klist | grep cds-admin >/dev/null 2>&1
+new> 	if [ $? != 0 ]
+new> 	then
+new> 		log_msg DEBUG "Executing: dcelogin (from config_morecds)"
+new> 		dcelogin
+new> 		if [ $? != 0 ]; then
+new> 			menu0
+new> 		fi
+new> 	fi
+new> 
+new> 
+98,146c116,122
+old< 	config_basecds
+old< 
+old< 	# Determine whether a "define cached server" command is needed.
+old< 	# "cdsadv" tries to broadcast to find a cdsd, and if found,
+old< 	# makes an entry in the clerk cache.  So if there is an entry in the
+old< 	# clerk cache for a host other than self, then a "define cached server"
+old< 	# command is not needed.  It takes between 25 (best case) and 75 (WAN/slow
+old< 	# link worst case) seconds for the cdsadv to complete this operation.
+old< 	# Since a lot of code has flowed under the bridge since we started up the cdsadv,
+old< 	# we will do some short sleeps up to a maximum of 75 seconds total, checking the
+old< 	# clerk cache between each.
+old< 	#
+old< 	found=0
+old< 	for i in $TEST15CNT; do
+old< 		log_msg DETAIL "Executing: cdscp dump clerk cache | grep $cellname >/dev/null 2>&1"
+old< 		cdscp dump clerk cache | grep $cellname >/dev/null 2>&1
+old< 		if [ $? -ne 0 ]
+old< 		then
+old< 			log_msg DEBUG "Executing: sleep 5"
+old< 			sleep 5
+old< 			continue
+old< 		else
+old< 			found=1
+old< 			break
+old< 		fi
+old< 	done
+old< 	if [ $found -eq 0 ]; then
+old< 		log_msg SUMMARY "$HOSTNAME cdsadv daemon has not received any responses to its \
+old< broadcast for CDS servers.  Executing a \"cdscp define cached server\" command..."
+old< 		ip=`getip ${cache_cds_server}`
+old< 		if [ $? != 0 ]; then
+old< 		    #
+old< 		    # Support configuration input via environment variables
+old< 		    ip=${CACHE_CDS_SERVER_IP:="NULL"}
+old< 		    until [ ${ip:="NULL"} != "NULL" ]
+old< 		    do
+old< 			log_msg VERBOSE "User query: Enter the IP address of $cache_cds_server:  "
+old< 			echon "\tEnter the IP address of $cache_cds_server:  "
+old< 			read ip
+old< 			log_msg VERBOSE "User entry: $ip"
+old< 		    done
+old< 		fi
+old< 
+old< 		rm -f /tmp/cdscp_out$$
+old< 		log_msg DETAIL "Executing: cdscp define cached server $cache_cds_server \
+old< tower ncadg_ip_udp:$ip >/tmp/cdscp_out$$"
+old< 		cdscp define cached server $cache_cds_server tower ncadg_ip_udp:$ip >/tmp/cdscp_out$$ 2>&1
+old< 		cdscp_status=$?
+old< 		chk_cdscp "cdscp error during \"define cached server\" command."
+---
+new> 	# Ensure cdsd has already been installed
+new> 	if [ ! -f $DCELOCAL/bin/cdsd ]
+new> 	then
+new> 		err_exit "$DCELOCAL/bin/cdsd doesn't exist.  \
+new> Installation of CDS must be done prior to configuration.  \
+new> Continuing will return to the Main Menu."
+new> 		menu0
+148a125,142
+new> 	log_msg VERBOSE "Updating the cds.conf file."
+new> 	# Update the CDS configuration file cds.conf
+new> 	log_msg DETAIL "Executing: echo \"cds.cdsd.security.server_princ_name: \
+new> $cellname/hosts/$HOSTNAME/cds-server\" > $DCELOCAL/etc/cds.conf"
+new> 	echo "cds.cdsd.security.server_princ_name: $cellname/hosts/$HOSTNAME/cds-server" > $DCELOCAL/etc/cds.conf
+new> 	log_msg DETAIL "Executing: echo \"cds.gdad.security.server_princ_name: \
+new> $cellname/hosts/$HOSTNAME/gda\" >> $DCELOCAL/etc/cds.conf"
+new> 	echo "cds.gdad.security.server_princ_name: $cellname/hosts/$HOSTNAME/gda" >> $DCELOCAL/etc/cds.conf
+new> 	log_msg DETAIL "Executing: echo \"cds.*.security.host_princ_name: \
+new> hosts/$HOSTNAME/self\" >> $DCELOCAL/etc/cds.conf"
+new> 	echo "cds.*.security.host_princ_name: hosts/$HOSTNAME/self" >> $DCELOCAL/etc/cds.conf
+new> 	log_msg DETAIL "Executing: echo \"cds.*.security.server_group_name: \
+new> $SUBSYSDIR/cds-server\" >> $DCELOCAL/etc/cds.conf"
+new> 	echo "cds.*.security.server_group_name: $SUBSYSDIR/cds-server" >> $DCELOCAL/etc/cds.conf
+new>         log_msg DETAIL "Executing: echo \"cds.*.security.admin_group_name: \
+new> $SUBSYSDIR/cds-admin\" >> $DCELOCAL/etc/cds.conf"
+new>         echo "cds.*.security.admin_group_name: $SUBSYSDIR/cds-admin" >> $DCELOCAL/etc/cds.conf
+new> 
+169,172d162
+old< 
+old< 	menu2 
+old<    fi
+old< 
+188a179,181
+new> 
+new> 	menu2 
+new>    fi
+250,251d242
+old< 
+old< 	menu2
+
+[10/07/93 public]
+We'll get this in if we can but its not a ship stop.
+
+[11/10/93 public]
+The HP's changes + dts d should be good enough, I have get these changes in
+my sandboxe and tested on both HP and 486. It could be put into the
+1.0.3a or 1.1i tree as soon a the tree's opened.
+
+[6/16/94 public]
+This belongs to dce_config.
+
+[8/24/94 public]
+I configured an additional CDS server on a machine and dce_config
+correctly confgiured me as a security and cds client first.
+Canceled.
+
+
+
+CR Number                     : 8894
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 9042
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : dce_config installs kload in
+wrong directory
+Reported Date                 : 10/4/93
+Found in Baseline             : 1.0.3
+Found Date                    : 10/4/93
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : config/dce_config
+Sensitivity                   : public
+
+[10/4/93 public]
+In function install_dfsclient in dce_config the program 'kload' is
+installed into DCELOCAL/ext.  In function load_dfsext, however, kload is
+invoked as DCELOCAL/bin/kload.  One of these needs to be fixed.
+
+This defect affects defect #8552.
+
+[10/14/93 public]
+This was fixed under 9042.  I can't dup forward so I'll cancel.
+
+
+
+CR Number                     : 8703
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 9123
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dfs.unconfig
+Short Description             : unconfig option in dce_config doesn't unconfigure an fldb server
+Reported Date                 : 9/28/93
+Found in Baseline             : 1.0.3
+Found Date                    : 9/28/93
+Severity                      : C
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/28/93 public]
+
+It would be nice if the unconfig  option had the ability
+to unconfigure an fldb server.  It would be okay if this were
+a separate unconfig option.
+
+[9/28/93 public]
+Oops, I fixed this under 9123.  Cancelled.
+
+
+
+CR Number                     : 8631
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cfg
+Subcomponent Name             : dfs_config
+Short Description             : HP dfs_config does not load Episode
+Reported Date                 : 9/17/93
+Found in Baseline             : 1.0.2a
+Found Date                    : 9/17/93
+Severity                      : A
+Priority                      : 0
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.2a
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : jaffe@transarc.com
+Transarc Status               : closed
+
+[9/17/93 public]
+In dfs_config, the name of the Episode extension is incorrectly spelled as
+"dce_episode" rather than "dfs_episode".
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `jaffe@transarc.com' 
+Added field Transarc Status with value `open'
+
+[09/17/93 public]
+The OSF dfs_config does not have this problem.  
+Which dfs_config are you using?
+
+[10/6/93 public]
+We agree that the problem seems to have gone away.  Canceling.
+Changed Status from `open' to `cancel' 
+Changed Transarc Status from `open' to `closed'
+
+
+
+CR Number                     : 8622
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : CPOPT not set to -p
+Reported Date                 : 9/17/93
+Found in Baseline             : 1.0.3
+Found Date                    : 9/17/93
+Severity                      : C
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : dce_com_env
+Sensitivity                   : public
+
+[9/17/93 public]
+The CPOPT variable, which should be set to '-p' to preserve 
+source file permisions and dates was remove from dce_config
+and never placed in to dce_com_env.
+
+[09/17/93 public]
+Oops.
+Was looking at an old copy of dce_com_env.
+Canceled.
+
+
+
+CR Number                     : 8610
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cfg
+Subcomponent Name             : ode/workon
+Short Description             : WORKON doesn't see SHELL variable
+Reported Date                 : 9/15/93
+Found in Baseline             : 1.0.3
+Found Date                    : 9/15/93
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/15/93 public]
+
+After changing over to using the Korn shell on an HP I discovered that the
+ODE WORKON command did nothing.  After some help and more experimenting on
+my own I discovered that the two commands I had for setting up the shell
+variables were not sufficient.  They were:
+
+SHELL=`which ksh`
+shell=$SHELL
+
+The following screen output shows what happened:
+
+qbarry@chlorine-KSH> echo $shell $SHELL
+/bin/ksh /bin/ksh
+qbarry@chlorine-KSH> workon
+cd'ing to sandbox source directory: /usr/users/qbarry/sb/tetized/src.
+project: dce
+starting new shell: /bin/ksh.
+qbarry@chlorine-KSH> pwd
+/users/qbarry
+qbarry@chlorine-KSH> shell=/bin/ksh
+qbarry@chlorine-KSH> SHELL=/bin/ksh
+qbarry@chlorine-KSH> echo $shell $SHELL
+/bin/ksh /bin/ksh
+qbarry@chlorine-KSH> workon
+cd'ing to sandbox source directory: /usr/users/qbarry/sb/tetized/src.
+project: dce
+starting new shell: /bin/ksh.
+My ksh setup done.
+qbarry@chlorine-KSH> pwd
+/usr/users/qbarry/sb/tetized/src
+qbarry@chlorine-KSH> 
+
+
+Notice that after I went back and changed the shell variables to what they
+already were, then WORKON functioned properly.  I subsequently changed my
+logon procedure to say
+
+#SHELL=`which ksh`
+#shell=$SHELL
+shell=/bin/ksh
+SHELL=/bin/ksh
+
+and now WORKON works just fine.  I did check to see that KSH was actually
+in /bin/ksh and it was.
+
+[09/15/93 public]
+This is *not* a DCE bug, but an ODE bug and should be filed in the 
+correct database (project ode).
+
+[03/28/94 public]
+As I stated above, this is an ODE bug.
+Canceled.
+
+
+
+CR Number                     : 8554
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config / nls/msg
+Short Description             : Message files not installed correctly by dce_config
+Reported Date                 : 09/03/93
+Found in Baseline             : 1.0.3
+Found Date                    : 09/03/93
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[09/03/93 public]
+
+The following message files are not installed by dce_config:
+
+	dcethd.cat
+	gdsdithelp.cat
+	gdssyshelp.cat
+	dfsbmb.cat
+	dfsftu.cat
+	dfsicl.cat
+	dfsrep.cat
+	dfszbd.cat
+	dfszcm.cat
+	dfszfl.cat
+	dfszft.cat
+	dfszhs.cat
+	dfszpx.cat
+	dfszuk.cat
+	dfszxv.cat
+
+The following message file tries to be installed but does not exist:
+
+	dcethreads.cat
+
+[09/03/93 public]
+
+Cancelled, after looking at dce_config I found that the "LIST" is
+not used.
+
+
+
+CR Number                     : 8491
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cfg
+Subcomponent Name             : config
+Short Description             : Failed to kill msg missing daemon
+Reported Date                 : 8/20/93
+Found in Baseline             : 1.0.3
+Found Date                    : 8/20/93
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : dfs.clean
+Sensitivity                   : public
+
+[8/20/93 public]
+when selecting the stop option of dce_config 
+dfs.clean does not display the daemon it could
+not kill
+
+typo in dfs.clean tries to print $sdaemon instead
+of $daemon
+
+workaround is for user to kill -9 any dfs daemons still
+running after dce_config stop option has returned to
+the dce_config menu
+
+[8/31/93 public]
+There are always DFS daemons that cannot be killed.  This
+should be fixed but the problem is not in the config
+scripts.  Also, I cannot find any use of $sdaemon in the 
+context of killing daemons, only starting them.  Is this 
+bug still in the OSF source base?
+
+[10/1/93 public]
+I just spoke with Charlene.  This bug doesn't exist in the OSF
+source base.  Cancelled.
+
+
+
+CR Number                     : 8458
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cfg
+Subcomponent Name             : config
+Short Description             : File rc.dce.template should not be "mv"ed to its new name.
+Reported Date                 : 8/16/93
+Found in Baseline             : 1.0.3
+Found Date                    : 8/16/93
+Severity                      : E
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/16/93 public]
+In dce_config, there is a function called install_common() that
+moves a file named rc.dce to rc.dce.template .  The file rc.dce.template
+should be part of the software before calling the install_common() function,
+and no moving around of files should exist.  The same is true for 
+rc.dfs.
+
+[8/24/94 public]
+Humm..  I don't see a reason why the (admittedly slightly inefficient) 
+move of rc.{dce,dfs} can't be done.
+
+Changing the name of the files in the source tree has a few undesirable
+side affect (rcs history lost), so I think its not a good idea to do this.
+Canceled.
+
+
+
+CR Number                     : 8428
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : CDS Additional Server is nonfunctional initial server machine.
+Reported Date                 : 8/10/93
+Found in Baseline             : 1.0.3
+Found Date                    : 8/10/93
+Severity                      : C
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/10/93 public]
+The CDS Additional Server configuration does not establish a replica of
+the master clearinghouse on the same machine. Prompts for the secondary 
+clearinghouse name and then reports the following error but secondary is
+not created. 
+
+        Are you using multiple LAN's within this cell? (n)
+S:****** Starting cdsadv...
+WARNING: cdsadv is already running.
+S:****** Starting cdsd...
+ERROR:   cdsd is already running.  Continuing will return to Main Menu.
+
+[09/17/93 public]
+I'm not sure if this is a bug, assigning to John D. so he can verify.
+Perhaps its letting the user get too far (ie not checking for cdsd
+right away when confiuring a replica).
+
+[03/28/94 public]
+On further review, this just looks like he was trying to config a 
+replica on a machine already a cds server.
+Canceled.
+
+
+
+CR Number                     : 8184
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : need define cached server in rc.dce
+Reported Date                 : 6/21/93
+Found in Baseline             : 1.0.2a
+Found Date                    : 6/21/93
+Severity                      : D
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/21/93 public]
+
+After rebooting and restarting DCE on machines on different subnets in
+the same cell, I noticed that cds client machines on a different subnet
+from the cds server required the "cdscp define cached server" command in
+order to function properly. This command should be included in the rc.dce
+script and enabled by dce_config when the initial configuration requires
+the "cdscp define cached server" command.
+
+It would be nice to have this fix during 102a for making large cell testing
+with DFS a little easier.
+
+[07/16/93 public]
+Placed this in dce and moved fix by to 1.0.3.
+
+[8/9/93 public]
+I don't see why a "cdscp define cached server" should be necessary on a client
+machine after the initial configuration was completed (assume completions 
+without error). The cds_cache should contain the server binding information 
+at this point and  following the reboot and restart operations irrespective of 
+the subnets of the client and server.
+
+[03/28/94 public]
+I don't believe this is really needed.  Once the define cache server
+has been done, there should be no need for rc.dce to so it again.
+Canceling and John D. can reopen if I am wrong.
+
+
+
+CR Number                     : 8168
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : List of Optional DFS servers is wrong
+Reported Date                 : 6/17/93
+Found in Baseline             : 1.0.2a
+Found Date                    : 6/17/93
+Severity                      : C
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : jaffe@transarc.com
+Transarc Status               : open
+
+[6/17/93 public]
+When installing DCE/DFS from dfs-103-3.18 (dce1.0.2ab4), it suddenly
+pops up a question about whether optional dfs SERVERS should be
+installed. (The relevant function in dce_config is install_dfs. ) And
+the list of servers (!) displayed is
+	cm fms udebug
+	scout upclient upserver
+The only DFS server in this list is upserver. Scout is considered to
+be a monitoring tool and not a DFS server. 
+This error needs rectification.
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `jaffe@transarc.com' 
+Added field Transarc Status with value `open'
+
+[7/7/93 public]
+This is low priority - moving to fixby 1.0.3.
+
+[7/7/93 public]
+This is a technicality more than a bug.  Cancelling.
+
+
+
+CR Number                     : 8164
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cfg
+Subcomponent Name             : uuid
+Short Description             : procedure uuid__get_os_time in the file
+.../src/rpc/runtime/uuidsys_template uses wrong base time for timestamp
+component of a uuid.
+Reported Date                 : 6/16/93
+Found in Baseline             : 1.0.2a
+Found Date                    : 6/16/93
+Severity                      : D
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/16/93 public]
+The timestamp component of a DCE variant uuid must use base time of October
+15, 1582.  The routine generating uuids (uuid_create) calls
+uuid__get_os_time to get a timestamp to be used in the uuid.  The
+uuid__get_os_time procedure in .../src/rpc/runtime/uuidsys_template returns
+the value obtained from a gettimeofday call which returns a time relative
+to a date in 1970, not 1582.  Note that the os dependent routines, for
+example uuid_ultrix.c, add an offset to the value returned by getttimeofday
+to correct for the difference in time basis.  uuidsys_template.c should
+either use the utc_ call or add an offest to gettimeofday.
+
+[8/24/94 public]
+There is only one copy of uuid__get_os_time(), now contained in uuidsys.c.
+It correctly adds the offset for utc time.
+uuidys_template.c no longer exists.
+Bug canceled.
+
+
+
+CR Number                     : 8008
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 7239
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cfg
+Subcomponent Name             : all
+Short Description             : Change ALL includes of
+dce/pthread.h to pthread.h and dce/pthread_exc.h to pthread_exc.h.
+Reported Date                 : 5/17/93
+Found in Baseline             : 1.0.3
+Found Date                    : 5/17/93
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/17/93 public]
+
+Both of these headers get installed by the Application Development
+Environment in /usr/include. For 1.0.2 there is a link that allows
+older apps to find these in /usr/include/dce but this may go away in
+the future. Apps including dce/pthread.h may not build in a DCE
+environment that uses something other than DCE Threads. Some of our
+headers that apps end up including are guilty of including dce/pthread.h. 
+These need to be fixed.
+
+[06/23/93 public]
+Perhaps, then, we should not put dce/pthread.h and dce/pthread_exc.h in
+the install tree?
+
+[09/30/93 public]
+This is essitially a dup of 7239.  The only file in the src tree
+is src/rpc/sys_idl/stubbase.h, and I am fixing that under 7239.
+
+[09/30/93 public]
+My mistake, I misread 7239.  There are *many* places in the DCE source
+code which include dce/pthread_exc.h.  This defect still needs to
+be addressed.  And should be addressed in 1.0.3.
+
+Raising to a P1.
+
+[10/04/93 public]
+Since this is a threads issue, giving this one (and 7239) to John Dugas
+so he can straighten out this mess.
+
+[10/15/93 public]
+Its been decided that pthread_exc.h will stay in include/dce. Cancel.
+
+
+
+CR Number                     : 7986
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_cf.h
+Short Description             : dce_cf.h does not include stdio.h
+Reported Date                 : 5/12/93
+Found in Baseline             : 1.0.2
+Found Date                    : 5/12/93
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.2a
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : mason@transarc.com
+Transarc Status               : open
+
+[5/12/93 public]
+The dce_cf.h file uses the FILE type from stdio.h but does not include
+stdio.h.
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `mason@transarc.com' 
+Added field Transarc Status with value `open'
+
+[6/8/93 public]
+I just spoke with Fred.  This bug was apparently filed based 
+on inspection.  I hesitate to simply include stdio.h without
+a specific compilation test case that shows the problem before 
+the fix and verifies the fix once it is made.
+
+Therefore, we agreed to cancel this bug unless a specific 
+compilation problem can be identified.  Cancelled.
+
+
+
+CR Number                     : 7936
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cfg
+Subcomponent Name             : build of postscript documentation
+Short Description             : On AIX you can't build some postscript versions of DCE documentation
+Reported Date                 : 05/05/93
+Found in Baseline             : 1.0.2
+Found Date                    : 05/05/93
+Severity                      : A
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[05/05/93 public]
+
+When I try to build the postscript versions of the DCE 1.0.2 documentation
+on AIX 3.2 I get the following errors:
+
+formatting body sec.acl_edit (rsml) for psc;  part 019 of 38
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body sec.chpass (rsml) for psc;  part 020 of 38
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body sec.dce_login (rsml) for psc;  part 021 of 38
+psdit: 1007-653 The input character is invalid: \116 (N)
+
+formatting body sec.klist (rsml) for psc;  part 024 of 38
+psdit: 1007-653 The input character is invalid: \116 (N)
+
+formatting body sec.su_cmd (rsml) for psc;  part 025 of 38
+psdit: 1007-653 The input character is invalid: \116 (N)
+
+formatting body dfs.intro (rsml) for psc;  part 027 of 38
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs.cm_whereis (rsml) for psc;  part 031 of 38
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 98, file -
+
+formatting body 1rpc.pages (rsml) for psc;  part 011 of 57
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body 3rpc.intro (rsml) for psc;  part 012 of 57
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body 3rpcB.pages (rsml) for psc;  part 014 of 57
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body 3rpcD.pages (rsml) for psc;  part 016 of 57
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body 7rpcA.pages (rsml) for psc;  part 019 of 57
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body 7rpcB.pages (rsml) for psc;  part 020 of 57
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body 3secB.pages (rsml) for psc;  part 041 of 57
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 1404, file -
+ERROR: C
+ERROR:
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body 3secD.pages (rsml) for psc;  part 043 of 57
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 167, file -
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body 2dfs.pages (rsml) for psc;  part 048 of 57
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body 3dce.intro (rsml) for psc;  part 056 of 57
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 124, file -
+
+formatting body 3dce.pages (rsml) for psc;  part 057 of 57
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body rpcA.pages (rsml) for psc;  part 007 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 149, file -
+ERROR: C
+ERROR:
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body rpcC.pages (rsml) for psc;  part 009 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 168, file -
+ERROR: C
+ERROR:
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body rpcD.pages (rsml) for psc;  part 010 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 136, file -
+ERROR: C
+ERROR:
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body 8cdsB.pages (rsml) for psc;  part 016 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body 8cdsE.pages (rsml) for psc;  part 019 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 100, file -
+ERROR: C
+ERROR:
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body sec8.pages (rsml) for psc;  part 032 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 125, file -
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs4A.pages (rsml) for psc;  part 035 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs4B.pages (rsml) for psc;  part 036 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 113, file -
+ERROR: C
+ERROR:
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs4C.pages (rsml) for psc;  part 037 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs8C.pages (rsml) for psc;  part 041 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 120, file -
+ERROR: C
+ERROR:
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs8F.pages (rsml) for psc;  part 044 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs8G.pages (rsml) for psc;  part 045 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs8K.pages (rsml) for psc;  part 049 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs8M.pages (rsml) for psc;  part 051 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 192, file -
+ERROR: IP LI
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs8O.pages (rsml) for psc;  part 053 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs8P.pages (rsml) for psc;  part 054 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 111, file -
+ERROR: C
+ERROR:
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs8Q.pages (rsml) for psc;  part 055 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 125, file -
+ERROR: C
+ERROR:
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs8R.pages (rsml) for psc;  part 056 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs8S.pages (rsml) for psc;  part 057 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dfs8T.pages (rsml) for psc;  part 058 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+formatting body dce.pages (rsml) for psc;  part 060 of 60
+psdit: 1007-653 The input character is invalid: \116 (N)
+
+formatting body ch11_systest (gpsml) for psc;  part 014 of 15
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 809, file -
+ERROR: Table at line 2744 file Input is too wide - 3947 units
+ERROR: Table at line 4000 file Input is too wide - 4056 units
+
+[05/05/93 public]
+
+This issue is not related to building the docs, but what troff tools need to be
+setup on a RIOS machine to build  doc.col: 1003-703 Cannot find or open
+/usr/lib/nterm/tab.psc
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+I'm reassigning it to the doc group.
+
+Other than the known documented error message:
+
+ERROR: troff: 1004-106 Font CW is too big for position 0
+ERROR:  line 185, file -
+ERROR: }0
+
+you get assorted errors if you have the incorrect troff, however which
+troff you should have is not documented somewhere readily accessible.
+
+Examples of errors are:
+
+	ERROR: troff: 1004-105 Cannot find or open
+		/usr/lib/font/devpsc/CI.out
+and 
+	col: 1003-703 Cannot find or open /usr/lib/nterm/tab.psc
+ERROR: this piece did not format to completion, and the section and page
+ERROR:     numbers in the following pieces will be wrong
+
+Also note the errors in Paul Ellis' comments up above.
+
+In addition, you also cannot do "make all" on a RIOS machine as the
+TYPESETTER variable must be set to 'ps" for postscript files and then reset
+to "lp" for ascii files.
+Since "make all" works on the PMAX, it should work in a similar
+manner on a RIOS and on other reference platforms as they become availible.
+
+[05/05/93 public]
+Cancelled, it worked fine after copying the troff command from tinker
+onto the QA test machine orange.
+
+
+
+CR Number                     : 7695
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cfg
+Subcomponent Name             : port_gd
+Short Description             : getting dump on RIOS
+Reported Date                 : 4/13/93
+Found in Baseline             : 1.0.2
+Found Date                    : 4/13/93
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[4/13/93 public]
+
+A note from the FAQ to incorporate in the Porting Guide:
+
+
+From: kenny@osf.org
+To: dce-team, dfs-team
+Subject: RIOS: How to Get PMD's
+Date: Wed, 06 Jan 93 11:42:32 -0500
+
+
+...
+
+------- Forwarded Message
+
+>From nick Wed Jan  6 10:56:44 1993
+Received: from alphaville.osf.org by osf.osf.org (5.65/OSF 1.0)
+	id AA14519; Wed, 6 Jan 1993 10:56:42 -0500
+Message-Id: <9301061556.AA14519@osf.osf.org>
+From: Nick Dokos <nick@osf.org>
+To: kenny
+Reply-To: nick@osf.org
+Subject: Getting a dump on RIOS
+Date: Wed, 06 Jan 93 10:55:01 -0500
+Sender: nick
+
+According to the AIX Info Explorer, you get a dump to the
+primary dump device when you press the reset button. You can
+also get a dump to the primary device by pressing Control-Alt-Numpad1
+or to the secondary device by pressing Control-Alt-Numpad2, after
+turning the key to the Service position. There is also a
+command, sysdumpstart, to do a dump and halt.
+
+Usually /dev/hd7 is the primary device, but there is a command,
+sysdumpdev, to change it or the secondary device. sysdumpdev -l
+will tell you what they are currently. Try also sysdumpdev -L which
+gives stats about the most recent dump.
+
+The command
+
+	crash /dev/hd7 /usr/lib/boot/unix
+
+will let you examine the dump. If you need to find out about the
+crash subcommands, let me know - I can print out the Info article.
+
+Nick
+
+------- End of Forwarded Message
+
+[6/22/93 public]
+Changed "Fix By Baseline" from 1.0.3 to 1.1.
+
+[8/13/96 public]
+
+Cancelled--Porting Guide no longer exists.
+
+
+
+CR Number                     : 7693
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cfg
+Subcomponent Name             : port_gd
+Short Description             : dbx hints
+Reported Date                 : 4/13/93
+Found in Baseline             : 1.0.2
+Found Date                    : 4/13/93
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[4/13/93 public]
+This note from the FAQ should be incorporated in the Porting Guide:
+
+
+From: weisman
+To: dce-team
+Subject: RIOS: Debugging Hints
+Date: Tue, 18 Feb 92 16:13:50 -0500
+
+
+I'm doing my first RIOS DCE debugging and have learned some tidbits:
+
+1) If you are bringing up dbx and get: reading symbolic information ...Killed
+then you must increase system paging space with smit.  Get someone who
+knows what they're doing.
+
+2) After that, if you get: reading symbolic information ...Segmentation fault
+then you must bring up dbx with the "-f" option.  This tells dbx to defer
+reading some symbols until it needs them.
+
+	dbx -f /usr/bin/sec_create_db
+
+3) In dbx, you need to say:
+
+	ignore vtalrm
+
+This tells dbx to not trap the virtual timer alarms generated by CMA.
+
+More late-breaking news as it occurs.
+
+Dave
+
+[6/22/93 public]
+Changed "Fix By Baseline" from 1.0.3 to 1.1.
+
+[8/13/96 public]
+Cancelled--Porting Guide no longer exists.
+
+
+
+CR Number                     : 7588
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cfg
+Subcomponent Name             : osf/1
+Short Description             : sleep() with PCATCH falg is not interruptable.
+Reported Date                 : 3/25/93
+Found in Baseline             : 1.0.2
+Found Date                    : 3/25/93
+Severity                      : E
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : jaffe@transarc.com
+Transarc Status               : open
+
+[3/25/93 public]
+When a process gets into sleep on a lock then there is no way
+to interrupt it even control-C won't wake it up util the
+lock is available. I traced the problem and found that the 
+problem was in osf1 kernel function mpsleep(), if I was not wrong.
+--Jess
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `jaffe@transarc.com' 
+Added field Transarc Status with value `open'
+
+[3/25/93 public]
+Correct a mail address.  Don't know if this is a DFS problem exactly.
+Changed Component Name from `dfs' to `dce' 
+Changed Subcomponent Name from `osf1' to `osf/1' 
+Changed Responsible Engr. from `delgado@osf' to `delgado'
+
+[3/25/93 public]
+This sounds like purely an OSF/1 problem and shouldn't even be here
+unless it is preventing DFS (or some other DCE component) from 
+meeting exit criteria.  Downgrading until more specific
+information is provided how this problem relates to DCE.  If 
+none is forthcoming, this bug will be cancelled.
+
+[3/26/93 public]
+
+[09/01/93 public]
+
+Pmax is not supported any longer.
+
+
+
+CR Number                     : 7481
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : uuidgen installed on all clients
+Reported Date                 : 3/11/93
+Found in Baseline             : 1.0.2
+Found Date                    : 3/11/93
+Severity                      : D
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : dce_config
+Sensitivity                   : public
+
+[3/11/93 public]
+Why do we install uuidgen on all client machines?  
+
+This question might make more sense if you know that we only
+install idl on machines configured as App Dev machines.
+
+idl.cat is installed on all client machines not just those
+machines that have the idl compiler.  Is this correct or are
+there messages in this catalog that other things (stubs?)
+can generate? 
+
+My thought is that all three of these should only be on App
+Dev machines.  This would cause changes in dce_config (there
+are user visible changes in messages displayed--installing
+foo--but nothing like a prompt change) and in some
+documentation (Admin Guide).
+
+When the time comes an inter-related Doc Bug should be opened.
+
+[3/11/93 public]
+One reason uuidgen is installed is that it is used by dce_config
+during some 'rpccp export' calls during configuration.  Every
+client really needs it.
+
+[4/12/93 public]
+
+I can imagine shell scripts for installs of products based on DCE wanting
+to use uuidgen or an equivalent to generate a "database" object uuid.
+
+What's the harm of including uuidgen in the base distribution?  assuming
+you're using shared libraries, it's not very big.
+
+[6/16/93 public]
+I cancelled this, as people make convincing arguments for it.
+
+
+
+CR Number                     : 7239
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : pthread_exc.h may be wrong dir
+Reported Date                 : 2/17/93
+Found in Baseline             : 1.0.2b16
+Found Date                    : 2/17/93
+Severity                      : D
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/17/93 public]
+While compiling a systest test program, I found that the file include
+file stubbase.h has the following include:
+
+include <dce/pthread_exc.h>
+
+However, pthread_exc.h is not installed in /usr/include/dce. It is put
+in /usr/include. What does POSIX specify for this file if anything?
+
+I did a grep for pthread_exc.h in the install tree and stubbase.h was
+the only file which included pthread_exc.h.
+
+[08/26/93 public]
+dce_config no longer install's links from dce/pthread.h to /usr/include
+so apps that include stubbase.h wont compile on an installed 1.0.3
+system.
+
+Please fix!
+
+[09/30/93 public]
+Ok, I'll fix it :-)  Had someone come in to my office to complain,
+and since the file is in rpc/sys_idl.
+
+This also requires a change for src/threads/Makefile to export
+pthread_exc.h to /usr/include, not /usr/include/dce.
+
+[10/04/93 public]
+No, I'm not going to fix it.  I am going to give it back to John Dugas
+since he knows what is going on.
+
+What I *will* do is make dce_config install a link from /usr/include/dce
+back up to /usr/include for the pthread files.
+
+This is a hack and only hides the problem.  DCE needs to fix this *NOW*
+in 1.0.3 before we have way to much source code out there including
+the wrong stuff.
+
+[10/15/93 public]
+pthread_exc.h is in include dce and that's where its going to stay. 
+Cancel.
+
+[10/19/93 public]
+Really cancelled this time.
+
+
+
+CR Number                     : 6994
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 7336
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : dfsexport not always enabled in rc.dfs
+Reported Date                 : 1/25/93
+Found in Baseline             : 1.0.2b11
+Found Date                    : 1/25/93
+Severity                      : D
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[1/25/93 public]
+config_dfsfldb is missing the call to 'enable_in_dfs_rc dfsexport'.
+The diff below shows where to place it (in a similar position as in
+config_dfsfs).
+
+*** dce_config.orig     Mon Jan 25 10:32:49 1993
+--- dce_config  Mon Jan 25 10:35:31 1993
+***************
+*** 5061,5066 ****
+--- 5061,5068 ----
+        read DEVNAME
+    done
+
++   enable_in_dfs_rc dfsexport
++
+    # Create the dfstab file based on the filesystem type.
+    # Do the appropriate dfsexport command.
+    case $option in
+
+[6/7/93 public]
+This was fixed under 7336.
+
+
+
+CR Number                     : 5442
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : non-authenticated access to DFS/LFS not valid.
+Reported Date                 : 9/23/92
+Found in Baseline             : 1.0.2
+Found Date                    : 9/23/92
+Severity                      : B
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : jaffe@transarc.com
+Transarc Status               : open
+
+[9/23/92 public]
+Initial access for non authenticated users seems to be broken.
+
+Bring up a new DFS cell with episode as root.dfs.
+Without running dce_login, cd to /: and type ls.
+My log is :
+
+	...
+        It is recommended that the password for the cell_admin user
+        be changed after all configuration for this machine is complete.
+# cd /:
+# ls
+ls: 0653-345 .: Permission denied.
+# pwd
+pwd: The file access permissions do not allow the specified action.
+# cd /
+# dce_login cell_admin -dce-
+Password must be changed!
+# cd /:
+# ls
+# pwd
+/.../mandos.dce.transarc.com/fs
+
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `jaffe@transarc.com' 
+Added field Transarc Status with value `open'
+
+[9/23/92 public]
+Changed H/W Ref Platform from `all' to `rs6000' 
+Changed S/W Ref Platform from `all' to `aix'
+
+[9/28/92 public]
+Reassigned to Bruce.
+
+Changed Responsible Engr. from `mason@transarc.com' to `bwl@transarc.com'
+
+[9/29/92 public]
+(quoting bwl)
+
+The reason that /: is not accessible to an un-authenticated user is
+that, by default, access to the root directory created by fts crft is
+limited to authenticated users.  (As a matter of fact, the directory
+is created without an ACL.  Access to a file or directory without an
+ACL is as if it had an ACL whose USER_OBJ, GROUP_OBJ, and OTHER_OBJ
+entries were derived from the file's or directory's mode, and which
+did not have any other entries, such as UNAUTH_MASK.)
+
+The right way to fix this is that, immediately after the fts crft, the
+fileset should be mounted (fts crmount, etc.), and the ACL of the root
+directory should be modified as desired (acl_edit).
+
+The reason this didn't show up until recently was because I recently
+fixed an Episode bug in checking access to files/directories without
+ACL's.
+
+(me again)
+
+I've reassigned this to Ron Arbo.  Since this is correct operation,
+albeit somewhat non-intuitive, it is an enhancement request, not a
+bug.
+
+If y'all at OSF don't think this is reasonable, cancel it.
+
+This problem should be observable on OSF/1, also.
+
+Changed Defect or Enhancement? from `def' to `enh' 
+Changed Component Name from `dfs' to `dce' 
+Changed Subcomponent Name from `lfs' to `dce_config' 
+Changed Responsible Engr. from `bwl@transarc.com' to `rsarbo' 
+Changed Resp. Engr's Company from `tarc' to `osf'
+
+
+
+CR Number                     : 4926
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : inconsistent treatment of bak entry
+Reported Date                 : 8/5/92
+Found in Baseline             : 1.0.1
+Found Date                    : 8/5/92
+Severity                      : D
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/5/92 public]
+Jonathan Chinitz noticed the following inconsistency in dce_config:
+
+The entry
+
+/.:/$SUBSYSDIR/$DFSDIR/bak 
+
+gets created as a *directory* in CDS,
+
+but it also gets added to the cell-profile which implys it should
+be a CDS object (ie. a server entry, a group, or a profile).
+
+[1/30/93 public]
+I believe this may have been done originally to prevent
+spurious errors until DFS back up configuration capability
+is added to dce_config.  Changing to enhancement.
+
+[6/7/93 public]
+This was fixed when the back up config changes were added to dce_config.
+
+
+
+CR Number                     : 4907
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cfg
+Subcomponent Name             : dce.clean
+Short Description             : Why does dce.clean use 'kill'?
+Reported Date                 : 7/31/92
+Found in Baseline             : 1.0.1
+Found Date                    : 7/31/92
+Severity                      : E
+Priority                      : 4
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/31/92 public]
+Our CDS people here suggested dce.clean use 'cdscp disable' to kill
+servers and clerks.  DTS also has a special command for taking down
+dtsd.  Shouldn't these be used in dce.clean instead of 'kill'?
+
+[10/14/93 public]
+This will be partly addressed by the 1.1 dced.
+I prototyped a dce.clean to try and use some of the shutdown commands,
+and it was a failure.  Many things don't shutdown gracefully and
+take a long time doing so.  Most dce servers handle SIGTERM and
+do the right thing.
+
+
+
+CR Number                     : 4710
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : Need a way to config a second flserver site
+Reported Date                 : 7/14/92
+Found in Baseline             : 1.0.1
+Found Date                    : 7/14/92
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : mason@transarc.com
+Transarc Status               : open
+
+[7/14/92 public]
+The dce_config script should have some mechanism to configure multiple
+flserver machines.  The latest version that I looked at would allow admins
+to create an initial flserver (Fileset Location Database Machine) site,
+but would also proceed with creating a root.dfs fileset.
+
+There should be multiple flserver machines in a cell for availability;
+there should usually be 3, or generally some odd number larger than 1.
+
+I believe that most of the current flserver configuration is correct in
+dce_config; the only difficulty is that this configuration pass may attempt
+to create a root.dfs even if there isn't one.  The script could run
+``fts lsfldb root.dfs'' to determine if there is a root.dfs fileset already.
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `mason@transarc.com' 
+Added field Transarc Status with value `open'
+
+[7/14/92 public]
+Changed to enhancement.
+
+[6/7/93 public]
+This was fixed under another CR which escapes me at the moment.
+
+
+
+CR Number                     : 4411
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : dce_config not restartable
+Reported Date                 : 6/23/92
+Found in Baseline             : 1.0.1b18
+Found Date                    : 6/23/92
+Severity                      : C
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : mason@transarc.com
+Transarc Status               : open
+
+[6/23/92 public]
+dce_config issues a fts crserverentry command when configuring a
+FLDB server machine but does not actually check if the command
+succeeded. The exit status of that command should be checked and
+appropriate action taken. Appropriate action could be to prompt 
+the user to look in the FtLog file and to correct the situation
+and then press ENTER whereupon the script could retry the 
+fts crserverentry command and continue if all is ok.
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `mason@transarc.com' 
+Added field Transarc Status with value `open'
+
+[6/25/92 public]
+Changed Responsible Engr. from `pakhtar@transarc.com' to `rsarbo@osf.org' 
+Changed Resp. Engr's Company from `tarc' to `osf'
+
+[1/19/93 public]
+Yes, this is more generically the problem of dce_config restartability.
+Changed from def to enh.
+
+[8/24/94 public]
+Ron and I agree that dce_config will never be truly 'restartable',
+however, some progress has been made since this defect was filed
+over 2 years ago.
+
+Bug canceled.
+
+
+
+CR Number                     : 4296
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : There are 9 references to "ncadg_ip_udp" without checking for RPC_SUPPORTED_PROTSEQS
+Reported Date                 : 6/16/92
+Found in Baseline             : 1.0.1
+Found Date                    : 6/16/92
+Severity                      : C
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/16/92 public]
+There are nine references to "ncadg_ip_udp" in dce_config without ever
+checking to see if RPC_SUPPORTED_PROTSEQS is set.  I'm not sure if there
+should be a check done or not but this did prevent us from configuring
+our client machines when the server was brought up using "ncacn_ip_tcp".
+
+[6/29/92 public]
+Changed to enh, downgraded priority since this bug applies to "cn-only" 
+protocol configuration.
+
+[8/4/93 public]
+Please excuse my brash re-opening of someone else's defect, but you may want to
+reconsider this one.
+
+dce_config creates several CDS and RPC entries for daemons that do not/can not
+do it themselves.  Although ncadg_ip_udp may be okay as a lowest common
+denominator, I think configuration would be more complete if such registrations
+were performed for each protocol supported.  This not only allows for better
+interoperability (if some machines in the heterogeneous network only support
+some subset of the total number of protocols a server has available), 
+but also allows those services that recognize one protocol as being better 
+than another to select the one they want to use.
+
+The default set of protocols should be overridden by RPC_SUPPORTED_PROTSEQS,
+if it is set.  Also, the DFS folks tell me that their endpoint mapper host
+binding only works over ncadg_ip_udp, so that one should be left hardcoded.
+
+[8/23/94 public]
+As of DCE 1.1, the cds component in particular still expects that upon
+configuration the DG protocol is supported.  It has this hardwired
+in to its code, and I believe not only for the broadcast capability.
+
+Basically, this enhancement will never be performed to dce_config.
+Maybe when someone writes a dcecp script, and CDS is fixed, this
+will happen.
+
+
+
+CR Number                     : 4244
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : dce_config should create multiple aggregates
+Reported Date                 : 6/12/92
+Found in Baseline             : 1.0.1b18
+Found Date                    : 6/12/92
+Severity                      : B
+Priority                      : 1
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : mason@transarc.com
+Transarc Status               : open
+
+[6/12/92 public]
+dce_config should allow the user to export more than one aggregate.
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `mason@transarc.com' 
+Added field Transarc Status with value `open'
+
+[6/15/92 public]
+This is an enhancement.
+
+[6/15/92 public]
+This is beyond the scope for dce_config.  Cancelling.
+
+
+
+CR Number                     : 4118
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : file
+Short Description             : libcom_err.a is not needed
+when linking.  It should be removed.
+Reported Date                 : 6/8/92
+Found in Baseline             : 1.0.1
+Found Date                    : 6/8/92
+Severity                      : C
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : 
+Transarc Status               : 
+
+[6/8/92 public]
+Many Makefiles under file have set their LIBS line to include libcom_err.a.
+This is not needed since the files in libcom_err.a are also included in
+libdce.
+
+[9/17/92 public]
+We've been through this before, the initial problem is that libdce.a on the
+AIX platform does not contain the libcom_err.c files.
+
+The OSF1 libdce/Makefile picks up com_err.o and error_message.o from 
+libkrb5a_OFILES which is defined in security/krb5/lib/krb5/Makefile.
+This is then added to the variable libdce_4.a_OFILES, which is then used
+by that Makefile to build libdce_4.a, which is then used by 
+libdce/PMAX/machdep.mk to build libdce.so on the OSF/1 Platform.
+
+The AIX libdce.a is built using a different technique which never uses the
+libdce_N.a files, and thus never picks up com_err.o and error_message.o.
+
+Once this is fixed, Transarc would be all to happy to remove libcom_err.a
+from our Makefiles.
+
+Changed Component Name from `dfs' to `dce' 
+Filled in Interest List CC with `jaffe@transarc.com' 
+Changed Fix By Baseline from `1.0.1' to `1.0.2' 
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `' 
+Added field Transarc Status with value `'
+
+[8/3/93 public]
+Not sure how this got assigned to me.  Apparently it
+is not even a bug.  Cancelling.
+
+
+
+CR Number                     : 4075
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 8595
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : gdad is started automatically.
+Reported Date                 : 6/5/92
+Found in Baseline             : 1.0.1b18
+Found Date                    : 6/5/92
+Severity                      : E
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : mason@transarc.com
+Transarc Status               : open
+
+[6/5/92 public]
+Dce_config when configuring CDS [by function config_cds] also
+configures GDA automatically. As GDA is only useful for intercell 
+communication, and since an isolated cell is a possibility, configuration
+of GDA should be an option and not be automatically done.
+
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `mason@transarc.com' 
+Added field Transarc Status with value `open'
+
+[6/5/92 public]
+Moved out of DFS area to ``dce''.
+Changed Component Name from `dfs' to `dce' 
+Changed Responsible Engr. from `pakhtar@transarc.com' to `' 
+Changed Resp. Engr's Company from `tarc' to `'
+
+[6/5/92 public]
+Filled in Responsible Engr. with `rsarbo@osf.org'
+
+[6/22/92 public]
+Changed resp. engineer to melman, since he's both a GDS and a dce_config 
+kind of guy.
+
+[01/14/93 public]
+I don't think it is necessary to add another question to dce_config.
+Generally, you want a gdad running.
+
+The gdad is usefull even in cells that are isolated because
+they might not be isolated forever.  It also will provide
+a better error message for user trying to go outside a cell.
+
+The bug is changed to a doc request to add a 
+note telling the system administrator to comment out the gdad 
+in rc.dce if you are going to have a isolated cell and don't 
+want gdad running.
+
+[5/27/93 public]
+Assigned to Pam Millette.
+
+[9/23/93 public]
+With the new dce_config 1.0.3 functionality, gdad is now a 
+separate menu selection.  CR 8595 specifies documenting the 
+new 1.0.3 functionality.  
+I've added 8595 as a related CR. This CR should be cancelled.
+
+[10/1/93 public]
+Cancelled this CR.
+
+
+
+CR Number                     : 3934
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : DFS and security installation not separate.
+Reported Date                 : 6/1/92
+Found in Baseline             : 1.0.1b17
+Found Date                    : 6/1/92
+Severity                      : E
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : mason@transarc.com
+Transarc Status               : open
+
+[6/1/92 public]
+
+When you select to install the security server in dce_config, why does it
+prompt you, asking if you want to install the DFS client binaries.
+
+[6/5/92 public]
+I'm changing this to an enhancement.  When you install any DCE server, 
+you also implicitly install DCE client software.  You only notice the 
+DFS client installation because it prompts you.  The interface may
+be somewhat incongruent, but it works.  There are more important
+dce_config problems that should be fixed first.
+
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `mason@transarc.com' 
+Added field Transarc Status with value `open'
+
+[8/3/93 public]
+This is just the way dce_config works.  This is not a bug
+that's going to get fixed in my lifetime.  Unless someone
+has a strong objection, cancelling.
+
+
+
+CR Number                     : 3102
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : dce_config is case sensitive with user input.
+Reported Date                 : 4/28/92
+Found in Baseline             : 1.0.1
+Found Date                    : 4/28/92
+Severity                      : D
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : 
+Transarc Status               : 
+
+[4/28/92 public]
+dce_config should not be case sensitive with user input.  Specifically,
+when dce_config asked "Should this machine be configured as a DFS client? (n)"
+I answered with 'Y' and it took that to be no.  I am not sure of all
+instances where the responses are case sensitive, but it should probably 
+be cleaned up.
+
+[4/28/92 public]
+Marked as D2 enhancement.
+
+[4/29/92 public]
+Changed assignment to ``dce'' from ``dfs'' since it's a complaint about
+dce_config.
+Changed Component Name from `dfs' to `dce' 
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `' 
+Added field Transarc Status with value `'
+
+[08/20/93 public]
+This isn't going to happen.  dce_config is consistant in its prompts
+in that it always wants lower case.
+
+Canceled.
+
+
+
+CR Number                     : 3101
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cfg
+Subcomponent Name             : config
+Short Description             : STOP option doesn't handle DFS
+Reported Date                 : 4/28/92
+Found in Baseline             : 1.0.1b12
+Found Date                    : 4/28/92
+Severity                      : C
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/28/92 public]
+The dce.clean script needs to be extended to stop DFS daemons as 
+well as the other DCE daemons.
+
+[5/14/92 public]
+The "START" option to dce_config also does not work for dfs.  The
+rc.dfs startup file gets populated with startup commands by dce_config 
+during the CONFIG step, but that file is not invoked from /etc/rc.dce
+when the "START" option is selected.
+
+[5/21/92 public]
+May need to use bos commands in dce.clean since the fxd's are unkillable 
+using kill.  It is unclear whether bos will be able to kill them either.
+
+[8/3/93 public]
+This was fixed as well as it's going to get fixed by HP drop.
+Cancelling.
+
+
+
+CR Number                     : 2965
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cfg
+Subcomponent Name             : dce_config/dts
+Short Description             : dce_config doesn't sync time
+Reported Date                 : 4/21/92
+Found in Baseline             : 1.0.1b12
+Found Date                    : 4/21/92
+Severity                      : B
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/21/92 public]
+
+When configuring a client machine, dce_config attempts a dce_login
+before it brings up DTS.  But if the clocks are out of sync, the
+dce_login and subsequent operations in dce_config will fail.
+Unfortunately, none of the error messages allude to any problem
+with time, but that's just salt in the wound.
+
+Do we really need to ask sys admins to do a manual time sync with
+their security server before they can run dce_config?  That doesn't
+seem reasonable.
+
+[5/18/92 public]
+Changed to enhancement.  This is reasonable for 1.0.1 and probably for 1.1
+and beyond.
+
+[03/28/94 public]
+dce_config now checks the time on the security server and the client
+before configuring security.  It will allow you to set the clock
+if its too far off.
+
+If you are not running DTS (or some other time control) on your
+cell and the clocks drift, there isn't much besides manual 
+intervention to solve this problem.
+
+Bug Canceled.
+
+
+
+CR Number                     : 2350
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : Use cdscp from server, not local
+Reported Date                 : 3/20/92
+Found in Baseline             : 1.0.1
+Found Date                    : 3/20/92
+Severity                      : B
+Priority                      : 2
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[3/20/92 public]
+
+The routines which add a host to a cell expect cdscp to be present on the
+host being added.  According to the DCE packaging document, cdscp should
+only be on systems which are licensed as Directory Servers.  Also, as much
+of the initialization process should take place from within the existing
+cell as possible, to minimize the amount of code and work required on the
+new host.
+
+Recommended Solution:  Change the procedure for adding hosts to a cell.
+Have as much of the work, including putting the host into the cell
+namespace, done from existing members of the cell.
+
+This is not really a good solution.  One the reasons is that in the 
+light of the explanation of why the OSF is not concerned with decoupling
+the XDS interface from GDS is that function should not be concerned
+with the packaging.  The other reason is that the cdscp command is also
+in the Admin package which most vendors will be including the admin
+commands in with the DCE Client package.  This is clearly spelled out in
+the Licensing document.  Also the dce_config script will need to be 
+rewritten to add the admin package and to install the correct pieces
+with this install option.
+
+[4/16/92 public]
+To quote Brad:
+I believe this is a non defect because it is not OSF's responsibility
+for dce_config to reflect either the OSF packaging scheme or to make
+vendor oriented/specific changes.
+
+However, there will be a time in the future where we care about such
+things.  For example, we have been told that venders would like all the
+admin stuff that is needed to add a client machine to a cell to be able to
+be done from one admin station.  Also this type of installation might have
+to deal with the fact that dce will already be installed on the client
+machine since it might have actually been shipped with the machine, like
+and operating system.
+
+[4/16/92 public]
+
+I agree that it should be possible to configure a machine from a single
+location.  Also in the licensing terms for DCE it is possible to ship
+the "Admin" tools with the client package.  The only reason that I believe
+a vendor would not do this is for a "teeny" client machine.  I also think
+that the admin tools would be sold and shipped with the client but seperately
+installable entities.
+
+Also the install of a pre-loaded machine would parallel the above scenario.
+
+[03/28/94 public]
+This is a packaging issue, and as most vendors confgiure DCE with
+their own sysadmin tool (smit for AIX, sam for HP-UX, etc), they can
+solve these packaging problems on their own.
+
+dce_config will not be redesigned to config a client from another host.
+
+Bug canceled.
+
+
+
+CR Number                     : 584
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : other
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : dce_config should use test, not ls, for portability
+Reported Date                 : 01/09/92
+Found in Baseline             : .75e
+Found Date                    : 
+Severity                      : D
+Priority                      : 3
+Status                        : cancel
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[01/29/92 public]
+
+Orbit reference number 4488
+reference     
+product       dce_osf
+phaseFound    development
+
+History:
+lastUpdate    92/01/09 15:09:45
+endDate                                
+assignDate    92/01/09 15:09:45   
+
+
+
+
+
+    addDate              action          userLogin (userName)
+    -------------------- --------------- ----------------------------------
+    92/01/09 15:09:46    create          kwalker (Ken Walker)
+
+[01/09/92 public]
+There are several places in dce_config where ls is used to check for the 
+existance of a file or directory.  DEC has pointed out that this may be a
+portability problem (ls is not guaranteed to return $? != 0 if the file or
+directory is not found?).  They suggest using test instead.
+
+[4/7/92 public]
+I changed this to severity D.  At first look it may seem easy to do but it
+turns out that ls is used when softlinks are involved, and I don't know of
+a "portable" argument to test that checks for the existence of softlinks.
+-L works on at least some machines.
+
+[5/27/92 public]
+changed to enhancement as it seems to work on all reference platforms.
+
+[08/20/93 public]
+Per POSIX.2, ls will return a non-zero error return if a file is not
+found.  Plus, this defect has been around longer than the hills and
+it is not going to get done.
+
+Canceled.
+
+
+

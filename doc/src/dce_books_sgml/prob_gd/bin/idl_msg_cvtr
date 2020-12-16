@@ -1,0 +1,175 @@
+#!/usr/local/bin/perl
+#
+# COPYRIGHT NOTICE
+# Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+# ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+# src directory for the full copyright text. 
+# 
+# 
+# HISTORY
+# $Log: idl_msg_cvtr,v $
+# Revision 1.1.2.3  1996/12/17  22:02:47  damon
+# 	Expanded OSF C O P Y R I G H T   N O T I C E
+# 	[1996/12/17  22:00:30  damon]
+#
+# Revision 1.1.2.2  1996/12/04  21:47:25  weir
+# 	No change
+# 	[1996/12/04  21:47:02  weir]
+# 
+# Revision 1.1.2.1  1996/11/27  20:19:18  weir
+# 	Initial submission
+# 	[1996/11/27  20:18:57  weir]
+# 
+# $EndLog$
+# 
+#
+# OLD HISTORY:
+# 
+# Revision 1.1.2.1  1994/10/04  14:22:21  steto
+# 	{enh, CR9951, Moved script here from idl sources.}
+# 	[1994/10/04  14:21:01  steto]
+#
+# 
+#
+# For converting rpc/idl/idl_compiler/nidlmsg.m to .sams format
+#
+# Usage: idlmsg2sams -m .../nidlmsg.m -h .../nidlmsg.h > yourfile.sams
+#
+# J.Bowe, August 1994
+
+# For reference, the format of a .sams file:
+#
+#	component       idl
+#	table           idl_svc_g_table
+#	technology      dce
+#	collection size 100
+#
+#	serviceability table idl_svc_table handle idl_svc_handle
+#	start
+#	    sub-component idl_s_srvrexec    "idl"      idl_i_svc_srvrexec
+#	end
+#
+#	start
+#	code            idl_s_message
+#	text            "xxx"
+#	explanation	"xxx"
+#	action		"xxx"
+#	end
+
+$comp = "idl";	# default
+
+# parse args
+require "getopts.pl";
+&Getopts('vc:h:m:');
+if ($opt_v) { $verbose = 1; }
+if ($opt_c) { $comp = $opt_c; }
+if ($opt_h) { $hfile = $opt_h; }
+if ($opt_m) { $mfile = $opt_m; }
+
+if ($hfile eq "" || $mfile eq "") {
+    printf STDERR "Both a .h and .m file are required (-h hfile -m mfile).\n";
+    exit(1);
+}
+
+&process_h;
+
+open(M, "<$mfile") || die "Could not open '$mfile'.";
+
+($sec,$min,$hr,$mday,$mon,$yr,$wday,$yday,$isdst) = gmtime(time);
+$mon++;
+$yr += 1900;
+printf "# Converted from $mfile and $hfile %d-%02d-%02d-%02d:%02d:%02d.000\n",
+    $yr, $mon, $mday, $hr, $min, $sec;
+printf "# Copyright %d Open Software Foundation, Cambridge, Mass.\n", $yr;
+
+printf "component\t${comp}\n";
+printf "table\t${comp}_svc_g_table\n";
+printf "technology\tdce\n";
+#printf "collection size\t100\n";
+printf "\n";
+
+# skip all the intro/comment lines
+while(<M>) {
+    if (/^1 /) {
+	chop;
+	($n, $text) = split(" ", $_, 2);
+	&do_entry;
+	last;
+    }
+}
+
+while(<M>) {
+    if (/^\d+ /) {
+	chop;
+	($n, $text) = split(" ", $_, 2);
+#	printf "Msg: $n -- $text\n";
+	&do_entry;
+	if (eof(M)) { last; }
+    }
+    else {
+	printf "HUH??: $_\n";
+    }
+}
+
+close M;
+
+# ----
+
+sub do_entry {
+    printf "start\n";
+#    if ($n > 0) { printf "code\t$Symbols[$n] = $n\n"; }
+    if ($n > 0) { printf "code\t$Symbols[$n]\n"; }
+    else { printf "code\tmsg_$n\n"; }
+    printf "text\t\"%s\"\n", $text;
+    $in_str = 0;
+    $first = 0;
+    $did_action = 0;
+    $did_expl   = 0;
+    while (<M>) {
+	chop;
+	s/"/\\"/g;
+	if (/^$/) {
+	    if ($in_str) { printf "\"\n"; }
+	    last;
+	}
+	s/^\$\s+//;
+	if ($_ eq "Explanation:") {
+	    if ($in_str) { printf "\"\n"; }
+	    $in_str = 1;
+	    printf "explanation\t\"";
+	    $first = 1;
+	    $did_expl   = 1;
+	}
+	elsif ($_ eq "User Action:") {
+	    if ($in_str) { printf "\"\n"; }
+	    $in_str = 1;
+	    printf "action\t\t\"";
+	    $first = 1;
+	    $did_action = 1;
+	}
+	else {
+	    if ($first) { printf "$_\n"; }
+	    else { printf "\t\t$_\n"; }
+	    $first = 0;
+	}
+    }
+    if (eof(M)) { if ($in_str) { printf "\"\n"; } }
+    if (!$did_action) { printf "action\t\t\"None\"\n"; }
+    if (!$did_expl)   { printf "explanation\t\"None\"\n"; }
+    printf "end\n\n";
+}
+
+sub process_h {
+    open(H, "<$hfile") || die "Could not open '$hfile'.";
+    while (<H>) {
+	if (! /^#define/ ) { next; }
+	chop;
+	s/^#define\s+//;
+	s/\s+$//;
+	($s,$n) = split(/\s+/, $_, 2);
+	if ($n == 0) { next; }
+	$Symbols[$n] = $s;
+    }
+    close H;
+}
+

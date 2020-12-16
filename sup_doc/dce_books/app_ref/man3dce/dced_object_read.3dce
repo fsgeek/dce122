@@ -1,0 +1,202 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: dced_object_read.3dce,v $
+...\" Revision 1.1.4.1  1996/11/18  17:01:17  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  16:57:36  wardr]
+...\"
+...\" Revision 1.1.2.8  1995/06/21  13:19:48  buckler
+...\" 	More 1.1 edits.
+...\" 	[1995/06/19  15:33:21  buckler]
+...\" 
+...\" Revision 1.1.2.7  1995/05/31  17:06:24  buckler
+...\" 	1.1 edits.
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/05/30  23:00:30  buckler]
+...\" 
+...\" Revision 1.1.2.6  1994/10/20  03:06:24  jshirley
+...\" 	Final edits.
+...\" 	[1994/10/20  03:04:51  jshirley]
+...\" 
+...\" Revision 1.1.2.5  1994/10/17  20:11:29  jshirley
+...\" 	Updated for final review.
+...\" 	[1994/10/17  20:10:53  jshirley]
+...\" 
+...\" Revision 1.1.2.4  1994/10/14  18:31:52  hileman
+...\" 	Added status codes.
+...\" 	[1994/10/14  18:31:36  hileman]
+...\" 
+...\" Revision 1.1.2.3  1994/06/13  17:03:06  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  16:47:19  devobj]
+...\" 
+...\" Revision 1.1.2.2  1994/05/24  21:24:27  jshirley
+...\" 	{def, CR9830, R1.1}
+...\" 	Incorporated first draft comments.
+...\" 	[1994/05/24  21:23:53  jshirley]
+...\" 
+...\" Revision 1.1.2.1  1994/05/04  01:58:49  jshirley
+...\" 	Created file.
+...\" 	[1994/05/04  01:58:09  jshirley]
+...\" 
+...\" $EndLog$
+.TH dced_object_read 3dce 
+...\".iX "\*Ldced_object_read(\|)\*O"
+.SH "Name"
+\*Ldced_object_read\*O - 
+Reads a data item of a \*Ldced\*O service on a specific host
+.SH "Synopsis"
+.sS
+\*L#include <dce/dced.h>
+.sp .4v
+\*Lvoid dced_object_read(
+.nL
+	\*Ldced_binding_handle_t \*Vdced_bh\*L,
+.nL
+	\*Luuid_t *\*Ventry_uuid\*L,
+.nL
+	\*Lvoid **\*Vdata\*L,
+.nL
+	\*Lerror_status_t *\*Vstatus\*L);
+.sE
+.nL
+.ne 1.5i
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vdced_bh\*O"
+Specifies the \*Ldced\*O binding handle for a \*Ldced\*O service on a specific host.
+.LI "\*Ventry_uuid\*O"
+Specifies the UUID of the \*Ldced\*O service's data entry associated
+with the data item.
+.LE
+.SS "Output"
+.VL
+.LI "\*Vdata\*O"
+Returns the data read.
+The data returned is one of the following structures, 
+depending on the service:
+.PP
+.TS
+center,allbox,tab(@);
+cB | cB
+lB | lB.
+Service@Data Type Returned
+_
+hostdata@sec_attr_t
+srvrconf@server_t
+srvrexec@server_t
+keytab@dced_key_list_t
+.TE
+.sp .5
+.LI "\*Vstatus\*O"
+Returns the status code from this routine.  This status code
+indicates whether the routine completed successfully or, if not, why not.
+.LE
+.nL
+.ne 1.5i
+.SH "Description"
+The \*Ldced_object_read(\|)\*O routine reads the data for a specified
+entry of a \*Ldced\*O service.  
+When the application is done with the data, it should call the 
+\*Ldced_objects_release(\|)\*O routine with a value of 1 for the
+\*Vcount\*O parameter.
+.PP
+The valid services for which you can read data include 
+\*Lhostdata\*O, \*Lsrvrconf\*O, \*Lsrvrexec\*O, and \*Lkeytab\*O.
+These host services each have a list of data entries maintained by \*Ldced\*O.
+The entries do not contain the actual data, but contain the data's identity
+and an indicator of the location of the data item.
+The \*Lhostdata\*O service also has the \*Ldced_hostdata_read(\|)\*O routine
+to read data, and the \*Lkeytab\*O service has a series of routines
+that traverse over the keys in a key table. 
+(See the \*Ldced_keytab_initialize_cursor(\|)\*O routine.)
+The \*Lsecval\*O and \*Lendpoint\*O services do not have data items to
+read with this routine.
+.PP
+Applications can also read the data for all entries of a service using
+one call to \*Ldced_objects_read_all(\|)\*O.
+.PP
+Prior to reading the actual data, an application commonly obtains the 
+entries to read using the series of cursor routines that begin with
+\*Ldced_entry_initialize_cursor(\|)\*O.
+.PP
+Prior to calling the \*Ldced_object_read(\|)\*O routine, 
+the application must have established a
+valid \*Ldced\*O binding handle by calling either the 
+\*Ldced_binding_create(\|)\*O or 
+\*Ldced_binding_from_rpc_binding(\|)\*O routine.
+.nL
+.ne 1.5i
+.SH "Examples"
+The following example creates a \*Ldced\*O binding to a \*Ldced\*O service based
+on a service type and host in an RPC binding handle.  
+The example then obtains the service's entry list and reads the data
+associated with each entry.
+.ps 11
+.vs 13
+.oS
+dced_binding_from_rpc_binding(service_type, rpc_bh, &dced_bh, &status);
+dced_list_get(dced_bh, &entries, &status);
+for(i=0; i<entries.count; i++) {
+   dced_object_read(dced_bh, &entries.list[i].id, &data, &status);
+   .
+   .
+   .
+   dced_objects_release(dced_bh, 1, data, &status);
+}
+ .
+ .
+ .
+.oE
+.ps 12
+.vs 14
+.SH "Errors"
+.PP
+The following describes a partial list of errors that might be returned.
+Refer to the \*(Tg for complete descriptions of all error
+messages.
+.VL
+.LI "\*Lerror_status_ok\*O"
+.LI "\*Ldb_s_bad_index_type\*O"
+.LI "\*Ldb_s_key_not_found\*O"
+.LI "\*Ldce_cf_e_file_open\*O"
+.LI "\*Ldce_cf_e_no_match\*O"
+.LI "\*Ldce_cf_e_no_mem\*O"
+.LI "\*Ldced_s_bad_binding\*O"
+.LI "\*Ldced_s_need_privacy\*O"
+.LI "\*Ldced_s_no_memory\*O"
+.LI "\*Ldced_s_no_support\*O"
+.LI "\*Ldced_s_not_found\*O"
+.LI "\*Lrpc_s_binding_has_no_auth\*O"
+.LI "\*Lrpc_s_invalid_binding\*O"
+.LI "\*Lrpc_s_wrong_kind_of_binding\*O"
+.LI "\*Lsec_acl_invalid_permission\*O"
+.LI "\*Lsec_key_mgmt_e_authn_invalid\*O"
+.LI "\*Lsec_key_mgmt_e_key_unavailable\*O"
+.LI "\*Lsec_key_mgmt_e_unauthorized\*O"
+.LI "\*Luuid_s_bad_version\*O"
+.LE
+.nL
+.ne 1.5i
+.SH "Related Information"
+.ad l
+Functions:
+\*Ldced_binding_create(3dce)\*O,
+\*Ldced_binding_from_rpc_binding(3dce)\*O,
+\*Ldced_hostdata_read(3dce)\*O,
+\*Ldced_initialize_cursor(3dce)\*O,
+\*Ldced_keytab_initialize_cursor(3dce)\*O,
+\*Ldced_objects_read_all(3dce)\*O,
+\*Ldced_objects_release(3dce)\*O.
+.ad b
+.PP
+Books:
+\*(Dg.

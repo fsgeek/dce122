@@ -1,0 +1,716 @@
+<!--
+# COPYRIGHT NOTICE
+# Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+# ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+# src directory for the full copyright text. 
+# 
+# 
+# HISTORY
+# $Log: cert_intro_crypto.3sec,v $
+# Revision 1.1.2.10  1996/12/17  22:11:07  weir
+# 	Last comments
+# 	[1996/12/17  22:10:46  weir]
+#
+# Revision 1.1.2.9  1996/12/17  20:50:01  damon
+# 	Expanded OSF C O P Y R I G H T   N O T I C E
+# 	[1996/12/17  20:47:10  damon]
+# 
+# Revision 1.1.2.8  1996/12/12  00:30:56  weir
+# 	Fixed SGML errors
+# 	[1996/12/12  00:30:31  weir]
+# 
+# Revision 1.1.2.7  1996/12/12  00:11:38  weir
+# 	Editorial corrections
+# 	[1996/12/12  00:10:08  weir]
+# 
+# Revision 1.1.2.6  1996/12/07  22:33:41  weir
+# 	Set revision flag
+# 	[1996/12/07  22:32:08  weir]
+# 
+# Revision 1.1.2.5  1996/12/07  21:11:54  weir
+# 	Added change bars
+# 	[1996/12/07  21:11:26  weir]
+# 
+# Revision 1.1.2.2  1996/12/01  20:18:47  weir
+# 	Removed thinsp entities
+# 	[1996/12/01  20:12:13  weir]
+# 
+# Revision 1.1.2.1  1996/11/29  17:54:16  weir
+# 	Initial submission
+# 	[1996/11/29  17:47:02  weir]
+# 
+# $EndLog$
+# 
+-->
+<!-- Fragment document type declaration subset:
+ArborText, Inc., 1988-1993, v.4001
+<!DOCTYPE Book PUBLIC "-//Davenport//DTD DocBook V2.4//EN" [
+]>
+-->
+<RefEntry RevisionFlag="changed" Id="DCEADR.MAN434.rsml.1">
+<RefMeta>
+<RefEntryTitle>crypto_intro</RefEntryTitle>
+<ManVolNum>3sec</ManVolNum>
+</RefMeta>
+<RefNameDiv>
+<RefName><Literal>crypto_intro</Literal></RefName>
+<RefPurpose>Introduction to the signature algorithm API registration facility
+</RefPurpose>
+</RefNameDiv>
+<!-- ==================================================================== -->
+<RefSect1>
+<Title>Description</Title>
+<Para>This reference page describes the data types used by the signature algorithm
+(or ``cryptographic'') module registration API.</Para>
+<!-- -->
+<!-- -->
+</RefSect1>
+<!-- ==================================================================== -->
+<RefSect1>
+<Title>Accessing and Using Cryptographic Modules</Title>
+<Para>Cryptographic implementations (also known as ``algorithms'') are identified
+by OIDs (object identifiers).</para>
+<para>
+Policy implementors are recommended to access cryptographic modules mainly
+through the following routines, which perform all locking necessary to make the
+calls thread safe, and also transparently handle any context information that a
+given cryptographic implementation may need.
+</para>
+<ItemizedList>
+<ListItem><para>
+<Function>pkc_crypto_get_registered_algorithms(3sec)</Function>
+</para>
+<para>
+Call this routine to get an OID set describing the currently registered
+algorithm implementations.
+</para>
+</ListItem>
+<!-- -->
+<ListItem><para>
+<Function>pkc_crypto_sign(3sec)</Function>
+</para><para>
+Call this routine to get data signed.
+</para>
+</ListItem>
+<!-- -->
+<ListItem><para>
+<Function>pkc_crypto_verify_signature(3sec)</Function>
+</para><para>
+Call this routine to verify signed data.
+</para>
+</ListItem>
+<!-- -->
+<ListItem><para>
+<Function>pkc_crypto_generate_keypair(3sec)</Function>
+</para><para>
+Call this routine to generate a pair of public/private keys.
+</para>
+</ListItem>
+</ItemizedList>
+<!-- -->
+<!-- -->
+<para>
+Information about a cryptographic module may be obtained by calling
+<Function>pkc_crypto_lookup_algorithm(3sec)</Function>.
+</para>
+<!-- -->
+<!-- -->
+<!-- -->
+<!-- -->
+<!-- -->
+<!-- -->
+<Para>Data can also be signed and verified by looking up the desired algorithm (with
+<Function>pkc_crypto_lookup_algorithm(3sec)</Function>) and then explicitly calling
+the module's <Function>(sign)()</Function> or <Function>verify()</Function> routine,
+although in this case the calling application must take care to avoid multi-threading
+problems, and is also responsible for opening the crypto module prior to use, and
+closing it afterwards.
+</para>
+<!-- -->
+<!-- -->
+<!-- -->
+</RefSect1>
+<!-- ==================================================================== -->
+<RefSect1>
+<Title>Implementing Cryptographic Modules</Title>
+<para>
+Every cryptographic module must export a
+<StructName>pkc_signature_algorithm_t</StructName> object.
+</para>
+<Para>The <StructName Role="typedef">pkc_signature_algorithm_t</StructName> data
+type is used to register a new cryptographic module with the certification API.
+It fully describes a specific implemented cryptographic algorithm, and provides entry
+points to its <Function>sign()</Function> and <Function>verify()</Function> functions.
+It is defined as follows:
+<!-- -->
+</Para>
+<Synopsis><Literal>typedef struct {</Literal>
+	<Literal>OM_uint32 version;
+	</Literal><Literal>gss_OID_desc alg_id>;
+	</Literal><StructName Role="typedef">pkc_alg_flags_t </StructName><Literal>flags;
+	</Literal><Literal>char reserved[32 - sizeof(pkc_alg_flags_t)];
+	</Literal><Literal>char * (* name)(void);
+	</Literal><Literal>unsigned32 (*open) (void** context);
+	</Literal><Literal>unsigned32 (*close) (void** context);
+	</Literal><Literal>unsigned32 (*verify) (void ** context,
+				</Literal><Literal>sec_pk_gen_data_t * data,
+				</Literal><Literal>sec_pk_data_t * public_key,
+				</Literal><Literal>sec_pk_data_t * signature);
+	</Literal><Literal>unsigned32 (*sign) (void ** context,
+				</Literal><Literal>sec_pk_gen_data_t * data,
+				</Literal><Literal>sec_pk_data_t * private_key,
+				</Literal><Literal>sec_pk_data_t * signature);
+	</Literal><Literal>unsigned32 (*generate_keypair) (void ** context,
+				</Literal><Literal>unsigned32 size,
+				</Literal><Literal>void * alg_info,
+				</Literal><Literal>sec_pk_data_t * private_key,
+				</Literal><Literal>sec_pk_data_t * public_key);
+</Literal><Literal>} pkc_signature_algorithm_t;
+</Literal></Synopsis>
+<!-- -->
+<Para>The <Function>(name)()</Function>, <Function>(open)()</Function>,
+<Function>(close)()</Function>, <Literal>(verify)()</Literal>,
+<Function>(sign)()</Function> and <Function>(generate_keypair)()</Function>
+routines must be implemented by the application implementing the algorithm and
+registered by calling the
+<Filename MoreInfo="RefEntry">pkc_crypto_register_signature_alg(3sec)</Filename>
+routine. Note, however, that all the routines except for <Literal>(verify)()</Literal>
+and <Literal>(name)()</Literal> are optional.
+<!-- -->
+Explanations of all the fields in
+<StructName Role="typedef">pkc_signature_algorithm_t</StructName> are contained
+in the following subsections.
+<!-- -->
+<!-- -->
+</Para>
+<!-- -->
+<!-- -->
+<!-- ==================================================================== -->
+<!-- -->
+<RefSect2>
+<Title>Cryptographic Module Data Fields</Title>
+<Para>The structure contains the following data fields:
+<!-- -->
+</Para>
+<VariableList>
+<VarListEntry>
+<Term><Literal>version</Literal></Term>
+<ListItem>
+<Para>Identifies the version of the certification API for which the module is
+implemented. The value of this field is always <Literal>pkc_V1</Literal> for DCE 1.2.
+<!-- -->
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry>
+<Term><Literal>alg_id</Literal></Term>
+<ListItem>
+<Para>An object identifier that identifies the algorithm; the OID that appears
+in certificates signed by the algorithm.
+<!-- -->
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry>
+<Term><Literal>flags</Literal></Term>
+<ListItem>
+<Para>Describes whether the module's <Function>(sign)()</Function> and
+<Literal>(verify)()</Literal> functions are threadsafe, and whether the module
+supports simultaneous crypto sessions.
+<!-- -->
+</Para>
+</ListItem>
+</VarListEntry>
+</VariableList>
+<!-- -->
+<Para>The <Literal>version</Literal> and <Literal>alg_id</Literal>
+fields are required for all versions of this data structure. Other fields
+may be version dependent.
+<!-- -->
+<!-- -->
+</Para>
+</RefSect2>
+<RefSect2>
+<Title>Cryptographic Module Functions</Title>
+<Para><Literal>NULL</Literal> may be supplied as the address of the
+<Function>(open)()</Function>, <Function>(close)()</Function>,
+<Function>(sign)()</Function>, or <Function>(generate_keypair)()</Function>
+routines, if the cryptographic module does not provide or require the
+corresponding feature; the presence of these functions in a cryptographic
+module is optional. However, all cryptographic modules must provide
+<Literal>(verify)()</Literal> and <Literal>(name)()</Literal> functions.
+<!-- -->
+<!-- -->
+<!-- -->
+</Para>
+</RefSect2>
+<!-- -->
+<!-- -->
+<!-- -->
+<!-- ==================================================================== -->
+<!-- -->
+<!-- -->
+<!-- -->
+<RefSect2>
+<Title>Algorithm Flags Data Type</Title>
+<Para>The <StructName Role="typedef">pkc_alg_flags_t</StructName> data type is used
+to record various information about a cryptographic module. It is defined as
+follows:
+</Para>
+<!-- -->
+<Synopsis>
+<Literal>typedef struct {</Literal>
+	<Literal>char threadsafe;</Literal>
+	<Literal>char multi_session;}</Literal>
+<Literal>pkc_alg_flags_t;</Literal>
+</Synopsis>
+<!-- -->
+<Para>The structure contains two fields which have the following meanings:
+<!-- -->
+</Para>
+<VariableList>
+<VarListEntry>
+<Term><Literal>threadsafe</Literal></Term>
+<ListItem>
+<Para>Has a non-zero (TRUE) value if the module's <Function>(sign)()</Function> and
+<Literal>(verify)()</Literal> routines may be safely called simultaneously (within a
+single crypto session) by multiple threads.
+<!-- -->
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry role="linebreak">
+<Term><Literal>multi_session</Literal></Term>
+<ListItem>
+<Para>Has a non-zero (TRUE) value if the module implementation supports multiple
+simultaneous crypto sessions.
+<!-- -->
+</Para>
+</ListItem>
+</VarListEntry>
+</VariableList>
+<!-- -->
+<!-- -->
+<!-- -->
+</RefSect2>
+<!-- -->
+<!-- -->
+<!-- -->
+<!-- -->
+<!-- -->
+<!-- -->
+</RefSect1>
+<RefSect1>
+<Title>Name</Title>
+<Para><Function>(name)()</Function> - Returns the algorithm name as a string
+for use in diagnostic or auditing messages
+<!-- -->
+<!-- -->
+</Para>
+</RefSect1>
+<RefSect1>
+<Title>Synopsis</Title>
+<Synopsis><Literal>char * (* name)(void);</Literal>
+</Synopsis>
+<!-- -->
+<!-- -->
+<!-- -->
+</RefSect1>
+<RefSect1>
+<Title>Description</Title>
+<Para>The name should be returned in storage allocated using the
+<Function>pkc_alloc()</Function> function defined in <Filename>pkc_base.h</Filename>.
+Note that this is the only cryptographic module routine that may be called without
+first calling the <Function>(open)()</Function> routine.
+</Para>
+<Para>This routine is mandatory.
+<!-- -->
+<!-- -->
+<!-- -->
+</Para>
+</RefSect1>
+<!-- -->
+<!-- -->
+<!-- -->
+<!-- ==================================================================== -->
+<!-- -->
+<!-- -->
+<!-- -->
+<RefSect1>
+<Title>Name</Title>
+<Para><Function>(open)()</Function> - Opens and initializes the cryptographic module
+</Para>
+<Para><Function>(close)()</Function> - Closes the cryptographic module
+</Para>
+<Para>Both routines are optional.
+<!-- -->
+<!-- -->
+</Para>
+</RefSect1>
+<RefSect1>
+<Title>Synopsis</Title>
+<Synopsis>
+<Literal>unsigned32 (*open) (void** </Literal><Symbol Role="Variable">context</Symbol><Literal>)</Literal>;
+</Synopsis>
+<Synopsis>
+<Literal>unsigned32 (*close) (void** </Literal><Symbol Role="Variable">context</Symbol><Literal>)</Literal>;
+</Synopsis>
+<!-- -->
+</RefSect1>
+<RefSect1>
+<Title>Parameters</Title>
+<!-- -->
+<RefSect2>
+<Title>Output</Title>
+<VariableList>
+<VarListEntry>
+<Term><Symbol Role="Variable">context</Symbol></Term>
+<ListItem>
+<Para>An opaque (to the caller) data structure containing any state information
+required by the module across calls.
+</Para>
+</ListItem>
+</VarListEntry>
+</VariableList>
+<!-- -->
+</RefSect2>
+</RefSect1>
+<RefSect1>
+<Title>Description</Title>
+<Para>Before invoking any of the module's encryption routines
+(e.g., <Function>(sign)()</Function> or <Literal>(verify)()</Literal>, the
+certification API will invoke the module's <Function>(open)()</Function> function.
+Once the module's <Function>(close)()</Function> routine has been invoked, the
+certification facility will invoke <Function>(open)()</Function> again before
+making any further calls to the module.
+<!-- -->
+<!-- -->
+<!-- -->
+</Para>
+<Para>Both the <Function>(open)()</Function> and the <Function>(close)()</Function>
+routines require only one argument, <Symbol Role="Variable">context</Symbol>. If the
+cryptographic module requires state information to be maintained between calls, it
+may use the <Symbol Role="Variable">context</Symbol> parameter to do this. The
+information is initialized by the <Function>(open)()</Function> routine and returned
+as an opaque object to the caller, who then passes the parameter to subsequent
+<Function>(sign)()</Function>, <Literal>(verify)()</Literal>,
+<Function>(generate_keypair)()</Function>, or <Function>(close)()</Function> calls.
+</Para>
+<Para>Note that if the <Function>(open)()</Function> routine stores any state in
+the <Symbol Role="Variable">context</Symbol> parameter, the
+<Function>(close)()</Function> routine should free this storage.
+<!-- -->
+<!-- -->
+<!-- -->
+</Para>
+</RefSect1>
+<RefSect1>
+<Title>Name</Title>
+<Para><Function>(sign)()</Function> - Calculates a signature over the supplied
+data using the specified key
+<!-- -->
+<!-- -->
+</Para>
+</RefSect1>
+<RefSect1>
+<Title>Synopsis</Title>
+<Synopsis><Literal>unsigned32 (*sign) (void ** </Literal><Symbol Role="Variable">context</Symbol><Literal>,
+			</Literal><Literal>sec_pk_gen_data_t * </Literal><Symbol Role="Variable">data</Symbol><Literal>,
+			</Literal><Literal>sec_pk_data_t * </Literal><Symbol Role="Variable">private_key</Symbol><Literal>,
+			</Literal><Literal>sec_pk_data_t ** </Literal><Symbol Role="Variable">signature</Symbol><Literal>);
+</Literal></Synopsis>
+<!-- -->
+</RefSect1>
+<RefSect1>
+<Title>Parameters</Title>
+<RefSect2>
+<Title>Input</Title>
+<VariableList>
+<VarListEntry>
+<Term><Symbol Role="Variable">context</Symbol></Term>
+<ListItem>
+<Para>An opaque (to the caller) data structure containing any state information
+required by the module across calls.
+<!-- -->
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry>
+<Term><Symbol Role="Variable">data</Symbol></Term>
+<ListItem>
+<Para>The certificate data that is to be signed.
+<!-- -->
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry>
+<Term><Symbol Role="Variable">private_key</Symbol></Term>
+<ListItem>
+<Para>Key to use to generate the signature, provided as a BER-encoded
+<Literal>PrivateKeyInfo</Literal> object, as defined in PKCS#8,
+as appropriate for the algorithm.
+<!-- -->
+<!-- -->
+</Para>
+</ListItem>
+</VarListEntry>
+</VariableList>
+<!-- -->
+<!-- -->
+</RefSect2>
+<RefSect2>
+<Title>Output</Title>
+<VariableList>
+<!-- -->
+<!-- -->
+<VarListEntry>
+<Term><Symbol Role="Variable">signature</Symbol></Term>
+<ListItem>
+<Para>The signature generated on the data passed. Storage allocation should
+be performed by calling the <Function>pkc_alloc()</Function> and
+<Function>pkc_free()</Function> functions defined in <Filename>pkc_base.h</Filename>.
+<!-- -->
+<!-- -->
+</Para>
+</ListItem>
+</VarListEntry>
+</VariableList>
+<!-- -->
+<!-- -->
+</RefSect2>
+</RefSect1>
+<RefSect1>
+<Title>Description</Title>
+<Para>The <Function>(sign)()</Function> routine calculates a signature over
+the supplied data, using the specified key. The
+<Symbol Role="Variable">private_key</Symbol> parameter will be a BER-encoded
+<Literal>PrivateKeyInfo</Literal> data object.
+<!-- , as defined in PKCS #7.-->
+<!-- ?????????????????????????????????????????????????????????????-->
+The <Symbol Role="Variable">signature</Symbol> should be returned by the function;
+storage allocation should be performed by calling the <Function>pkc_alloc()</Function>
+and <Function>pkc_free()</Function> functions defined in <Filename>pkc_base.h</Filename>.
+</Para>
+<Para>This routine is optional.</para>
+<!-- -->
+<!-- -->
+<!-- -->
+</RefSect1>
+<RefSect1>
+<Title>Name</Title>
+<Para><Literal>(verify)()</Literal> - Checks the supplied signature against the supplied data,
+thus verifying the certificate in which the data and the signature appear
+<!-- -->
+<!-- -->
+</Para>
+</RefSect1>
+<RefSect1>
+<Title>Synopsis</Title>
+<Synopsis><Literal>unsigned32 (*verify) (void ** </Literal><Symbol Role="Variable">context</Symbol><Literal>,
+			</Literal><Literal>sec_pk_gen_data_t * </Literal><Symbol Role="Variable">data</Symbol><Literal>,
+			</Literal><Literal>sec_pk_data_t * </Literal><Symbol Role="Variable">public_key</Symbol><Literal>,
+			</Literal><Literal>sec_pk_data_t * </Literal><Symbol Role="Variable">signature</Symbol><Literal>);
+</Literal></Synopsis>
+<!-- -->
+</RefSect1>
+<RefSect1>
+<Title>Parameters</Title>
+<RefSect2>
+<Title>Input</Title>
+<VariableList>
+<VarListEntry>
+<Term><Symbol Role="Variable">context</Symbol></Term>
+<ListItem>
+<Para>An opaque (to the caller) data structure containing any state
+information required by the module across calls.
+<!-- -->
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry>
+<Term><Symbol Role="Variable">data</Symbol></Term>
+<ListItem>
+<Para>The entire <Literal>certificateInfo</Literal>.
+<!-- -->
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry>
+<Term><Symbol Role="Variable">public_key</Symbol></Term>
+<ListItem>
+<Para>The public key to use on the signature.
+<!-- -->
+<!-- -->
+</Para>
+</ListItem>
+</VarListEntry>
+<VarListEntry>
+<Term><Symbol Role="Variable">signature</Symbol></Term>
+<ListItem>
+<Para>The signature to be verified.
+<!-- -->
+<!-- -->
+</Para>
+</ListItem>
+</VarListEntry>
+</VariableList>
+<!-- -->
+<!-- -->
+</RefSect2>
+</RefSect1>
+<RefSect1>
+<Title>Description</Title>
+<Para>The <Literal>(verify)()</Literal> routine checks the supplied
+signature against the supplied data. <Symbol Role="Variable">public_key</Symbol>
+is a <Literal>SubjectPublicKeyInfo</Literal> data structure, encoded in BER,
+as found within an X.509 certificate.
+</Para>
+<Para>The routine should return 0 for a correct signature,
+<Literal>pkc_invalid_signature</Literal> for an incorrect signature, or another
+DCE-defined error status to indicate any other errors.
+</Para>
+<Para>This routine must be implemented in any cryptographic module.
+<!-- -->
+<!-- -->
+<!-- -->
+</Para>
+</RefSect1>
+<RefSect1>
+<Title>Name</Title>
+<Para><Function>(generate_keypair)()</Function> - Generates a pair of
+public and private keys
+<!-- -->
+<!-- -->
+<!-- -->
+</Para>
+</RefSect1>
+<RefSect1>
+<Title>Synopsis</Title>
+<Synopsis><Literal>unsigned32 (*generate_keypair) (void ** </Literal><Symbol Role="Variable">context</Symbol><Literal>,
+			</Literal><Literal>unsigned32 </Literal><Symbol Role="Variable">size</Symbol><Literal>,
+			</Literal><Literal>void *</Literal><Symbol Role="Variable">alg_info</Symbol><Literal>,
+			</Literal><Literal>sec_pk_data_t * </Literal><Symbol Role="Variable">private_key</Symbol><Literal>,
+			</Literal><Literal>sec_pk_data_t * </Literal><Symbol Role="Variable">public_key</Symbol><Literal>);
+</Literal></Synopsis>
+<!-- -->
+<!-- -->
+</RefSect1>
+<!-- -->
+<RefSect1>
+<Title>Parameters</Title>
+<RefSect2>
+<Title>Input</Title>
+<VariableList>
+<!-- -->
+<VarListEntry>
+<Term><Symbol Role="Variable">context</Symbol></Term>
+<ListItem>
+<Para>An opaque (to the caller) data structure containing any state
+information required by the module across calls.
+</Para>
+</ListItem>
+</VarListEntry>
+<!-- -->
+<VarListEntry>
+<Term><Symbol Role="Variable">size</Symbol></Term>
+<ListItem>
+<Para>
+Specifies the key size.
+</Para>
+</ListItem>
+</VarListEntry>
+<!-- -->
+<VarListEntry>
+<Term><Symbol Role="Variable">alg_info</Symbol></Term>
+<ListItem>
+<Para>
+Specifies the crypto module.
+</Para>
+</ListItem>
+</VarListEntry>
+<!-- -->
+</VariableList>
+<!-- -->
+<!-- -->
+</RefSect2>
+<!-- -->
+<!-- -->
+<RefSect2>
+<Title>Output</Title>
+<VariableList>
+<!-- -->
+<VarListEntry>
+<Term><Symbol Role="Variable">private_key</Symbol></Term>
+<ListItem>
+<Para>
+The generated private key.
+</Para>
+</ListItem>
+</VarListEntry>
+<!-- -->
+<VarListEntry>
+<Term><Symbol Role="Variable">public_key</Symbol></Term>
+<ListItem>
+<Para>
+The generated public key.
+</Para>
+</ListItem>
+</VarListEntry>
+<!-- -->
+<!-- -->
+</VariableList>
+<!-- -->
+<!-- -->
+</RefSect2>
+</RefSect1>
+<!-- -->
+<!-- -->
+<!-- -->
+<!-- -->
+<!-- -->
+<RefSect1>
+<Title>Description</Title>
+<Para>The <Function>(generate_keypair)()</Function> routine generates a
+pair of private and public keys. The <Symbol Role="Variable">size</Symbol>
+parameter should be used by the routine to determine the key size in some
+way (for the RSA algorithm, for example, it should be treated as the number
+of bits in the key modulus). The <Symbol Role="Variable">private_key</Symbol>
+and <Symbol Role="Variable">public_key</Symbol> parameters should return BER-encoded
+<Literal>PrivateKeyInfo</Literal> and <Literal>SubjectPublicKeyInfo</Literal> data
+objects respectively. The <Symbol Role="Variable">alg_info</Symbol> parameter can
+be used for algorithm-specific information to modify the key generation process.
+However, all crypto modules that offer this function should be prepared to operate
+when <Literal>NULL</Literal> is supplied for this parameter.
+</Para>
+<Para>This routine is optional.</Para>
+<!-- -->
+</RefSect1>
+<!-- -->
+<!-- -->
+<RefSect1>
+<Title>Related Information</Title>
+<Para>
+Functions:
+<Filename MoreInfo="RefEntry">pkc_crypto_generate_keypair(3sec)</Filename>,
+<Filename MoreInfo="RefEntry">pkc_crypto_get_registered_algorithms(3sec)</Filename>,
+<Filename MoreInfo="RefEntry">pkc_crypto_lookup_algorithm(3sec)</Filename>,
+<Filename MoreInfo="RefEntry">pkc_crypto_register_signature_alg(3sec)</Filename>,
+<Filename MoreInfo="RefEntry">pkc_crypto_sign(3sec)</Filename>,
+<Filename MoreInfo="RefEntry">pkc_crypto_verify_signature(3sec)</Filename>.
+<!-- -->
+<!-- -->
+<!-- -->
+</Para>
+<!-- ==================================================================== -->
+<!-- -->
+<!-- -->
+<!-- -->
+</RefSect1>
+<!-- -->
+<!-- -->
+<!-- ==================================================================== -->
+<!-- ==================================================================== -->
+<!-- ==================================================================== -->
+<!-- ==================================================================== -->
+<!-- -->
+</RefEntry>

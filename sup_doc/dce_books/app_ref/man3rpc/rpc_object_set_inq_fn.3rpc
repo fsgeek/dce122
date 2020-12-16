@@ -1,0 +1,179 @@
+...\"
+...\"  @OSF_COPYRIGHT@
+...\"  COPYRIGHT NOTICE
+...\"  Copyright (c) 1990, 1991, 1992, 1993 Open Software Foundation, Inc.
+...\"  ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE in the
+...\"  src directory for the full copyright text.
+...\"
+...\"
+...\" HISTORY
+...\" $Log: rpc_object_set_inq_fn.3rpc,v $
+...\" Revision 1.1.8.1  1996/11/18  19:59:25  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  19:35:17  wardr]
+...\"
+...\" Revision 1.1.6.6  1995/06/07  20:11:57  buckler
+...\" 	1.1 edits  Prentice Hall reformat
+...\" 	[1995/06/07  20:07:19  buckler]
+...\" 
+...\" Revision 1.1.6.4  1993/01/27  16:54:54  cjd
+...\" 	Embedded copyright notice
+...\" 	[1993/01/26  18:33:33  cjd]
+...\" 
+...\" Revision 1.1.6.3  1993/01/26  19:05:32  cjd
+...\" 	Embedded copyright notice
+...\" 	[1993/01/26  18:33:33  cjd]
+...\" 
+...\" Revision 1.1.6.2  1992/10/01  20:56:28  weir
+...\" 	Removed change bars; moved into 1.0.2doc tree
+...\" 	[1992/10/01  20:09:08  weir]
+...\" 
+...\" 	For P/H, now and forever!
+...\" 	[1992/09/16  14:52:18  oaf]
+...\" 
+...\" Revision 1.1.4.3  1992/09/16  18:31:42  oaf
+...\" 	*** empty log message ***
+...\" 
+...\" Revision 1.1.4.2  1992/08/14  17:53:36  oaf
+...\" 	2nd edits, PURPOSE fix, .ad l on related functions (& restore)
+...\" 	[1992/08/14  17:01:45  oaf]
+...\" 
+...\" Revision 1.1.2.3  1992/05/20  17:48:29  hodgman
+...\" 	File Name: app_ref/man3rpc/rpc_object_set_inq_fn.3rpc
+...\" 	Change Request Number: 3337
+...\" 	Changes Made:  removed pointer character (*) before 'inquiry_fn' in
+...\" 	Synopsis section of reference page
+...\" 	[1992/05/20  17:47:57  hodgman]
+...\" 
+...\" Revision 1.1.2.2  1992/05/18  20:59:44  buckler
+...\" 	Editorial review
+...\" 	[1992/05/18  20:58:41  buckler]
+...\" 
+...\" Revision 1.1  1992/01/29  15:38:10  damon
+...\" 	Initial revision
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc.  ALL RIGHTS RESERVED
+...\"   HISTORY COMMENTS:
+...\"
+...\"   DATE:                            COMMENT:
+...\"
+...\"	Mon Nov 11, 1991                 Initial file submission to HP
+...\"                                    for final integration at IBM.
+...\"
+...\"
+...\" ********************************************************************
+...\" Copyright (c) 1991 Hewlett-Packard Co. and Digital Equipment Corp. *
+...\" All rights reserved.                                               *
+...\" ********************************************************************
+.TH rpc_object_set_inq_fn 3rpc
+...\" .iX "\*Lrpc_object_set_inq_fn(\|)\*O"
+.SH "Name"
+\*Lrpc_object_set_inq_fn\*O - Registers an object inquiry function
+.PP
+Used by server applications
+.SH "Synopsis"
+.sS
+\*L#include <dce/rpc.h>\*L
+.sp .4v
+\*Lvoid \*Lrpc_object_set_inq_fn\*L(
+.nL
+	\*Lrpc_object_inq_fn_t \*Vinquiry_fn\*L,
+.nL
+	\*Lunsigned32 *\*Vstatus\*L);
+.sE
+.nL
+.ne 1.5i
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vinquiry_fn\*O"
+Specifies a pointer to an object type inquiry function.  When an
+application calls the \*Lrpc_object_inq_type(\|)\*O routine and the
+RPC runtime finds that the specified object is not registered, the
+runtime automatically calls the \*Lrpc_object_inq_type(\|)\*O
+routine to determine the object's type.  Specify NULL to
+remove a previously set inquiry function.
+.PP
+The following C language definition for \*Lrpc_object_inq_fn_t\*O
+illustrates the prototype for this function:
+.iS
+typedef void (*rpc_object_inq_fn_t)
+	(
+	    uuid_t       *object_uuid,  /* in  */
+	    uuid_t       *type_uuid,    /* out */
+	    unsigned32   *status        /* out */
+	);
+.iE
+.PP
+The returned \*Ltype_uuid\*O and \*Lstatus\*O values
+are returned as the output arguments from the \*Lrpc_object_inq_type(\|)\*O
+routine.
+.PP
+If you specify NULL, the \*Lrpc_object_set_inq_fn(\|)\*O routine
+unregisters (that is, removes) a previously registered
+object type inquiry function.
+.LE
+.SS "Output"
+.VL
+.LI "\*Vstatus\*O"
+Returns the status code from this routine.  This status code
+indicates whether the routine completed successfully or, if not, why not.
+.LE
+.nL
+.ne 1.5i
+.SH "Description"
+.PP
+A server application calls \*Lrpc_object_set_inq_fn(\|)\*O
+to specify a function to determine an object's type.
+If an application privately maintains object/type registrations, the
+specified inquiry function returns the type UUID of an object
+from that registration.
+.PP
+The RPC runtime
+automatically calls the inquiry function when the application calls
+\*Lrpc_object_inq_type(\|)\*O and the object was not previously
+registered by \*Lrpc_object_set_type(\|)\*O.
+The RPC runtime also automatically calls the inquiry function for
+every remote procedure call it receives
+if the object was not previously registered.
+.nL
+.ne 1.5i
+.SH "Cautions"
+.PP
+Use this routine with caution.  When the RPC runtime
+automatically calls this routine in response to a received
+remote procedure call, the inquiry function can be called from the context
+of runtime internal threads with runtime internal locks held.
+The inquiry function should not block or at least not block for long (for
+example, the inquiry function should not perform a remote procedure call).
+Also, the inquiry function must not unwind because of an exception.
+In general, the inquiry function should not call back into the RPC runtime.
+It is legal to call \*Lrpc_object_set_type(\|)\*O or any of the
+\*Luuid_\*V*\*O routines.  Failure to comply with these restrictions will
+result in undefined behavior.
+.nL
+.ne .8i
+.SH "Return Values"
+.PP
+No value is returned.
+.nL
+.ne 1.0i
+.SH "Errors"
+.PP
+The following describes a partial list of errors that might be returned.
+Refer to the \*(Tg for complete descriptions of all error
+messages.
+.VL
+.LI "\*Lrpc_s_ok\*O"
+Success.
+.LE
+.SH "Related Information"
+.PP
+.ad l
+Functions:
+\*Lrpc_object_inq_type(3rpc)\*O,
+\*Lrpc_object_set_type(3rpc)\*O.
+.ad b

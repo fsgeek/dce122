@@ -1,0 +1,1071 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: bos.gpsml,v $
+...\" Revision 1.1.2.2  1994/06/10  21:08:01  devobj
+...\" 	cr10872 - fixed copyright
+...\" 	[1994/06/10  20:47:47  devobj]
+...\"
+...\" Revision 1.1.2.1  1994/04/05  15:14:08  rom
+...\" 	{enh, 10283, R1.1}
+...\" 	Moved from dce_books/app_gd/dfs/4.bos.dfs.gpsml to
+...\" 	supp_docs/redistrib/dfs_app_gdref/chapters/bos.gpsml.
+...\" 	[1994/04/04  20:56:31  rom]
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc. ALL RIGHTS RESERVED
+..."Copyright (C) 1989, 1991, 1992, 1993 Transarc Corporation
+..."The Gulf Tower
+..."707 Grant Street
+..."Pittsburgh, PA  15219
+.H 1 "The BOS Server: Monitoring File Server Processes"
+.iX "BOS Server"
+.iX "-[" "BOSSVR functions"
+.iX "-; BOS" "BOSSVR functions"
+.iX "server" "process management"
+.P
+The BOS Server interface (\*LBOSSVR...(\|)\*O) functions maintain
+all necessary DFS processes and software on DFS File Server machines. At the
+time the File Server machine is initially configured, a system
+administrator sets parameters for these operations, probably interactively
+using the BOS command suite; the functions in this chapter allow the
+manipulation of this information. Care must be taken
+in doing so, however, because such
+changes impact everyone who uses the server machines on which the
+operations are performed.
+.P
+The BOS interface is useful for writing administrative monitoring tools,
+such as monitoring whether a server is running or shutdown is reported.
+In addition, you can obtain statistics about
+the time of last restart and other similar information, which could be
+used in system monitoring applications.
+.P
+You can use this interface to write a graphical command interface, wherein an
+administrator may use a point-and-click interface to describe what servers
+should be running on which machines.
+.P
+The functions in this set fall into several categories:
+.ML
+.LI
+Process Monitoring: Monitoring processes and restarting them upon
+failure.
+.LI
+Server Key Maintenance: Maintaining the set of authentication keys
+used by the various DFS servers.
+.LI
+Binary Maintenance: Installing new binaries on the server machines and
+scheduling server restarts to pick up the newly installed binaries.
+.LI
+Authorization: Ensuring that only authorized users
+reconfigure the servers. Authentication of these users is handled by
+the DCE Security Service.
+.LE
+.iX "authorization" "requirements"  "BOSSVR"
+.P
+Most of the functions in this set require that the caller be on the
+server's BOS user list. The ones that \*Edo not\*O are
+.ML
+.LI
+\*LBOSSVR_GetCellName(\|)\*O
+.LI
+.zA"defect, 6734, r1.0.2, BOSSVR changes"
+\*LBOSSVR_GetServerStatus(\|)\*O
+.LI
+.zZ"defect, 6734, r1.0.2, BOSSVR changes"
+\*LBOSSVR_GetStatus(\|)\*O
+.LI
+\*LBOSSVR_EnumerateInstance(\|)\*O
+.LI
+\*LBOSSVR_GetInstanceInfo(\|)\*O
+.LI
+\*LBOSSVR_GetCellName(\|)\*O
+.LI
+\*LBOSSVR_GetInstanceParm(\|)
+.LI
+\*LBOSSVR_ListSUsers(\|)
+.LI
+\*LBOSSVR_GetDates(\|)\*O
+.LI
+\*LBOSSVR_GetRestartTime(\|)\*O
+.LI
+\*LBOSSVR_GetLog(\|)\*O
+.LE
+.P
+.nS note
+There are situations
+in which \*LBOSSVR_GetLog(\|)\*O does require the caller to be on the BOS
+user list; see the discussion of this function later in this chapter for
+more information.
+.nE
+.H 2 "Common Arguments"
+.P
+As with the other RPC interfaces, the functions in this set have two
+common arguments: an RPC handle that is supplied when the remote connection
+is first established, and an output parameter giving RPC error status.
+.P
+For the purpose of the examples in this chapter, we assume that the
+programmer has created a function to obtain an RPC handle and set the variable
+\*ERpc_Handle\*O to its output. For information about creating RPC handles,
+see Part 3 of this guide.
+.P
+All structure types described in this chapter are also defined as types;
+for example, \*Lstruct bossvr_key\*O and \*Lbossvr_key\*O are equivalent.
+The former form is used in this document.
+.H 2 "Configuration Files"
+.iX "BOS Server"  "configuration files"
+.P
+The BOS Server uses a configuration file
+\*Edcelocal\*O\*L/var/dfs/BosConfig\*O,
+which records all of the processes to be run when the BOS Server starts
+up. The BOS process itself should \*Enot\*O be included in this file; doing
+this will result in process recursion and as a result performance penalties
+and possible system failures.
+.P
+Some of the functions described in this chapter, and some of the
+commands in the BOS command suite, modify the \*LBosConfig\*O file. This file
+should not be edited manually; use one of the two interfaces (application
+or command suite) to do this. The file format is internal to the BOS Server
+and is subject to change.
+.H 2 "Process Monitoring"
+.iX "BOS Server"  "process monitoring"
+.P
+The process monitoring functions are responsible for bnode maintenance.
+These functions create and delete bnodes, examine and change their properties,
+and start and stop process execution on a server.
+.H 3 "Bnodes"
+.iX "-[" "bnodes"
+.P
+A bnode is a structure that gives the static characteristics of a
+process; that is, the characteristics that apply to every instance of a
+process with that name. Bnodes have types, and for any given type of
+bnode, the BOS Server has embedded code that defines how those
+types of processes are managed. There are two types
+of bnodes: simple bnodes and cron bnodes.
+.P
+All bnodes are parameterizable at bnode creation time. Bnode
+parameters are character strings, and each type of bnode has its own
+specific set of parameters.
+.iX "bnodes"  "simple"
+.iX "simple bnodes"
+.P
+A simple bnode manages a single process, and manages it with a simple
+goal: to keep the process running. If a process managed by a simple
+bnode crashes, any resulting core file is saved for future reference and
+the process is restarted. If the process restarts too often in a given
+period, the bnode instance is marked as damaged and is shut down pending an
+operator's intervention. Most bnode instances in a File Server machine
+installation are simple bnodes.
+.P
+.zA"defect, 6734, r1.0.2, BOSSVR changes"
+A simple bnode has only one parameter, which is the command string to be
+used to start the process. The command string is split into tokens for 
+\*Lexecve\*O, and thus cannot contain the usual shell-provided
+expansions, such as those containing asterisks, but otherwise
+resembles a typical UNIX command. This command is reexecuted
+whenever the process needs to be restarted.
+.zZ"defect, 6734, r1.0.2, BOSSVR changes"
+.iX "cron bnodes"
+.P
+A cron bnode manages a single process that is to be run either exactly
+once or periodically. Essentially, this is a generalization of
+the simple bnode that runs a process, but leaves it shut down after it
+exits until the next time that the process is scheduled to be executed.
+After a process's last scheduled execution (assuming that it \*Ehas\*O a
+last execution), a cron bnode deletes itself; this generally only
+occurs with once-only bnodes.
+.P
+A cron bnode has two parameters. The first is the
+command to be used to start the process to be managed, and the second
+is a string that can be parsed as a periodically recurring date,
+giving the times that the process should be run.
+.P
+The date format is one of the following (all are strings):
+.ML
+.LI
+\*Lnever\*O
+.LI
+\*Lnow\*O
+.LI
+A day of the week and a time, separated by spaces, such as ``wed 16:00.''
+Such processes run once per week.
+The day must come first and begin with a lowercase character. 
+Use either the entire day name
+or the first three letters.
+.LI
+A time, in 24-hour notation. The process runs once per day.
+.LE
+.H 3 "Creating and Deleting Bnodes"
+.P
+Because processes are represented by bnodes, and most of the time
+the BOS Server is used to manage processes, the most fundamental BOS
+functions are those to create bnodes.
+.P
+You can use the function \*LBOSSVR_CreateBnode(\|)\*O to create a bnode.
+.iX "BOS"  "creating bnodes"
+.iX "creating" "bnodes"
+This function creates a bnode instance that represents a new process to be
+run. The name you give that instance is used to refer
+to this bnode until you delete it. In addition to the name, you specify
+the type (\*Lsimple\*O or \*Lcron\*O) and further parameters, the nature
+of which depends on the type.
+.P
+The following two examples create two bnodes, a simple one called \*Ltest1\*O
+and a cron one called \*Ltest2\*O. The simple bnode simply runs a program
+called \*Ltest1\*O; the cron bnode runs a program called \*Ltest2\*O every
+Saturday at 23:00.
+.oS
+handle_t Rpc_Handle;
+error_status_t error;
+int bos_error = 0;
+unsigned char *errorStringP = "";
+
+/* assign Rpc_Handle */
+
+bos_error = BOSSVR_CreateBnode(Rpc_Handle, "simple",
+\&                               "test1",
+\&                               "/afs/tr/usr/bin/test1",
+\&                               "", "", "", "", "", &error);
+if(error != error_status_ok)
+\&  printf("Got an error! (test1)\\n\\tError text: %s\\n",
+\&         error_text(error));
+ else printf("First call completed.\\n");
+
+bos_error = BOSSVR_CreateBnode(Rpc_Handle, "cron",
+                               "test2",
+\&                               "/afs/tr/usr/bin/test2",
+\&                               "sat 23:00", "", "", "",
+\&                               "", &error);
+if(error != error_status_ok)
+\&  printf("Got an error! (test2)\\n\\tError text: %s\\n",
+\&         error_text(error));
+\& else printf("Second call completed.\\n");
+
+if ((error == error_status_ok) && (bossvr_error == 0)) {
+\&    printf("Test Completed OK\\n");
+\&   }
+
+.oE
+.P
+To delete a bnode, first shut down all its processes (described later
+in this chapter)
+and then call \*LBOSSVR_DeleteBnode(\|)\*O.
+.iX "-[" "BOSSVR"
+.iX "BOS"  "deleting bnodes"
+.iX "deleting"  "bnodes"
+This function takes the instance name, which you supplied to
+\*LBOSSVR_CreateBnode\*O. If you only want to kill processes, and do not
+want to permanently remove those processes from the BOS Server start-up
+file, \*Edo not\*O use this function. Operations on processes are described
+later in this chapter.
+.H 3 "Changing and Examining Bnode Instances"
+.P
+The BOS Server provides a number of functions for examining or changing
+various information associated with bnodes. This information includes:
+.ML
+.LI
+Current run status
+.LI
+Permanent run status
+.LI
+Bnode type (cannot be changed once bnode is created)
+.LI
+Process start and stop times
+.LI
+bnode parameters (cannot be changed once bnode is created)
+.LI
+Lists of all known bnodes
+.LE
+.P
+The most commonly accessed information about a bnode is its
+run status. The run status is, as the name implies, the status of the
+process associated with the bnode; that is, running or stopped. A process
+could be stopped for a number of reasons deriving from system problems
+that are beyond the scope of this guide.
+.P
+The function \*LBOSSVR_GetStatus(\|)\*O returns, in an output parameter,
+the run status of the named bnode. This status is a long integer; the
+following constants represent possible values:
+.iX "BOS"  "getting bnode status"
+.iX "getting"  "bnode status"
+.iX "bnodes"  "getting status"
+.ML
+.LI
+\*LBSTAT_SHUTDOWN\*O: The process is not currently running.
+.LI
+\*LBSTAT_NORMAL\*O: The process is running normally.
+.LI
+\*LBSTAT_STARTINGUP\*O: The BOS Server is still starting up the
+process; likely, checking again will result in a normal status.
+.LI
+\*LBSTAT_SHUTTINGDOWN\*O: A kill signal has been sent to the process,
+but it has not exited yet.
+.LE
+.P
+The functions \*LBOSSVR_SetStatus(\|)\*O and \*LBOSSVR_SetTStatus(\|)\*O set the
+status of a bnode to one of the previously listed options.
+.iX "BOS"  "setting bnode status"
+.iX "setting"  "bnode status"
+The difference between the two is that \*LBOSSVR_SetStatus(\|)\*O records the
+change in the BOS initialization file, so that the change will be in effect
+in future startups of the BOS Server, while \*LBOSSVR_SetTStatus(\|)\*O changes
+the status only in the current environment. (The \*LT\*O stands for
+temporary.) Of course, a change made with \*LBOSSVR_SetStatus(\|)\*O can
+be changed by a later call to that function, or can be temporarily overridden.
+.P
+There is other useful information about a bnode, such
+as the bnode type and the parameters supplied when it was created.
+The function \*LBOSSVR_GetInstanceInfo(\|)\*O provides
+such information about a bnode.
+.iX "BOS"  "getting bnode instance descriptions"
+.iX "getting"  "bnode instance descriptions"
+It provides two output parameters, the type and a \*Lbossvr_status\*O
+structure. 
+The \*Lbossvr_status\*O structure contains a number of fields, including
+the following:
+.ML
+.LI
+\*LprocStartTime:\*O The time this process last started
+.LI
+\*LprocStarts:\*O The total number of times this process has been started
+.LI
+\*LlastAnyExit:\*O The last time this process exited
+.LI
+\*LlastErrorExit:\*O The last time this process got an error
+.LI
+\*LerrorCode:\*O The last error code returned by a process
+.LE
+.P
+To only obtain the parameters that are associated with a bnode, the
+function \*LBOSSVR_GetInstanceParm(\|)\*O should be used instead of
+\*LBOSSVR_GetInstanceInfo(\|)\*O.
+.iX "BOS"  "getting instance parameters"
+.iX "getting"  "bnode instance parameters"
+\*LBOSSVR_GetInstanceParm(\|)\*O takes
+a bnode instance name and the parameter number (the first one
+is number 0 (zero)). Simple bnodes have only one parameter, while cron
+bnodes have two.
+.P
+All of the preceding functions require the bnode instance
+name. One way to get a list of all names is to diligently keep track of
+all names as they are created. Another way is to use the function
+\*LBOSSVR_EnumerateInstance(\|)\*O.
+.iX "BOS"  "listing all bnode instances"
+.iX "getting"  "all bnode instances"
+This function can be used to enumerate all instance names at a server;
+however, because the number of instances is unknown, this function cannot
+return all of them at once. Thus, a single call to this function produces
+one instance. You use this function by continuing to call it until there
+are no more instances, at which point the function signals this by
+returning an error code. You supply an instance number when calling the
+function; start with 0 (zero) and increment by one on each call.
+.P
+The following code stores the names of all the bnode instances into the
+array \*LSavedInstances\*O.
+.oS
+handle_t Rpc_Handle;
+signed32 j;
+bossvr_out_string instance;
+unsigned char SavedInstances[256];
+error_status_t error;
+signed32 code;
+
+/* assign Rpc_Handle */
+
+for(j=0; (code != BZDOM) && (error == 0)
+\&          && (j < 256); j++)
+\&   { code = BOSSVR_EnumerateInstance(Rpc_Handle, j,
+\&                                     &instance, &error);
+\&     if(error != error_status_ok)
+\&        printf("Got an error!\\nError text: %s\\n",
+\&               error_text(error));
+\&     else {
+\&       printf("Call completed.\\n");
+\&       strcpy(SavedInstances[j], instance.theString);}
+\&    }
+
+if (j == 256 && code != BZDOM)
+\&   printf("Too many instances!  Give me more room! \\n");
+else printf("%d instances.\\n", j);
+.oE
+.H 3 "Stopping and Starting Bnode Instances"
+.P
+The BOS Server provides functions to start, stop, and restart bnode
+instances. Most of these functions
+take a bnode instance name; some operate on all bnodes
+on the server. All of them take the standard two RPC arguments: the
+RPC handle and the RPC error status, which
+were described at the beginning
+of this chapter. Some of the following functions read the initialization
+file, and some take arguments specifying the processes to manipulate.
+.zA"defect, 6734, r1.0.2, BOSSVR changes"
+As described previously, \*LBOSSVR_SetStatus\*O can also be used to start
+or stop a bnode instance.
+.zZ"defect, 6734, r1.0.2, BOSSVR changes"
+.P
+The following functions manage bnode instances:
+.ML
+.LI
+.iX "BOS"  "shutting down instances"
+.iX "shutting down bnode instances"
+\*LBOSSVR_ShutdownAll(\|)\*O shuts down all of the bnode instances at a server.
+It does not change the BOS Server initialization file, so all BOS processes
+start up again when BOS is restarted.
+.LI
+.iX "BOS"  "restarting bnode instances"
+\*LBOSSVR_Restart(\|)\*O restarts a single bnode instance. If that instance
+is already running, the function stops it and restarts it. This function
+does not alter the initialization file.
+.LI
+.iX "restarting"  "bnode instances"
+\*LBOSSVR_RestartAll(\|)\*O restarts all bnode instances on a server. Note
+that \*LBOSSVR_RestartAll(\|)\*O restarts all processes marked in
+the initialization file as runnable; processes that are currently running
+are shut down and restarted. This function does not alter the
+initialization file.
+.P
+\*LBOSSVR_RestartAll(\|)\*O does not restart the BOS Server itself. To do
+that, you must call \*LBOSSVR_ReBossvr(\|)\*O.
+.LI
+.iX "BOS"  "restarting BOS Server"
+.iX "restarting"  "BOS Server"
+\*LBOSSVR_ReBossvr(\|)\*O restarts the BOS Server and then
+restarts all of the bnode instances at a server that are
+marked as runnable in the initialization file. It is like
+\*LBOSSVR_RestartAll(\|)\*O except that it also restarts the BOS Server
+itself. This is useful in cases where the BOS Server binary has changed
+and you want to start using the new version immediately.
+.LI
+.iX "BOS"  "starting bnode instances"
+.iX "starting" "bnode instances"
+.iX "-]" "bnodes"
+\*LBOSSVR_StartupAll(\|)\*O starts all of the bnode instances at a server that
+are not running and that are marked as runnable in the BOS Server's
+initialization file. This call does not change the initialization file, or
+do anything to those bnode instances marked in the file as not runnable.
+It also does not restart processes that are already running; if you want
+to do that, you must use \*LBOSSVR_RestartAll(\|)\*O or \*LBOSSVR_ReBossvr(\)\*O.
+.P
+It is not necessary to call \*LBOSSVR_ShutdownAll(\|)\*O before calling
+\*LBOSSVR_StartupAll(\|)\*O.
+.LI
+.iX "BOS"  "waiting for status changes"
+.iX "waiting" "for bnode status changes"
+\*LBOSSVR_WaitAll(\|)\*O waits until all of the bnode instances that are changing
+state from running to not running, or vice versa, complete their state
+changes. The call does not return until all state changes are complete.
+When it is important to have the status of all bnode instances up-to-date
+before proceeding, this function should be called immediately after
+all the status-changing calls.
+.LI
+.iX "BOS"  "setting process restart time"
+.iX "setting"  "restart time for BOS processes"
+.iX "BOS"  "getting process restart time"
+.iX "getting"  "restart time for BOS processes"
+.zA"defect, 6734, r1.0.2, BOSSVR changes"
+\*LBOSSVR_SetRestartTime(\|)\*O and \*LBOSSVR_GetRestartTime(\|)\*O are used to set
+and retrieve the restart times associated with BOS processes and the BOS
+Server itself.
+It is useful to occasionally restart BOS processes to pick up new versions
+of binaries (for example, ones that have been installed on the File Server
+machine since the BOS Server started running), or to recover from any long-term
+memory usage problems that might occur in the bnode instances.
+.zZ"defect, 6734, r1.0.2, BOSSVR changes"
+.LE
+.H 2 "Server Key Maintenance"
+.iX "BOS Server"  "server key maintenance"
+.P
+The server key maintenance functions maintain the authentication keys
+used by DFS servers. More information about server keys can be found in
+Part 6 of this guide.
+.iX "adding"  "server keys"
+.iX "server" "adding keys"
+.P
+\*LBOSSVR_AddKey(\|)\*O adds a key to the server key database. It takes a
+principal name, the key version number, the new password to use, and a flag
+that indicates whether the change is local or global. The password is a string.
+.P
+The change can be either local to the BOS Server machine, or it can
+be exported to the Registry Server as well. If the value of this flag is
+nonzero, the change is local only.
+.iX "server" "keys"
+.iX "generating server keys"
+.P
+You can also add a key by calling \*LBOSSVR_GenerateKey(\|)\*O, which
+generates a key randomly so that you do not have to provide one. There
+is no option for specifying a local or global change; all changes are
+global.
+.iX "getting"  "server keys"
+.iX "server" "keys"
+.P
+\*LBOSSVR_ListKeys(\|)\*O returns the key given an iteration value. Like other
+iterative functions, you continue calling this, incrementing the iterator,
+until the end of the list is signaled. In this case, the error flag
+\*LBZDOM\*O will be returned when there are no more keys to return.
+.P
+\*LBOSSVR_ListKeys(\|)\*O returns the key version number, the key, and a
+checksum value for each key. If the server is not running in \*LNoAuth\*O
+mode, only the checksum (rather than the key) is returned.
+.iX "deleting"  "server keys"
+.iX "server" "keys"
+.P
+\*LBOSSVR_DeleteKey(\|)\*O removes the key with a given key version number from
+the key database.
+.iX "purging obsolete server keys"
+.P
+\*LBOSSVR_GarbageCollectKeys(\|)\*O removes all keys that are no longer used
+for a given principal. It operates on the local keytab file only.
+.H 2 "Installing Binaries"
+.P
+There are several functions for managing system binaries and reverting
+to older versions when necessary.
+.P
+The BOS Server maintains up to three copies of a program: the
+current version, a backup (\*L.BAK\*O) version, and an old (\*L.OLD\*O)
+version, which is older than the \*L.BAK\*O version. Generally, the \*L.BAK\*O
+version of a program is the previously installed version of the
+program. The \*L.OLD\*O version is created from the previous \*L.BAK\*O version,
+but only if this version is at least 7 days old or there is no
+already existing \*L.OLD\*O version. The BOS Server attempts to make
+sure that the \*L.OLD\*O version is at least a week old in case it is necessary
+to revert to a previous version of the software; if the BOS Server did not
+enforce this and several changes were made in a short amount of time,
+there would be no prior version to use.
+.iX "BOS"  "installing binaries"
+.iX "installing binaries"
+.iX "binaries"  "installing DFS"
+.P
+The function \*LBOSSVR_Install(\|)\*O installs a new version of a binary on a
+server. It takes the pathname (on the destination machine)
+of a program to install, a pipe to the source, and other
+information about the binary.
+\*LBOSSVR_Install(\|)\*O moves the current \*L.BAK\*O file to the \*L.OLD\*O file if it is
+at least a week old. It then moves the current file to the \*L.BAK\*O file and
+installs the new file. Any processes running the old binary
+at the time must be stopped and restarted to get the new version. This
+can be done by the application unless special privileges are needed to
+start the processes.
+.P
+The information you must supply is the destination pathname, the size of
+the binary, a set of flags (reserved for future use), the last modification
+date of the file, and a pipe that points
+to the actual file data. The pipe is of type \*Lpipe_t\*O; pipes are
+discussed in more detail in Part 3 of this guide. 
+.iX "pipes"
+.P
+If the binary cannot be installed for some reason, such as disk space
+limitations, the following happens:
+.AL
+.LI
+\*LBOSSVR_Install(\|)\*O empties the input pipe to prevent RPC errors.
+.LI
+The function deletes the temporary file that was being used to collect
+the new binary.
+.LI
+The function returns the value \*LBZINSTALLFAILED\*O.
+.LE
+.P
+The \*L.BAK\*O and \*L.OLD\*O files are not moved around until the entire binary has been
+successfully received in the temporary file.
+.P
+Sometimes it is necessary to undo an installation; for example, if
+something went wrong in the
+installation. In that case, use the function \*LBOSSVR_UnInstall(\|)\*O, which
+reverts to the previous version of a binary.
+.iX "BOS"  "reverting binaries"
+.iX "reverting binaries"
+.iX "uninstalling binaries"
+.iX "restoring"  "binaries"
+.iX "binaries" "reverting to previous DFS versions"
+It renames
+any existing \*L.BAK\*O file to be the currently installed program, and renames
+any existing \*L.OLD\*O file to be the new \*L.BAK\*O file. If there is no \*L.BAK\*O file
+but there is a \*L.OLD\*O file, it installs the \*L.OLD\*O file
+instead. (This situation can only exist if something unusual is done,
+such as manually operating on these files.) Note that the binary
+being uninstalled
+will be deleted from the server; if you want to keep a copy, you need
+to make the copy before calling this function.
+.P
+The age of binaries can be checked with \*LBOSSVR_GetDates(\|)\*O, which
+provides the modification times for a binary, its \*L.BAK\*O version, and its
+\*L.OLD\*O version.
+.P
+Occasionally, old versions of binaries on a server need to be removed.
+(Lack of disk space sometimes requires this.) The function \*LBOSSVR_Prune(\|)\*O
+.iX "BOS"  "deleting old files"
+.iX "deleting"  "old binaries"
+.iX "binaries" "deleting old DFS"
+can be used to delete prior versions and core files.
+.P
+The way to specify pruning actions is to pass the bitwise OR
+of the following flags.
+.ML
+.zA"defect, 6734, r1.0.2, constants don't get parens!"
+.LI
+\*LBOSSVR_PRUNEOLD\*O  deletes all \*L.OLD\*O files.
+.LI
+\*LBOSSVR_PRUNEBAK\*O  deletes all \*L.BAK\*O files.
+.LI
+\*LBOSSVR_PRUNECORE\*O  deletes all saved core files.
+.LE
+.zZ"defect, 6734, r1.0.2, constants don't get parens!"
+.P
+Note that \*LBOSSVR_Prune(\|)\*O cannot be used to selectively remove
+files of a given type; the function removes \*Eall\*O files of a given
+type (\*L.BAK\*O, \*L.OLD\*O, or core). If more selectivity is
+required, files must be removed manually.
+.H 2 "Authorization Issues"
+.iX "BOS Server"  "authorization"
+.P
+The functions in this section relate to authorization issues. Specifically,
+they manipulate the administrative user lists.
+.P
+All administrative list manipulation
+functions take a pathname argument that is the name of the
+user list file. If the filename contains any slashes, it is used as an
+absolute pathname. Otherwise, the path \*Edcelocal\*O\*L/var/dfs/\*O is
+prepended to the name and the resultant filename is used as the name of
+the file containing the user list.
+.P
+All of these functions also have arguments that are reserved for future use. 
+They are strings, so pass ``'' (the empty string) for these arguments.
+.iX "adding"  "administrative users"
+.iX "administrative users"
+.P
+\*LBOSSVR_AddSUser(\|)\*O adds a user to the administrative user
+list contained in the
+named file. It takes a filename and a DCE Registry identity for the user to be
+elevated to administrative status.
+.P
+\*LBOSSVR_AddSUser(\|)\*O also takes a flag that indicates whether to create
+the file for the administrative user list if it does not 
+already exist (in other words,
+if there are no other administrative users in the file specified). If
+the flag is 0 (zero), the file is not created and an error is returned;
+otherwise, the file is created.
+.iX "deleting"  "administrative users"
+.P
+\*LBOSSVR_DeleteSUser(\|)\*O removes a user from a named administrative user list.
+The user's DCE principal (DCE Registry identity) is passed.
+This function also takes a flag
+that indicates whether the file should 
+be deleted if this administrative user is the last
+one; a value of 0 (zero) means to keep the file, otherwise it is deleted.
+.iX "getting"  "administrative users"
+.P
+\*LBOSSVR_ListSUsers(\|)\*O enumerates the administrative users. It is an iterative
+function; keep calling it, incrementing the iterator, until the value
+\*LBZDOM\*O is returned to signal the end of the list.
+.H 2 "Miscellaneous Functions"
+.P
+Some BOS functions cannot easily be categorized:
+.ML
+.LI
+.iX "BOS"  "getting cell name"
+.iX "getting"  "configuration cell name"
+\*LBOSSVR_GetCellName(\|)\*O provides the name of the current cell (a string).
+This is similar to the \*Lpioctl\*O call \*LVIOCGETWSCELL\*O but the
+\*Lpioctl\*O call finds the cell associated with the workstation on which
+the call is made, while \*LBOSSVR_GetCellName(\|)\*O instead finds the cell
+associated with the BOS Server.
+.zA"defect, 6734, r1.0.2, BOSSVR changes -- new fn"
+.LI
+.iX "BOS"  "getting server status"
+.iX "getting"  "BOS Server status"
+\*LBOSSVR_GetServerStatus(\|)\*O returns the current status of the 
+BOS Server.  It is similar to \*LBOSSVR_GetStatus)\|)\*O, which gets
+the status of a bnode instance.
+.zZ"defect, 6734, r1.0.2, BOSSVR changes -- new fn"
+.zA"defect, 6734, r1.0.2, BOSSVR changes -- new fn"
+.LI
+.iX "BOS"  "setting debug level"
+.iX "setting"  "BOS Server debug level"
+\*LBOSSVR_SetDebug(\|)\*O specifies the type of information to be logged
+by the BOS Server.  Such logging is typically turned off in production
+systems.
+.zZ"defect, 6734, r1.0.2, BOSSVR changes -- new fn"
+.zA"defect, 6734, r1.0.2, BOSSVR changes"
+.zZ"defect, 6734, r1.0.2, BOSSVR changes"
+.iX "BOS"
+.iX "BOS"  "getting text log"
+.iX "getting"  "text logs"
+Most BOS Server processes write log files.
+\*LBOSSVR_GetLog(\|)\*O provides access to this data; it returns a pipe
+(see Part 3 of this guide) to which this output is fed.
+You must process the data in the pipe yourself. Logs are typically
+stored in \*Edcelocal\*O\*L/var/dfs/adm\*O. Because the BOS Server runs
+as root, logs in this directory are accessible to any BOS Server process.
+If this function is called for a
+file not in this directory, however, the caller must be in the BOS Server's
+user list. See the \*EOSF DCE Administration Guide\*O for
+more information about the user list.
+.LE
+.H 2 "Syntax Summary"
+.iX "BOS Server" "function syntax"
+.iX "syntax"  "BOSSVR functions"
+.P
+The BOS Server functions are as follows:
+.ML
+.LI
+Process Monitoring
+.ML
+.LI
+\*LBOSSVR_CreateBnode(\|)\*O: Creates a new process bnode instance
+.LI
+\*LBOSSVR_DeleteBnode(\|)\*O: Deletes a bnode instance
+.LI
+\*LBOSSVR_EnumerateInstance(\|)\*O: Enumerates all bnode instances on a server
+.LI
+\*LBOSSVR_GetInstanceInfo(\|)\*O: Gets a basic bnode instance description
+.LI
+\*LBOSSVR_GetInstanceParm(\|)\*O: Gets the parameters for a bnode instance
+.LI
+\*LBOSSVR_GetRestartTime(\|)\*O: Gets the BOS Server restart process time
+.LI
+\*LBOSSVR_GetStatus(\|)\*O: Gets the run status of a bnode instance
+.LI
+\*LBOSSVR_ReBossvr(\|)\*O: Restarts all servers, including the BOS Server
+.LI
+\*LBOSSVR_Restart(\|)\*O: Restarts a given BOS process
+.LI
+\*LBOSSVR_RestartAll(\|)\*O: Restarts all BOS processes
+.LI
+\*LBOSSVR_SetRestartTime(\|)\*O: Sets BOS Server process restart times
+.LI
+\*LBOSSVR_SetStatus(\|)\*O: Sets the run status of a bnode instance
+.LI
+\*LBOSSVR_SetTStatus(\|)\*O: Temporarily sets the run status of a bnode
+instance
+.LI
+\*LBOSSVR_ShutdownAll(\|)\*O: Shuts down all BOS processes
+.LI
+\*LBOSSVR_StartupAll(\|)\*O: Starts all BOS processes
+.LI
+\*LBOSSVR_WaitAll(\|)\*O: Waits for all bnodes to stabilize their status
+.LE
+.LI
+Server Key Maintenance
+.ML
+.LI
+\*LBOSSVR_AddKey(\|)\*O: Adds a new server key to the database
+.LI
+\*LBOSSVR_DeleteKey(\|)\*O: Deletes the named server key
+.LI
+\*LBOSSVR_GarbageCollectKeys(\|)\*O: Gets rid of obsolete keys
+.LI
+\*LBOSSVR_GenerateKey(\|)\*O: Generates and adds a key to the server
+key database
+.LI
+\*LBOSSVR_ListKeys(\|)\*O: Lists all known server keys
+.LE
+.LI
+Binary Maintenance
+.ML
+.LI
+\*LBOSSVR_GetDates(\|)\*O: Gets the modification times of a program and its
+backups
+.LI
+\*LBOSSVR_Install(\|)\*O: Installs a server binary on a server
+.LI
+\*LBOSSVR_Prune(\|)\*O: Deletes old and unnecessary binaries
+.LI
+\*LBOSSVR_UnInstall(\|)\*O: Reverts to an older copy of a server binary
+.LE
+.LI
+Authorization
+.ML
+.LI
+\*LBOSSVR_AddSUser(\|)\*O: Adds a user to the named administrative user list
+.LI
+\*LBOSSVR_DeleteSUser(\|)\*O: Deletes a user from the named
+administrative user list
+.LI
+\*LBOSSVR_ListSUsers(\|)\*O: Gets the list of all administrative users
+.LI
+\*LBOSSVR_SetNoAuthFlag(\|)\*O: Sets the flag that controls whether
+DFS servers check authorization
+.LE
+.LI
+Miscellaneous
+.ML
+.LI
+.zA"defect, 6734, r1.0.2, BOSSVR changes"
+.zZ"defect, 6734, r1.0.2, BOSSVR changes"
+.zA"defect, 6734, r1.0.2, BOSSVR changes -- new fn"
+\*LBOSSVR_GetServerStatus(\|)\*O: Gets the status of the BOS Server
+.LI
+.zZ"defect, 6734, r1.0.2, BOSSVR changes -- new fn"
+\*LBOSSVR_GetCellName(\|)\*O: Gets the server's cell name
+.LI
+\*LBOSSVR_GetLog(\|)\*O: Retrieves a text log file
+.zA"defect, 6734, r1.0.2, BOSSVR changes -- new fn"
+\*LBOSSVR_SetDebug(\|)\*O: Sets the debugging level for the BOS Server
+.zZ"defect, 6734, r1.0.2, BOSSVR changes -- new fn"
+.LE
+.LE
+.P
+Full syntax for each BOS Server function follows.
+.sS
+.zA"defect,5992,r1.0.2,fixed include directory"
+\*L#include<dcedfs/bbos_ncs_interface.h>\*O
+.zZ"defect,5992,r1.0.2,fixed include directory"
+
+\*Lconst BOSSVR_BSSIZE = 256;\*O  /* bosserver string length */
+.sE
+.sS
+\*Lsigned32 BOSSVR_AddKey(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O               /* in */
+         \*Lchar\*V prinNameP[BOSSVR_BSSIZE]\*L,\*O  /* in */
+         \*Lsigned32\*V kvno\*L,\*O                          /* in */
+         \*Lchar\*V passwdP[BOSSVR_BSSIZE]\*L,\*O   /* in */
+         \*Lsigned32\*V localOnly\*L,\*O                     /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_AddSUser(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V filename[BOSSVR_BSSIZE]\*L,\*O  /* in */
+         \*Lchar\*V typeStr[BOSSVR_BSSIZE]\*L,\*O   /* in */
+         \*Lchar\*V name[BOSSVR_BSSIZE]\*L,\*O      /* in */
+         \*Lchar\*V permStr[BOSSVR_BSSIZE]\*L,\*O   /* in */
+.zA"defect, 6734, r1.0.2, BOSSVR changes"
+         \*Lunsigned32\*V flags\*L,\*O                         /* in */
+.zZ"defect, 6734, r1.0.2, BOSSVR changes"
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_CreateBnode(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V type[BOSSVR_BSSIZE]\*L,\*O      /* in */
+         \*Lchar\*V instance[BOSSVR_BSSIZE]\*L,\*O  /* in */
+         \*Lchar\*V p1[BOSSVR_BSSIZE]\*L,\*O        /* in */
+         \*Lchar\*V p2[BOSSVR_BSSIZE]\*L,\*O        /* in */
+         \*Lchar\*V p3[BOSSVR_BSSIZE]\*L,\*O        /* in */
+         \*Lchar\*V p4[BOSSVR_BSSIZE]\*L,\*O        /* in */
+         \*Lchar\*V p5[BOSSVR_BSSIZE]\*L,\*O        /* in */
+         \*Lchar\*V p6[BOSSVR_BSSIZE]\*L,\*O        /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_DeleteBnode(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V instance[BOSSVR_BSSIZE]\*L,\*O  /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_DeleteKey(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V prinNameP[BOSSVR_BSSIZE]\*L,\*O /* in */
+         \*Lsigned32\*V kvno\*L,\*O                          /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_DeleteSUser(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V filename[BOSSVR_BSSIZE]\*L,\*O  /* in */
+         \*Lchar\*V typeStr[BOSSVR_BSSIZE]\*L,\*O   /* in */
+         \*Lchar\*V name[BOSSVR_BSSIZE]\*L,\*O      /* in */
+.zA"defect, 6734, r1.0.2, BOSSVR changes"
+         \*Lunsigned32\*V flags\*L,\*O                         /* in */
+.zZ"defect, 6734, r1.0.2, BOSSVR changes"
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_EnumerateInstance(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lsigned32\*V instanceNum\*L,\*O                   /* in */
+         \*Lbossvr_out_string\*V *result,\*O                  /* out */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+.zA"defect, 6734, r1.0.2, BOSSVR changes"
+.zZ"defect, 6734, r1.0.2, BOSSVR changes"
+\*Lsigned32 BOSSVR_GarbageCollectKeys(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V prinNameP[BOSSVR_BSSTRING]\*L,\*O/* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_GenerateKey(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V prinNameP[BOSSVR_BSSIZE]\*L,\*O /* in */
+         \*Lsigned32\*V kvno\*L,\*O                          /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_GetCellName(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lbossvr_out_string\*V *nameP\*L,\*O               /* out */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_GetDates(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V path[BOSSVR_BSSIZE]\*L,\*O      /* in */
+         \*Lsigned32\*V *newtime\*L,\*O                      /* out */
+         \*Lsigned32\*V *baktime\*L,\*O                      /* out */
+         \*Lsigned32\*V *oldtime\*L,\*O                      /* out */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_GetInstanceInfo(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V instance[BOSSVR_BSSIZE]\*L,\*O  /* in */
+         \*Lbossvr_out_string\*V *type\*L,\*O                /* out */
+         \*Lstruct\*V bossvr_status\*O *status               /* out */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_GetInstanceParm(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V instance[BOSSVR_BSSIZE]\*L,\*O  /* in */
+         \*Lsigned32\*V num\*L,\*O                           /* in */
+         \*Lbossvr_out_string\*V *parm\*L,\*O                /* out */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_GetLog(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V name[BOSSVR_BSSIZE]\*L,\*O      /* in */
+         \*Lpipe_t\*V *thePipeP\*L,\*O                       /* out */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_GetRestartTime(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lsigned32\*V type\*L,\*O                          /* in */
+         \*Lstruct bossvr_netKTimLe\*V *restartTime,\*O    /* out */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.zA"defect, 6734, r1.0.2, BOSSVR changes -- new fn"
+\*Lsigned32 BOSSVR_GetServerStatus(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lunsigned32\*V *serverStatus\*L,\*O               /* out */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.zZ"defect, 6734, r1.0.2, BOSSVR changes -- new fn"
+.sS
+\*Lsigned32 BOSSVR_GetStatus(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V instance[BOSSVR_BSSIZE]\*L,\*O  /* in */
+         \*Lsigned32\*V *status\*L,\*O                       /* out */
+         \*Lbossvr_out_string\*V *statdescrP\*L,\*O          /* out */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_Install(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V path[BOSSVR_BSSIZE]\*L,\*O      /* in */
+         \*Lsigned32\*V size\*L,\*O                          /* in */
+         \*Lunsigned32\*V flags\*L,\*O                         /* in */
+         \*Lsigned32\*V date\*L,\*O                          /* in */
+         \*Lpipe_t\*V *thePipeP\*L,\*O                       /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_ListKeys(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V prinNameP[BOSSVR_BSSIZE]\*L,\*O /* in */
+         \*Lsigned32\*V an\*L,\*O                            /* in */
+         \*Lsigned32\*V *kvno\*L,\*O                         /* out */
+         \*Lstruct bossvr_key\*V *key\*L,\*O                 /* out */
+         \*Lstruct bossvr_keyInfo\*V *keyinfo\*L,\*O         /* out */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_ListSUsers(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V filename[BOSSVR_BSSIZE]\*L,\*O  /* in */
+         \*Lsigned32\*V an\*L,\*O                            /* in */
+         \*Lbossvr_out_string\*V *nameP\*L,\*O               /* out */
+         \*Lbossvr_out_string\*V *typeStrP\*L,\*O            /* out */
+         \*Lbossvr_out_string\*V *permStrP\*L,\*O            /* out */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_Prune(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lunsigned32\*V flags\*L,\*O                         /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_ReBossvr(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_Restart(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V instance[BOSSVR_BSSIZE]\*L,\*O  /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_RestartAll(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.zA"defect, 6734, r1.0.2, BOSSVR changes -- new fn"
+.sS
+\*Lsigned32 BOSSVR_SetDebug(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lsigned32\*V newDebug\*L,\*O                      /* in */
+         \*Lsigned32\*V *oldDebug\*L,\*O                     /* out */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.zZ"defect, 6734, r1.0.2, BOSSVR changes -- new fn"
+.sS
+\*Lsigned32 BOSSVR_SetNoAuthFlag(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lsigned32\*V flag\*L,\*O                          /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_SetRestartTime(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lsigned32\*V type\*L,\*O                          /* in */
+         \*Lstruct bossvr_netKTimLe\*V *restartTime,\*O    /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_SetStatus(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V instance[BOSSVR_BSSIZE]\*L,\*O  /* in */
+         \*Lsigned32\*V status\*L,\*O                        /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+\*Lsigned32 BOSSVR_SetTStatus(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V instance[BOSSVR_BSSIZE]\*L,\*O  /* in */
+         \*Lsigned32\*V status\*L,\*O                        /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_ShutdownAll(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_StartupAll(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.sS
+\*Lsigned32 BOSSVR_UnInstall(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lchar\*V path[BOSSVR_BSSIZE]\*L,\*O      /* in */
+.zA"defect, 6734, r1.0.2, BOSSVR changes"
+         \*Lunsigned32 \*Vflags\*L,\*O                       /* in */
+.zZ"defect, 6734, r1.0.2, BOSSVR changes"
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+\*Lsigned32 BOSSVR_WaitAll(\*O
+         \*Lhandle_t\*V bosserverBinding\*L,\*O              /* in */
+         \*Lerror_status_t\*V *theCommStatus\*L)\*O          /* out */
+.sE
+.iX "-]" "BOSSVR"
+.iX "-]" "BOSSVR functions"

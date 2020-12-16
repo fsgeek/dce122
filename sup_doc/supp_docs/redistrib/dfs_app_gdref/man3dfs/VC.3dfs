@@ -1,0 +1,415 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: VC.3dfs,v $
+...\" Revision 1.1.2.2  1994/06/10  21:12:31  devobj
+...\" 	cr10872 - fixed copyright
+...\" 	[1994/06/10  20:52:01  devobj]
+...\"
+...\" Revision 1.1.2.1  1994/04/05  15:17:54  rom
+...\" 	{enh, 10283, R1.1}
+...\" 	Moved from dce_books/app_ref/man3dfs/VC.3dfs to
+...\" 	supp_docs/redistrib/dfs_app_gdref/man3dfs/VC.3dfs.
+...\" 	[1994/04/04  22:06:32  rom]
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc. ALL RIGHTS RESERVED
+.TH "VC" "3dfs" "" "" ""
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.iX "Fileset Server Interface (DFS)"
+.SH "NAME"
+.PP
+\*LVC\*O - Introduction to the Fileset Server interface functions
+.SH "SYNOPSIS"
+.PP
+.sS
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.zA"defect,5992,r1.0.2,fixed include directory"
+\*L#include <dcedfs/param.h>
+.nL
+#include <dcedfs/sysincludes.h>
+.nL
+#include <dcedfs/stds.h>
+.nL
+#include <dcedfs/common_data.h>
+.nL
+#include <dce/rpc.h>
+.nL
+#include <dce/pthread.h>
+.nL
+#include <dce/exc_handling.h>
+.nL
+#include <dcedfs/compat.h>
+.nL
+#include <dcedfs/nubik.h>
+.nL
+#include <dcedfs/fldb_proc.h>
+.nL
+#include <dcedfs/flserver.h>
+.nL
+#include <dcedfs/flclient.h>
+.nL
+#include <fcntl.h>
+.nL
+#include <dcedfs/ftserver_proc.h>
+.nL
+#include <dcedfs/volume.h>
+.nL
+#include <dcedfs/fldb_data.h>
+.nL
+#include <dcedfs/ftserver.h>
+.nL
+#include <dcedfs/ftserver_trans.h>
+.nL
+#include <dcedfs/aggr.h>
+.nL
+#include <dcedfs/volc.h>
+.nL
+.zZ"defect,5992,r1.0.2,fixed include directory"
+\*O
+.sE
+.br
+.ne 1.5i
+.SH "Libraries"
+.PP
+All \*LVC(\|)\*O functions are defined in the library \*Llibdcedfs.a\*O.
+.PP
+.PP
+.br
+.ne 1.5i
+.SH "DESCRIPTION"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.PP
+The \*LVC(\|)\*O (Volume Call) functions obtain information
+and perform actions on File Server machines. These functions are distinct
+from those that talk to the various databases for server information.
+.PP
+Most of these functions manipulate filesets. They operate at a high level
+and do all of the necessary bookkeeping, such as maintaining the Fileset
+Location Database (FLDB), bringing new filesets online, and so on.
+To operate at lower levels, use the
+\*LFTSERVER(\|)\*O and \*LVL(\|)\*O functions to do these things manually.
+.PP
+Many of these functions take the same basic set of parameters. These
+common parameters are as follows:
+.VL 6m
+...\'wH UNDEFINED{tightenlist}
+.LI "\*VRpcBinding\*O"
+A pointer to an RPC connection, which is a connection to an
+authenticated path that allows multiple asynchronous conversations
+(type \*Lrpc_binding_handle_t\*O, a structure).
+This structure is completely opaque to the application programmer,
+and is simply passed around. The RPC function that opens
+a connection returns this pointer.
+.LI "\*VservAddrp\*O"
+A pointer to the address of the target server (type
+\*Lsockaddr\*O, a structure).
+.LI "\*VaggrID\*O"
+A unsigned32eger that identifies the fileset's location on the
+specified aggregate (typically, a disk number).
+.LI "\*VvolNamep\*O"
+A pointer to a string that gives the fileset's name.
+.LI "\*VvolIDp\*O"
+A pointer to a unique fileset identifier (type \*LafsHyper\*O, a structure).
+.LE
+.PP
+Unless otherwise specified, all \*LVC(\|)\*O functions return 0 (zero) if the
+function completes successfully, or an error otherwise. These functions
+do not follow the
+\ UNIX
+\ convention of returning -1 when there are errors and
+setting \*Lerrno\*O to the specific flag.
+.PP
+All functions that return a structure (as opposed to an integer) have as
+the final argument a pointer to a structure of the appropriate type. You
+do not need to worry about creating that structure; this is just a pointer
+to a chunk of memory into which RPC writes the resulting data.
+It is up to you to dispose of this memory when it is no longer needed.
+.PP
+During most function calls, the FLDB entry for a fileset is locked.
+Locks are purely advisory; they do not actually prevent other processes from
+modifying the fileset or the FLDB entry. The lock does prevent other locks,
+however, so if you are careful to always lock the fileset before modifying
+it, you do not cause conflicts.
+.PP
+A \*VvolIDp\*O is a pointer to an \*LafsHyper\*O
+structure, which represents a 64-bit counter:
+...\'wH UNDEFINED{footnotesize}
+.iS
+struct afsHyper {
+\&        unsigned32 high;
+\&        unsigned32 low;
+\&     };
+.iE
+.br
+.ne 1.5i
+.SH "ERRORS"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.PP
+The following Fileset Server errors can be returned by the \*LVC(\|)\*O functions:
+.VL 13.6m
+...\'wH UNDEFINED{tightenlist}
+.LI "\*LVL_IDEXIST\*O"
+A fileset ID entry exists in the FLDB.
+.LI "\*LVL_IO\*O"
+An I/O error occurred.
+.LI "\*LVL_NAMEEXIST\*O"
+A fileset name entry exists in the FLDB.
+.LI "\*LVL_CREATEFAIL\*O"
+An internal creation failure occurred.
+.LI "\*LVL_NOENT\*O"
+There is no such entry.
+.LI "\*LVL_EMPTY\*O"
+The FLDB is empty.
+.LI "\*LVL_ENTDELETED\*O"
+The entry is deleted (soft delete).
+.LI "\*LVL_BADNAME\*O"
+The fileset name is illegal.
+.LI "\*LVL_BADINDEX\*O"
+The index is out of range.
+.LI "\*LVL_BADVOLTYPE\*O"
+A bad fileset type was encountered.
+.LI "\*LVL_BADSERVER\*O"
+There is an illegal server number (out of range).
+.LI "\*LVL_BADPARTITION\*O"
+A bad partition number was encountered.
+.LI "\*LVL_REPSFULL\*O"
+The operation ran out of space for replication sites.
+.LI "\*LVL_NOREPSERVER\*O"
+No such replication server site exists.
+.LI "\*LVL_DUPREPSERVER\*O"
+The replication site already exists.
+.LI "\*LVL_RWNOTFOUND\*O"
+The parent read/write entry was not found.
+.LI "\*LVL_BADREFCOUNT\*O"
+An illegal reference count number was encountered.
+.LI "\*LVL_SIZEEXCEEDED\*O"
+The FLDB size for attributes was exceeded.
+.LI "\*LVL_BADENTRY\*O"
+A bad incoming FLDB entry was encountered.
+.LI "\*LVL_BADVOLIDBUMP\*O"
+An illegal maximum fileset ID increment was encountered.
+.LI "\*LVL_IDALREADYHASHED\*O"
+The RO/BACK ID was already hashed.
+.LI "\*LVL_ENTRYLOCKED\*O"
+The FLDB entry is already locked.
+.LI "\*LVL_BADVOLOPER\*O"
+A bad fileset operation code was encountered.
+.LI "\*LVL_BADRELLOCKTYPE\*O"
+A bad release lock type was encountered.
+.LI "\*LVL_RERELEASE\*O"
+Status Report: The last release was aborted.
+.LI "\*LVL_BADSERVERFLAG\*O"
+An invalid replication site server flag was encountered.
+.LI "\*LVL_PERM\*O"
+Permission is denied due to inadequate privileges.
+.LI "\*LVL_NOMEM\*O"
+The \*Lmalloc(\|)\*O (\*Lrealloc(\|)\*O) function
+failed to allocate enough memory.
+.LI "\*LVL_SITESCORRUPTED\*O"
+The site table is corrupted.
+.LI "\*LVL_LASTADDRESS\*O"
+The last address for a site cannot be removed.
+.LI "\*LVL_ADDRESSFULL\*O"
+The operation ran out of space for addresses for a site.
+.LI "\*LVL_ADDRESSEXISTS\*O"
+The address already exists in this site.
+.LI "\*LVL_ADDRESSELSEWHERE\*O"
+FLDB:  The address already exists in another site.
+.LI "\*LVL_NOTYETIMPLEMENTED\*O"
+The facility is not yet implemented.
+.LI "\*LVL_ENDOFLIST\*O"
+The iterative operation is at the end of the list.
+.LI "\*LVL_OUTOFQUOTA\*O"
+FLDB:  There is no remaining quota for creations on a server.
+.LI "\*LVL_NOSUCHSERVER\*O"
+FLDB:  The given server does not exist.
+.LI "\*LVL_BADCOOKIE\*O"
+FLDB:  A bad site \*VCookie\*O value given.
+.LI "\*LVL_INCONSISTENT\*O"
+FLDB:  An internal inconsistency was detected.
+.LI "\*LVL_NOSERVER\*O"
+FLDB:  There is no such server in the FLDB.
+.LI "\*LVL_BADID\*O"
+FLDB:  The fileset ID was not reserved.
+.LI "\*LFTS_ERR_ATTACH\*O"
+A fileset could not be attached.
+.LI "\*LFTS_ERR_DETACH\*O"
+A fileset could not be detached.
+.LI "\*LFTS_ERR_BADAGGREGATE\*O"
+An illegal aggregate was encountered.
+.LI "\*LFTS_ERR_BADNAME\*O"
+A bad fileset name was encountered.
+.LI "\*LFTS_ERR_BADACCESS\*O"
+There is insufficient privilege for the fileset operation.
+.LI "\*LFTS_ERR_VLDB\*O"
+An error from the fileset location database occurred.
+.LI "\*LFTS_ERR_MOVED\*O"
+The fileset moved.
+.LI "\*LFTS_ERR_BADOP\*O"
+An illegal fileset operation was encountered.
+.LI "\*LFTS_ERR_DUMP\*O"
+A badly formatted dump was encountered.
+.LI "\*LFTS_ERR_BADDUMP\*O"
+The operation is restoring a bad format dump.
+.LI "\*LFTS_ERR_BADRELEASE\*O"
+The fileset release failed.
+.LI "\*LFTS_ERR_BUSY\*O"
+The fileset is still in use by \*LFTSERVER(\|)\*O.
+.LI "\*LFTS_ERR_NOMEM\*O"
+The operation ran out of virtual memory in \*LFTSERVER(\|)\*O.
+.LI "\*LFTS_ERR_NOVOL\*O"
+There is no such fileset.
+.LI "\*LFTS_ERR_MULTIRWVOL\*O"
+More than one read/write fileset exists.
+.LI "\*LFTS_ERR_FAILEDOP\*O"
+Not all entries were successfully processed.
+.LI "\*LFTS_ERR_IO\*O"
+An I/O error was encountered.
+.LI "\*LFTS_ERR_NOTIMP\*O"
+The operation is not yet implemented.
+.LI "\*LFTS_ERR_INTERNAL_FLDB\*O"
+The FLDB client was not initialized.
+.LI "\*LFTSERVER_ERR_ATTACH\*O"
+The fileset could not be attached.
+.LI "\*LFTSERVER_ERR_DETACH\*O"
+The fileset could not be detached.
+.LI "\*LFTSERVER_ERR_BADAGGREGATE\*O"
+An illegal aggregate was encountered.
+.LI "\*LFTSERVER_ERR_BADNAME\*O"
+A bad fileset name was encountered.
+.LI "\*LFTSERVER_ERR_BADACCESS\*O"
+There is insufficient privilege for the fileset operation.
+.LI "\*LFTSERVER_ERR_VLDB\*O"
+An error from the fileset location database occurred.
+.LI "\*LFTSERVER_ERR_MOVED\*O"
+The fileset moved.
+.LI "\*LFTSERVER_ERR_BADOP\*O"
+An illegal fileset operation occurred.
+.LI "\*LFTSERVER_ERR_DUMP\*O"
+A badly formatted dump was encountered.
+.LI "\*LFTSERVER_ERR_BADDUMP\*O"
+The operation is restoring a bad format dump.
+.LI "\*LFTSERVER_ERR_BADRELEASE\*O"
+The fileset release failed.
+.LI "\*LFTSERVER_ERR_BUSY\*O"
+The fileset is still in use by \*LFTSERVER(\|)\*O.
+.LI "\*LFTSERVER_ERR_OFFLINE\*O"
+The fileset is offline.
+.LI "\*LFTSERVER_ERR_NOMEM\*O"
+The operation ran out of virtual memory in \*LFTSERVER(\|)\*O.
+.LI "\*LFTSERVER_ERR_NOVOL\*O"
+There is no such fileset.
+.LI "\*LFTSERVER_ERR_MULTIRWVOL\*O"
+More than one read/write fileset exists.
+.LI "\*LFTSERVER_ERR_IO\*O"
+An I/O error occurred.
+.LI "\*LFTSERVER_ERR_TRANSEXISTS\*O"
+The transaction already exists.
+.LI "\*LFTSERVER_ERR_NOTRANS\*O"
+The transaction does not exist.
+.LI "\*LFTSERVER_ERR_TRELE\*O"
+An internal error releasing transaction occurred.
+.LI "\*LFTSERVER_ERR_DELETED\*O"
+The fileset is already deleted.
+.LI "\*LFTSERVER_ERR_LCLMOUNT\*O"
+The fileset is locally mounted.
+
+.LI "\*LVOLERR_PERS_DELETED\*O" 
+Fileset already deleted/moved.
+.LI "\*LVOLERR_PERS_BADDUMPOPCODE\*O" 
+Bad opcode passed to dump.
+.LI "\*LVOLERR_PERS_BADDUMP\*O" 
+Bad dump format.
+.LI "\*LVOLERR_PERS_BADFTSOPSVECTOR\*O" 
+Bad ftserver ops vector passed in.
+.LI "\*LVOLERR_PERS_REPDESTROY\*O"
+Fileset deleted by repserver.
+.LI "\*LVOLERR_PERS_DAMAGED\*O" 
+Fileset inconsistent.
+.LI "\*LVOLERR_PERS_BADVOLOPSVECTOR\*O"
+Bad fileset ops vector passed in.
+.LI "\*LVOLERR_TRANS_DELETE\*O"
+Fileset being deleted/moved.
+.LI "\*LVOLERR_TRANS_DUMP\*O"
+Fileset being dumped.
+.LI "\*LVOLERR_TRANS_RESTORE\*O"
+Fileset being restored.
+.LI "\*LVOLERR_TRANS_CLONE\*O"
+Fileset being cloned.
+.LI "\*LVOLERR_TRANS_RECLONE\*O"
+Fileset being recloned.
+.LI "\*LVOLERR_TRANS_LIST\*O"
+List filesets.
+.LI "\*LVOLERR_TRANS_GETSTATUS\*O"
+Get status on fileset.
+.LI "\*LVOLERR_TRANS_CREATEFILESET\*O"
+Create new fileset.
+.LI "\*LVOLERR_TRANS_RELEASE\*O"
+Release a fileset.
+.LI "\*LVOLERR_TRANS_SETQUOTA\*O"
+Set quota on fileset.
+.LI "\*LVOLERR_TRANS_FILESETEXISTS
+Fileset already exists.
+.LI "\*LVOLERR_TRANS_SETFLAGS\*O"
+Set flags on fileset.
+.LI "\*LVOLERR_TRANS_SETSTATUS\*O"
+Set status on fileset.
+.LI "\*LVOLERR_TRANS_COPYCLONE\*O"
+Copy the clone to a new location.
+.LI "\*LVOLERR_TRANS_FORWARD\*O"
+Copy fileset to a different server or aggregate.
+.LI "\*LVOLERR_TRANS_BACKUPDUMP\*O"
+Dump a fileset to tape.
+.LI "\*LVOLERR_TRANS_BACKUPRESTORE\*O"
+Restore a fileset from tape.
+.LI "\*LVOLERR_TRANS_REPGETSTATUS\*O"
+Repserver get status on fileset.
+.LI "\*LVOLERR_TRANS_REPSETSTATUS\*O"
+Repserver set status on fileset.
+.LI "\*LVOLERR_TRANS_REPSETFILESETVERSION\*O"
+Repserver set fileset version.
+.LI "\*LVOLERR_TRANS_REPCLONE\*O"
+Repserver clone fileset.
+.LI "\*LVOLERR_TRANS_REPEDITSTATUS\*O"
+Repserver edit fileset status.
+.LI "\*LVOLERR_TRANS_REPCLEARSTATUS\*O"
+Repserver clear fileset status.
+.LI "\*LVOLERR_TRANS_REPUNCLONE\*O"
+Repserver unclone fileset.
+.LI "\*LVOLERR_TRANS_REPSWITCHFILESETS\*O"
+Repserver switch filesets.
+.LI "\*LVOLERR_TRANS_REPGETFILESETCHANGES\*O"
+Repserver get fileset changes.
+.LI "\*LVOLERR_TRANS_REPFORWARD\*O"
+Repserver forward fileset.
+.LI "\*LVOLERR_TRANS_NOMEM\*O"
+No more memory.
+.LI "\*LVOLERR_TRANS_IO\*O"
+Pipe i/o failure.
+.LI "\*LVOLERR_TRANS_QUOTA\*O"
+Fileset is over quota.
+.LI "\*LVOLERR_TRANS_VVOLD\*O"
+Stale fileset.
+.LI "\*LVOLERR_TRANS_MOVE\*O"
+Fileset being moved.
+.LE
+.PP
+In addition, all errors that can be returned by the DCE RPC and Security
+components can appear.
+.br
+.ne 1.0i
+.SH "RELATED INFORMATION"
+.PP
+.ad l
+Functions:
+\*LFTSERVER(3dfs)\*O,
+\*Lintro(3dfs)\*O,
+\*LVL(3dfs)\*O.
+.ad b

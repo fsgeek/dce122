@@ -1,0 +1,431 @@
+CR Number                     : 13419
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : app_ref
+Short Description             : caller_key in sec_rgy_acct_passwd always needed
+Reported Date                 : 4/1/96
+Found in Baseline             : 1.1
+Found Date                    : 4/1/96
+Severity                      : C
+Priority                      : 3
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/3/96 public]
+I did delete the sentence cited by Transarc.  However, this 
+CR requires more work.  I am enclosing some explanatory mail from 
+rps and marked it as defer, since we will not fix it for 1.2.2. 
+
+The explanatory mail follows:
+
+There is code there to handle the described "default", though it isn't
+as simple as it can be interpreted it to be.  That is, you
+can't just pass NULL -- you still have to pass a sec_passwd_rec_t *
+struct, initialized to zeroes with memset(), and then with a
+key.key_type set to sec_passwd_plain.  Also, not only does the
+_pkt_privacy level has to be available on the system (ie not running an
+international release) but there has to be a login context set to use it.
+
+This is fairly involved to describe.  Here's explanatory source to 
+past into the OT.
+
+rca_pwd.c:rca_pwd_gen_transmit_rep()
+
+    /*
+     * Compute the caller's ciphertext key from plaintext, if necessary.
+     * if the caller's key is plaintext, and has no "pepper", then use
+     * the pepper in the login context, if any, to compute the ciphertext
+     * key.
+     */
+    if (PASSWD_TYPE(caller_key) == sec_passwd_plain) {
+        if (caller_key->pepper == NULL) {
+            caller_key->pepper =
+                (unsigned_char_p_t) sec_login_util_get_pepper(identity, stp);
+        }
+
+        if (GOOD_STATUS(stp)) {
+            use_ekey = true;
+            sec_crypt_compute_key(caller_key, sec_passwd_des, &ekey, stp);
+        }
+    } else {
+        PASSWD_TYPE(&ekey) = PASSWD_TYPE(caller_key);
+ }
+
+    if (GOOD_STATUS(stp)) {
+        if (use_ekey) {
+            ch = sec_crypt_create_context(&ekey, etype, stp);
+        } else {
+            ch = sec_crypt_create_context(caller_key, etype, stp);
+        }
+    }
+
+
+Transarc Deltas                      [text]: 
+Transarc Status                      [text]: open
+
+[2/20/96 public]
+The man page description of the caller_key says, "If communications
+secure to the rpc_c_authn_level_pkt_privacy level are available on a
+system, then this parameter is not necessary, and the packet
+encryption is sufficient to ensure security."  However, passing NULL
+to the caller_key causes a core dump.
+Two developers who reviewed the code found no checks in the code to
+ignore the caller_key when packet privacy is used.  It is not clear
+whether this is a code bug or a doc bug, but according to the
+developers, the doc bug is a lot easier to fix.
+Added field Transarc Deltas with value `' 
+Added field Transarc Status with value `open'
+
+[5/16/96 public]
+
+Assigned to HP.
+
+
+
+CR Number                     : 12908
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : osf1
+Component Name                : sec
+Subcomponent Name             : 
+Short Description             : Warranty Patch Transitive
+Trust Failure
+Reported Date                 : 6/7/95
+Found in Baseline             : 1.1wp
+Found Date                    : 6/7/95
+Severity                      : A
+Priority                      : 0
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[6/7/95 public]
+
+I have merged HP's warranty patch code into Digital's 1.1 Alpha tree and
+transitive trust is simply not working.  I have contacted HP about this.
+It is possible that this is a Digital Alpha porting problem and
+other platforms are not affected.
+
+Here is a detailed description of Digital's transitive trust test setup.
+I have two simple test cases for transitive trust that fail.  The
+first case is a child-parent-child H-cell, where one child fails to
+do an authenticated show dir of the other. The second is a child that
+can't do an authenticated show dir of a DNS peer of its parent.
+Configuration details follow.
+
+Brian
+
+
+/..../zenix_cell.dpe.lkg.dec.com        /.../majik_cell.dpe.lkg.dec.com
++----------------+                           +---------------------+
+| Cell A         |  direct trust link        | Cell B, HCell parent|
+| registered in  | <---------------------->  | registered in       |
+| DNS            |                           |  DNS                |
++----------------+                           +---------------------+
+        ^                                    ^            ^
+         \ transitive trust (fails)         / direct       \ direct
+          \                                / trust          \ trust
+           \                              v link             v link
+            \              +------------------+    +------------------+
+             ------>       | Cell C, HC child |    | Cell D, HC child |
+                           +------------------+    +------------------+
+                                  ^                                ^
+                                  |   transitive trust (fails)     |
+                                   --------------------------------
+
+Cell C = /.../majik_cell.dpe.lkg.dec.com/dce007_cell
+Cell D = /.../majik_cell.dpe.lkg.dec.com/itsit_cell
+
+These are the setup steps to establish the above:
+
+1) configure the parent cell and its peer with a DNS name, and
+   register with a DNS name service:
+
+        i.e. /.../majik_cell.dpe.lkg.dec.com
+
+2) configure child cell(s) with a cell name that is the concatenation
+   of the parent DNS name with the child cell name:
+
+        i.e. /.../majik_cell.dpe.lkg.dec.com/dce007_cell
+
+3) ensure that all cells are running CDS version 4.0 (the default is 3.0).
+   On the each system do this:
+
+   get cell_admin credentials
+   cdscp> show dir /.:
+   cdscp> set dir /.: CDS_UpgradeTo 4.0
+   dcecp> dir synch /.:
+   dcecp> clearinghouse verify /.:/*_ch    (e.g. /.:/dce007_ch)
+   dcecp> dir synch /.:
+
+4) create the cell alias on the child cell(s), give it any old name
+
+   e.g. get cell_admin creds
+   dcecp> cellalias create /.../majik_cell.dpe.lkg.dec.com/dce007_cell/fred
+
+   I have noticed that this command results in cds clerk bind errors that
+   can, for now, be ignored.  Verify the command succeeded with a
+
+   dcecp> cdsalias cat
+
+5) set up explicit cross-cell trust between the parent and child cell(s);
+   test with a cdscp> show dir /.../whereever.  E.g, from the child cell do
+a
+    rgy_edit> cell /.../majik_cell.dpe.lkg.dec.com
+
+6) on the parent set the /.: acl so anyone (i.e. child) can write it; e.g.
+
+   dcecp> acl mod /.: -change {any_other r--t-i-}
+
+7) connect child to parent in the parent's namespace.  On the child,
+   do a
+
+   dcecp> cdsalias connect
+
+8) on the parent cell, test that the connect succeeded.  e.g.
+
+   cdscp> show dir /.:/*
+
+   among other things, this should show all the attribute data of the
+   child cell.  I have found that the connection to the child is not
+   readily  available after the connect.  In this example,  from the parent,
+   doing a
+   cdscp> show dir /.../majik_cell.dpe.lkg.dec.com/dce007_cell
+   (authenticated or not) fails.  This is a CDS bug.  Doing a
+   cdscp> show dir /.../majik_cell.dpe.lkg.dec.com/dce007_cell/subsys
+   clears the problem.
+
+The transitive trust failure is demonstrated by first verifying the
+setup by doing an unauthenticated cdscp show dir in one child of
+the other child.  Or of the DNS peer of the parent.  Then trying
+to do it with local credentials.
+
+[6/14/95 public]
+
+According to the following comment in rpriv_v1_1_mgrs.c, transitive
+trust doesn't work yet.  Did HP complete work in this module and
+Did some oversight keep it out of the warranty patch distribution?
+Or was the relevant code added elsewhere and later, and is this
+comment obsolete?
+
+
+             *
+             * None of the heirarchical trust path evaluation code
+             * is in place, so we can only support point-to-point
+             * trust for the moment.  That means  That all the
+             * cell uuids in all epacs in the chain must be the same
+             * as the cell uuid of the initiator.
+             */
+            if (STATUS_OK(status)) {
+                rsdb_pgo_name_to_uid(sec_rgy_domain_person,
+                                     authz_data.client_tgt_princ,
+
+I stepped through rpriv_get_eptgt in rpriv_v1_1_mgrs.c, and I don't
+see how it can work for a "transited" epac.  rpriv_util_parse_request
+seems to work okay, but rsdb_pgo_name_to_uid fails, apparently because
+it can't locate the given direct trust proxy principal in the registry.
+This causes rpriv_get_eptgt to fail.
+
+[06/15/95 public]
+You've put your finger on the problem:  the transited cell principals need
+to be registered in the security namespace.  This step is apparently not
+documented and should be.  [Yes, this makes transitive trust less useful
+than it could be, but the optional "auto-register" feature discussed in
+the functional spec has not yet been implemented...]
+
+The above code & comment apply to intercell delegation, which is noted in
+the release notes as having limitations in 1.1.
+
+[7/22/96 public]
+The DCE1.2.2 Proj Steering Committee had no objection to deferring this
+problem from DCE1.2.2.
+
+
+
+CR Number                     : 12717
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 12529
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : command_ref
+Short Description             : Admin Guide Documents Transitive Trust
+Reported Date                 : 10/25/94
+Found in Baseline             : 1.1doc
+Found Date                    : 10/25/94
+Severity                      : A
+Priority                      : 0
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : doc/dce_books/admin_gd/security/security/5_multicell.gpsml
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/25/94 public]
+
+Due to late changes in the DCE project, DCE 1.1 does not include support
+for transitive trust.  Section 33.1 of the DCE Administration Guide -- Core
+Components volume includes information on transitive trust and its
+administrative use and implications.  The information in this section on
+transitive trust is not valid for this release.  The information in this
+section on direct trust /*Eis/*O valid.  The status of transitive trust
+code is discussed in OT CR 12529.  The relevant documentation should be
+commented out for the Prentice Hall books UNLESS the code is committed to
+go in the "migration" patch release.  For 1.2, the code should be changed
+to reflect the status at that time.
+
+[11/1/94 public]
+
+This should be fixed for the 1.1 Prentice Hall edition.  There are some
+issues however: There may be a fix for this in a patch due out in January;
+if so, the note saying this is not supported should be removed, and the
+documentation should be kept.  If it is not patched, then the documentation
+should be commented out so that it will not appear in the printed book (but
+should not be deleted from the source.
+
+[11/18/94 public]
+
+I've been informed that there will be a fix for the problems in the Patch
+release.  Therefore, the current not must be removed from the Prentice Hall
+documentation ONCE WE ARE CONVINCED THAT THIS REALLY WILL/HAS happened.
+I've reopened the CR and marked it a A0.
+
+[1/15/96 public]
+
+Corrected sub-component field.
+
+[1/19/96 public]
+
+Assigned responsibility to myself.
+
+[3/11/96 public]
+I updated the note in Chapter 33 to read version "1.2.1", per Diane
+Sherman's advice. At the same time I'm now moving the fixby baseline
+to 1.2.2, for reconsideration then.
+
+[12/14/96 public]
+Deferred.
+
+
+
+CR Number                     : 12716
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : app_ref
+Short Description             : ref pages for four unimplemented interfaces
+Reported Date                 : 10/25/94
+Found in Baseline             : 1.1doc
+Found Date                    : 10/25/94
+Severity                      : B
+Priority                      : 2
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : in dce_books/app_ref/man3sec/
+	sec_rgy_attr_get_effective.3sec
+	sec_rgy_attr_test_and_update.3sec
+	sec_attr_trig_query.3sec
+	sec_attr_trig_update.3sec
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/25/94 public]
+
+The following calls are not functional in DCE 1.1.  While they have full
+reference pages in the OSF DCE Application Development Reference and they
+have entry points in the DCE library, they return a "not implemented"
+status code.
+
+	sec_rgy_attr_get_effective()
+	sec_rgy_attr_test_and_update()
+	sec_attr_trig_query()
+	sec_attr_trig_update()
+
+For Prentice Hall, we should put the statement "This call is not
+implemented in DCE Version 1.1 provided by OSF" right after the .TH line in
+the reference pages.  For 1.2, the documentation should reflect the state
+of the code at that time.
+
+[10/26/94 public]
+I  believe that sec_attr_trig_query is implemented in 1.1.  
+For further info contact mob@apollo.hp.com.
+
+[1/11/96 public]
+
+Added sub-component value which was mysteriously missing. It is
+unclear at the moment whether there is any reason for this CR to
+still be open.
+
+[1/19/96 public]
+
+Assigned responsibility to myself.
+
+[3/15/96 public]
+
+From a recent message from Pam Millette:
+
+  sec_rgy_attr_get_effective() (not implemented, put in disclaimer)
+  sec_rgy_attr_test_and_update() (not implemented, put in disclaimer)
+  sec_attr_trig_query() (implemented, sort of)
+  sec_attr_trig_update() (not implemented, put in disclaimer)
+
+  <...>
+
+  I can't remember exact details, but triggers are user implemented
+  items. We don't support update triggers at all, but we do query.  
+  sec_attr_trig_query() can be used if the user created trigger server
+  stuff.  
+
+I inserted the following Note at the top of the three unimplemented
+routines' manpages: "This function is not implemented in DCE 1.2.1.",
+and surrounded the entire pages with a set of change bars referring
+to this CR. For sec_attr_trig_query(), I inserted the following note
+at the top of the manpage: "This routine can be used only if the
+application has implemented an attribute trigger server.", and sur-
+rounded the manpage with a set of change bars referring to this CR.
+
+I have left the CR open and set the Fixby-date to 1.2.2, since it's
+my impression that this state of things is not to be eternal. Since
+there is code for three of these routines (in
+
+    security/client/rca/sec_rgy_attr.c
+
+), I assume they're not like the notorious ACL routines that always
+had to be implemented by users, and whose manpages were present in
+the App Ref only as guides for implementors. If I'm wrong about this,
+then the whole approach described here is wrong, and should be changed
+for 1.2.2.
+
+
+

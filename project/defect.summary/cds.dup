@@ -1,0 +1,4309 @@
+CR Number                     : 12987
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 12879
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : cdsd
+Short Description             : cdsd: message catalog corrupts 
+checkpoint file.
+Reported Date                 : 7/25/95
+Found in Baseline             : 1.0
+Found Date                    : 6/23/95
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 12879
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.1maint
+Affected File(s)              : db_btree.c
+Sensitivity                   : public
+
+[8/22/95 public]
+
+BEWARE: the fix included in this defect report is truncated by the ot_bugs
+command. If you want to see the whole fix, use the ot -u command.
+
+[8/2/95 public]
+
+The following is from David Wright at Hitachi.  He believes that
+OT 12879 (database index corruption after creates/deletes) will also
+be fixed since the problem described in that OT is a subset of the
+full problem he has submitted a fix for here.  It is not just empty
+buckets that are problematic, but any time the index entry has a
+value greater than any in the bucket it points to, there is trouble.
+
+
+(from David Wright)
+ DESCRIPTION:
+ The cdsd daemon got into an mostly unusable state when a message catalog 
+ corrupted the checkpoint file. 
+ 
+ NOTE: After killing the cdsd, subsequent attempts to restart it failed with
+ the following message:
+ 	# /opt/dcelocal/bin/cdsd 
+ 	Insufficient local resources (dce / cds)
+ 	Insufficient local resources (dce / cds)
+ 
+ REPRODUCIBLE: Unknown
+ 
+ TEST SOFTWARE DESCRIPTION:
+ The DCE clients, ra, jazz, blues, doolie, and sybil_ne0 ran the dacl system
+ tests for ~22.5 hours against sybil_ne0's CDS server. After stopping all
+ of the tests on the workstations, I attempted to look into the namespace
+ and the request hung. CDSBROWSER couldn't deal with expanding the namespace, 
+ as well. 
+ 
+ In the background, jazz was almost performing recursive searches of the
+ namespace infinitely.
+ 
+ DESCRIPTION OF HARDWARE WHERE BUG OCCURRED: Hitachi Mainframe VM - sybil_ne0
+   NOTE: This system was running HI-OSF/1-M 1.3.0.1.bld952 with all layered
+   products installed; i.e.:
+ 	VxFS
+ 	VxVM
+ 	VxVA
+ 	EpochServ-M
+ 	as well as DCE, of course.
+ 
+ DESCRIPTION OF WHERE TEST SUCCESSFULLY RAN: n/a
+Related-file::Added 950708 by wright:: problem analysis
+ This took me a lot longer than it should have, but in any case, the
+ problem is occurring because one of the directory buckets is not
+ sorted.  So the code is advancing through the bucket, hits the
+ out-of-order entry X, then falls back a couple of entries (to find the
+ entry that follows X).
+ 
+ All the stuck threads have tracebacks that look like this:
+ 
+ 0x2467a1b8: db_btree_locate_entry_bkt+0x24(0x252cec08, 0x251f0008, 0x2508fc08, 0x2467a4bc, 0x2467a4c4)
+ 0x2467a440: entry_read_next+0x146(0x252cec08, 0x0)
+ 0x2467a4d0: db_entry_read_next+0x3a(0x252cec08)
+ 0x2467a538: build_name_set+0x538(0x252cec08, 0x2467a720, 0x2467ad9c, 0x2467ae9d, 0x0, 0x3dd1, 0x0, 0x256b4230, 0x2467afa4, 0x2467a688, 0x0)
+ 0x2467a5e8: ta_enumerate+0x28a(0x2467a720, 0x256b4008, 0x2467ad9c, 0x2467ae9d, 0x0, 0x3fd8, 0x3, 0x2467afa4, 0x0)
+ 0x2467a698: cds_EnumerateChildren+0x14a(0x252d3288, 0x2467b2cc, 0x2467bb00, 0x2467bc04, 0x3fd8, 0x24038ae0, 0x2467bd10, 0x2467bd14)
+ 0x2467afb0: op14_ssr+0x2fa(0x252d3288, 0x252cf008, 0x2467be4c, 0x2402d67c, 0x252cf234, 0x131c790, 0x2467be9c)
+ 0x2467bdc0: rpc__cn_call_executor+0xa88(0x252cf008, 0x0)
+ 0x2467bea0: cthread_call_executor+0x35e(0x240134a4)
+ 0x2467bf28: _pthread_body+0x74(0x2403d108)
+ 
+ 
+ The real question is how a bucket could be out of order; the bogus
+ entry isn't even in the right bucket (it should be in the preceding
+ bucket).  Either something overwrote an entry (not likely) or the
+ bucket was somehow not constructed properly.  Either an entry was
+ inserted into the wrong bucket, or a bucket split or coalesce was done
+ wrong, I suppose.  There's a lot of code involved here.
+ 
+ Anyway, this problem can be detected and cdsd can abort; I'll just
+ insert an interation counter into build_name_set and if the counter
+ gets too large, cdsd aborts.  10,000 ought to provide enough room.
+ 
+Related-file::Added 950708 by wright:: more analysis
+ Yeesh, it's worse than I thought.  The out-of-order entries can get
+ into the checkpoint file, and I believe that cdsd just reads them
+ straight back in, so it never detects the problem.  Thus, aborting on
+ detecting a loop isn't much of a solution; restarting cdsd won't
+ restore the situation to normalcy.
+ 
+ So then you have a corrupted database with no way to recover.
+ Ideally, we'd like to avoid the problem altogether; failing that, it'd
+ be good to either have a checkpoint file repair program, or have cdsd
+ detect bogus entries on input and discard them.  That's not a perfect
+ solution, since it causes the name space to change without warning,
+ but at least the name space would be consistent.
+ 
+Related-file::Added 950714 by wright:: Problem analysis
+ OK, here's my take on what causes the problem.  It's a problem of
+ b-tree maintenance.  Specifically, there are two things that the
+ b-tree code allows to happen, but should not.  (We're talking about
+ the b-trees that are maintained, one per directory, to hold the
+ contents of the directory.)
+ 
+ 1)  Data buckets can become empty (node_count == 0).  If there's an
+ index node referencing the bucket, it is not at all clear what value
+ should be in the index node.  Or, to put it another way, if a bucket
+ becomes empty, it should be deleted.
+ 
+ 2)  Actually, the foregoing is a special case of a larger problem.
+ Suppose a data bucket B's last entry is deleted, and there is an index
+ entry pointing to B.  The index entry is now dubious, since its key
+ contains a value larger than any value present in the data bucket.  If
+ you do this kind of thing a few times, it's entirely possible that
+ you'll wind up with a bad situation.  Specifically, suppose the bucket
+ following B is split and a new index entry added for the
+ smaller-valued resultant.  It's entirely possible that the key for
+ this new bucket is smaller than the one for B, which will result in
+ the index block now being unsorted.  This is Very Bad. 
+ 
+ So the solution, as best I can see, is to fix up the index as needed
+ when the final entry in a data bucket is deleted.  It's a pain to do,
+ because the bucket from which the entry is deleted might not be
+ directly indexed, and data buckets do not have upward pointers to
+ their corresponding index buckets.  I've adopted the ham-handed
+ approach of rechecking the entire index, which actually isn't all that
+ bad as long as the database isn't that large and deletions are
+ infrequent, both of which are things that should be true of CDS.
+ 
+Related-file::Added 950718 by wright:: /build/hiosfm/RCS/dce/src/directory/cds/server/./db_btree.c,v 7.3
+ /build/hiosfm/RCS/dce/src/directory/cds/server/./db_btree.c,v 7.3
+ wright 1995/07/18 14:44:56 +521 -61
+ Reason:  OSDqa11878 cdsd: message catalog corrupts checkpoint file
+ Major fixes to btree maintenance, delete zero-entry blocks and keep
+ index consistent with final entry in bucket.
+ 
+     *** /tmp/ci.1147..db_btree.c.1188.1	Tue Jul 18 10:44:59 1995
+     --- /tmp/db_btree.c.1188.2	Tue Jul 18 10:44:59 1995
+     ***************
+     *** 18,27 ****
+     --- 18,32 ----
+        * src directory for the full copyright text.
+        */
+       /*
+        * HISTORY
+        * $Log:	c012987,v $
+# Revision 1.5  96/01/24  18:54:09  root
+# changed fields: Interest List CC  Status  Duplicate Of  Fixed In Baseline  Responsible Engr.  Resp. Engrs Company   new/changed/deleted note(s) [jcarroll 01/24/96 public]
+# 
+# Revision 1.4  95/11/18  11:29:11  root
+# changed fields: Interest List CC  
+# 
+# Revision 1.3  95/08/23  16:40:41  root
+# changed fields:  new/changed/deleted note(s) [parul 8/23/95 public]
+# 
+# Revision 1.2  95/08/22  16:42:33  root
+# changed fields:  new/changed/deleted note(s) [monzillo 8/22/95 public]
+# 
+# Revision 1.1  95/08/02  13:40:02  root
+# new CR
+# 
+     +  * Revision 7.3  1995/07/18  14:44:56  wright
+     +  * Reason:  OSDqa11878 cdsd: message catalog corrupts checkpoint file
+     +  * Major fixes to btree maintenance, delete zero-entry blocks and keep
+     +  * index consistent with final entry in bucket.
+     +  *
+        * Revision 7.2  1993/10/27  00:47:45  wright
+        * Incorporate 1.0.3 change.
+        *
+        * Revision 1.1.7.1  1993/10/12  14:57:02  peckham
+        * 	CR#7940: btree corruption in split_bucket_for_continuation
+     ***************
+     *** 243,255 ****
+     --- 248,278 ----
+       	if (newbkt_p->node_prev_p)					\
+       	    newbkt_p->node_prev_p->node_next_p = newbkt_p;		\
+       	bkt_p->node_prev_p = newbkt_p;					\
+       }
+       
+     + #define unlink(bkt_p)                           \
+     + {\
+     +         node_header_t   *next, *prev;           \
+     +         prev = bkt_p->node_prev_p;              \
+     +         next = bkt_p->node_next_p;              \
+     + 	if (next) next->node_prev_p = prev;     \
+     + 	if (prev) prev->node_next_p = next;     \
+     + }
+     + 
+       /*
+        * Local prototypes
+        */
+     + #ifdef hitm
+     + static void bomb _((
+     +     int));
+     + 
+     + static void
+     + rebuild_index _((
+     +     db_stream_t *stream_p));
+     + #endif
+     + 
+       static int
+       split_points _((
+           node_header_t	*bkt_p,
+           unsigned int	*point1_p,
+           unsigned int	*point2_p,
+     ***************
+     *** 285,295 ****
+     --- 308,322 ----
+       new_root _((
+           file_info_t		*file_p,
+           dir_hash_entry_t	*hash_p,
+           entry_insert_ctx_t	*insert_ctx_p));
+       
+     + #ifdef hitm
+     + static int
+     + #else
+       static void
+     + #endif
+       purge_data_bucket _((
+           node_header_t	*bkt_p,
+           Timestamp_t		*allupto_p));
+       
+       static dns_status_t
+     ***************
+     *** 334,344 ****
+       void
+       node_check (bkt_p)
+           node_header_t	*bkt_p;
+       {
+           int space = bkt_p->node_blocks*BLOCK_SIZE;
+     ! 
+           switch (bkt_p->node_type) {
+           case DIRECTORY_BUCKET:
+       	{
+       	directory_bucket_t *dir_p = (directory_bucket_t *)bkt_p;
+       
+     --- 361,371 ----
+       void
+       node_check (bkt_p)
+           node_header_t	*bkt_p;
+       {
+           int space = bkt_p->node_blocks*BLOCK_SIZE;
+     !     
+           switch (bkt_p->node_type) {
+           case DIRECTORY_BUCKET:
+       	{
+       	directory_bucket_t *dir_p = (directory_bucket_t *)bkt_p;
+       
+     ***************
+     *** 352,361 ****
+     --- 379,391 ----
+           case INDEX_BUCKET:
+       	{
+       	register byte_t *next_p =
+       	    (byte_t *)&bkt_p->node_rec_dsc[bkt_p->node_count];
+       	register int i;
+     + #if defined(hitm) && defined(ORDER_CK)
+     +         int j;
+     + #endif
+       
+       	for (i=0; i<bkt_p->node_count; i++) {
+       	    rec_descriptor_t *rec_p = &bkt_p->node_rec_dsc[i];
+       	    entry_key_t *key_p =
+       		    (entry_key_t *)SKIP_bytes(bkt_p, rec_p->rec_offset);
+     ***************
+     *** 374,392 ****
+       	    case 255:
+       		break;
+       	    default:
+       		abort();
+       	    }
+     ! 	    switch (key_p->key_sort[0]) {
+     ! 	    case BINARY_SORT:
+     ! 	    case ASCII_SORT:
+     ! 	    case TYPED_SORT:
+     ! 	    case 255:
+     ! 		break;
+     ! 	    default:
+     ! 		abort();
+     ! 	    }
+       	    switch (bkt_p->node_type) {
+       	    case DATA_BUCKET:
+       	    case PSEUDO_BUCKET:
+       		set_p = (DBSet_t *)DATA_entry_data_record(key_p);
+       		if (next_p < (byte_t *)set_p) abort();
+     --- 404,414 ----
+       	    case 255:
+       		break;
+       	    default:
+       		abort();
+       	    }
+     ! 
+       	    switch (bkt_p->node_type) {
+       	    case DATA_BUCKET:
+       	    case PSEUDO_BUCKET:
+       		set_p = (DBSet_t *)DATA_entry_data_record(key_p);
+       		if (next_p < (byte_t *)set_p) abort();
+     ***************
+     *** 397,410 ****
+     --- 419,462 ----
+       		break;
+       	    case INDEX_BUCKET:
+       		if (next_p < SKIP_AttributeName(key_p->key_name)) abort();
+       		break;
+       	    }
+     + 
+     + 	    switch (key_p->key_sort[0]) {
+     + 	    case BINARY_SORT:
+     + 	    case ASCII_SORT:
+     + 	    case TYPED_SORT:
+     + #if defined(hitm) && defined(ORDER_CK)
+     +                 j = bkt_p->node_type;
+     +                 if (i && (j == DATA_BUCKET || j == INDEX_BUCKET)) {
+     + 
+     +                     if (check_order(bkt_p, i) == 0) {
+     +                         bomb(i);
+     +                     }
+     +                 }
+     + #endif
+     + 	    case 255:
+     + 		break;
+     + 	    default:
+     + 		abort();
+     + 	    }
+       	}
+       	}
+       	break;
+     + #ifdef hitm
+     +     case LOCK_BLOCK:
+     +     case STREAM_BLOCK:
+     +     case CLEARINGHOUSE_BLOCK:
+     +     case HASH_BLOCK:
+     +         break;
+     + 
+     +     default:
+     +         bomb(-1);
+     + #endif
+           }
+     +     return;
+       }
+       #else
+       #define node_check(rec_p) (rec_p)
+       #endif
+       
+     ***************
+     *** 644,654 ****
+           node_check(newbkt_p);
+       }
+       
+       /*
+        * insert_record
+     !  *	Insert data into a bucket.  It will fit.
+        *	rec_p contains the attribute set to be appended
+        *	to the key_p.
+        *
+        * Input:
+        *	bkt_p = pointer to bucket
+     --- 696,706 ----
+           node_check(newbkt_p);
+       }
+       
+       /*
+        * insert_record
+     !  *	Insert data into a bucket, if it will fit.
+        *	rec_p contains the attribute set to be appended
+        *	to the key_p.
+        *
+        * Input:
+        *	bkt_p = pointer to bucket
+     ***************
+     *** 855,864 ****
+     --- 907,1021 ----
+           bkt_p->node_space = (bkt_p->node_blocks*BLOCK_SIZE)
+       	- (rd_p->rec_offset + rd_p->rec_length);
+           node_check(bkt_p);
+           return(0);
+       }
+     + #ifdef hitm
+     + 
+     + /* bomb
+     +  *      die quickly and coredump
+     +  *
+     +  */
+     + static void
+     + bomb(int i)
+     + {
+     + #include <signal.h>
+     +         
+     +         struct sigaction sigactn;
+     +         
+     +         sigactn.sa_handler = SIG_DFL;
+     +         sigemptyset(&sigactn.sa_mask);
+     +         sigactn.sa_flags   = 0;
+     + 
+     +         sigaction(SIGQUIT, &sigactn, NULL);
+     +         
+     +         kill(getpid(), SIGQUIT);
+     +         while (1) pthread_yield();
+     + }
+     + #ifdef ORDER_CK
+     + 
+     + /* zero
+     +  *      empty function that provides a convenient breakpoint
+     +  *
+     +  */
+     + static void
+     + zero(node_header_t *p)
+     + {
+     +         return;
+     + }
+     + 
+     + /* check_order
+     +  *	Check two adjacent items in a bucket to see if they are in
+     +  *	increasing order
+     +  *
+     +  * Input:
+     +  *	rec_p = pointer to a key bucket
+     +  *	i     = latter item to check (compare to i-1); i > 0
+     +  *
+     +  * Output:
+     +  *	none
+     +  *
+     +  * Value:
+     +  *	0 - not in order
+     +  *	1 - in order
+     +  *
+     +  */
+     + static int
+     + check_order (rec_p, i)
+     +     node_header_t	*rec_p;
+     +     int                 i;
+     + {
+     +     entry_key_t *lo_key_p;
+     +     entry_key_t *hi_key_p;
+     +     SimpleName_t *lo_name_p;
+     +     SimpleName_t *hi_name_p;
+     +     int          status;
+     + 
+     + 
+     +     lo_key_p = (entry_key_t *)INDEX_node_rec(rec_p, i-1);
+     +     hi_key_p = (entry_key_t *)INDEX_node_rec(rec_p, i);
+     + 
+     +     lo_name_p = (SimpleName_t *)lo_key_p->key_name;
+     +     hi_name_p = (SimpleName_t *)hi_key_p->key_name;
+     + 
+     +     if (EQ_byte(lo_key_p->key_type, hi_key_p->key_type))
+     + 	{
+     +         if (EQ_byte(lo_key_p->key_sort, hi_key_p->key_sort))
+     + 	    {
+     + 
+     + 	    if (LEN_SimpleName(lo_key_p->key_name) ==
+     + 	        LEN_SimpleName(hi_key_p->key_name))
+     + 		status = dns_bcmp_lexical((char *)lo_name_p->sn_name,
+     + 			(char *)hi_name_p->sn_name, EXT8(lo_name_p->sn_length));
+     + 	    else if (EXT8(lo_name_p->sn_length) < EXT8(hi_name_p->sn_length))
+     + 		{
+     + 		status = dns_bcmp_lexical((char *)lo_name_p->sn_name,
+     + 			 (char *)hi_name_p->sn_name, EXT8(lo_name_p->sn_length));
+     +                 if (status == EQUIV) status = BEFORE;
+     + 		}
+     + 	    else
+     + 		{
+     + 		status = dns_bcmp_lexical((char *)lo_name_p->sn_name,
+     + 		       (char *)hi_name_p->sn_name, EXT8(hi_name_p->sn_length));
+     +                 if (status == EQUIV) status = AFTER;
+     + 		}
+     + 	    }
+     +         else if (LT_byte(lo_key_p->key_sort, hi_key_p->key_sort))
+     + 	    status = BEFORE;
+     +         else status = AFTER;
+     +         }
+     +     else if (LT_byte(lo_key_p->key_type, hi_key_p->key_type))
+     + 	status = BEFORE;
+     +     else status = AFTER;
+     + 
+     +     if (status == BEFORE)
+     +         return(1);
+     +     else
+     +         return(0);
+     + }
+     + #endif
+     + #endif
+       
+       /*
+        * find_entry_pos
+        *	Search a bucket and return the position the first key
+        *	greater then or equal to the input key
+     ***************
+     *** 936,952 ****
+           	else if (LT_byte(key_p->key_type, cur_key_p->key_type))
+       	    status = BEFORE;
+       	else status = AFTER;
+       
+       
+     !         if (status == AFTER)         /* Name is greater then current position */
+                   {
+                   lower = curpos;
+                   curpos += (upper-lower+1)/2;
+                   }
+               else if (status == BEFORE)
+     !             {                   /* name is less then current position */
+                   upper =curpos;
+                   curpos -= (upper-lower+1)/2;
+                   }
+               else /* Equal */
+                   {
+     --- 1093,1109 ----
+           	else if (LT_byte(key_p->key_type, cur_key_p->key_type))
+       	    status = BEFORE;
+       	else status = AFTER;
+       
+       
+     !         if (status == AFTER)         /* Name is greater than current position */
+                   {
+                   lower = curpos;
+                   curpos += (upper-lower+1)/2;
+                   }
+               else if (status == BEFORE)
+     !             {                        /* name is less than current position */
+                   upper =curpos;
+                   curpos -= (upper-lower+1)/2;
+                   }
+               else /* Equal */
+                   {
+     ***************
+     *** 996,1006 ****
+           DEB_ASCII_BUF_file_info(fileBuf)
+           DEB_ASCII_BUF_node_header(expandBuf)
+           DEB_ASCII_BUF_node_header(bktBuf)
+           node_header_t *next_p;
+           node_header_t *split1_bkt_p = NULL_node_header;
+     !     node_header_t *split2_bkt_p;
+           entry_key_t *key_p;
+           unsigned int split1, split2;
+           dns_status_t status;
+       
+           DEBUG_EVENT(entry_db_btree_split_bucket,
+     --- 1153,1163 ----
+           DEB_ASCII_BUF_file_info(fileBuf)
+           DEB_ASCII_BUF_node_header(expandBuf)
+           DEB_ASCII_BUF_node_header(bktBuf)
+           node_header_t *next_p;
+           node_header_t *split1_bkt_p = NULL_node_header;
+     !     node_header_t *split2_bkt_p = NULL_node_header;     /* hitm addition */
+           entry_key_t *key_p;
+           unsigned int split1, split2;
+           dns_status_t status;
+       
+           DEBUG_EVENT(entry_db_btree_split_bucket,
+     ***************
+     *** 1007,1017 ****
+       	(" >db_btree:split_bucket(%s,%p,%p,%p)\n",
+       	 deb_ascii_file_info(fileBuf,file_p),
+       	 deb_ascii_node_header(expandBuf,expand_p),
+       	 deb_ascii_node_header(bktBuf,bkt_p), ctx_p));
+       
+     !     node_check(expand_p);
+           node_check(bkt_p);
+          /* Need to do some splitting, determine split points */
+           ctx_p->insert_type = split_points(expand_p,
+       		&split1, &split2, bkt_p->node_blocks*BLOCK_SIZE);
+       
+     --- 1164,1174 ----
+       	(" >db_btree:split_bucket(%s,%p,%p,%p)\n",
+       	 deb_ascii_file_info(fileBuf,file_p),
+       	 deb_ascii_node_header(expandBuf,expand_p),
+       	 deb_ascii_node_header(bktBuf,bkt_p), ctx_p));
+       
+     !     /* node_check(expand_p); */ /* hitm -- split_points does this */
+           node_check(bkt_p);
+          /* Need to do some splitting, determine split points */
+           ctx_p->insert_type = split_points(expand_p,
+       		&split1, &split2, bkt_p->node_blocks*BLOCK_SIZE);
+       
+     ***************
+     *** 1077,1087 ****
+           /* Link buckets horizontally */
+           link_after(bkt_p, split2_bkt_p);
+       
+           if (ctx_p->insert_type == INSERT_2_KEY)
+       	link_after(bkt_p, split1_bkt_p);
+     ! 
+           status = DNS_SUCCESS;
+       
+       leave_split_bucket:
+           dns_free((char *)expand_p);
+       
+     --- 1234,1252 ----
+           /* Link buckets horizontally */
+           link_after(bkt_p, split2_bkt_p);
+       
+           if (ctx_p->insert_type == INSERT_2_KEY)
+       	link_after(bkt_p, split1_bkt_p);
+     ! #ifdef hitm
+     !     if (split1_bkt_p) {
+     !         node_check(split1_bkt_p);
+     !     }
+     !     if (split2_bkt_p) {
+     !         node_check(split2_bkt_p);
+     !     }
+     !     node_check(bkt_p);
+     ! #endif
+           status = DNS_SUCCESS;
+       
+       leave_split_bucket:
+           dns_free((char *)expand_p);
+       
+     ***************
+     *** 1141,1151 ****
+       
+           if (0 < insert_record(root_bkt_p, 1,
+       		&insert_ctx_p->insert_right, NULL_DBSet))
+       	abort();
+       
+     !     node_check(root_bkt_p);
+           /* Update root index bucket vbn in directory bucket */
+           hash_p->dir_entry_p = root_bkt_p;
+       
+       }
+       
+     --- 1306,1316 ----
+       
+           if (0 < insert_record(root_bkt_p, 1,
+       		&insert_ctx_p->insert_right, NULL_DBSet))
+       	abort();
+       
+     !     /* node_check(root_bkt_p); */ /* hitm -- insert_record did this */
+           /* Update root index bucket vbn in directory bucket */
+           hash_p->dir_entry_p = root_bkt_p;
+       
+       }
+       
+     ***************
+     *** 1156,1182 ****
+        * Input:
+        *	bkt_p 		pointer to bucket to purge
+        *	allupto_p	pointer to allupto timestamp
+        *
+        */
+       static void
+       purge_data_bucket (bkt_p, allupto_p)
+           node_header_t	*bkt_p;
+           Timestamp_t		*allupto_p;
+       {
+           DEB_ASCII_BUF_node_header(bktBuf)
+           rec_descriptor_t *rd_p;
+           unsigned int len;
+           int offset, pos;
+       
+           DEBUG_EVENT(entry_db_btree_purge_data_bucket,
+       	(" >db_btree:purge_data_bucket(%s,%p)\n",
+       	 deb_ascii_node_header(bktBuf,bkt_p), allupto_p));
+       
+           node_check(bkt_p);
+           if (!allupto_p) return;
+     ! 
+           if (!bkt_p->node_count)
+       	DEBUG_EVENT(error_db_btree,
+       	    ("E db_btree:purge_data_bucket(%s,%p) node_count is zero.\n",
+       	     deb_ascii_node_header(bktBuf,bkt_p), allupto_p));
+       
+     --- 1321,1357 ----
+        * Input:
+        *	bkt_p 		pointer to bucket to purge
+        *	allupto_p	pointer to allupto timestamp
+        *
+        */
+     + #ifdef hitm
+     + static int
+     + #else
+       static void
+     + #endif
+       purge_data_bucket (bkt_p, allupto_p)
+           node_header_t	*bkt_p;
+           Timestamp_t		*allupto_p;
+       {
+           DEB_ASCII_BUF_node_header(bktBuf)
+           rec_descriptor_t *rd_p;
+           unsigned int len;
+           int offset, pos;
+     + #ifdef hitm
+     +     int purged_last = 0;
+     + #endif
+       
+           DEBUG_EVENT(entry_db_btree_purge_data_bucket,
+       	(" >db_btree:purge_data_bucket(%s,%p)\n",
+       	 deb_ascii_node_header(bktBuf,bkt_p), allupto_p));
+       
+           node_check(bkt_p);
+     + #ifdef hitm
+     +     if (!allupto_p) return(0);
+     + #else
+           if (!allupto_p) return;
+     ! #endif
+           if (!bkt_p->node_count)
+       	DEBUG_EVENT(error_db_btree,
+       	    ("E db_btree:purge_data_bucket(%s,%p) node_count is zero.\n",
+       	     deb_ascii_node_header(bktBuf,bkt_p), allupto_p));
+       
+     ***************
+     *** 1212,1231 ****
+       	    MOVE_bytes(INDEX_node_rec(bkt_p, pos+1), INDEX_node_rec(bkt_p, pos),
+       		(bkt_p->node_rec_dsc[bkt_p->node_count-1].rec_offset +
+       		bkt_p->node_rec_dsc[bkt_p->node_count-1].rec_length) -
+       		bkt_p->node_rec_dsc[pos+1].rec_offset);
+       	    }
+     ! 
+       
+       	/* Remove descriptor */
+       	MOVE_bytes(INDEX_node_rec_dsc(bkt_p, pos+1),
+       		INDEX_node_rec_dsc(bkt_p, pos),
+       	 	(bkt_p->node_rec_dsc[bkt_p->node_count-1].rec_offset +
+       		bkt_p->node_rec_dsc[bkt_p->node_count-1].rec_length) - len
+       		- DIFF_bytes(INDEX_node_rec_dsc(bkt_p, pos+1), bkt_p));
+       
+       	--bkt_p->node_count;
+       	for (offset=0; offset < pos; ++offset)
+       	    bkt_p->node_rec_dsc[offset].rec_offset -= sizeof(rec_descriptor_t);
+       
+       	for (offset=pos; offset < bkt_p->node_count; ++offset)
+       	    bkt_p->node_rec_dsc[offset].rec_offset -=
+     --- 1387,1411 ----
+       	    MOVE_bytes(INDEX_node_rec(bkt_p, pos+1), INDEX_node_rec(bkt_p, pos),
+       		(bkt_p->node_rec_dsc[bkt_p->node_count-1].rec_offset +
+       		bkt_p->node_rec_dsc[bkt_p->node_count-1].rec_length) -
+       		bkt_p->node_rec_dsc[pos+1].rec_offset);
+       	    }
+     ! #ifdef hitm
+     !         else purged_last = 1;
+     ! #endif
+       
+       	/* Remove descriptor */
+       	MOVE_bytes(INDEX_node_rec_dsc(bkt_p, pos+1),
+       		INDEX_node_rec_dsc(bkt_p, pos),
+       	 	(bkt_p->node_rec_dsc[bkt_p->node_count-1].rec_offset +
+       		bkt_p->node_rec_dsc[bkt_p->node_count-1].rec_length) - len
+       		- DIFF_bytes(INDEX_node_rec_dsc(bkt_p, pos+1), bkt_p));
+       
+       	--bkt_p->node_count;
+     + #if defined(hitm) && defined(ORDER_CK)
+     +         if (bkt_p->node_count == (unsigned long)0) zero(bkt_p);
+     + #endif
+       	for (offset=0; offset < pos; ++offset)
+       	    bkt_p->node_rec_dsc[offset].rec_offset -= sizeof(rec_descriptor_t);
+       
+       	for (offset=pos; offset < bkt_p->node_count; ++offset)
+       	    bkt_p->node_rec_dsc[offset].rec_offset -=
+     ***************
+     *** 1235,1244 ****
+     --- 1415,1427 ----
+       
+           rd_p = &bkt_p->node_rec_dsc[bkt_p->node_count-1];
+           bkt_p->node_space = (bkt_p->node_blocks*BLOCK_SIZE)
+       	- (rd_p->rec_offset + rd_p->rec_length);
+           node_check(bkt_p);
+     + #ifdef hitm
+     +     return(purged_last);
+     + #endif
+       }
+       
+       /*
+        * split_bucket_for_continuation
+        *	An entry has grown large enough to require a continuation bucket
+     ***************
+     *** 1255,1265 ****
+     --- 1438,1452 ----
+           int			pos;
+           entry_insert_ctx_t	*ctx_p;
+       {
+           DEB_ASCII_BUF_file_info(fileBuf)
+           DEB_ASCII_BUF_node_header(bktBuf)
+     + #ifdef hitm
+     +     node_header_t *new_bkt_p, *split1_bkt_p = NULL_node_header, *split2_bkt_p;
+     + #else
+           node_header_t *new_bkt_p, *split1_bkt_p, *split2_bkt_p;
+     + #endif
+           entry_key_t *data_p;
+           DBSet_t *set_p;
+           int size, overhead, split1, split2;
+           int new_size, split1_size = 0, split2_size = 0;
+           dns_status_t status;
+     ***************
+     *** 1392,1401 ****
+     --- 1579,1597 ----
+           link_after(new_bkt_p, split2_bkt_p);
+       
+           if (ctx_p->insert_type == INSERT_2_KEY)
+       	link_after(new_bkt_p, split1_bkt_p);
+       
+     + #ifdef hitm
+     +     if (split1_bkt_p) {
+     +         node_check(split1_bkt_p);
+     +     }
+     +     if (split2_bkt_p) {
+     +         node_check(split2_bkt_p);
+     +     }
+     + #endif
+     + 
+           node_check(new_bkt_p);
+           dns_free((char *)bkt_p);
+           status = DNS_SUCCESS;
+       
+       leave_split_bucket_for_continuation:
+     ***************
+     *** 1428,1438 ****
+           DEBUG_EVENT(entry_db_btree_insert_keys,
+       	(" >db_btree:insert_keys(%s,%s,%p)\n",
+       	 deb_ascii_file_info(fileBuf,file_p),
+       	 deb_ascii_node_header(bktBuf,bkt_p), ctx_p));
+       
+     !     node_check(bkt_p);
+           /* Make sure we have the correct bucket */
+           find_entry_pos(bkt_p, &ctx_p->insert_right, &pos);
+           while (bkt_p->node_count <= pos)
+       	{
+       	bkt_p = bkt_p->node_next_p;
+     --- 1624,1634 ----
+           DEBUG_EVENT(entry_db_btree_insert_keys,
+       	(" >db_btree:insert_keys(%s,%s,%p)\n",
+       	 deb_ascii_file_info(fileBuf,file_p),
+       	 deb_ascii_node_header(bktBuf,bkt_p), ctx_p));
+       
+     !     /* node_check(bkt_p); *//* hitm -- find_entry_pos will do this */
+           /* Make sure we have the correct bucket */
+           find_entry_pos(bkt_p, &ctx_p->insert_right, &pos);
+           while (bkt_p->node_count <= pos)
+       	{
+       	bkt_p = bkt_p->node_next_p;
+     ***************
+     *** 1661,1671 ****
+       	(" >db_btree:insert_data(%s,%s,%s,%p)\n",
+       	 deb_ascii_db_stream(streamBuf,stream_p),
+       	 deb_ascii_node_header(bktBuf,bkt_p),
+       	 deb_ascii_entry_key(entry_dataBuf,entry_data_p), insert_ctx_p));
+       
+     !     node_check(bkt_p);
+           /*
+            * It is possible that a new bucket did not make it into the
+            * index structure.  If this is the case, we may have to read
+            * adjacent buckets to find the right position for the new data.
+            */
+     --- 1857,1867 ----
+       	(" >db_btree:insert_data(%s,%s,%s,%p)\n",
+       	 deb_ascii_db_stream(streamBuf,stream_p),
+       	 deb_ascii_node_header(bktBuf,bkt_p),
+       	 deb_ascii_entry_key(entry_dataBuf,entry_data_p), insert_ctx_p));
+       
+     !     /* node_check(bkt_p); */ /* hitm -- find_entry_pos will do this */
+           /*
+            * It is possible that a new bucket did not make it into the
+            * index structure.  If this is the case, we may have to read
+            * adjacent buckets to find the right position for the new data.
+            */
+     ***************
+     *** 1834,1858 ****
+           file_info_t *file_p = stream_p->db_file_p;
+           DBSet_t *set_p = (DBSet_t *)stream_p->db_entry.data_p;
+           node_header_t *next_p, *expand_p;
+           unsigned int pos, new_size;
+           dns_status_t status;
+       
+           DEBUG_EVENT(entry_db_btree_replace_data,
+       	(" >db_btree:replace_data(%s,%p,%s,%p)\n",
+       	 deb_ascii_db_stream(streamBuf,stream_p),
+       	 deb_ascii_node_header(bktBuf,bkt_p),
+       	 deb_ascii_entry_key(ekeyBuf,ekey_p), insert_ctx_p));
+       
+     !     node_check(bkt_p);
+           /* Purge out deleted records from this bucket */
+           purge_data_bucket(bkt_p, insert_ctx_p->insert_allupto_p);
+       
+           /*
+            * It is possible that a new bucket did not make it into the
+            * index structure.  If this is the case, we may have to read
+            * adjacent buckets to find right position for the new data.
+            */
+       
+           status = find_entry_pos(bkt_p, ekey_p, &pos);
+           while (bkt_p->node_count <= pos)
+       	{
+     --- 2030,2074 ----
+           file_info_t *file_p = stream_p->db_file_p;
+           DBSet_t *set_p = (DBSet_t *)stream_p->db_entry.data_p;
+           node_header_t *next_p, *expand_p;
+           unsigned int pos, new_size;
+           dns_status_t status;
+     + #ifdef hitm
+     +     int do_rebuild;
+     + #endif
+       
+           DEBUG_EVENT(entry_db_btree_replace_data,
+       	(" >db_btree:replace_data(%s,%p,%s,%p)\n",
+       	 deb_ascii_db_stream(streamBuf,stream_p),
+       	 deb_ascii_node_header(bktBuf,bkt_p),
+       	 deb_ascii_entry_key(ekeyBuf,ekey_p), insert_ctx_p));
+       
+     !     /* node_check(bkt_p); */ /* not needed, purge_data_bucket does it */
+           /* Purge out deleted records from this bucket */
+     + #ifdef hitm
+     +     do_rebuild = purge_data_bucket(bkt_p, insert_ctx_p->insert_allupto_p);
+     + 
+     +     /* if purge_data_bucket removed the last entry in bkt_p (this subsumes
+     +      * the case where it emptied bkt_p), rebuild the index.  empty
+     +      * nodes are subject to deletion, so advance bkt_p until we find
+     +      * a node that is nonempty (the last bucket is always nonempty)
+     +      */
+     + 
+     +     while (bkt_p->node_count == 0)
+     +             bkt_p = bkt_p->node_next_p;
+     +     if (do_rebuild)
+     +             rebuild_index(stream_p);
+     + #else
+           purge_data_bucket(bkt_p, insert_ctx_p->insert_allupto_p);
+     + #endif
+       
+           /*
+            * It is possible that a new bucket did not make it into the
+            * index structure.  If this is the case, we may have to read
+            * adjacent buckets to find right position for the new data.
+     +      * Also, find_entry_pos considers empty buckets to be non-matching,
+     +      * so if purge_data_bucket emptied bkt_p, we must search onward.
+            */
+       
+           status = find_entry_pos(bkt_p, ekey_p, &pos);
+           while (bkt_p->node_count <= pos)
+       	{
+     ***************
+     *** 2281,2291 ****
+       
+       	return(status);
+       
+       	}
+       
+     !     node_check(bkt_p);
+           status = insert_data(stream_p, bkt_p, entry_data_p, insert_ctx_p);
+           i[parul 8/23/95 public]
+
+If you are planning on picking up this fix, please check OT 12879 first. 
+The reason is DEC is working on fix for OT 12879 and they believe that
+this fix may not be the correct one.
+
+[01/24/96 public]
+
+Marking this as a duplicate of OT 12879, which was fixed in 1.1maint
+using Alan Peckham's fix.
+
+
+
+CR Number                     : 12802
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : cdsd
+Short Description             : dcecp clearinghouse initiate -checkpoint hangs
+Reported Date                 : 2/23/95
+Found in Baseline             : 1.1
+Found Date                    : 2/23/95
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 12182
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1maint
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[2/23/95 public]
+"dcecp clearinghouse initiate /.:/xxx_ch -checkpoint" hangs.  A preliminary
+investigation revealed that the checkpoint thread was getting started, but
+the thread was waiting for the writer count to go to zero.  When I get a
+fix, I'll post it here.
+
+--Roger
+
+[12/12/95 public]
+This OT is a duplicate of OT 12812.  A viable fix was posted there and
+has been available for some time.  I can't close this since it is not
+integrated into any baseline (it is not in 1.1-maint nor 1.2.1 core).
+
+[10/8/96 public]
+
+  Fix was submitted to 1.1 maintenance tree as the fix to OT12812.
+
+[12/6/96 public]
+
+duplicate of CLOSED OT 12182.
+
+
+
+CR Number                     : 12755
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : command_ref
+Short Description             : Need to clarify the action for removing an attribute for a single valued attribute
+Reported Date                 : 11/29/94
+Found in Baseline             : 1.1
+Found Date                    : 11/29/94
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 13377
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2
+Affected File(s)              : object.8dce
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[11/29/94 public]
+
+Using CDS CDSCP commands, we do the following. (TEST_small is a user defined
+attribute.)
+
+
+cdscp create obj /.:/myobj
+cdscp set obj /.:/myobj TEST_small = 1
+cdscp remove obj /.:/myobj TEST_small = 1
+
+Remove object gets an error, "Specified attribute type is incorrect."
+
+Same thing happens with "dcecp object modify" command.
+
+The Admin. Reference book says this command, "Removes a value from a set-valued
+or single-valued attribute (including application-defined attributes) of an
+ object entry."
+
+The admin ref for "dcecp object modify" does not get into detailed discussion
+about what to do. It refers to cdscp command ref page.
+
+Pre DCE 1.0.2, it used to be that removing a value of a single-valued attribute
+leaves the attribute value as <empty set>. OT 3525 later fixed this problem.
+
+The current behavior (since 1.0.2) is
+
+        * for single value attribute, you can only remove the attribute, not the
+          value;
+
+        * for multi-valued attributed, you can remove one value at a time, i
+	  when you remove the last value, you will have a <empty set>.
+
+Please update the man page for cdscp remove part to clarify the right syntax
+for single-valued attribute and multi-valued attribute.
+
+[7/5/95 public]
+
+Assigned to Digital for DCE 1.2.
+
+[9/26/96 public]
+
+This CR was addressed in fixes HP made in response to their CR 13377.
+
+
+
+CR Number                     : 12583
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : cdsalias create <primary cellname> cores cdsd
+Reported Date                 : 10/11/94
+Found in Baseline             : 1.1b20
+Found Date                    : 10/11/94
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 12222
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/11/94 public]
+
+(In baseline bl-20.4)
+
+In trying to setup a hierarchical relationship between a parent
+and child cell, I took the simplified approach of creating a 
+cell which has the desired name of the child to begin with. 
+After setting up intercell access (via gdad/DNS) and permissions
+on the root directories of both cells, I tried "cdsalias connect", 
+which now appears to not take any arguments. 
+
+This returned the error 
+
+    Error: There is no existing primary alias for the local cell.
+
+Indeed, the following showed this to be true:
+
+    dcecp> cdsalias cat /.:
+    {CDS_CellAliases {}}
+
+Therefore, I attempted to create one, erroneously using the
+cdsalias set command:
+
+    dcecp> cdsalias set /.../oceans.qadce.osf.org/streams
+    Error: The name provided was not an alias or the current cell name.
+
+Therefore, I attempted to create the existing name as an alias:
+
+    dcecp> cdsalias create /.../oceans.qadce.osf.org/streams
+    Error: Connection closed
+
+At this point, cdsd had core dumped.
+
+dcecp> cdsalias cat /.:
+Error: Requested entry does not exist
+
+xdb on the core shows:
+
+Child died due to: segmentation violation
+
+0 add_cell_alias + 0x000007d8 (0x402c9f90, 0x402c9f8c, 0x402c9f8c, 0x4001e36c)
+1 deb_ascii_ObjUID@libdce + 0x0000019c (0x402c970c, 0x402c8c5c, 0x1,
+  0x402c9d7c)
+2 cp_AddCellname + 0x00000190 (0x403ef978, 0x402c8844, 0x52, 0x402c8c5c)
+3 op0_ssr + 0x000001b4 (0x403ef978, 0x4041f988, 0x402c851c, 0x400f21b8)
+4 rpc__cn_call_executor@libdce + 0x000007c8 (0x4041f988, 0, 0, 0)
+5 cthread_call_executor@libdce + 0x000002d4 (0x400ba898, 0x7af3a2c0,
+  0x4004ad30, 0x13)
+6 cma__thread_base@libdce + 0x0000021c (0x4004ad30, 0, 0, 0)
+7 cma__thread_start1@libdce + 0x0000004c (0x4004ad30, 0, 0, 0)
+8 cma__thread_start0@libdce + 0x00000008 (0x4004ad30, 0, 0, 0)
+9 add_cell_alias + 0x000007d8 (0, 0, 0, 0)
+
+[10/12/94 public]
+Just because you entered a dcecp command and something bad happened doesn't
+mean the code is in dcecp.  Particularly when cdsd core dumps.  :-)
+
+[10/13/94 public]
+I'm a bit suspicious of th eabove trace. While cp_AddCellname does in fact call
+deb_ascii_ObjUid the later has no reason to call add_cell_alias. I checked the
+code and sure enough it doesn't. I'm going to assign this to Roger to look
+at.
+
+[10/13/94 public]
+I'm separating out the initial problem with "cdsalias connect" to a new CR.
+Note that the issue in this CR appears to have been issueing "cdsalias create"
+on a cell with no aliases, using as argument the existing name of the cell.
+
+[10/13/94 public]
+The only issue addressed by this ot now is the core dump. I beliwve this
+is an unaligned uuid_p problem in deb_ascii_Obj_UUID and will fix it myself,
+aauming I'm correct. The rest of this ot is now covered by 12622.
+
+[10/17/94 public]
+The alignment problem is  a dup of 12222. Will be fixed today hopefully.
+
+
+
+CR Number                     : 12026
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : sec_acl_get_access returns -------
+Reported Date                 : 9/2/94
+Found in Baseline             : 1.1b16
+Found Date                    : 9/2/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 12013
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/2/94 public]
+
+Both acl_edit's "get_access" and dcecp's "acl check" return all null
+access for CDS directories and objects, irrespective of what the ACL
+actually says for the invoking principal (as revealed by acl_edit
+"list" or dcecp "acl show").
+
+[9/2/94 public]
+
+When checking ACL permissions of invoker on CDS objects only, 
+a permission set of all dashes is returned.
+
+
+
+CR Number                     : 12025
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : Assertion failures in cdsd
+Reported Date                 : 9/2/94
+Found in Baseline             : 1.1b16
+Found Date                    : 9/2/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 12004
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/2/94 public]
+
+
+This is with the nightly build of 9/1/94.
+
+Running the dcecp "directory merge" FVTs, after all the tests had run,
+I saw the following:
+
+1994-09-02-11:39:08.799-04:00I----- cdsd(15405) FATAL cds adver dceassert.c 63 0x005d3a78
+Assertion "(status == DNS_SUCCESS)" failed in "/project/dce/build/dce1.1-snap/src/directory/cds/server/db_directory.c"file> line <1347
+
+[9/6/94 public]
+After putting some things back in dce_config that we took out last week
+12004 ends up failing in exactly this assertion during a secondary cdsd
+configuration. We know what is happening and Janet is looking at what to
+do about it. See my update of 12004 this morning.
+
+
+
+CR Number                     : 12007
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : rgy_edit cell fails when using DNS access if pe_site file isn't modified
+Reported Date                 : 9/1/94
+Found in Baseline             : 1.1b16
+Found Date                    : 9/1/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 12208
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/1/94 public]
+
+Using last night's build, I installed two cells on HP-UX systems.
+I entered the binding data into the named datafile for both
+cells, then took gdad down and restarted it in both cells. 
+Then I tried using "rgy_edit cell" to setup intercell
+authentication. This failed with the error:
+
+ ?(rgy_edit) Incomplete cell add - Registry server unavailable 
+ (Registry Edit Kernel) (dce / sad)
+
+Then I tried using "cdscp define cached server" to define the
+clearinghouse binding in one cell to the other cell, and again
+tried "rgy_edit cell". This time it succeeded.
+
+So I repeated the first step, setting up two new cells again
+from scratch, updating DNS, and restarting the gdad's. I
+repeated "rgy_edit cell" and it failed as in the previous 
+attempt. 
+
+Then I edited the pe_site file on each node to include the security
+bindings from the other cell's pe_site file, and repeated the 
+"rgy_edit cell" command. This time rgy_edit cell succeeded, using
+gdad/DNS.
+
+Is this two bugs or one?
+
+[9/2/94 public]
+The only expaination for this is  either gdad is broken or the dns
+data base is incorrect therefore I will assign this to cds and assign it to
+myself to determine what's going on. It is not currently blocking anyone 
+however, so I will get to it when other problems settle down.
+
+[9/7/94 public]
+No longer reproducable. Something between bl16-3 and now may have fixed it.
+
+[9/13/94 public]
+This problem still exists in BL17. Apparently the fact that this problem
+was seen between two HP nodes is significant. I setup 4 cells using BL17-
+2 HP and 2 OSF. I could establish intercell access from the HP to the OSF
+cells, but not between the two HP cells.i (Same error message as originally
+reported.) After editing the pe_site files on the two HP systems rgy_edit 
+cell worked fine.
+
+[9/19/94 public]
+A new bug has been opened against security for this problem. This is a 
+dup of that.
+
+
+
+CR Number                     : 11946
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : can't configure
+Reported Date                 : 8/29/94
+Found in Baseline             : 1.1b16
+Found Date                    : 8/29/94
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 11964
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/29/94 public]
+I'm trying to install the nightly of 8/28:
+
+S:****** Configuring CDS Server...
+S:****** Check for active sec_client service...
+S:****** Starting cdsadv...
+S:****** Starting cdsd...
+S:****** Setting ACLs for all new namespace entries...
+ERROR: Connection request rejected (dce / rpc)
+Unable to bind to object /.:/sec-v1
+ERROR:   acl_edit - setting ACLs on new namespace entries.
+           Message from acl_edit:
+           ERROR: Communications failure (dce / rpc)
+         Unable to bind to object /.:/cell-profile
+         ERROR: Connection request rejected (dce / rpc)
+         Unable to bind to object /.:/lan-profile
+         ERROR: Connection request rejected (dce / rpc)
+         Unable to bind to object /.:/absolut_ch
+         ERROR: Connection request rejected (dce / rpc)
+         Unable to bind to object /.:/absolut_ch
+         ERROR: Connection request rejected (dce / rpc)
+         Unable to bind to object /.:/hosts
+         ERROR: Connection request rejected (dce / rpc)
+         Unable to bind to object /.:/hosts/absolut
+         ERROR: Connection request rejected (dce / rpc)
+         Unable to bind to object /.:/sec
+         ERROR: Connection request rejected (dce / rpc)
+         Unable to bind to object /.:/hosts/absolut/self
+         ERROR: Connection request rejected (dce / rpc)
+         Unable to bind to object /.:/hosts/absolut/cds-clerk
+         ERROR: Connection request rejected (dce / rpc)
+         Unable to bind to object /.:/hosts/absolut/cds-server
+         ERROR: Connection request rejected (dce / rpc)
+         Unable to bind to object /.:/hosts/absolut/cds-gda
+         ERROR: Connection request rejected (dce / rpc)
+         Unable to bind to object /.:/hosts/absolut/profile
+         ERROR: Connection request rejected (dce / rpc)
+         Unable to bind to object /.:/subsys/HP/sample-apps
+        Press <RETURN> to continue, CTRL-C to exit
+root@absolut dce1.1/etc$ psdce
+    root 19967     1  0 15:51:07 ?        0:11 secd -bootstrap
+    root 20006     1  0 15:51:36 ?        0:01 sec_clientd
+    root 20320     1  0 15:52:51 ?        0:03 cdsadv
+    root 20331 20320  0 15:52:59 ?        0:28 /opt/dcelocal/bin/cdsclerk
+    root 19913     1  0 15:50:47 ?        0:09 dced -sb
+
+This has happened twice.  cdsd is not running, but...
+
+root@absolut dce1.1/etc$ /opt/dcelocal/bin/cdsd -a
+root@absolut dce1.1/etc$ psdce
+    root 19967     1  0 15:51:07 ?        0:14 secd -bootstrap
+    root 20006     1  0 15:51:36 ?        0:01 sec_clientd
+    root 20320     1  0 15:52:51 ?        0:03 cdsadv
+    root 20772     1  0 16:27:24 ?        0:11 /opt/dcelocal/bin/cdsd -a
+    root 20331 20320  0 15:52:59 ?        0:38 /opt/dcelocal/bin/cdsclerk
+    root 19913     1  0 15:50:47 ?        0:11 dced -sb
+
+of course now I have to do the rest of the config by hand... :-(
+
+
+
+CR Number                     : 11677
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : cdsd
+Short Description             : cdsd internal bug check caused by non-thread safe code
+Reported Date                 : 8/12/94
+Found in Baseline             : 1.1
+Found Date                    : 8/12/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 6428
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/12/94 public]
+
+The bugcheck was caused by a piece of code which is not
+thread safe.  When a race condition occurred among
+multiple competing threads, a timestamp recorded in
+one thread may be interpreted as "went backward"
+because by the time that thread was granted a cdsd server
+lock, the global variable "lasttime" may already be updated
+by other competing threads.  The fix is to get system
+local time inside the critical region surrounded by
+SERVER_LOCK ... SERVER_END_LOCK so that the local time
+is guaranteed to be more recent than the global "lasttime".
+
+The following are the diff's of the recommended fixes in the file
+    directory/cds/server/uid_lib.c :
+314,317d332
+<     /* Get time in UTC */
+<     sys_time_to_utc(NULL, &now);
+<     ODD_time_quad(now);
+<
+331a347,350
+>
+>     /* Get time in UTC */
+>     sys_time_to_utc(NULL, &now);
+>     ODD_time_quad(now);
+
+[8/15/94 public]
+Wow. This a dup and a fix for our oldest cds bug. Many thanks. Will close
+6428. Have built and tested it. Will submit in a day or so along with the
+drop from Janet Mccann. Both this and that drop were tested together.
+
+
+
+CR Number                     : 11576
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cds
+Subcomponent Name             : dcsd
+Short Description             : cdsd core dumps during DFS Smoketests
+Reported Date                 : 8/5/94
+Found in Baseline             : 1.1
+Found Date                    : 8/5/94
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 11574
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/5/94 public]
+
+
+cdsd core file is in  /opt/dcelocal/var/directory/cds/adm/cdsd/core
+
+
+
+S:****** Configuring additional CDS Server...
+S:****** Starting cdsd...
+ERROR:   cdscp - creating clearinghouse /.:/mudslide_CH.
+  Message from cdscp:
+  connection closed (dce / rpc)
+        Press <RETURN> to continue, CTRL-C to exit:  
+   Initializing the name space for additional CDS server...
+
+>>> binding information and objects exported
+
+
+>>> binding information and objects exported
+
+        Modifying acls on /.:/mudslide_CH
+ERROR: communications failure (dce / rpc)
+Unable to bind to object /.:/mudslide_CH
+        Modifying acls on /.:/hosts/mudslide/cds-server
+        Modifying acls on /.:/hosts/mudslide/cds-gda
+
+[8/8/94 public]
+Peter and Gail inadvertantly opened the same bug. Dup'ing this one
+to 11574.
+
+
+
+CR Number                     : 11457
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cds
+Subcomponent Name             : directory/cds/server/unix_cds_net.c
+Short Description             : Function call arg. cannot be assigned
+Reported Date                 : 7/27/94
+Found in Baseline             : 1.1
+Found Date                    : 7/27/94
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 11441
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/27/94 public]
+
+xlc -c       -Dunix  -D_ALL_SOURCE -DDCE_SEC -DINSTRUMENT -DDNS_DFS -D_ALL_SOURCE -DAIX32   -I. -I/u1/devobj/sb/nb_rios/src/directory/cds/server -I/project/dce/build/dce1.1-snap/src/directory/cds/server  -I../stubs -I/u1/devobj/sb/nb_rios/src/directory/cds/stubs -I/project/dce/build/dce1.1-snap/src/directory/cds/stubs -I../includes -I/u1/devobj/sb/nb_rios/src/directory/cds/includes -I/project/dce/build/dce1.1-snap/src/directory/cds/includes -I/u1/devobj/sb/nb_rios/export/rios/usr/include -I/project/dce/build/dce1.1-snap/export/rios/usr/include   /project/dce/build/dce1.1-snap/src/directory/cds/server/unix_cds_net.c
+"/project/dce/build/dce1.1-snap/src/directory/cds/server/unix_cds_net.c", line 236.1: 1506-103 (S) Tag evtblk requires a complete definition before it is used.
+"/project/dce/build/dce1.1-snap/src/directory/cds/server/unix_cds_net.c", line 903.6: 1506-193 (E) Function call argument cannot be assigned to corresponding parameter.
+*** Error code 1
+
+
+
+CR Number                     : 11437
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 10051
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : Adding attribute value for CDS_Towers fails.
+Reported Date                 : 7/26/94
+Found in Baseline             : 1.1
+Found Date                    : 7/26/94
+Severity                      : C
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 10051
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/26/94 public]
+
+
+The cdscp command:
+
+cdscp> add obj /.:/test CDS_Towers = ncadg_ip_udp:130.105.5.16
+
+appears to complete correctly but looking at the results:
+
+cdscp> show obj /.:/test
+
+                        SHOW
+                      OBJECT   /.../terrapin_cell.osf.org/test
+                          AT   1994-07-26-08:41:51
+                     CDS_CTS = 1994-07-26-12:36:10.421708100/00-00-c0-f7-de-56
+                     CDS_UTS = 1994-07-26-12:38:47.201282100/00-00-c0-f7-de-56
+                  CDS_Towers = :
+               Invalid Tower = %x0102005d0007000100000000000000000000000000004b0009050013000dffff7d25ffffff11ff5408002b1cff1f01000200000013000d045dffffff1cff11ffff08002b10486002000200000001000a02000000010008020000000100090400ff690510
+
+Seems to show that the process does not successfully add the attribute value. 
+I implemented this for dcecp and I needed to rework the innards of the 
+cdsCvtStrToTower in tower_lib.c and savetowerattr in attrname_actions_cds.c
+in order to get it to work.
+
+[8/4/94 public]
+looks like a duplicate
+
+
+
+CR Number                     : 11344
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 9207
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : can't build db_common.o and db_compression.o with DCE_DEBUG off
+Reported Date                 : 7/18/94
+Found in Baseline             : 1.1
+Found Date                    : 7/18/94
+Severity                      : B
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 9207
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/18/94 public]
+
+With DCE_DEBUG undefined in dce.h, I was unable to build db_common.o due to
+statusBuf undefined and db_compression.o due fileBuf undefined.
+
+[8/4/94 public]
+Same as 9207, cannot build without DEBUG.
+
+
+
+CR Number                     : 11190
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : problems unregistering endpoints
+Reported Date                 : 7/6/94
+Found in Baseline             : 1.1
+Found Date                    : 7/6/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 11140
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/6/94 public]
+This was found with binaries of 6/30.  On stopping DCE daemons:
+
+        selection:  4
+S:****** Attempting to stop all running DCE daemons...
+1994-07-06-17:05:38.645-04:00I----- cdsd(2972) ERROR cds server 0x0082be78
+Attempt to unregister the clerk/server RPC endpoint has failed with status = not registered in endpoint map (dce / rpc)
+1994-07-06-17:05:39.465-04:00I----- cdsd(2972) ERROR cds server 0x0082be78
+Attempt to unregister the dacl RPC endpoint has failed with status = not registered in endpoint map (dce / rpc)
+Caught signal 15.  Exiting.
+S:****** Successfully stopped all running DCE daemons.
+
+[7/7/94 public]
+I had already opened this defect.  I thought it sounded familiar ...
+
+
+
+CR Number                     : 11140
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : Errors recorded on cell shutdown
+Reported Date                 : 6/30/94
+Found in Baseline             : 1.1
+Found Date                    : 6/30/94
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 11239
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/30/94 public]
+This is what happened when I shut down my single machine cell:
+
+
+        selection:  4 
+S:****** Attempting to stop all running DCE daemons...
+waitfor[4]: 5160 5322: Syntax error
+WARNING: cdsadv did not shutdown
+1994-06-30-08:12:44.343-04:00I----- cdsd(453) ERROR cds server 0x0080b740
+Attempt to unregister the clerk/server RPC endpoint has failed with status = not registered in endpoint map (dce / rpc)
+1994-06-30-08:12:45.123-04:00I----- cdsd(453) ERROR cds server 0x0080b740
+Attempt to unregister the dacl RPC endpoint has failed with status = not registered in endpoint map (dce / rpc)
+1994-06-30-08:12:47.113-04:00I----- cdsadv(445) WARNING cds library 0x005b6468
+Thread routine error (ref. No. 1728) : Invalid argument
+1994-06-30-08:12:47.173-04:00I----- cdsadv(445) FATAL cds adver 0x005b6468
+pthread_lock() returned fatal thread error -1.
+kill: 445: The specified process does not exist.
+WARNING: Could not slay 445
+Caught signal 15.  Exiting.
+S:****** Successfully stopped all running DCE daemons.
+
+cdsadv then dropped a core.
+
+No daemons were left running.
+
+[7/15/94 public]
+The first tow are understood and harmless. They are also covered by 11272.
+I suspect the rest are also covered by the same ot. They are instances of
+a general hang/shutdown problem that has been showing up lately.
+
+[7/15/94 public]
+Should have been dup of 11239. 11272 is a bit different.
+
+1994-06-30-08:12:44.343-04:00I----- cdsd(453) ERROR cds server 0x0080b740
+1994-06-30-08:12:45.123-04:00I----- cdsd(453) ERROR cds server 0x0080b740
+
+
+
+CR Number                     : 11039
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : Errors on cell shutdown
+Reported Date                 : 6/22/94
+Found in Baseline             : 1.1
+Found Date                    : 6/22/94
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 11239
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/22/94 public]
+
+I found the following problems on shutting down a cell installed from the
+NB0621:  (on both 486 and HPUX)
+
+        selection:  4
+S:****** Attempting to stop all running DCE daemons...
+
+        Enter Cell Administrator's principal name: (cell_admin)   
+        Enter password: 
+
+1994-06-22-10:31:24.811-04:00I----- cdsclerk(22279) WARNING cds clerk 0x00469358
+Exit due to signal number 15 request
+1994-06-22-10:31:25.051-04:00I----- cdsclerk(22293) WARNING cds clerk 0x00469358
+Exit due to signal number 15 request
+1994-06-22-10:31:36.150-04:00I----- cdsd(22146) ERROR cds server 0x0079dd30
+Routine rpc_ep_unregister(3rpc) for clerk/server interface failed: not registered in endpoint map (dce / rpc)
+1994-06-22-10:31:36.700-04:00I----- cdsd(22146) ERROR cds server 0x0079dd30
+Routine rpc_ep_unregister(3rpc) for dacl interface failed: not registered in endpoint map (dce / rpc)
+S:****** Successfully stopped all running DCE daemons.
+
+All daemons have stopped.
+
+[6/22/94 public]
+Some of these errors will go away when dce_shutdown is used,
+some may need to be re-evaluated as to weather they are really
+errors that should come to the screen.
+
+Anyway, this defect belongs in cds since its the one doing the
+complaining and there isn't much dce_shutdown can do to stop it.
+
+[7/14/94 public]
+Made it a dup 11272 when it should have been 11239
+
+
+
+CR Number                     : 10984
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : cds
+Subcomponent Name             : server
+Short Description             : disabling cds server on a replica server made master causes problems
+Reported Date                 : 6/16/94
+Found in Baseline             : 1.1
+Found Date                    : 6/16/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 11239
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/16/94 public]
+
+Problem was found running the rep_ch_2_checklist test.
+
+The sequence of steps is:
+
+1) Create a test directory and object in master clearinghouse.
+2) Create a readonly replica of test directory on a 2nd machine.
+3) Exclude test directory from master clearinghouse
+4) The replica on the 2nd machine is made the new master.
+5) The original master is mad e a readonly replica
+6) Disabling the server on the 2nd machine (new master) results in the
+   following messages returned:
+
+cdscp> disable server
+cdscp> 1994-06-16-09:02:12.294-04:00I0.947 cdsd(25654) ERROR cds server 0x007990
+48
+Routine rpc_ep_unregister(3rpc) for clerk/server interface failed: not registere
+d in endpoint map (dce / rpc)
+1994-06-16-09:02:12.444-04:00I0.947 cdsd(25654) ERROR cds server 0x00799048
+Routine rpc_ep_unregister(3rpc) for dacl interface failed: not registered in end
+point map (dce / rpc)
+
+Any subsequent commands in the test, such as attempting to clear the 
+clearinghouse on the 2nd machine are unsuccessful.
+
+The cell has to be reconfigured at this point, since the clearinghouse on the 
+2nd machine is unreachable, and the test directory cannot be seen.
+
+[7/15/94 public]
+The above messages have nothing to do with the fact you are working with
+a secondary clearinghouse. We wee the same error messages on a single machine
+cell when cdsd is coming down as part of a normal shutdown. The cell does come
+back up as should yours. Failure to unregister an endpoint cannot force a 
+cell reconfiguration. When you restart the server the endpoints are reset
+in any case. I see no indication above that any attempt to reenable the
+server has been made. Until that is done the second clearinghouse is of 
+course unreachable. 
+
+The above messages are covered by ot 11239.
+
+
+
+CR Number                     : 10936
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 8658
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : Disabling clerks and removing cache causes problems with cdsd.
+Reported Date                 : 6/12/94
+Found in Baseline             : 1.0.3
+Found Date                    : 6/12/94
+Severity                      : D
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 8658
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/12/94 public]
+The standard steps to test whether CDS caching is misbehaving are:
+  cdscp disable clerk (kill cdsadv and cdsclerks)
+  rm /var/dce/adm/directory/cds/*cache*
+  rc.dce cdsadv (restart the Advertiser)
+
+After doing this, if you attempt to do some cdscp commands, cdsd states that
+it cannot find the root directory. Restarting cdsd fixes this problem.
+
+Since the Advertiser was stopped without stopping the Server, the local 
+socket which they shared is no longer valid.
+It appears that the Advertiser and Server must be stopped together for
+it to work properly.
+
+At a minimum, this should be a documented restriction.
+
+[6/14/94 public]
+Are you working with the latest sources ?
+(e.g. ./directory/cds/server/ta_adver.c rev 1.1.7.6)
+This should be fixed now via CR#8658.
+If not, what is your machine configuration? What cds commands?
+Can I see a log of your actions?
+
+[7/01/94 public]
+This problem was reported on version 1.0.3.
+I believe the "latest" version you refer to is for
+DCE 1.1, is that correct?
+
+If this has already been fixed in 1.1 (and it
+sounds like it has), it can be closed.
+Thanks.
+
+[8/3/94]
+Fixed in 1.1
+
+
+
+CR Number                     : 10861
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : cdsadv doesn't always go away
+Reported Date                 : 6/3/94
+Found in Baseline             : 1.1
+Found Date                    : 6/3/94
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 11239
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/3/94 public]
+The advertizer doesn't always go away when it gets a sigterm. It seems to
+dispatch the clerks and a second sigterm always sends it on its way. Its
+probably missing notification that the clerks are gone. It actually has
+the feel of a threads problem with sigchild but I'm not sure so I'll leave
+this in cds for now. Its a fairly low priority because we have implemented
+a fix for the shutdown problem in dce.clean by calling the disable clerk and
+disable server instead of sending them sigterms. This is a better way to
+shut things down anyway. I'm opening this as a holder to remind me that
+cdsadv isn't handling sigterm quite right - or maybe threads isn't telling
+it about its children being gone.
+
+[6/7/94 public]
+Submmitting a workaround to dce.clean to kill cdsadv twice.
+
+[7/15/94 public]
+I'm dup'ing this to 11239 because it contains a bit more information on 
+similar problems in the server as well as the advertizer.
+
+
+
+CR Number                     : 10646
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cds
+Subcomponent Name             : cdsadv
+Short Description             : Can't kill cdsadv
+Reported Date                 : 5/15/94
+Found in Baseline             : 1.1
+Found Date                    : 5/15/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 10494
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/15/94 public]
+I configured a single-machine cell with an x.500 name (c=ie/o=digital).
+cdsadv won't die when I shut down the cell.  Repeated attempts to blast it
+fail.
+
+Heck, I needed to reboot this machine, anyhow.
+
+[5/16/94 public]
+I talked to Rich. This looks like a dup of the advertixer dumping
+core problem.
+
+
+
+CR Number                     : 10592
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : cdscp/dcecp
+Short Description             : cdscp delete directory <dirname>
+does not  delete <dirname>, the directory stays.
+Reported Date                 : 5/9/94
+Found in Baseline             : 1.1
+Found Date                    : 5/9/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 10580
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/9/94 public]
+
+
+Using Sunday May 08/94
+======================
+
+cdscp (or dcecp) does not delete a directory eventhough 
+the delete operation returns successfully. 
+
+Here is what happens:
+
+1. Login as cell_admin
+root@bronze> dce_login cell_admin -dce-
+Password must be changed!
+
+2. create and list directory
+
+root@bronze> cdscp
+cdscp> create directory /.:/test_1
+cdscp> list directory /.:/test_1
+                        LIST
+                   DIRECTORY   /.../b_cell.qadce.osf.org/test_1
+                          AT   1994-05-09-18:07:23
+test_1
+
+3. Delete directory
+
+cdscp> delete directory /.:/test_1
+
+4. list the directory deleted - the directory still 
+   can be listed, however, one with the same name cannot
+   be created again (see error below).
+
+cdscp> list directory /.:/test_1
+                        LIST
+                   DIRECTORY   /.../b_cell.qadce.osf.org/test_1
+                          AT   1994-05-09-18:07:36
+test_1
+cdscp> create directory /.:/test_1
+Unknown message number 0x10d0a0d7Specified full name already exists (dce /
+cds)
+Unknown message number 0x10d0a0d8
+
+[5/9/94 public]
+Just a little more info, it's not just the child pointer in the parent dir
+that is hanging around.  Where /.:/br_dir_1 has been deleted:
+
+  dcecp> dir rem /.: -me br_dir_1 
+  dcecp> dir list /.: -s -d
+  br_dir_2 br_dir_3 hosts mel melma melman msd subsys test_1
+  dcecp> dir cre /.:/br_dir_1
+  Error: Specified full name already exists
+  dcecp> 
+
+These dcecp commands remove the child pointer from /.: successfully (api
+doesn't return an error and listing the directories under /.: shows it's
+not there) but then can't create a dir called /.:/br_dir_1
+
+[5/10/94 public]
+This was apparently another side affect of the work around for the intercell
+problem that dec submited and then backed out yesterday. I have a cell that
+still hadsthe work around and was able to replicate the problem in it. The
+problem does not appear in a cell with the work around backed out. I ran
+killer on an hp after the back out. It does the following over and
+over again, all the way up to z, and it had no problem. 
+
+create directory /.../vanilla_cell.qadce.osf.org/root/testdir/a
+delete directory /.../vanilla_cell.qadce.osf.org/root/testdir/a
+create directory /.../vanilla_cell.qadce.osf.org/root/testdir/a
+create directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b
+delete directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b
+create directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b
+create directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b/c
+delete directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b/c
+create directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b/c
+create directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b/c/d
+delete directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b/c/d
+create directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b/c/d
+create directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b/c/d/e
+delete directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b/c/d/e
+create directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b/c/d/e
+create directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b/c/d/e/f
+delete directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b/c/d/e/f
+create directory /.../vanilla_cell.qadce.osf.org/root/testdir/a/b/c/d/e/f
+
+I just installed last night's build on both the 486 and hpux platforms and
+the problem does not appear. I'm making this a dup of 10580 which is the A0
+that was opened and fixed yesterday.
+
+
+
+CR Number                     : 9985
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : other
+Component Name                : cds
+Subcomponent Name             : cdsd
+Short Description             : Object appears to repeat forever
+Reported Date                 : 2/21/94
+Found in Baseline             : 1.0.2
+Found Date                    : 2/21/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 7940
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/21/94 public]
+ The B1 rating is intended to flag this for inspection; once the problem
+is narrowed, please do assign it any other more appropriate rating.
+.
+  cdscp can ge asked to show an entry in our namespace and this entry
+will be seen to repeat, evidently forever. Further details are
+available, please instruct us how to obtain additional data.  
+.
+  Attached: sample output from the cds client utilities.
+.
+
+[sparc33-travis] getcellname
+/.../rainier.dce.transarc.com
+
+[sparc33-travis] cdscp show dir /.:/encina/testing/prakash-luna/tpm/prakash-luna_ecm
+                        SHOW
+                   DIRECTORY   /.../rainier.dce.transarc.com/encina/testing/prakash-luna/tpm/prakash-luna_ecm
+                          AT   1994-02-21-16:42:33
+            RPC_ClassVersion = 0100
+                     CDS_CTS = 1993-09-13-19:44:55.700769100/c0-37-cf-05-aa-77
+                     CDS_UTS = 1994-02-20-20:19:46.857153100/9e-62-0d-02-aa-77
+              CDS_ObjectUUID = 006af374-cdb7-1c94-bb7b-c037cf05aa77
+                CDS_Replicas = :
+          Clearinghouse UUID = 000ed576-350e-1cd5-bee3-9e620d02aa77
+                       Tower = ncadg_ip_udp:158.98.13.2[]
+                Replica type = master
+          Clearinghouse Name = /.../rainier.dce.transarc.com/walrus_ch
+                 CDS_AllUpTo = 1994-02-21-04:29:57.304864100/9e-62-0d-02-aa-77
+             CDS_Convergence = medium
+           CDS_ParentPointer = :
+               Parent's UUID = 004cb6ac-ca4b-1c94-bb7b-c037cf05aa77
+                     Timeout = :
+                  Expiration = 1994-02-21-15:19:46.817-05:
+                   Extension = +1-00:00:00.000I0.000
+                      MyName = /.../rainier.dce.transarc.com/encina/testing/prakash-luna/tpm/prakash-luna_ecm
+        CDS_DirectoryVersion = 3.0
+            CDS_ReplicaState = on
+             CDS_ReplicaType = master
+               CDS_LastSkulk = 1994-02-21-04:29:57.304864100/9e-62-0d-02-aa-77
+              CDS_LastUpdate = 1994-02-20-20:19:46.857153100/9e-62-0d-02-aa-77
+             CDS_RingPointer = 000ed576-350e-1cd5-bee3-9e620d02aa77
+                   CDS_Epoch = 007d53e8-a50a-1cd6-8dea-9e620d02aa77
+          CDS_ReplicaVersion = 3.0
+
+[sparc33-travis] date
+Mon Feb 21 16:43:09 EST 1994
+
+[sparc33-travis] cdscp list obj /.:/encina/testing/prakash-luna/tpm/prakash-luna_ecm/\*
+                        SHOW
+                      OBJECT   /.../rainier.dce.transarc.com/encina/testing/prakash-luna/tpm/prakash-luna_ecm/cm
+                          AT   1994-02-21-16:48:45
+            RPC_ClassVersion = 0100
+             RPC_ObjectUUIDs = 9e0f66007ace941cb8259e6209120000
+                     CDS_CTS = 1993-09-13-19:48:11.867124100/c0-37-cf-05-aa-77
+                     CDS_UTS = 1993-09-13-19:48:19.018381100/c0-37-cf-05-aa-77
+                   CDS_Class = RPC_Entry
+            CDS_ClassVersion = 1.0
+                  CDS_Towers = :
+                       Tower = ncadg_ip_udp:158.98.9.18[]
+                  CDS_Towers = :
+                       Tower = ncadg_ip_udp:158.98.9.18[]
+                  CDS_Towers = :
+                       Tower = ncadg_ip_udp:158.98.9.18[]
+                  CDS_Towers = :
+                       Tower = ncadg_ip_udp:158.98.9.18[]
+                  CDS_Towers = :
+                       Tower = ncadg_ip_udp:158.98.9.18[]
+                  CDS_Towers = :
+                       Tower = ncadg_ip_udp:158.98.9.18[]
+                        SHOW
+                      OBJECT   /.../rainier.dce.transarc.com/encina/testing/prakash-luna/tpm/prakash-luna_ecm/dakota.transarc.com
+                          AT   1994-02-21-16:49:02
+            RPC_ClassVersion = 0100
+             RPC_ObjectUUIDs = 281d100033cf941c92719e6209120000
+                     CDS_CTS = 1993-09-13-19:51:16.312332100/c0-37-cf-05-aa-77
+                     CDS_UTS = 1993-09-13-19:51:19.487711100/c0-37-cf-05-aa-77
+                   CDS_Class = RPC_Entry
+            CDS_ClassVersion = 1.0
+                  CDS_Towers = :
+                       Tower = ncadg_ip_udp:158.98.9.18[]
+                  CDS_Towers = :
+                       Tower = ncadg_ip_udp:158.98.9.18[]
+                  CDS_Towers = :
+                       Tower = ncadg_ip_udp:158.98.9.18[]
+                        SHOW
+                      OBJECT   /.../rainier.dce.transarc.com/encina/testing/prakash-luna/tpm/prakash-luna_ecm/mondProfile
+                          AT   1994-02-21-16:49:03
+            RPC_ClassVersion = 0100
+                 RPC_Profile = <empty set>
+                     CDS_CTS = 1993-09-13-19:58:47.457809100/c0-37-cf-05-aa-77
+                     CDS_UTS = 1993-09-13-20:35:16.462905100/c0-37-cf-05-aa-77
+                   CDS_Class = RPC_Entry
+            CDS_ClassVersion = 1.0
+                        SHOW
+                      OBJECT   /.../rainier.dce.transarc.com/encina/testing/prakash-luna/tpm/prakash-luna_ecm/mondProfile
+                          AT   1994-02-21-16:49:05
+            RPC_ClassVersion = 0100
+                 RPC_Profile = <empty set>
+                     CDS_CTS = 1993-09-13-19:58:47.457809100/c0-37-cf-05-aa-77
+                     CDS_UTS = 1993-09-13-20:35:16.462905100/c0-37-cf-05-aa-77
+                   CDS_Class = RPC_Entry
+            CDS_ClassVersion = 1.0
+                        SHOW
+                      OBJECT   /.../rainier.dce.transarc.com/encina/testing/prakash-luna/tpm/prakash-luna_ecm/mondProfile
+                          AT   1994-02-21-16:49:17
+            RPC_ClassVersion = 0100
+                 RPC_Profile = <empty set>
+                     CDS_CTS = 1993-09-13-19:58:47.457809100/c0-37-cf-05-aa-77
+                     CDS_UTS = 1993-09-13-20:35:16.462905100/c0-37-cf-05-aa-77
+                   CDS_Class = RPC_Entry
+            CDS_ClassVersion = 1.0
+                        SHOW
+                      OBJECT   /.../rainier.dce.transarc.com/encina/testing/prakash-luna/tpm/prakash-luna_ecm/mondProfile
+                          AT   1994-02-21-16:49:18
+            RPC_ClassVersion = 0100
+                 RPC_Profile = <empty set>
+                     CDS_CTS = 1993-09-13-19:58:47.457809100/c0-37-cf-05-aa-77
+                     CDS_UTS = 1993-09-13-20:35:16.462905100/c0-37-cf-05-aa-77
+				   .
+				   .
+				   .
+				   .
+			   (forever and ever)
+				   .
+				   .
+				   .
+				   .
+^O^C
+
+[sparc33-travis] cdscp list obj /.:/encina/testing/prakash-luna/tpm/prakash-luna
+_ecm/\*
+                        LIST
+                      OBJECT   /.../rainier.dce.transarc.com/encina/testing/prakash-luna/tpm/prakash-luna_ecm
+                          AT   1994-02-21-16:50:55
+cm
+dakota.transarc.com
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+mondProfile
+	   .
+	   .
+	   .
+	   .
+   (forever and ever)
+	   .
+	   .
+	   .
+	   .
+^O^
+
+[2/22/94 public]
+There was nothing in the above that would lead me to believe that this is
+a security problem, so I'm assuming that it was a mistake that this was
+assigned to 'sec' and have reassigned it to 'cds'.
+
+[2/22/94 public]
+  Just reviewing to make sure no other of my usual defaults got through.
+Also changed the component to 'cdsd', as I have stepped through our own
+client (cdsls) and it seems to be getting these repeated responses from
+the server, not manufacturing them on its own; coupled with the fact
+that cdscp agrees, I'd say the bug is in cdsd itself.
+Changed Subcomponent Name from `cdscp' to `cdsd'
+
+[6/13/94 public]
+I believe this is a sympton of CR 7940 which was fixed for 1.0.3
+
+
+
+CR Number                     : 9642
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : cdsd crashes enumerating objects in a corrupted directory
+6~
+Reported Date                 : 12/21/93
+Found in Baseline             : 1.0.3
+Found Date                    : 12/21/93
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 7940
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[12/21/93 public]
+
+We have had 6 or 7 customer reports of cdsd crashes when
+enumerating objects (via cdscp list obj /.:/dir1/dir2/*
+or via an expand all operation in the cdsbrowser) in
+an apparently corrupted directory in the namespace.
+The cdsd can be restarted and functions correctly until
+that directory is again enumerated, at which time it
+core dumps again.  This problem persists through the
+deletion of the clerk cache and restart of cdsadv, so
+it is definitely in the server database.
+
+The problem is intermittant and rare.  Rerunning the same
+application in the same way does not immediately reproduce
+the crash.  The crash was observed with a test program for
+an object-oriented library (which twice corrupted a particular
+test directory), with Encina, and with an application built
+on top of Encina (which thrice corrupted a particular
+directory).  We have not been able to reproduce the problem
+in our lab.
+
+The code is HP DCE 1.1 (based on OSF DCE 1.0.3).
+
+The problem does not appear to be due to any resource
+limitations on the systems involved.
+
+This problem was thought to be related to a write of
+unchecked length into the server database (OT9071).
+But Alan Peckham at DEC has examined a database dump
+a cell with this problem, and found no evidence of
+overlong data structures.  The database does have
+obsolete information from previous operations which
+indicate considerable cds activity in the corrupted
+directories.
+
+A server database dump produced with the cds_dbdump tools
+can be found in /afs/dce.osf.org/project/dce/hp/cr9017/dbdumpc.
+
+Core files show a segment violation and similar tracebacks:
+
+ 0 entry_read_next + 0x00000104 (0x40534768, 0, 0x404423b5, 0x405ad844)
+ 1 db_entry_read_next + 0x00000060 (0x40534768, 0x40628109, 0x40441f98, 0x4044
+ 2 build_name_set + 0x00000608 (0x40534768, 0x404415e8, 0x40441c5c, 0x40441d60
+ 3 ta_enumerate + 0x0000023c (0x404415e8, 0x40624078, 0x40441c5c, 0x40441d60)
+ 4 cds_EnumerateObjects + 0x000001d0 (0x405ac438, 0x4043eaec, 0x4043e9e6, 0x40
+
+ 0 entry_read_next + 0x000000e4 (0x3, 0, 0, 0)
+ 1 db_entry_read_next + 0x00000058 (0, 0x405d1af0, 0x40748110, 0x400fe7cc)
+ 2 build_name_set + 0x000005a8 (0x40100dd0, 0, 0, 0x400fe810)
+ 3 ta_enumerate + 0x00000238 (0, 0, 0, 0x400fe152)
+ 4 cds_EnumerateObjects + 0x00000200 (0x400fd660, 0, 0, 0)
+
+This problem produces a cdsd crash and can only be corrected
+by a reconfiguration of the cell, with the loss of all naming
+data.  It has been seen at three different customer sites.
+Setting severity/priority to A0.
+
+[12/22/93 public]
+The database dump shows that the directory
+/.:/koscom.encina.tpm.Monsoon.server
+is corrupted.  The marker which indicates the end of directory is missing.
+We have never seen this before.  It appears to be related to 'large'
+records => an entry requiring over 16k of storage.  All three
+entires in this directory are large.  
+
+I have not been able to re-create the problem.  Can you find out more about
+the history of this directory.  It currently has 3 entries, querya1,
+querya2 and queryb1.  Have there been alot of creates/deletes in this
+directory, or have these 3 objects been alone.  
+
+janet
+
+[12/28/93 public]
+Verify that you have ot fix 7940.  This was fixed 10/23/93 and you original
+problem report for ot 9071 is dated 10/7/93
+
+[1/11/94 public]
+This has been verified by us and HP to be a duplicate of 7940
+
+
+
+CR Number                     : 9305
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 8202
+Project Name                  : dce
+H/W Ref Platform              : hppa,i486
+S/W Ref Platform              : hpux, osf1
+Component Name                : cds
+Subcomponent Name             : cdscp
+Short Description             : cdscp cores dump
+Reported Date                 : 11/1/93
+Found in Baseline             : 1.0.3
+Found Date                    : 11/1/93
+Severity                      : A
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 9806
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[11/1/93 public]
+
+cdscp cores dump if control characters are entered on the command line.
+(In this case, "erase" was not mapped to the backspace key, so 
+that the backspace key produced control character instead.)
+After having pressed the return key, the screen flashed and cdscp cored dump.
+
+Ex.
+On an OSF/1 (486)
+
+root@trinidad> cdscp
+cdscp> show ^?^?
+syntax error
+show     
+
+< the screen flashes >
+
+Memory fault(coredump)
+
+
+On HP-UX
+
+
+# cdscp
+cdscp> sho     00
+
+
+Memory fault(coredump)
+#
+
+[6/2/94 public]
+This is related to CR 8202. It was pointed out in the original report that 
+the problem was in function accum_cmd() in control/accum_cmd.c. jd later
+pointed out that this fucntion was called with input and output pointers 
+pointing to the same buffer, hence the original fix was not right. Turned out
+there was another problem (length related), so 8202 fixed the length problem.
+
+With this fix, it is obvious that in 1.0.3 (supposedly 8202 was fixed in
+1.0.3), this control character problem still exists.
+
+A further check with how accum_cmd() is called shows that this function is
+not always called with input and output pointers pointing to the same buffer.
+This means the original fix (see below) still makes sense. This also explains
+the behavior reported here: a control character can cause a big screen flash.
+This is becasue (see the original code below) when a control character is
+entered, the input pointer from is not incremented, but the output buffer
+(pointed by p) is incremented by the time with SPACE inserted. When the end
+of the output buffer is reached, it is dumped out (screen flash) and dumps
+core.
+
+In the routine accum_cmd() in the file cds/control/accum_cmd.c, the line
+
+           do   {
+        c = *from;                      /* get current character */
+        code = class[c];                /* classify it */
+        switch (code)
+            {
+            case WHITE:
+            case CTL:
+                {
+                *p++ = '\040';          /* one blank to output buffer */
+                                        /* then advance to non white */
+==>		while (class[*from] == WHITE) from++;
+
+needs to change to 
+
+	while (class[*from] == WHILE || class[*from] == CTL) from++;
+
+[6/16/94 public]
+This was fixed in the code cleanup drop.  Same as cr 9806
+
+
+
+CR Number                     : 9289
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : aix
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : cdsadv core dumps on RIOS running rtandidl
+Reported Date                 : 10/28/93
+Found in Baseline             : 1.0.3
+Found Date                    : 10/28/93
+Severity                      : A
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 9065
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/28/93 public]
+
+While running the RPC rtandidl testcases, the cdsadv
+dumped core, and all cdsclerks died along with it.
+
+Unfortunately, I could not use the core to debug with, so
+I have no information on what went wrong.  I am looking for
+help from some cds developers on what types on runtime flags
+I should turn on to help debug this problem.
+
+The build I used was weekly build 8 (dce1.0.3ib8).  I was
+running a single machine cell on a RS/6000 370 with
+64M of RAM and lots of disk.
+
+There is plenty of disk space free when the crash occurs.
+
+I have not been able to point to the exact test that 
+causes this to fail (I would guess one of the NSI tests),
+but I'm not sure becuase I have only been able to 
+recreate it when I got through the whole rtandidl
+bucket.  I have reproduced this three times this
+afternoon.
+
+[10/29/93 public]
+We will run the tests on a RIOS on this morning. I'll update this
+later today when I've got something. Assigning it to myself until 
+we get more data.
+
+[10/29/93 public]
+I am trying to reproduce this on a different much slower machine.
+I'll post any interesting results.
+
+[10/29/93 public]
+Gerry, we ran the tests against both last night's build and the last weekly
+and we can't reproduce the problem. I'm lowering the priority but not 
+cancelling it. If you can give us something that we can run to cause
+the advertizer to core dump we will work it. Let me know what you find.....
+
+After reading OT 9065 and looking at the swap space on my machine in 
+question, I increased the swap area and re-ran the tests and everything
+is OK.  Duplicate of 9065.  I guess another question would be why
+things need as much swap space as they do.  I had 64 meg on the 
+machine that failed (64 meg of swap area).
+
+
+
+CR Number                     : 8902
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : cdsclerk
+Short Description             : clerk sometimes spins after running dce clean and rebooting machine
+Reported Date                 : 10/4/93
+Found in Baseline             : 1.0.3
+Found Date                    : 10/4/93
+Severity                      : C
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 7647
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/4/93 public]
+
+During testing of dfs I've had to do numerous dce.cleans followed by
+a clean shutdown of the system.  When I bring the system back up
+and run rc.dce, some processes, namely dts and fxd hang waiting
+for information from cds.  Frequently I see the cdsclerk chew up
+cpu time when this happens.  The last time this happened (fxd hung
+waiting for cds), I killed the cdsclerk, and was then able to
+successfully restart fxd. 
+
+I have also put the fxd under a debugger when this is happening and
+It hangs in dfs_GetJunctionName, which makes numerous rpc_ns_profile*
+calls.
+
+Dts will sometimes return with an error "no such entry"
+
+[10/04/93 public]
+Its a dup of 7647 which was canceled. I just reopened 7647. Paul Ellis
+has a system test that shows something very similar......
+
+
+
+CR Number                     : 8612
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : error with socket from cds as root
+Reported Date                 : 9/16/93
+Found in Baseline             : 1.0.3
+Found Date                    : 9/16/93
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 7530
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : jaffe@transarc.com
+Transarc Status               : open
+
+[9/16/93 public]
+I'm seeing the following problem on a rios (dce1.0.3-8-31):
+[in as comer]
+$ dce_login cell_admin
+$ cdscp show cell /.:
+                        SHOW
+                        CELL   /.../slab.dce.transarc.com
+                          AT   1993-09-16-09:23:35
+              Namespace Uuid = 001a4140-638f-1c97-b7e2-08005a4d135d
+          Clearinghouse Uuid = 005cc628-638a-1c97-b7e2-08005a4d135d
+          Clearinghouse Name = /.../slab.dce.transarc.com/slab_ch
+                Replica Type =   Master
+                       Tower = ncacn_ip_tcp:158.98.15.3[]
+                       Tower = ncadg_ip_udp:158.98.15.3[]
+$ su root
+root's Password:
+# cdscp show cell /.:
+                        SHOW
+                        CELL   /.../slab.dce.transarc.com
+                          AT   1993-09-16-09:23:52
+Error on entity: /.../slab.dce.transarc.com
+Error with socket (dce / cds)
+Function: dnsReadAttrValue
+Error on entity: /.../slab.dce.transarc.com
+Error with socket (dce / cds)
+Function: dnsReadAttrValue
+       ---- AND ----
+$ su root
+root's Password:
+# dce_login cell_admin
+# cdscp show cell /.:
+                        SHOW
+                        CELL   /.../slab.dce.transarc.com
+                          AT   1993-09-16-09:33:01
+Error on entity: /.../slab.dce.transarc.com
+Error with socket (dce / cds)
+Function: dnsReadAttrValue
+Error on entity: /.../slab.dce.transarc.com
+Error with socket (dce / cds)
+Function: dnsReadAttrValue
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `jaffe@transarc.com' 
+Added field Transarc Status with value `open'
+
+[8/16/93 public]
+I cannot reproduce this problem on RIOS which runing dce1.0.3-weekly,
+% dce_login cell_admin -dce-
+Password must be changed!
+% whoami
+pwang
+% cdscp show cell /.:
+                        SHOW
+                        CELL   /.../orange_cell
+                          AT   1993-09-16-10:08:01
+              Namespace Uuid = 00515e14-314b-1c96-be44-08005a0d2b0f
+          Clearinghouse Uuid = 008a21ea-3146-1c96-be44-08005a0d2b0f
+          Clearinghouse Name = /.../orange_cell/orange_ch
+                Replica Type =   Master  
+                       Tower = ncacn_ip_tcp:130.105.5.21[]
+                       Tower = ncadg_ip_udp:130.105.5.21[]
+% su root
+root's Password: 
+# cdscp show cell /.:
+                        SHOW
+                        CELL   /.../orange_cell
+                          AT   1993-09-16-10:08:17
+              Namespace Uuid = 00515e14-314b-1c96-be44-08005a0d2b0f
+          Clearinghouse Uuid = 008a21ea-3146-1c96-be44-08005a0d2b0f
+          Clearinghouse Name = /.../orange_cell/orange_ch
+                Replica Type =   Master  
+                       Tower = ncacn_ip_tcp:130.105.5.21[]
+                       Tower = ncadg_ip_udp:130.105.5.21[]
+# 
+Please use the /project/dce/build/dce1.0.3-weekly to try again or
+provide more information.
+
+[09/17/93 public]
+I too have done this and it works. Could you please get us more information.
+I don't know what to do with this other than cancel it....
+
+[09/17/93 public]
+Foolish me. This looks like a dup of 7530 which says the eadvertiser won't
+spawn a clerk for root. The socket error in all likelyhood is because
+the clerk for root isn't there. We saw this during system testing but it
+shows itself very infrequently. I currently have 7530 on my list of bugs that
+I spend background time on trying to to spot something in the code. It
+doesn;t happen often enough to get a handle on but we've seen it enough
+times that I've been convinced its still there. dce.clean and rc.dce always 
+removed the problem. I'm going to lower the priority and dup it to 7530.
+Mike if you have a way of readily reproducing this I'd appreciate it
+if you would let me know. As I said, I'm looking at 7530.
+
+[9/17/93 public]
+You exactly right, a clerk wasn't being spawned for root.  I didn't 
+look into the problem any more than this, though.  I'll let you know
+if I see it again (and can provide a little more info).
+
+
+
+CR Number                     : 8331
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : "/usr/include/Motif1.2/Xm/Xm.h", line 1405: error 1000: Unexpected symbol: "XmImGetXIM"
+Reported Date                 : 7/21/93
+Found in Baseline             : 1.0.3
+Found Date                    : 7/21/93
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 8338
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/21/93 public]
+[ /directory/cds/cdsbrowser at 07:57 (AM) Wednesday ]
+cc: "/usr/include/Motif1.2/Xm/Xm.h", line 1405: error 1000: Unexpected symbol: "XmImGetXIM".
+cc: error 2017: Cannot recover from earlier errors, terminating.
+*** Error code 1
+
+
+
+CR Number                     : 8133
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 4459, 3383
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : memory associated with deleted
+namespace entities is neither freed or reused causing cdsd to eat alot of system
+memory.
+Reported Date                 : 6/9/93
+Found in Baseline             : 1.0.2
+Found Date                    : 6/9/93
+Severity                      : B
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 3383
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/9/93 public]
+This oughta cause a stir.  During our CET testing cycles, DCE is kept up for
+excesses of 24 hours doing all kinds of things from RPC apps to Encina and DFS.
+We've seen cdsd just take up a huge amount of system memory at times.  Also
+I have been seeing deleted entities (mostly child pointers) coming back from
+the deleted state and causing tremendous amounts of grief.  These things 
+prompted me to wonder whether cdsd was freeing and/or re-using buckets 
+associated with deleted entities.  As per a conversation with Alan Pekham, he
+informed me that cdsd doesn't free or reuse memory associated with deleted
+entities.  Some internal specs also state that to get the benefits of a 
+compressed database, one has to disable the server and re-enable it.  This is
+not so good since several customers that I have talked to want to build apps
+ontop of DCE that will stay up for 24hrs/7days/52wks.  I do not know if anyone
+has opened any OT on this.  I'm sure that this is going to be down-graded and
+/or defered faster than greased lightning but this is a major problem for cdsd,
+especially on modest machines.  I am not aware of any reorg code in cdsd that
+would reorg the database.  
+
+The thing about this that causing me so much grief is if memory is left around,
+this affords cdsd limitless possibilities to get old deleted stuff.
+
+[6/10/93 public]
+
+>associated with deleted entities.  As per a conversation with Alan Pekham, he
+>informed me that cdsd doesn't free or reuse memory associated with deleted
+>enties
+
+My old cdscp "create 100 dirs/delete 100 such dirs" experiment told me that 
+the deleted directories would be re-used. To be clear, when I first created 
+100 dirs, cdsd grew abot 3.4 MB. Then, I deleted those 100 dirs and cdsd didn't
+shrink. But, when I created another 100 dirs, its size only grew a little
+comparing with the 3.4 MB growth. So, in this directory create/delete test
+the cdsd did re-use the deleted entries. 
+
+Maybe for child pointers it is a different story. Can you do a similar 
+experiment to decide if cdsd re-uses the deleted child pointer entries?
+
+I guess that there may be a parameter inside cdsd to control its memory
+database size. If my guess is right, we can limit that size to a certain
+value. Once it grows beyond that point, the daemon needs to re-structure
+its database by writing out old/deleted entries to the disk. But, this 
+has performance implication.
+
+[06/10/93 public]
+OK, I'll go on record as agreeing with Gerald. The current behavior of
+growing and shrinking only on a disable/enable doesn't seem reasonable to
+me either. This has been discussed in the past and I think it's time to at 
+least leave this open as a bug long enough to see what it's going to take
+to change the behavior. Given the current schedule it may/probably won't
+get changed for 1.0.3 and may become an enhancement request for 1.1. 
+
+As Gerald suspected A1 is in reality a bit high.
+
+[06/10/93]
+
+This OT is related to 3383 and 4459, which both already discuss some
+of the issues raised here.
+
+[06/15/93 public]
+Really is a dup of 3383. We will scope the work required to fix this.
+
+
+
+CR Number                     : 8091
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : cdscp detects software error in obj operations.
+Reported Date                 : 6/4/93
+Found in Baseline             : 1.0.2a
+Found Date                    : 6/4/93
+Severity                      : B
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 7940
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : jaffe@transarc.com
+Transarc Status               : open
+
+[6/4/93 public]
+When running my test program which is using a cds ob
+ject and I have following
+cdscp command failures:
+Running script ====== close.dist.scr ======
+run with setup file close.dist.scr.setup
+ [1] (0:00) --- The test is starting on Mon Apr 26 16:16:56 1993
+ [1] (0:01) ### DCE ERROR: rpc_ns_binding_export FAILED -
+        [282109903] Software error detected in server (dce / cds)
+ [1] (0:01) ### DCE ERROR: ns_Listen FAILED -
+        [282109903] Software error detected in server (dce / cds)
+This is found on a two-machin cell and the cell is up
+uptime
+  04:43PM  up 2 days,  22:32,  1 user,  Runable processes: 1
+ 
+The configuration is dfs-102-carl.
+ 
+When you use cdscp commands:
+# cdscp del obj /.:/dfs-test/g
+Error on entity: /.../moe.com/dfs-test/g
+Software error detected in server (dce / cds)
+Function: dnsDelObj
+# cdscp cre obj /.:/dfs-test/g
+Error on entity: /.../moe.com/dfs-test/g
+Software error detected in server (dce / cds)
+Function: dnsCreateObj
+# cdscp show obj /.:/dfs-test/g
+                        SHOW
+                      OBJECT   /.../moe.com/dfs-test/g
+                          AT   1993-06-04-08:16:10
+Error on entity: /.../moe.com/dfs-test/g
+Software error detected in server (dce / cds)
+Function: dnsEnumAttr
+# cdscp show dir /.:/dfs-test
+                        SHOW
+                   DIRECTORY   /.../moe.com/dfs-test
+                          AT   1993-06-04-08:16:38
+            RPC_ClassVersion = 0100
+                     CDS_CTS = 1993-05-11-21:47:37.171862100/08-00-5a-4d-20-84
+                     CDS_UTS = 1993-06-04-07:52:15.876052100/08-00-5a-4d-20-84
+              CDS_ObjectUUID = 001a47a8-1ef9-1bf0-95c8-08005a4d2084
+                CDS_Replicas = :
+          Clearinghouse UUID = 0086af92-fcb4-1bef-95c8-08005a4d2084
+                       Tower = ncadg_ip_udp:192.55.207.162[]
+                Replica type = master
+          Clearinghouse Name = /.../moe.com/moe_ch
+                 CDS_AllUpTo = 1993-06-04-14:53:00.662738100/08-00-5a-4d-20-84
+             CDS_Convergence = medium
+           CDS_ParentPointer = :
+               Parent's UUID = 0075ff30-fcb7-1bef-95c8-08005a4d2084
+                     Timeout = :
+                  Expiration = 1993-06-05-03:52:15.855-04:
+                   Extension = +1-00:00:00.000I0.000
+                      MyName = /.../moe.com/dfs-test
+        CDS_DirectoryVersion = 3.0
+            CDS_ReplicaState = on
+             CDS_ReplicaType = master
+               CDS_LastSkulk = 1993-06-04-14:53:00.662738100/08-00-5a-4d-20-84
+              CDS_LastUpdate = 1993-06-04-07:52:15.876052100/08-00-5a-4d-20-84
+             CDS_RingPointer = 0086af92-fcb4-1bef-95c8-08005a4d2084
+                   CDS_Epoch = 0044ebd4-1efa-1bf0-95c8-08005a4d2084
+          CDS_ReplicaVersion = 3.0
+# cdscp del dir /.:/dfs-test
+Error on entity: /.../moe.com/dfs-test
+Software error detected in server (dce / cds)
+Function: dnsDelDir
+ 
+It seems to me that I have no way to get rid of this problem except
+reconfig the machine.
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `jaffe@transarc.com' 
+Added field Transarc Status with value `open'
+
+[6/4/93 public]
+Changed Found in Baseline from `1.0.2' to `1.0.2a' 
+Changed Fix By Baseline from `1.0.2' to `1.0.3'
+
+[6/4/93 public]
+It's not going to get fixed if it's really a CDS problem assigned to DFS.
+Jess, I imagine that DEC is going to require more information than this.
+Changed Component Name from `dfs' to `cds' 
+Changed Subcomponent Name from `CDS' to `'
+
+[07/14/93 public]
+Yea, I'm not sure where to go with this without more information. Was
+the test running continuously for the 2 days? What kinds of things does
+the test do. For instance does it create lots and lots of objects in
+the name space or few things? Any idea exactly what it was tring to 
+do at the time of the first failure? The status code 282109903  as you 
+probably already know is the same as the rest of the failures - 'Software 
+error detected in server'. I assmue you reconfigured. Have you rerun the
+test. Did the problem recur. Untill I get more information I'm dropping
+this to a P2.
+
+[6/23/93 public]
+
+[7/18/93 public]
+I had chance to runinto the problem again. What I have done in my tests
+is that my testtool (ITL) will export and unexport bindings by using
+rpc_ns_binding_export and rpc_ns_binding_unexport repeatly when running
+my distributed test scripts (ITL scripts).
+Acationaly, (sometime) any object entry under a cds directory in my
+case /.:/dfs-test/ will result a software error detected in server.
+Whatever command you use, e.g, cdscp show, del, cre (obj). They all
+result in a consistent error. The follwoing debug information may 
+gives some hints. Hope it will help.
+*******************************************************************************
+Good case:
+(gdb) run show obj /.:/dfs_test/g
+Starting program: /usr/bin/cdscp show obj /.:/dfs_test/g
+Breakpoint 1, load_parse_file (p=0x200a28d4,
+    fspec=0x2009546d "/opt/dcelocal/etc/cdscp.bpt") at load_parse_file.c:170
+170         status = DNS_SUCCESS;               /* assume it will work. */
+(gdb) c
+Continuing.
+                        SHOW
+                      OBJECT   /.../moe.com/dfs_test/g
+                          AT   1993-07-18-12:44:00
+            RPC_ClassVersion = 0100
+             RPC_ObjectUUIDs = <empty set>
+                     CDS_CTS = 1993-07-18-15:12:02.795557100/08-00-5a-4d-20-84
+                     CDS_UTS = 1993-07-18-18:47:33.956919100/08-00-5a-4d-20-84
+                   CDS_Class = RPC_Entry
+            CDS_ClassVersion = 1.0
+                  CDS_Towers = <empty set>
+Program exited normally.
+*******************************************************************************
+Bad Case:
+(gdb) run show obj /.:/dfs-test/g
+Starting program: /usr/bin/cdscp show obj /.:/dfs-test/g
+Breakpoint 1, load_parse_file (p=0x200a28d4,
+    fspec=0x2009546d "/opt/dcelocal/etc/cdscp.bpt") at load_parse_file.c:170
+170         status = DNS_SUCCESS;               /* assume it will work. */
+(gdb) n
+171         f = fopen2aux2(fspec);              /* substitute if need be */
+(gdb) n
+173         if (p->tbl == NULL)                 /* no buffer speced, we pick siz
+e&loc*/
+(gdb)
+175             p->tbl = &tiny_buffer[0];       /* use one we expect to fail */
+(gdb)
+176             p->tbs = sizeof(tiny_buffer);   /* because it is too small */
+(gdb)
+177             result = pr_read(p, f);         /* try to read it */
+(gdb)
+178             if (result == RET_SIZE)         /* means too small */
+(gdb)
+180                 p->tbl = (char *)malloc(p->tbu);    /* get a big enough buff
+er */
+(gdb)
+181                 if (p->tbl == NULL)         /* did the malloc work ok? */
+(gdb)
+188                     p->tbs = p->tbu;        /* remember size & location */
+(gdb)
+191             else
+(gdb)
+201         if (status == DNS_SUCCESS)
+(gdb)
+206             result = pr_read(p, f);
+(gdb)
+207             if (result != RET_SUCCESS)
+(gdb)
+218         fopen2aux3(f);              /* return mem for spec of used file */
+(gdb) p result
+$9 = 1
+(gdb) p status
+$10 = 282107905
+(gdb) n
+219         return(status);             /* DNS_SUCCESS unless something bad happ
+ened */
+(gdb) b reassemble_command
+Function "reassemble_command" not defined.
+(gdb) b accum_cmd
+Function "accum_cmd" not defined.
+(gdb) b log_command
+Function "log_command" not defined.
+(gdb) b make_withlist_empty
+Function "make_withlist_empty" not defined.
+(gdb) s
+220         }
+(gdb)
+                        SHOW
+                      OBJECT   /.../moe.com/dfs-test/g
+                          AT   1993-07-18-12:40:33
+Error on entity: /.../moe.com/dfs-test/g
+Software error detected in server (dce / cds)
+Function: dnsEnumAttr
+Program exited with code 01.
+(gdb)
+****************************************************************************
+This debug information is just showing the scope of the problem.
+I had no way to break at some functions (I guess they are lib functions 
+or kernel function which I realy do not know). 
+One thing I am sure about is that the line
+"static char msgfilespec[] = DNS_CP_MSG_FILE" in mgmt_main.c used
+later in the line p->msgspecp = msgfilespec in function init_msgblk
+in the file load_msg_file.c is troublesome because msgfilespec[] is
+a static string. 
+--Jess
+
+[6/16/94 public]
+I believe this is a symptom of CR7940.  Lots of exports led to DB corruption.
+
+
+
+CR Number                     : 8085
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : other
+Component Name                : cds
+Subcomponent Name             : cdsclerk
+Short Description             : clerk orphans files
+Reported Date                 : 6/2/93
+Found in Baseline             : 1.0.2
+Found Date                    : 6/2/93
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 7498
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : clerk_bind.c,clerk_main.c
+Sensitivity                   : public
+
+[6/2/93 public]
+ It appears that the cdsclerk, after importing the login context of the
+user, does not make use of the context to set its UID. Perhaps this is
+by design -- but if the credentials are certified, it perhaps should.
+When it fails to do this, it causes the security name cache to be stored
+in a file which is owned by cdsclerk's UID (0), and which does not
+appear to get removed by the clerk when the clerk times out and exits.
+Further, since the file is not owned by the UID of the actual user,
+thatuser cannot remove it via the usual means (kdestroy,
+sec_login_purge_context, etc.)
+ An alternatative slution is to have the securityname cache manager
+chown() the file it creates and ignore the error when it is not run as
+root; this appears to be unnecessary if a process which imports a login
+context will change to the associated UID (which is not always
+possible).
+ I see pros and cons for either solution. I've copied Mike Burati for
+the security side.
+ This is reproduced here (on HPs, Suns, and RIOSes) by:
+    dce_login non-super-user passwd
+    ls -lrt /opt/dcelocal/var/security/creds | tail (see your files)
+    cdscp list dir /.:/\*			    (spawn clerk, lookup cds)
+    !ls						    (see new .nc file)
+	(wait for cdsclerk to die)
+    !ls						    (we see the .nc file still)
+    kdestroy				(cannot kill the .nc file)
+
+[6/3/93 public]
+
+This is a duplicate of bug 7498. Janet McCann suggested another alternative-
+create the '.nc' file (empty) when the credentials file is created.
+This way, it would have the proper owner and permissions on it.
+
+
+
+CR Number                     : 7835
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : test/directory/cds/cdstest.c
+Short Description             : ./src/test/directory/cds does
+not build without having the obj tree from the DCE build.
+Reported Date                 : 4/29/93
+Found in Baseline             : 1.0.2
+Found Date                    : 4/29/93
+Severity                      : D
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 6773
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/29/93 public]
+
+This problem was found during the verification of the DCE 1.0.2 release tape.
+
+The functional test ./src/test/directory/cds does not build if one
+does not have the object tree from the DCE build. Without the object 
+tree the following error produced while compiling the test:
+
+   1501-106: (S) Include file cds_types.h not found. 
+"/home/DCE1.0.2/verify/dce/V1.0/dce/export/rios/usr/include/dce/cds_clerkserver.h",
+line 216.1: 1506-046 (S) Syntax error
+
+The problem was caused by the Makefile in the test/directory/cds directory 
+depending on VPATH to find the idl-generated header file cds_types.h (which,
+incidentally, is exported to the usr/include/dce directory, but which is 
+included in a header file as <cds_types.h>; ie: no 'dce', prefix which
+would have caused the file to be found in the export area) in the cds/stubs
+area of the object tree. 
+
+Long-term, this dependency of the cds funtional tests on another non-test 
+object tree directory should be removed. The only thing that should be
+needed to build the tests is the stuff in the export tree, and possibly the
+obj/test tree.
+
+[8/20/93 public]
+The VPATH used in Makefile is used to find source files and in this case 
+it is used to find cds_clerkserver.idl and cds_types.idl. The problem here
+is the similar as OT#6773 which uses the non-exported internal herad files.
+So marked this bug as dup of OT#6773.
+
+
+
+CR Number                     : 7787
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : control
+Short Description             : list object does not display
+consistent information on identical calls
+Reported Date                 : 4/22/93
+Found in Baseline             : 1.0.2
+Found Date                    : 4/22/93
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 3159
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/22/93 public]
+
+I was checking out the usage of wildcard characters (* ?) as normal
+characters in the rightmost position of an rpccp entry name.  The following
+occurred during my session:
+
+[root@yale:10] /
+> rpccp add entry /.:/star*
+
+>>> entry added
+
+[root@yale:10] /
+> cpccp add entry /.:/stars
+/bin/ksh: cpccp:  not found.
+
+[root@yale:10] /
+> rpccp add entry /.:/stars
+
+>>> entry added
+
+[root@yale:10] /
+> set dir /.: to skulk
+
+[root@yale:10] /
+> cdscp list obj /.:/star*
+                        LIST
+                      OBJECT   /.../xinu.cell
+                          AT   1993-04-22-10:58:29
+star*
+stars
+
+[root@yale:10] /
+> cdscp list obj /.:/star\*
+                        LIST
+                      OBJECT   /.../xinu.cell
+                          AT   1993-04-22-10:58:41
+
+[root@yale:10] /
+> cdscp list obj /.:/star\s
+                        LIST
+                      OBJECT   /.../xinu.cell/stars
+                          AT   1993-04-22-10:59:15
+stars
+
+[root@yale:10] /
+> cdscp list obj /.:/star\*
+                        LIST
+                      OBJECT   /.../xinu.cell
+                          AT   1993-04-22-10:59:35
+star*
+stars
+
+[root@yale:10] /
+
+According to the documentation, cdscp list obj /.:/star\* should only
+return "star*".  Neither object and both objects are not correct answers.
+
+[4/22/93 public]
+Yes wildcards are broken. We believe we have a fix but it has been deemed to
+risky for inclusion in 1.0.2 at this time. We plan to bsubmit to 1.0.3. I
+have trouble with a B1 sev/priority...
+
+
+
+CR Number                     : 7719
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : null CDS_Towers attr in CDS cache
+Reported Date                 : 4/14/93
+Found in Baseline             : 1.0.2
+Found Date                    : 4/14/93
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 7759
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/14/93 public]
+We have a test scenario in which we create a new user, create 3 new 
+clearinghouses and a directory, and then change the permissions on the
+clearinghouses and directory.  The results are frequently as follows:
+
+Creating the New User testuser...   done
+Creating the Directory /.:/testacl...   done
+Creating the Clearinghouse /.:/ch2_ch...   done
+Creating the Clearinghouse /.:/ch3_ch...   done
+Creating the Clearinghouse /.:/ch4_ch...   done
+
+Changing the Permissions on /.:/jsirkin_ch...   done
+Changing the Permissions on /.:/testacl...   done
+Changing the Permissions on /.:/ch2_ch...ERROR: acl object not found (dce /
+sec)
+Unable to bind to object /.:/ch2_ch
+
+Changing the Permissions on /.:/ch3_ch...ERROR: acl object not found (dce /
+sec)
+Unable to bind to object /.:/ch3_ch
+
+Changing the Permissions on /.:/ch4_ch...ERROR: acl object not found (dce /
+sec)
+Unable to bind to object /.:/ch4_ch
+
+This does not happen every time on every clearinghouse or directory, as you
+can see.  However, it is not limited to clearinghouses, it does happen with
+directories, too.
+
+We have chased it through the cds server, and believe it is not in there.
+This is consistently recreatable, and was first reported as intermittent
+here on March 24 (approximately the B19 build)  The results reported above
+are from the B21 build.
+
+If the above scenario does not recreate the problem for you, give me a call
+at (512)838-8130 and I'll get you a version of the shell script I've been
+using.
+
+[4/14/93 public]
+I don't have the time to chase this down right now, so why don't you send me
+the shell script anyway (burati@apollo.hp.com) so that when I do get a chance
+to look into it, I'll be able to reproduce it (or not) much faster...  Could
+you try setting the env variable DEBUG_ACL to 5 (actually anything over 3 is
+probably the same at the moment) for one of the acl_edit's that's failing with
+the object not found errors (not for all of them because it will be too much
+redundant data).
+
+[4/14/93 public]
+Status is changed to defer; i.e. it means that this bug is not open for
+1.0.2, but will be fixed by 1.0.3.
+
+[5/12/93 public]
+This note is from Curt Rouse (512)838-8154 who worked on this problem:
+
+ The cmd I issued to reproduce the problem was:
+     cdscp cre clear /.:/chx_ch
+
+ Followed by the cmd:
+     acl_edit /.:/chx_ch -m user:cell_admin:rwdtc
+
+ Intermittently (approx 1 out of 4 times), I then got the msg:
+     ERROR: acl object not found (dce / sec)
+     Unable to bind to object /.:/chx_ch
+
+ The problem is caused by a null attr value (x'0100000000') being cached
+ in the CDS cache for the CDS_Towers attribute (for the /.:/chx_ch object).
+ This only happens occasionally.  Sometimes CDS_Towers is never cached at
+ all.
+
+ After the acl_edit cmd is issued:  daclbind.c (approx line #543)
+ issues an:  "rpc_ns_binding_import_next"   call.
+
+ Later, rpc__nsattr_read_value  then issues a:  dnsReadAttrValue   call
+ and gets back a "DNS_EMPTY" (x'282110109')   return code.
+
+ The CDS clerk receives the request and looks in the cache and occasionally
+ it's got a null value.  If it's not cached it completes successfully.  If
+ cached with a null value, then clerk returns to the library w/a successful
+ return code and library changes it to DNS_EMPTY.  I have not been able to
+ determine why it's cached w/a null value, but it also is frequently done
+for
+ RPC_Profile & RPC_Group.
+
+[5/13/93 public]
+Given Jean's latest note (5/12), I'm reassigning this
+bug to CDS and correcting the description.
+
+[9/23/93 public]
+The main problem here is that cannot create more than two clearinghouse
+which is the OT#7759. And DCE has had a fix to it. So mark this one
+as dup of OT#7759
+
+
+
+CR Number                     : 7688
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : cdscp displays RPC_ObjectUUIDs incorrectly
+Reported Date                 : 4/12/93
+Found in Baseline             : 1.0.2
+Found Date                    : 4/12/93
+Severity                      : C
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 7690
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/12/93 public]
+RPC_ObjectUUIDs are not printed out in UUID string representation.  E.g.
+
+# cdscp show obj /.:/warden_ch
+
+                        SHOW
+                      OBJECT   /.../dce101.cell.austin.ibm.com/warden_ch
+                          AT   1993-04-12-18:59:13
+            RPC_ClassVersion = 0100
+             RPC_ObjectUUIDs = 92be0e0099c8c51b866e10005ac92d3d
+                     CDS_CTS = 1993-04-09-19:03:53.088663100/10-00-5a-c9-2d-3d
+                     CDS_UTS = 1993-04-09-20:03:59.525969100/10-00-5a-c9-2d-3d
+                   CDS_Class = CDS_Clearinghouse
+            CDS_ClassVersion = 2.0
+              CDS_ObjectUUID = 000ebe92-c899-1bc5-866e-10005ac92d3d
+                  CDS_Towers = :
+                       Tower = ncacn_ip_tcp:129.35.68.156[]
+                  CDS_Towers = :
+                       Tower = ncadg_ip_udp:129.35.68.156[]
+           CDS_CHDirectories = :
+<list of directories elided>
+
+The RPC_ObjectUUID and CDS_ObjectUUID should be the same.
+However, the RPC_ObjectUUID is not being printed out in proper string
+representation.
+
+[4/12/93 public]
+
+This is a dup of 7690, which is a more complete description.
+
+
+
+CR Number                     : 7354
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : aix
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : cdsResolveName does not return partial result
+Reported Date                 : 2/25/93
+Found in Baseline             : 1.0.2
+Found Date                    : 2/25/93
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 5596
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/25/93 public]
+
+We tested CDS over the XDS interface. We created a soft link 
+
+link1="/.../localcell/link1"
+
+that points to an object
+
+obj1="/.../localcell/obj1". This object does not exist.
+
+We set :
+
+dns_opq_fname part_result;
+...
+flags->fsPartialRes = &part_result;
+flags->fsResLength = sizeof (part_result);
+
+Then we called cdsResolveName with link1 und expected to get DNS_ERROR and
+
+flags->dsPartialRes="/.../localcell".
+
+We got DNS_ERROR but
+
+flags->d2PartialRes="".
+
+For more informations please contact : Jochen Keutel
+					(Jochen.Keutel@ap.mchp.sni.de)
+					( Phone : +49 89 636 49514)
+
+
+
+CR Number                     : 7226
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : missing access check in 'new
+epoch'
+Reported Date                 : 2/15/93
+Found in Baseline             : 1.0.2
+Found Date                    : 2/15/93
+Severity                      : B
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 6506
+Fix By Baseline               : 1.0.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/15/93 public]
+The 'set directory to new epoch' command is missing a security check.
+The user issuing the command must have write access to the clearinghouse
+if it is being changed from a read-only to a master.
+
+
+
+CR Number                     : 7124
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cds
+Subcomponent Name             : cdscp
+Short Description             : no status from cdscp without LANG set
+Reported Date                 : 2/3/93
+Found in Baseline             : 1.0.2
+Found Date                    : 2/3/93
+Severity                      : C
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 9857
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/3/93 public]
+
+If LANG not set, 
+    % cdscp show server
+?
+                        SHOW
+                      SERVER  
+                          AT   1993-02-03-13:04:15
+			...
+
+If LANG set, 
+% setenv LANG en_US.ISO8859-1
+% cdscp show server
+Warning: you have no network credentials. All requests will be unauthenticated.
+                        SHOW
+                      SERVER  
+                          AT   1993-02-03-13:05:35
+			...
+
+It should provide a status code even if the right message
+can't be found.
+
+[2/5/93 public]
+Will be addressed with other serviceability/I18N issues in DCE V1.1.
+
+[6/16/94 public]
+Duplicate of 9857, fixed in 1.1b9
+
+
+
+CR Number                     : 6506
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cds
+Subcomponent Name             : cdsd
+Short Description             : User without write permission to clearinghouse can set dir to new epoch
+Reported Date                 : 12/16/92
+Found in Baseline             : 1.0.2b6
+Found Date                    : 12/16/92
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 7226
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[12/16/92 public]
+'cdscp set dir to new epoch' succeeds when a user has "rwdtcia" permissions to
+the directory and no permissions to the newly designated master clearinghouse.
+The man page says write permission to the clearinghouse is required for the
+command to succeed.  Could be a doc bug.  Console follows:
+
+	- As cell_admin -
+# acl_edit /.:/aaa -m user:testuser:a
+# cdscp set dir /.:/aaa to skulk
+# dce_login testuser testuser
+	- As testuser -
+# cdscp set dir /.:/aaa to skulk
+# cdscp set dir /.:/aaa to new epoch master /.:/dls_ch readonly /.:/octagon_ch
+Error on entity: /.../oct/aaa
+Insufficient rights to perform requested operation (dce / cds)
+Function: dnsReadAttrValue
+
+# ^D
+	- As cell_admin -
+# acl_edit /.:/aaa -m user:testuser:rwdtcia
+# dce_login testuser testuser
+	- As testuser -
+# cdscp set dir /.:/aaa to new epoch master /.:/dls_ch readonly /.:/octagon_ch
+#
+
+[7/15/93 public]
+Marked as duplicate of 7226 (which has been fixed).
+
+
+
+CR Number                     : 5915
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 9700
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : other
+Component Name                : cds
+Subcomponent Name             : cdsd,cdsclerk
+Short Description             : Clearinghouse relocation does not work.
+Reported Date                 : 11/3/92
+Found in Baseline             : 1.0.1
+Found Date                    : 11/3/92
+Severity                      : C
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 9700
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[11/3/92 public]
+
+
+
+I tried relocating a clearinghouse by following the instructions in the
+admin guide.  I was successfully able to move a clearinghouse to another
+machine and bring it up.  However, after the clearinghouse was up on the
+new machine, I was no longer able to skulk the root directory.  Attempts
+to do so yielded the error:
+
+cdscp> set directory /.: to skulk
+set directory /.: to skulk
+Error on entity: /.../iowa_cell
+Specified clearinghouse does not exist (dce / cds)
+Function: dnsSkulkDir
+
+I am not sure if this is the cause of the problem, but I noticed that
+after relocating the clearinghouse, the clearinghouse entry in the
+cache contained the new address.  However, the root directory entry
+for that clearinghouse still contained the old address.
+
+[11/11/92 public]
+
+After a clearinghouse has been relocated from one CDS server machine
+to another, The tower information for the clearinghouse in the root
+directory, /.: , is not updated immediately.  "set dir /.: to skulk"
+command would fail.  But after certain time, the background propagation
+does seem to get the tower information in the root directory updated.
+Then the command "set dir /.: to skulk" will work again.  This is
+a case which the background propagation can do properly, while the
+manual skulking fails [for root directory].
+
+[1/15/93 public]
+We believe that Sev/Pri of this CR should be C2. The problem corrects
+itself after approximately 1 hour and during that time read operations
+are serviced correctly. We are currently investigating the fix for this
+defect.
+
+[1/22/93 public]
+Changed sev/pri as per agreement at this week's tech call.
+
+[9/10/93 public]
+[Based on the OSF/DCE 1.0.2 DCE Admin. Guide - Core Components Pg11-10 - 11-12]
+Before you relocate a cleringhouse, use the "clear clearinghouse" command to
+update the clearinghous files (especially the *checkpoint.* file) and ensure
+that the files are consistent. We did this on both 486 and HP_UX and relocate
+clearinghouses successfully as well as the "set dir /.: to skulk". Can anyone
+who saw this problem before give a try please. If we do not hear any problem
+in a week, we'll just cancel this bug.
+
+[9/10/93 public]
+Oops, My test wasn't right. I will check this out on Monday.
+
+[10/20/93 public]
+We are still working this and 5915 but if we get a resolution it 
+will go in the unintegrated tree.
+
+[8/3/94 public]
+this is a dup of 9700.  We are trying to fix currently.  Includes changes
+to gda and adver to update there mgmt entries when the address changes.
+
+
+
+CR Number                     : 5913
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 3159
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : SHOW command does not work well with wildcard/metacharacters
+Reported Date                 : 11/3/92
+Found in Baseline             : 1.0.1
+Found Date                    : 11/3/92
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 3159
+Fix By Baseline               : 1.0.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[11/3/92 public]
+
+
+  (4) Creating object with '*' and showing it:
+      -----------------------------------------------------------------
+      cdscp> create obj /.:/FVT/te*
+      cdscp> list obj /.:/FVT/te\*
+                              LIST
+                            OBJECT   /.../c=ca/o=cell2/FVT
+                                AT   1992-10-23-14:56:03
+      te*
+      cdscp> show obj /.:/FVT/te*
+
+                              SHOW
+                            OBJECT   /.../c=ca/o=cell2/FVT/te*
+                                AT   1992-10-23-14:56:23
+                           CDS_CTS = 1992-10-23-19:58:17.469518100/c9-c2-d4-ff-
+                           CDS_UTS = 1992-10-23-19:58:17.482572100/c9-c2-d4-ff-
+      cdscp> show obj /.:/FVT/te\*
+
+                              SHOW
+                            OBJECT   /.../c=ca/o=cell2/FVT/te\*
+                                AT   1992-10-23-14:56:31
+      Error on entity: /.../c=ca/o=cell2/FVT/te\*
+      Requested entry does not exist (dce / cds)
+      Function: dnsEnumAttr
+      dnsEnumAttr: partial results = /.../c=ca/o=cell2/FVT
+
+      cdscp>
+      -----------------------------------------------------------------
+      NOTE:  Documentation(Application Development Guide, Chapter 24,
+             pages 418 and 419) states that 'when entering a name
+             as part of a CDSCP show or list command, you must use a
+             backslash (\) to escape any * or ? character in the
+             rightmost simple name.'  The example shows that the '*'
+             character is not being interpreted as a metacharacter.
+             This same results are also found for the '?' character.
+
+Effects:
+We are unable to use metacharacters in cds names
+
+[11/24/92 public]
+
+SOme more:
+
+   part b)
+   =======
+      cdscp> create obj /.:/FVT/te\*
+      cdscp> list obj /.:/FVT/te\*
+                              LIST
+                            OBJECT   /.../c=ca/o=cell2/FVT
+                                AT   1992-10-23-14:56:03
+      cdscp> show obj /.:/FVT/te*
+
+                              SHOW
+                            OBJECT   /.../c=ca/o=cell2/FVT/te\*
+                                AT   1992-10-23-14:56:23
+                           CDS_CTS = 1992-10-23-19:58:17.469518100/c9-c2-d4-ff-
+                           CDS_UTS = 1992-10-23-19:58:17.482572100/c9-c2-d4-ff-
+>      cdscp> show obj /.:/FVT/te\*
+>
+>                              SHOW
+>                            OBJECT   /.../c=ca/o=cell2/FVT/te\*
+>                                AT   1992-10-23-14:56:31
+>                           CDS_CTS = 1992-10-23-19:58:17.469518100/c9-c2-d4-ff-
+>                           CDS_UTS = 1992-10-23-19:58:17.482572100/c9-c2-d4-ff-
+      cdscp> show obj /.:/FVT/te\\*
+
+                              SHOW
+                            OBJECT   /.../c=ca/o=cell2/FVT/te\*
+                                AT   1992-10-23-14:56:42
+                           CDS_CTS = 1992-10-23-19:58:17.469518100/c9-c2-d4-ff-
+                           CDS_UTS = 1992-10-23-19:58:17.482572100/c9-c2-d4-ff-
+      cdscp> delete obj /.:/FVT/te\*
+       OR
+      cdscp> delete obj /.:/FVT/te\\*
+       will delete the created object.
+
+
+
+CR Number                     : 4525
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : other
+Component Name                : cds
+Subcomponent Name             : cdscp,cdsd
+Short Description             : Allows modification of CDS_ObjectUUID for child entries.
+Reported Date                 : 6/30/92
+Found in Baseline             : 1.0.1b19
+Found Date                    : 6/30/92
+Severity                      : C
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 3523
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/30/92 public]
+
+CDS curently allows the user to modify the CDS_ObjectUUID attribute
+of a child entry.  This should not be allowed.
+
+Steps to Reproduce:
+
+cdscp create directory /.:/test
+cdscp set child /.:/test CDS_ObjectUUID 0AC90A68-D545-11CA-800C-080009123495
+
+
+
+CR Number                     : 4459
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 3383, 8133
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : cdsd
+Short Description             : mem leak create/del objects
+Reported Date                 : 6/25/92
+Found in Baseline             : 1.0
+Found Date                    : 6/25/92
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 3383
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/25/92 public]
+
+cdsd will double in size after two hours of heavy maniputlation
+of objects, the space is not reclaimed after all the objects are
+deleted.  If the test is run again, cdsd will continue to 
+grow bigger.  Ron Karr (sni) examined the chain of memory (created
+by dns_malloc) and found (after the first 10 enties) all the 
+leftover memory had been created by a routine build_record in the
+file db_entry at line 421 (a call to dns_malloc_tmp).
+
+[7/13/92 public]
+
+See comment in CR 3383. Basically the fix for this problem requires
+architectural work in the server. We will address it in a subsequent
+version of CDS. This was agreed to at last Thursday's project management
+meeting.
+
+
+
+CR Number                     : 4302
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cds
+Subcomponent Name             : cdsd
+Short Description             : CDS not responding.
+Reported Date                 : 6/17/92
+Found in Baseline             : 1.0.1b18
+Found Date                    : 6/17/92
+Severity                      : B
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 4741
+Fix By Baseline               : 1.0.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : mason@transarc.com
+Transarc Status               : open
+
+[6/17/92 public]
+
+I was attempting to run some DFS tests on a single machine to see just how
+long the tests would run.  Well, after about 2 hours the tests got hung up.
+I looked around to see what was going on, and it appeared that CDS was not
+responding, nor timing out.  Here are the results of a show dir inside of
+cdscp.
+
+cdscp> show dir /.../dfstest.transarc.com
+
+                        SHOW
+                   DIRECTORY   /.../dfstest.transarc.com
+                          AT   1992-06-15-12:36:14
+Error on entity: /.../dfstest.transarc.com
+Error with socket (dce / cds)
+Function: dnsEnumAttr
+
+The error messages only appeared after I hit CTRL-C.  At that point I had
+waited over a minute.  A show dir on /.../dfstest.transarc.com/fs had the 
+same results.  Also any attempt to cd to, or ls files in DFS just hung.
+While the above command was executing I issued some ps calls to see what
+cds was doing.  Here are the results.
+
+ps axuw | fgrep cds
+    root  2152 1.6%   5%  2456  1548      -    S 62:36 /opt/dcelocal/bin/cdscler
+k -U root -u 0 -m 2
+    root  4704 1.3%   2%   940   792      -    S 49:12 cdsadv
+    root  5478 0.9%   7%  2948  2248      -    S 33:36 cdsd
+    root 18107 0.2%   2%   476   788      -    S  0:03 /opt/dcelocal/bin/cdscler
+k -U DNS$SERVER -u 0 -m 2
+    root 18651 0.2%   2%   528   744  pts/2    S  0:01 cdscp
+    root 19694 0.0%   0%    96   132  pts/3    S  0:00 fgrep cds
+# !!
+ps axuw | fgrep cds
+    root  2152 1.6%   5%  2456  1548      -    S 62:36 /opt/dcelocal/bin/cdscler
+k -U root -u 0 -m 2
+    root  4704 1.3%   2%   940   792      -    S 49:12 cdsadv
+    root  5478 0.9%   7%  2948  2248      -    S 33:37 cdsd
+    root 18107 0.2%   2%   476   788      -    S  0:03 /opt/dcelocal/bin/cdscler
+k -U DNS$SERVER -u 0 -m 2
+    root 18651 0.2%   2%   528   744  pts/2    S  0:01 cdscp
+    root 19696 0.0%   0%    96   132  pts/3    S  0:00 fgrep cds
+# !!
+ps axuw | fgrep cds
+    root  2152 1.6%   5%  2456  1548      -    S 62:37 /opt/dcelocal/bin/cdscler
+k -U root -u 0 -m 2
+    root  4704 1.3%   2%   940   792      -    S 49:12 cdsadv
+    root  5478 0.9%   7%  2948  2248      -    S 33:37 cdsd
+    root 18107 0.2%   2%   476   788      -    S  0:03 /opt/dcelocal/bin/cdscler
+k -U DNS$SERVER -u 0 -m 2
+    root 18651 0.2%   2%   528   744  pts/2    S  0:01 cdscp
+    root 19698 0.0%   0%    96   132  pts/3    S  0:00 fgrep cds
+# !!
+ps axuw | fgrep cds
+    root  2152 1.6%   5%  2456  1548      -    S 62:38 /opt/dcelocal/bin/cdscler
+k -U root -u 0 -m 2
+    root  4704 1.3%   2%   940   792      -    S 49:12 cdsadv
+    root  5478 0.9%   7%  2948  2248      -    S 33:37 cdsd
+    root 18107 0.2%   2%   476   788      -    S  0:03 /opt/dcelocal/bin/cdscler
+k -U DNS$SERVER -u 0 -m 2
+    root 18651 0.3%   2%   528   744  pts/2    S  0:02 cdscp
+    root 19700 0.0%   0%    96   132  pts/3    S  0:00 fgrep cds
+# !!
+ps axuw | fgrep cds
+    root  2152 1.6%   5%  2456  1548      -    S 62:38 /opt/dcelocal/bin/cdscler
+k -U root -u 0 -m 2
+    root  4704 1.3%   2%   940   792      -    S 49:14 cdsadv
+    root  5478 0.9%   7%  2948  2248      -    S 33:37 cdsd
+    root 18107 0.2%   2%   476   788      -    S  0:03 /opt/dcelocal/bin/cdscler
+k -U DNS$SERVER -u 0 -m 2
+    root 18651 0.3%   2%   528   744  pts/2    S  0:02 cdscp
+    root 19702 0.0%   0%    96   132  pts/3    S  0:00 fgrep cds
+# !!
+ps axuw | fgrep cds
+    root  2152 1.6%   5%  2456  1548      -    S 62:40 /opt/dcelocal/bin/cdscler
+k -U root -u 0 -m 2
+    root  4704 1.3%   2%   940   792      -    S 49:14 cdsadv
+    root  5478 0.9%   7%  2948  2248      -    S 33:38 cdsd
+    root 18107 0.2%   2%   476   788      -    S  0:03 /opt/dcelocal/bin/cdscler
+k -U DNS$SERVER -u 0 -m 2
+    root 18651 0.3%   2%   528   744  pts/2    S  0:02 cdscp
+    root 19704 0.0%   0%    96   132  pts/3    S  0:00 fgrep cds
+# !!
+ps axuw | fgrep cds
+    root  2152 1.6%   5%  2456  1548      -    S 62:41 /opt/dcelocal/bin/cdscler
+k -U root -u 0 -m 2
+    root  4704 1.3%   2%   940   792      -    S 49:16 cdsadv
+    root  5478 0.9%   7%  2948  2248      -    S 33:39 cdsd
+    root 18107 0.2%   2%   476   788      -    S  0:03 /opt/dcelocal/bin/cdscler
+k -U DNS$SERVER -u 0 -m 2
+    root 18651 0.2%   2%   528   744  pts/2    S  0:02 cdscp
+    root 19707 0.0%   0%    96   132  pts/3    S  0:00 fgrep cds
+# !!
+ps axuw | fgrep cds
+    root  2152 1.6%   5%  2456  1504      -    S 62:44 /opt/dcelocal/bin/cdscler
+k -U root -u 0 -m 2
+    root  4704 1.3%   2%   940   792      -    S 49:18 cdsadv
+    root  5478 0.9%   7%  2948  2192      -    S 33:40 cdsd
+    root 18107 0.2%   2%   476   788      -    S  0:04 /opt/dcelocal/bin/cdscler
+k -U DNS$SERVER -u 0 -m 2
+    root 18651 0.3%   2%   572   788  pts/2    S  0:03 cdscp
+    root 19981 0.0%   0%    96   132  pts/3    S  0:00 fgrep cds
+
+I should point out that this system was installed/configured with the
+RPC_SUPPORTED_PROTSEQS variable set to ncadg_ip_udp.  However prior to
+starting the tests I re-booted the machine, just to make sure I was starting
+clean.  When I ran the rc.dce and rc.dfs files after re-boot I did not set the 
+RPC_SUPPORTED_PROTSEQS variable.
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `mason@transarc.com' 
+Added field Transarc Status with value `open'
+
+[10/12/92 public]
+Dup of 4741.
+
+
+
+CR Number                     : 3476
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cds
+Subcomponent Name             : cdscp
+Short Description             : Apparent server crash after
+stress test
+Reported Date                 : 5/14/92
+Found in Baseline             : 1.0.1b15
+Found Date                    : 5/14/92
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 3383
+Fix By Baseline               : 1.0.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/14/92 public]
+Running a looping test which contains the commands listed below the
+error "RPC protocol not supported by this auth protocol (dce / rpc)"
+occurred after 10 hours of running on a single machine cell.  The
+test had looped 135+ times before the error appeared.  Once the error
+occurred all the following commands also failed.  The error "Unable to
+communicate with any CDS server (dce / cds)" also appeared several times.
+
+Looping Test Commands:
+
+cdscp create directory /.:/TESTDIR
+cdscp list dir /.:/TESTDIR
+cdscp set dir /.:/TESTDIR to skulk
+cdscp create directory /.:/TESTDIR/testdir
+cdscp show dir /.:/TESTDIR/testdir
+cdscp cre dir /.:/TESTDIR/testdir/w0
+cdscp list dir /.:/TESTDIR/testdir/w0
+cdscp cre obj /.:/TESTDIR/testdir/w0/x0.object CDS_Class = object_class CDS_ClassVersion = 1.0
+cdscp show obj /.:/TESTDIR/testdir/w0/x0.object
+cdscp cre link /.:/TESTDIR/testdir/w0/x0.softlink CDS_LinkTarget = /.:/TESTDIR/testdir/w0/x0.object
+cdscp show link /.:/TESTDIR/testdir/w0/x0.softlink
+cdscp del link /.:/TESTDIR/testdir/w0/x0.softlink
+cdscp show link /.:/TESTDIR/testdir/w0/x0.softlink
+cdscp del obj /.:/TESTDIR/testdir/w0/x0.object
+cdscp show obj /.:/TESTDIR/testdir/w0/x0.object
+cdscp del dir /.:/TESTDIR/testdir/w0
+cdscp show dir /.:/TESTDIR/testdir/w0
+cdscp delete directory /.:/TESTDIR/testdir
+cdscp show dir /.:/TESTDIR/testdir
+cdscp delete directory /.:/TESTDIR
+cdscp show dir /.:/TESTDIR
+
+[5/14/92 public]
+Not sure why this is should be an A0.
+
+[05/14/92 public]
+I made this an A0 because I felt that our system tests will not function
+for the required 48 hours if this 21 command test can only run 10 hours
+on a single machine cell.  The system tests will involve running at least
+four looping cds tests on eight machines in one cell accessing one CDS
+server.
+
+[05/15/92 public]
+Discussed priority with Mark Fox, agreed to lower priority from 0 to 1.
+
+[5/18/92 public]
+
+Changed short description to: Apparent server crash after stress test.
+
+The issue of error "RPC protocol not supported by this auth protocol" is
+not related and fixed in RPC.  The issue of the server not reachable is the
+crux of this bug.
+
+[5/19/92 public]
+This is a dup of 3383.
+
+
+
+CR Number                     : 3441
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : cdscp
+Short Description             : cdscp writes error output to stdout
+Reported Date                 : 5/13/92
+Found in Baseline             : 1.0.1b14
+Found Date                    : 5/13/92
+Severity                      : D
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 3426
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/13/92 public]
+Cdscp writes its error output to stdout, for instance:
+
+# cdscp sho dir /.:/nonexistent >/dev/null
+# 
+
+This prevents system tests from filtering its copious normal output.
+
+[5/13/92 public]
+Duplicate of 3426 - cdscp outputs errors to stdout instead of stderr
+
+
+
+CR Number                     : 3405
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cds
+Subcomponent Name             : cdsclerk
+Short Description             : Seems to be spinning after running dce_config.
+Reported Date                 : 5/12/92
+Found in Baseline             : 1.0.1b13
+Found Date                    : 5/12/92
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : mason@transarc.com
+Transarc Status               : open
+
+[5/12/92 public]
+
+After running dce_config and configuring the mahcine as a DCE/DFS server
+CDS seems to be lost.  I try to ls my cell directory (/.../<cellname>)
+and it never returns.  I noticed that cdsclerk is using 11 percent of 
+the cpu, so I ran dbx and attached to it.  Here's the stack trace.
+
+(dbx) where
+cma__io_available(0x0, 0x0, 0x200ce970) at 0xd030c6dc
+cma___null_thread(0x0) at 0xd0309a00
+cma__thread_base(0x20084b18) at 0xd0317690
+cma__restore_thread_ctx() at 0xd030fa00
+cma__io_available(0x0, 0x0, 0xaceface) at 0xd030c6dc
+
+I don't know if this helps since my understanding is dbx does not 
+understand dce threads.
+
+Once I reboot the machine and restart the dce and dfs everything is OK.
+
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `mason@transarc.com' 
+Added field Transarc Status with value `open'
+
+[4/12/92 public]
+This is a duplicate of CR 2435 - cdsclerk runs on and on... A work-around
+is to set BIND_PE_SITE.
+
+
+
+CR Number                     : 2468
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cds
+Subcomponent Name             : cdscp,cdsd
+Short Description             : Escaping of * wildcard does not work in show commands
+Reported Date                 : 3/31/92
+Found in Baseline             : 1.0.1
+Found Date                    : 3/31/92
+Severity                      : B
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 3159
+Fix By Baseline               : 1.0.1
+Fixed In Baseline             : 1.0.1
+Affected File(s)              : directory/cds/server/names_lib.c
+Sensitivity                   : public
+
+[3/31/92 public]
+    Reported by John Grober.  Waiting for OT to recognize my name.
+
+Escaping the * wildcard appears to work for list commands but does
+not work for show commands.
+
+Steps to Reproduce:
+
+- "create directory /.:/t1*"
+
+- "list directory /.:/t1\*"
+     This command works.
+
+- "show directory /.:/t1\*"
+    This command fails with the error DNS_UNKNOWNENTRY 
+
+The same also appears to be true for the "show object" command.
+
+[4/30/92 public]
+From directory/cds/server/names_lib.c log:
+Gak! I'm losing my touch.  We must break out of the for() loop
+in dowild() if we run out of name, and *then* we can return FALSE.
+
+Also while here, testing showed up another bug which I discovered
+was reported in OT#2468 and OT#3071.  This bug was in names_s_compare()
+where no '*' was found.  It was checking that both strings were the
+same length, which is not true with escaped wildcard specs.  Instead,
+check if the match used up all of the name string.
+
+While I'm here, break down and insert the use of const everywhere.
+Also some reformatting for clarity.
+
+
+Reopened.  Here are the result's I'm getting in 1.0.1b14:
+
+    cdscp> list dir /.:/t1\*
+    LIST
+    DIRECTORY   /.../macaroni_cell.osf.org/t1\*
+    AT   1992-05-12-20:57:11
+    t1*
+    cdscp> show dir /.:/t1\*
+
+    SHOW
+    DIRECTORY   /.../macaroni_cell.osf.org/t1\*
+    AT   1992-05-12-20:57:18
+    Error on entity: /.../macaroni_cell.osf.org/t1\*
+    Requested entry does not exist (dce / cds)
+    Function: dnsEnumAttr
+    dnsEnumAttr: partial results = /.../macaroni_cell.osf.org
+
+    cdscp>
+
+[10/13/92 public]
+Alan did fix the original problem, but it was masking a problem with
+wildcard handling in the API, since reported in CR3159.
+
+
+

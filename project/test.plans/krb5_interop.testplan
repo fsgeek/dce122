@@ -1,0 +1,169 @@
+
+        Test Plan : Manual interoperability testing of DCE 1.2 & krb5
+        -------------------------------------------------------------
+
+0. Overview
+
+    This is a live document.  This document will be extended with any
+    changes or additions as the testing is being performed.  The
+    intention is to use this as the basis for documenting the manual
+    tests for krb5 interoperability in the DCE 1.2.2 Portability and
+    Testing Guide, or release notes.
+
+1. Introduction
+
+    This document describes the goals and steps required of the manual
+    testing for DCE 1.2 & krb5 interoperability.
+
+2. Goals
+
+    The goal of this effort is to verify the requirements against 2
+    commercial versions of Kerberos.  More specifically:
+
+        a) Test that the DCE 1.2.2 Security Server can act as a Kerberos
+        KDC for 2 commercial versions of Kerberos V5 clients.
+
+        b) Test that a DCE 1.2.2 client and 2 commercial versions of
+        Kerberos V5 clients can coexist together on the same host.
+
+        c) Test that the DCE 1.2.2 secure BSD remote utilities can
+        interoperate with 2 commercial versions of Kerberos V5 secure
+        BSD remote utilities.
+
+3. Hardware Requirements
+
+    one IBM workstation running AIX 3.2.5 Patch level E4R9 or higher.
+    one HP-UX workstation running HP-UX 9.05.
+    one HP-UX workstation running HP-UX 10.01.
+
+4. Software Requirements
+
+    DCE 1.2.2 built for AIX, including the rutils.
+    2 commercial versions of Kerberos V5 clients:
+        a) CyberSafe
+        b) HP Secure Internet Services - (only includes krb5 remote
+        utilities)
+
+5. Configuration Steps
+
+    First configure the AIX workstation with a DCE 1.2.2 Security and
+    CDS Server.
+
+    Install the CyberSafe Krb5 client software on the HPUX 9.05
+    workstation.  Refer to chapter 3 of the release notes.  Copy the
+    krb.conf & krb.realm (in /krb5) files from the AIX DCE Security
+    Server to the HP-UX client.  Complete the final configuration steps
+    in Chapter 3 (p.  18).
+
+    Next install the Secure Internet Services on the HP-UX workstation
+    running HP-UX 10.01.
+
+6. Additional Setup
+
+    On the DCE Security Server, add a test user account (test_user).
+    Allow the test user to obtain forwardable, proxiable & renewable
+    tickets.
+
+    The DCE 1.2.2 dce_config script automatically sets up the required
+    configuration for the rutils. However, you will need to perform some
+    additional manual steps for the CyberSafe and HP SIS clients.
+
+    For the CyberSafe and HP SIS client, create a
+    "host/{fully-qualified-hostname}" account in the DCE registry and a
+    key in /krb5/v5srvtab.
+
+    Copy the /krb5/v5srvtab file to the 2 client machines.
+
+7. Manual Tests
+
+    A. DCE KDC Interoperability
+
+        From the CyberSafe Krb5 client, execute the following:
+
+        a) kinit as test_user to get a TGT. Check with klist.
+        b) kinit -f as test_user to get a forwardable TGT. Check with
+           klist -f.
+        c) kinit -p as test_user to get a proxiable TGT. Check with
+           klist -f.
+        d) kinit -r as test_user to get a renewable TGT. Check with
+           klist -f.
+        e) kdestroy. Check that creds are destroyed with klist.
+        f) execute the kdc5_hammer test (comes with Cybersafe
+           installation) in /krb5/tests
+        g) kinit as bogus user
+        h) kinit as test_user with wrong password.
+
+        Also, the rutil interop tests will test mutual authentication,
+        ticket forwarding, and other requirements.
+
+    B. Remote Utility Interoperability
+
+        The following table displays each of the required
+        interoperability scenarios to be tested:
+
+                            Server
+                 | DCE 1.2.2   | CyberSafe     | HP SIS
+        --------------------------------------------------------
+        DCE 1.2.2 |    No       |       Yes     |       Yes
+Client  CyberSafe |    Yes      |       No      |       No
+        HP SIS    |    Yes      |       No      |       No
+
+        For each scenario, the following tests need to be executed:
+
+        a) rsh and rshd interoperate:
+
+            1. rsh [remote_host] pwd
+            2. forward creds: rsh -f [remote host] klist
+            3. encryption: rsh -x [remote host] pwd
+               (encryption not supported by HP SIS)
+            4. encryption & forwarding: rsh -fx [remote host] klist
+            5. Deny access via .k5login, /krb5/aname.
+
+        b) rlogin and rlogind interoperate:
+
+            1. rlogin [remote_host]; pwd
+            2. forward creds: rlogin -f [remote host]; klist
+            3. encryption: rlogin -x [remote host]; pwd
+               (encryption not supported by HP SIS)
+            4. encryption & forwarding: rlogin -fx [remote host]; klist
+            5. Deny access via .k5login, /krb5/aname.
+            6. forwardable creds: rlogin -F [remote host]; then on
+               remote host, rlogin -f [remote host2]; klist
+
+        c) Additional tests as time permits:
+
+            1. test bogus user
+            2. test -l option of rsh, rlogin
+            3. rlogin: test CTRL-S, CTRL-Q, "~.", "~^D", "~^Z",
+               "~^Y", "~!"
+            4. rlogin: change window size, check baud rate (stty -a),
+               try vi,emacs editors.
+            5. rsh: test command that requires stdin, interrupt long
+               running command.
+
+    C. DCE/krb5 client coexistence
+
+        Copy the /krb5/bin binaries to the DCE Security Server.  Test
+        the following scenarios:
+
+        Edit /opt/dcelocal/dce_cf.db.  Test the following 2 scenarios
+        with krb5_ccache_vno set to 1 & 2.
+
+        a. Acquire a TGT with the DCE kinit.  klist the creds file with
+           the krb5 klist.  klist the creds file with the DCE klist.
+           Refresh the creds file with the krb5 kinit.  Destroy the
+           creds file with the krb5 kdestroy.
+
+        b. Acquire a TGT with the krb5 kinit.  klist the creds file with
+           the DCE klist.  klist the creds file with the krb5 klist.
+           Refresh the creds file with the DCE kinit.  Destroy the creds
+           file with the DCE kdestroy.
+
+        Edit /opt/dcelocal/dce_cf.db.  Test the following 2 scenarios
+        with krb5_kt_vno set to 1 & 2
+
+        a. Create a keytab file with DCE dcecp.  Insert a key into this
+           keytab with DCE dcecp.
+
+        b. Create a keytab file with kadmin 'genkt' command.  Display
+           using DCE dcecp.

@@ -1,0 +1,184 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: dced_server_start.3dce,v $
+...\" Revision 1.1.4.1  1996/11/18  17:01:36  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  16:57:49  wardr]
+...\"
+...\" Revision 1.1.2.7  1995/05/31  17:06:35  buckler
+...\" 	1.1 edits.
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/05/30  23:04:57  buckler]
+...\" 
+...\" Revision 1.1.2.6  1994/10/20  03:06:36  jshirley
+...\" 	Final edits.
+...\" 	[1994/10/20  03:05:33  jshirley]
+...\" 
+...\" Revision 1.1.2.5  1994/10/18  16:17:33  jshirley
+...\" 	Updated for final.
+...\" 	[1994/10/18  16:17:09  jshirley]
+...\" 
+...\" Revision 1.1.2.4  1994/10/14  18:58:17  hileman
+...\" 	Added status codes.
+...\" 	[1994/10/14  18:58:02  hileman]
+...\" 
+...\" Revision 1.1.2.3  1994/06/13  17:03:00  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  16:47:13  devobj]
+...\" 
+...\" Revision 1.1.2.2  1994/06/01  14:00:31  jshirley
+...\" 	{def,CR9830,R1.1}
+...\" 	Incorporated first review comments.
+...\" 	[1994/06/01  13:59:52  jshirley]
+...\" 
+...\" Revision 1.1.2.1  1994/05/04  01:35:25  jshirley
+...\" 	Created file.
+...\" 	[1994/05/04  01:09:11  jshirley]
+...\" 
+...\" $EndLog$
+.TH dced_server_start 3dce 
+...\".iX "\*Ldced_server_start(\|)\*O"
+.SH "Name"
+\*Ldced_server_start\*O - 
+Starts a DCE-configured server on a specified host
+.SH "Synopsis"
+.sS
+\*L#include <dce/dced.h>
+.sp .4v
+\*Lvoid dced_server_start(
+.nL
+	\*Ldced_binding_handle_t \*Vdced_bh\*L,
+.nL
+	\*Luuid_t *\*Vconf_uuid\*L,
+.nL
+	\*Ldced_attr_list_t *\*Vattributes\*L,
+.nL
+	\*Luuid_t *\*Vexec_uuid\*L,
+.nL
+	\*Lerror_status_t *\*Vstatus\*L);
+.sE
+.nL
+.ne 1.5i
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vdced_bh\*O"
+Specifies the \*Ldced\*O binding handle for the \*Lsrvrconf\*O service on a
+specific host.
+.LI "\*Vconf_uuid\*O"
+Specifies the UUID that \*Ldced\*O uses to identify the server to start.
+If the value input is that of a server that is already running,
+\*Ldced\*O starts a new instance.
+...\"NOTE: dced_g_uuid_all_servers is not support for DCE 1.1
+...\"If the value \*Ldced_g_uuid_all_servers\*O is used, 
+...\"then \*Ldced\*O will attempt to start all DCE servers and the
+...\"server configuration information defined in the \*Vattributes\*O
+...\"parameter is ignored. 
+.LI "\*Vattributes\*O"
+Specifies the configuration attributes to use to start the server.
+If the value is NULL, the default configuration defined in \*Ldced\*O is used.
+.LE
+.SS "Input/Output"
+.VL
+.LI "\*Vexec_uuid\*O"
+Specifies a new UUID for \*Ldced\*O to use to identify the running server.
+If a nil UUID is input, a new UUID is created and returned.
+If the value input is that of a server that is already running,
+\*Ldced\*O starts a new instance and returns a new value.
+.LE
+.SS "Output"
+.VL
+.LI "\*Vstatus\*O"
+Returns the status code from this routine.  This status code
+indicates whether the routine completed successfully or, if not, why not. 
+.LE
+.nL
+.ne 1.5i
+.SH "Description"
+The \*Ldced_server_start(\|)\*O routine starts DCE-configured servers on
+a specific remote host (or the local host).
+The configuration data is stored in an object in the \*Lsrvrconf\*O
+service of \*Ldced\*O.
+When the server starts, \*Ldced\*O uses the server configuration
+object and creates a server execution object in the \*Lsrvrexec\*O service.
+A server execution object consists of data that describes the
+executing server.
+.PP
+Management applications create the configuration data by using the
+\*Ldced_server_create(\|)\*O and the \*Ldced_object_read(\|)\*O routine
+to read the configuration or execution data.
+.PP
+Prior to calling \*Ldced_server_start(\|)\*O, the application must
+have established a valid \*Ldced\*O binding handle to the \*Lsrvrconf\*O
+service by calling either \*Ldced_binding_create(\|)\*O or 
+\*Ldced_binding_from_rpc_binding(\|)\*O.
+.nL
+.ne 1.5i
+.SH "Examples"
+The following example starts a configured server using a nil UUID as
+input for the executing server.
+.ps 11
+.vs 13
+.oS
+dced_binding_handle_t conf_bh;
+dced_string_t         server_name;
+uuid_t                srvrconf_id, srvrexec_id;
+error_status_t        status;
+
+dced_binding_create("srvrconf@hosts/patrick",
+                    dced_c_binding_syntax_default, 
+                    &conf_bh, 
+                    &status);
+dced_inq_id(conf_bh, server_name, &srvrconf_id, &status);
+uuid_create_nil(&srvrexec_id, &status);
+dced_server_start(conf_bh, &srvrconf_id, NULL, &srvrexec_id, &status);
+ .
+ .
+ .
+.oE
+.ps 12
+.vs 14
+.SH "Errors"
+.PP
+The following describes a partial list of errors that might be returned.
+Refer to the \*(Tg for complete descriptions of all error
+messages.
+.VL
+.LI "\*Lerror_status_ok\*O"
+.LI "\*Ldb_s_bad_header_type\*O"
+.LI "\*Ldb_s_iter_not_allowed\*O"
+.LI "\*Ldb_s_key_not_found\*O"
+.LI "\*Ldb_s_readonly\*O"
+.LI "\*Ldb_s_store_failed\*O"
+.LI "\*Ldced_s_bad_binding\*O"
+.LI "\*Ldced_s_no_support\*O"
+.LI "\*Ldced_s_not_found\*O"
+.LI "\*Ldced_s_sc_cant_fork\*O"
+.LI "\*Ldced_s_sc_invalid_attr_type\*O"
+.LI "\*Ldced_s_sc_open_file_failed\*O"
+.LI "\*Lsec_acl_invalid_permission\*O"
+.LI "\*Luuid_s_bad_version\*O"
+.LE
+.nL
+.ne 1.5i
+.SH "Related Information"
+Commands:
+\*Lserver(8dce)\*O.
+.PP
+.ad l
+Functions:
+\*Ldced_binding_create(3dce)\*O,
+\*Ldced_binding_from_rpc_binding(3dce)\*O,
+\*Ldced_server_create(3dce)\*O,
+\*Ldced_server_stop(3dce)\*O. 
+.ad b
+.PP
+Books:
+\*(Dg.

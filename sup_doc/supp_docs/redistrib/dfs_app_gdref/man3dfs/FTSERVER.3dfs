@@ -1,0 +1,156 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: FTSERVER.3dfs,v $
+...\" Revision 1.1.2.3  1994/08/30  00:27:33  jeff
+...\" 	{defect, 11947, R1.1}
+...\" 	Correct/clarify some DFS APIs.
+...\" 	[1994/08/30  00:25:47  jeff]
+...\"
+...\" Revision 1.1.2.2  1994/06/10  21:11:31  devobj
+...\" 	cr10872 - fixed copyright
+...\" 	[1994/06/10  20:51:12  devobj]
+...\" 
+...\" Revision 1.1.2.1  1994/04/05  15:16:50  rom
+...\" 	{enh, 10283, R1.1}
+...\" 	Fix incorrect comment leaders.
+...\" 	[1994/04/05  14:13:15  rom]
+...\" 
+...\" 	{enh, 10283, R1.1}
+...\" 	Moved from dce_books/app_ref/man3dfs/FTSERVER.3dfs to
+...\" 	supp_docs/redistrib/dfs_app_gdref/man3dfs/FTSERVER.3dfs.
+...\" 	[1994/04/04  22:05:00  rom]
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc. ALL RIGHTS RESERVED
+...\"Copyright (C) 1989, 1991, 1992, 1993 Transarc Corporation
+...\"The Gulf Tower
+...\"707 Grant Street
+...\"Pittsburgh, PA  15219
+.TH "FTSERVER" "3dfs" "" "" ""
+.iX "file server interface (DFS)"
+.SH "NAME"
+.PP
+\*LFTSERVER\*O - Introduction to Fileset Server interface functions
+.SH "SYNOPSIS"
+.PP
+.sS
+.zA"defect,5992,r1.0.2,fixed include directory"
+\*L#include <dcedfs/param.h>
+.nL
+#include <fcntl.h>
+.nL
+#include <dcedfs/compat.h>
+.nL
+#include <dcedfs/ftserver_proc.h>
+.nL
+\*L#include <dcedfs/sysincludes.h>
+.nL
+\*L#include <dcedfs/fldb_data.h>
+.nL
+\*L#include <dcedfs/flserver.h>
+.nL
+\*L#include <dcedfs/ftserver.h>
+.nL
+\*L#include <dcedfs/ftserver_trans.h>
+.nL
+\*L#include <dce/rpc.h>
+.zZ"defect,5992,r1.0.2,fixed include directory"
+.sE
+.br
+.ne 1.5i
+.SH "Libraries"
+.PP
+All \*LFTSERVER\*O functions are defined in the library \*Llibdcedfs.a\*O.
+.PP
+.PP
+.br
+.ne 1.5i
+.SH "DESCRIPTION"
+.PP
+The \*LFTSERVER\*O functions are used to do basic operations
+on filesets, such as creating, deleting, moving, and replicating them.
+These functions are similar to the \*LVC\*O functions,
+but are at a lower level.
+The \*LVC\*O functions do general operations and do all of the
+appropriate bookkeeping, such as maintaining the Fileset Location Database
+(FLDB) and bringing new filesets online.
+The \*LFTSERVER\*O functions do not do this bookkeeping, but let you manipulate
+filesets at a much lower level.
+If you are unsure of which functions to use, you should probably be using the
+\*LVC\*O functions.
+.PP
+Each operation is carried out as a \*Vtransaction\*O, which can be logically
+viewed as an ``open fileset'' operation with an exclusive lock on the
+affected fileset. Atomicity is not guaranteed, however.
+Opening a transaction signals to other servers that may be interested
+in accessing a fileset that it is unavailable while the Fileset Server
+is manipulating it. This prevents the corruption that could result
+from multiple simultaneous operations on a fileset.
+.PP
+Before calling any function except \*LFTSERVER_CreateVolume(\|)\*O or
+\*LFTSERVER_GetOneVolStatus(\|)\*O, the
+programmer must open a transaction by calling \*LFTSERVER_CreateTrans(\|)\*O,
+or the function fails. (\*LFTSERVER_CreateVolume(\|)\*O and
+\*LFTSERVER_GetOneVolStatus(\|)\*O open their own
+transactions automatically.) The programmer then must explicitly close
+every transaction, even those created by \*LFTSERVER_CreateVolume(\|)\*O, with
+.zA"defect,6761,r1.0.2, review comments"
+\*LFTSERVER_DeleteTrans(\|)\*O or \*LFTSERVER_AbortTrans(\|)\*O,
+.zZ"defect,6761,r1.0.2, review comments"
+or the affected fileset remains locked.
+.PP
+Transactions time out after a short while to prevent filesets from
+becoming permanently unavailable should the failure of a File Server
+machine or other problem interrupt a transaction before
+.zA"defect,6761,r1.0.2, review comments"
+\*LFTSERVER_DeleteTrans(\|)\*O or \*LFTSERVER_AbortTrans(\|)\*O
+.zZ"defect,6761,r1.0.2, review comments"
+is called. In the absence of network or other
+problems, transactions are able to complete within the time-out period.
+.PP
+Every call to the Fileset Server requires a Remote Procedure Call (RPC)
+connection parameter that
+implicitly specifies which server to contact. It is defined here rather
+than in the reference page for each call:
+.VL 5m
+.LI "\*VRpcBinding\*O"
+A pointer to an RPC connection (of type \*Lhandle_t\*O), which is a connection
+to an authenticated path that allows multiple asynchronous conversations. This
+structure is completely opaque to the application programmer and is simply
+passed around. The RPC function that opens a connection returns this pointer.
+.LE
+.PP
+.ne 1.5i
+A commonly used data structure in the \*LFTSERVER\*O functions is
+\*LafsHyper\*O. It is defined as follows:
+.iS
+        struct afsHyper {
+\&                unsigned32 high;
+\&                unsigned32 low;
+\&        };
+.iE
+.PP
+This structure simply represents a 64-bit counter.
+.iX "\*LafsHyper\*O structure (DFS)"
+.br
+.ne 1.5i
+.SH "ERRORS"
+.PP
+In addition to the error messages listed with each function in this set,
+all functions can return lower level errors from other DCE components
+or from within DFS.
+.br
+.ne 1.0i
+.SH "RELATED INFORMATION"
+.ad l
+.PP
+Functions:
+\*Lintro(3dfs), VC(3dfs), VL(3dfs)\*O.
+.ad b

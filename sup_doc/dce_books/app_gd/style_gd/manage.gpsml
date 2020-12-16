@@ -1,0 +1,230 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: manage.gpsml,v $
+...\" Revision 1.1.4.1  1996/10/15  19:20:25  weir
+...\" 	No change
+...\" 	[1996/10/15  19:20:03  weir]
+...\"
+...\" Revision 1.1.2.8  1995/06/27  17:04:14  buckler
+...\" 	1.1 edits and Prentice Hall reformat
+...\" 	[1995/06/27  17:02:53  buckler]
+...\" 
+...\" Revision 1.1.2.7  1994/11/15  16:25:47  weir
+...\" 	No change
+...\" 	[1994/11/15  16:25:09  weir]
+...\" 
+...\" Revision 1.1.2.6  1994/10/19  20:48:16  weir
+...\" 	Review comments
+...\" 	[1994/10/19  20:47:24  weir]
+...\" 
+...\" Revision 1.1.2.5  1994/10/19  16:02:51  weir
+...\" 	Review comments and edits
+...\" 	[1994/10/19  16:02:05  weir]
+...\" 
+...\" Revision 1.1.2.4  1994/09/22  19:45:18  jshirley
+...\" 	Minor changes in preparation for final review.
+...\" 	[1994/09/22  19:45:00  jshirley]
+...\" 
+...\" Revision 1.1.2.3  1994/06/29  13:40:49  jshirley
+...\" 	Updated for dced information.
+...\" 	[1994/06/29  13:38:48  jshirley]
+...\" 
+...\" Revision 1.1.2.2  1994/06/13  18:22:36  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  18:20:01  devobj]
+...\" 
+...\" Revision 1.1.2.1  1994/03/11  23:05:08  rom
+...\" 	{enh, 10129, R1.1}
+...\" 	Initial split of App Dev Guide into three books and creation of
+...\" 	Intro and Style Guide.
+...\" 	[1994/03/11  23:01:55  rom]
+...\" 
+...\" $EndLog$
+...\"
+...\" ----------------------------------------------------------------------
+.H 1 "Server Management"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+.iX "server" "management"
+Every DCE server requires some management.  At a minimum, servers need
+to be started and stopped.  In addition, servers usually provide generic
+server information such as the server principal name and an indication
+that the server is listening for remote calls.  Servers may also permit
+other kinds of management operations while they are running; it is
+perfectly feasible to have a server reinitialize or even unregister
+and reregister endpoints while it is running.
+.P  
+.iX "server" "persistent"
+.iX "persistent server"
+.iX "server" "on-demand"
+.iX "on-demand server"
+From the management perspective, servers are thought of as either
+\*Eon-demand\*O or \*Epersistent\*O.  In the on-demand model, a server
+only starts (thus occupying system resources) when it is needed.
+When an on-demand server is installed, a startup configuration is also
+installed with \*Ldced\*O. 
+Such a server would then use the configuration (obtained by a call to
+the \*Ldce_\%server_\%inq_\%server(\|)\*O routine) when it is auto-started
+by \*Ldced\*O on receipt of an RPC request for an interface, 
+operation, or object registered for that server.  
+.iX "\*Ldce_server_inq_server(\|)\*O" 
+.P
+.ne 10
+A persistent server is one that runs continuously.  
+Starting, stopping and otherwise managing such a server are typically
+considered priviledged operations.  In general, a robust persistent server
+should provide a separate application control program that calls the DCE
+management interfaces (APIs for \*Ldced\*O, RPC, and the like) 
+and the application's own management interface (if one is provided).
+Of course, a server cannot start itself, but an application control
+client program can start the server via the \*Ldced\*O.  
+The model looks something like that shown in the following figure:
+.iX "\*Ldced\*O"
+...\" 
+.PP
+.ne 4i
+.FG "Managing a Server with a Control Client"
+.pI ../style_gd/figures/app_control_client.ps 0 0 1
+...\" 
+.P
+In addition to starting and stopping the server, 
+\*Ldced\*O's management routines provide other control operations.  
+For example, the control program can use
+\*Ldced_server_disable_if(\|)\*O and \*Ldced_server_enable_if(\|)\*O
+to disable and reenable specific interfaces offered by the server.
+Application-specific management operations can be used to exert even
+finer control than is possible with the DCE-provided services.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Application Support for Server Management"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Applications can support server management at three levels.  
+At a minimum, every server automatically supports the RPC management
+API (routines the begin with \*Lrpc_mgmt_\*O).  
+By attaching an authorization function to the management interface
+(via a call to \*Lrpc_mgmt_set_authorizaton_fn(\|)\*O), 
+.iX "\*Lrpc_mgmt_set_authorizaton_fn(\|)\*O" 
+a server can set nondefault access to the generic management functions.
+Although these routines give a management program some control of
+the server, some of these routines only work locally, so the
+controlling client must run on the same host as the server.  
+.P
+At the second level, all servers should permit themselves to be managed from
+remote hosts via the \*Ldced\*O.
+The requirements in the server's initialization code are minimal:
+...\" 
+.ML
+.LI
+The server should establish a security state using the
+\*Ldce_\%server_\%sec_\%begin(\|)\*O call.  This call establishes the
+server's identity with the RPC runtime such that clients can make
+authenticated remote procedure calls to it.  The call also establishes
+with the security service the server's identity so that it can make
+authenticated remote procedure calls to other servers. 
+.iX "\*Ldce_server_sec_begin(\|)\*O" 
+.P
+Server writers should also give the \*Ldced\*O (which runs with the
+host's principal identity) permission to control the server.  
+Since the default is to disable remote control, the server must
+provide a nondefault authorization function that gives the machine
+principal access.  An example of such an authorization function is
+given in Chapter 3.
+...\" 
+...\" .p
+...\" \*L<<REVIEWERS: DO I HAVE IT RIGHT?>>\*O
+...\"The server must give the RPCD, which runs with the machine principal
+...\"identity, permission to call \*Lrpc_mgmt_stop_server_listening(\|)\*O.
+...\"Since the default is to disable access to this call, the server must
+...\"provide a nondefault authorization function that gives the machine
+...\"principal access.  An example of such an authorization function is
+...\"given in Chapter XXXX [Security].
+...\" 
+.LI
+The server must register as a DCE server using the
+\*Ldce_server_register(\|)\*O call.
+This call fulfills the majority of the server initialization tasks including
+creating bindings, 
+registering interfaces with the RPC runtime,
+registering endpoints with \*Ldced\*O's endpoint mapper service,
+and advertising in the name service.
+.iX "\*Ldce_server_register(\|)\*O" 
+.LE
+...\" 
+.P
+All servers should take these steps to operate correctly in DCE.
+.P
+.ne 10
+Finally, applications can provide application-specific server management.  
+This would typically be done for a persistant server that provides
+access to some shared resource such as a database.  
+Such a server can provide a
+set of privileged management operations\(emsuch as database
+maintainance\(emas a seperate application-specific management
+interface.  Such an interface can be accessed by an application
+management client that can also call the DCE management interfaces.
+This type of management client is shown in the previous figure.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Manager Initialization"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+.iX "server" "initialization of"
+.iX "initialization tasks, server"
+Server initialization tasks can typically be divided between
+essentially generic initialization\(emcreating bindings, establishing
+security state, exporting to a name service, and listening for calls,
+among other things\(emand manager-specific initialization.
+(Remember that \*Emanagement\*O refers to a set of tasks to control
+a server while a \*Emanager\*O is a server's implementation
+of a set of operations from one or more interfaces.)
+.P
+Once the server has called \*Lrpc_server_listen(\|)\*O, the manager
+operations may be called asynchronously.  The application may,
+however, need to perform some initialization before any manager
+operations are performed.  For example, the sample storage manager 
+(code example \*Lcontext_\%manager.c\*O)
+needs to initialize its tables before any
+storage can be allocated out of them.  An application has three
+choices about manager initialization policy:
+.iX "\*Lrpc_server_listen(\|)\*O"
+...\" 
+.AL
+.LI
+The server can perform manager initialization before calling
+\*Lrpc_server_listen(\|)\*O. 
+.LI
+The server can have the first instance of a manager operation
+thread perform manager initialization, using the \*Lpthread_once(\|)\*O
+facility.  Although initilizing everything prior to listening for
+remote procedure calls is more straight-forward programming,
+some applications might benefit from this threaded approach.
+For example, those operations that do not need the initialization
+could forgo use of the \*Lpthread_once(\|)\*O facility.
+This is the approach demonstrated in the sample storage manager. 
+.nL
+.ne 10
+.LI
+The server can export manager initialization operations as part of
+its application-specific management interface, and have a management 
+client perform the initialization.
+.LE
+.P
+Options 1 and 2 have similar effects and are appropriate for most
+servers.  Option 3 might be appropriate for a persistent server where
+reinitialization of the running server is a useful operation.  Such an
+operation is a perfect candidate for inclusion in an
+application-specific management interface for a persistent server.

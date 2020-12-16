@@ -1,0 +1,167 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE in the
+...\" src directory for the full copyright text.
+...\" HISTORY
+...\" $Log: rpc_ns_entry_inq_resolution.3rpc,v $
+...\" Revision 1.1.4.1  1996/11/18  19:58:26  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  19:34:49  wardr]
+...\"
+...\" Revision 1.1.2.4  1995/06/21  13:20:38  buckler
+...\" 	More 1.1 edits.
+...\" 	[1995/06/20  20:25:34  buckler]
+...\" 
+...\" Revision 1.1.2.3  1995/06/07  20:11:32  buckler
+...\" 	1.1 edits  Prentice Hall reformat
+...\" 	[1995/06/07  20:06:44  buckler]
+...\" 
+...\" Revision 1.1.2.1  1994/09/01  14:15:13  buckler
+...\" 	Fix spacing in comment leader
+...\" 	[1994/09/01  14:12:41  buckler]
+...\" 
+...\" 	{def, 8505, R1.1}
+...\" 	New reference page based on AES corresponding text.
+...\" 
+...\" $EndLog$
+...\" 
+.TH rpc_ns_entry_inq_resolution
+.SH "Name"
+\*Lrpc_ns_entry_inq_resolution\*O - Resolves the cell namespace components
+of a name and returns partial results
+.iX "rpc_ns_entry_inq_resolution(\|) routine"
+.SH "Synopsis"
+.sS
+\*L#include <dce/rpc.h>\*L
+.sp .4v
+\*Lvoid \*Lrpc_ns_entry_inq_resolution\*O\*L(
+.nL
+    \*Lunsigned32 \*Ventry_name_syntax\*L,
+.nL
+    \*Lunsigned_char_t \*V*entry_name\*L,
+.nL
+    \*Lunsigned_char_t \*V**resolved_name\*L,
+.nL
+    \*Lunsigned_char_t \*V**unresolved_name\*L,
+.nL
+    \*Lunsigned32 *\*Vstatus
+.nL
+    \*L);\*O
+.sE
+.SH "Parameters"
+.SS Input
+.VL
+.LI \*Ventry_name_syntax\*O
+An integer value that specifies the syntax of the argument \*Ventry_name\*O.
+To use the syntax that is specified in the
+\*LRPC_DEFAULT_ENTRY_SYNTAX\*O environment variable, supply a value of
+\*Lrpc_c_ns_syntax_default\*O.
+...\" (See Appendix C of the \*VAES/DC RPC\*O document for the possible values of
+...\" this argument.)
+...\" .PP
+...\" The value \*Lrpc_c_ns_syntax_default\*O specifies the syntax specified by
+...\" the \*LRPC_DEFAULT_ENTRY_SYNTAX\*O environment variable.  The value
+...\" \*Lrpc_c_ns_syntax_dce\*O corresponds to the name syntax specified in Part 1
+...\" of this document.
+.LI \*Ventry_name\*O
+The entry name on which the attempted name resolution is to be done.  The name can
+be specified in either cell-relative or global from.
+.LE
+.SS Input/Output
+.VL
+.LI \*Vresolved_name\*O
+Returns a pointer to the resolved portion of the entry name.  The \*Vresolved_name\*O
+string returned will be null terminated and will not contain trailing component
+separators (that is, no trailing \*L/\*O (slash) characters).
+.PP
+If NULL is specified on input for this parameter, nothing will be returned.
+.LI \*Vunresolved_name\*O
+Returns a pointer to the unresolved portion of the entry name.  The \*Vunresolved_name\*O
+string returned will be a relative name, containing no leading component separators (that
+is, it will contain no leading \*L/\*O (slash) characters).
+.PP
+If NULL is specified on input for this parameter, nothing will be returned.
+.LE
+.SS Output
+.VL
+.LI \*Vstatus\*O
+Returns the status code from this routine.  The status code indicates whether the
+routine completed successfully, or if not, why not.
+.LE
+.nL
+.ne 3
+.SH "Description"
+.PP
+The \*Lrpc_ns_entry_inq_resolution(\|)\*O routine attempts to read an
+entry in the cell namespace.  If the entire entry name as specified is
+successfully read, the full resolution of the entry name (that is, the
+originally-specified \*Ventry_name\*O) is returned in \*Vresolved_name\*O
+and the status is set to \*Lrpc_s_ok\*O.
+.PP
+If the read was unsuccessful because the full entry was not found in the cell
+namespace, then the status code will be set to \*Lrpc_s_partial_results\*O,
+and the following will occur:
+.ad l
+.ML
+.LI
+The part of the name successfully read will be returned in \*Vresolved_name\*O
+.LI
+The remaining (unresolved) part of the name will be returned in
+\*Vunresolved_name\*O
+.LE
+.ad b
+.PP
+Thus, if the status code is \*Lrpc_s_partial_results\*O and the (nonempty)
+return parameter \*Vresolved_name\*O specifies a leaf (not a directory) entry,
+the contents of \*Vresolved_name\*O can be used in subsequent calls to the NSI
+interface to obtain a binding handle for the server that exported to the entry.
+This behavior allows applications to implement namespace junctions to
+their own internally-implemented namespaces.  Using this routine, clients can
+attempt to bind to overqualified name entries whose \*Vresolved_name\*O part is
+the name of the server entry, and whose 
+\*Vunresolved_name\*O part is the pathname
+(meaningful to the server) of some object that is managed by the application.  Calling
+\*Lrpc_\%ns_\%entry_\%inq_\%resolution(\|)\*O with the full name allows the client to
+learn what part of the name denotes the server entry it must import 
+bindings from; it can then bind to the server, 
+passing the rest of the name, which the server
+interprets as appropriate.  The \*Lsec_acl_bind(\|)\*O routine, for
+example, works this way.
+.PP
+The RPC runtime allocates memory for the returned \*Vresolved_name\*O
+and \*Vunresolved_name\*O parameters.  The application is responsible
+for calling \*Lrpc_string_free(\|)\*O to free the allocated memory.
+.PP
+The application requires read permission for the name entries that are resolved
+within the cell namespace.
+.nL
+.ne 3
+.SH "Return Values"
+.PP
+None. 
+.nL
+.ne 3
+.SH "Errors"
+.PP
+The following describes a partial list of errors that might be returned.
+Refer to the \*(Tg for complete descriptions of all error
+messages.
+.VL
+.LI "\*Lrpc_s_ok\*O"
+Success.
+.LI "\*Lrpc_s_partial_results\*O"
+The entry name was only partially resolved within the cell namespace
+and the value of \*Vunresolved_name\*O points to the residual of the name.
+.LI "\*Lrpc_s_invalid_name_syntax\*O"
+The requested name syntax is invalid.
+.LI "\*Lrpc_s_unsupported_name_syntax\*O"
+The requested name syntax is not supported.
+.LE
+.SH "Related Information"
+.PP
+.ad l
+Functions: 
+\*Lrpc_ns_binding_\*V*\*L(\|)\*O routines.
+.ad b

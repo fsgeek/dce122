@@ -1,0 +1,174 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: dced_server_disable_if.3dce,v $
+...\" Revision 1.1.4.1  1996/11/18  17:01:31  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  16:57:46  wardr]
+...\"
+...\" Revision 1.1.2.7  1995/05/31  17:06:33  buckler
+...\" 	1.1 edits.
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/05/30  23:04:26  buckler]
+...\" 
+...\" Revision 1.1.2.6  1994/10/20  03:06:33  jshirley
+...\" 	Final edits.
+...\" 	[1994/10/20  03:05:23  jshirley]
+...\" 
+...\" Revision 1.1.2.5  1994/10/17  22:35:47  jshirley
+...\" 	Updated for final.
+...\" 	[1994/10/17  22:35:07  jshirley]
+...\" 
+...\" Revision 1.1.2.4  1994/10/14  18:53:14  hileman
+...\" 	Added status codes.
+...\" 	[1994/10/14  18:52:58  hileman]
+...\" 
+...\" Revision 1.1.2.3  1994/06/13  17:02:57  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  16:47:10  devobj]
+...\" 
+...\" Revision 1.1.2.2  1994/06/01  14:00:28  jshirley
+...\" 	{def,CR9830,R1.1}
+...\" 	Incorporated first review comments.
+...\" 	[1994/06/01  13:59:43  jshirley]
+...\" 
+...\" Revision 1.1.2.1  1994/05/04  01:35:21  jshirley
+...\" 	Created file.
+...\" 	[1994/05/04  01:09:02  jshirley]
+...\" 
+...\" $EndLog$
+.TH dced_server_disable_if 3dce 
+...\".iX "\*Ldced_server_disable_if(\|)\*O"
+.SH "Name"
+\*Ldced_server_disable_if\*O - 
+Disables a service (RPC interface) provided by a specific server on a specific host
+.SH "Synopsis"
+.sS
+\*L#include <dce/dced.h>
+.sp .4v
+\*Lvoid dced_server_disable_if(
+.nL
+	\*Ldced_binding_handle_t \*Vdced_bh\*L,
+.nL
+	\*Luuid_t *\*Vexec_uuid\*L,
+.nL
+	\*Lrpc_if_id_t *\*Vinterface\*L,
+.nL
+	\*Lerror_status_t *\*Vstatus\*L);
+.sE
+.nL
+.ne 1.5i
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vdced_bh\*O"
+Specifies the \*Ldced\*O binding handle for the \*Lsrvrexec\*O service on a
+specific host.
+.LI "\*Vexec_uuid\*O"
+Specifies the UUID that \*Ldced\*O uses to identify the running server.
+.LI "\*Vinterface\*O"
+Specifies the RPC interface identifier that represents the service to
+be disabled.
+The interface identifier is generated when \*Lidl\*O compiles an interface
+definition file.  The interface identifier is an \*Lrpc_if_id_t\*O
+structure that contains the interface UUID (\*Luuid\*O) of type \*Luuid_t\*O, 
+and numbers of type \*Lunsigned16\*O representing the major (\*Lvers_major\*O) 
+and minor (\*Lvers_minor\*O) version numbers for the interface.
+.LE
+.SS "Output"
+.VL
+.LI "\*Vstatus\*O"
+Returns the status code from this routine.  This status code
+indicates whether the routine completed successfully or, if not, why not.
+.LE
+.nL
+.ne 1.5i
+.SH "Description"
+The \*Ldced_server_disable_if(\|)\*O routine disables a service provided
+by a server on a specific host.  A service is represented by an RPC
+interface identifier.
+Management applications use this routine to remotely disable an interface
+so it is inaccessible by clients, without completely stopping the
+entire server.
+.PP
+.ne 9
+When a server starts and initializes itself, it must call the
+\*Ldce_server_register(\|)\*O routine to enable all of its services.
+The server can then disable its own individual services by using
+\*Ldce_server_disable_service(\|)\*O.  This routine unregisters the
+service's interface from the RPC runtime and marks the interface as disabled in
+the endpoint map.
+As an alternative, a management application can use 
+\*Ldced_server_disable_if(\|)\*O to disable individual services.
+However, this routine only affects the endpoint map in \*Ldced\*O by
+marking the interface as disabled and does not affect the server's runtime.
+.PP
+A management application can reenable a service again by calling the
+\*Ldced_server_enable_if(\|)\*O routine.  (Servers reenable their own
+services using the \*Ldce_server_enable_if(\|)\*O routine.)
+.PP
+Prior to calling \*Ldced_server_disable_if(\|)\*O, the application must
+have established a valid \*Ldced\*O binding handle to the \*Lsrvrexec\*O
+service by calling either \*Ldced_binding_create(\|)\*O or 
+\*Ldced_binding_from_rpc_binding(\|)\*O.
+...\".nL
+...\".ne 1.5i
+...\".SH "EXAMPLES"
+...\".PP
+...\"During shutdown of a server, the order of
+...\"interface disabling may be significant for the application.
+...\"The following example
+...\".oS
+...\"#include <INTERFACE.h>
+...\" .
+...\" .
+...\" .
+...\"dced_binding_create("srvrexec@hosts/somehost",...);
+...\"dced_server_disable_if(...);
+...\"dced_server_disable_if(...);
+...\"dced_server_disable_if(...);
+...\" .
+...\" .
+...\" .
+...\"dced_binding_free(...);
+...\".oE
+...\".PP
+.SH "Errors"
+.PP
+The following describes a partial list of errors that might be returned.
+Refer to the \*(Tg for complete descriptions of all error
+messages.
+.VL
+.LI "\*Lerror_status_ok\*O"
+.LI "\*Ldb_s_bad_index_type\*O"
+.LI "\*Ldb_s_iter_not_allowed\*O"
+.LI "\*Ldb_s_readonly\*O"
+.LI "\*Ldb_s_store_failed\*O"
+.LI "\*Ldced_s_bad_binding\*O"
+.LI "\*Ldced_s_not_found\*O"
+.LI "\*Lsec_acl_invalid_permission\*O"
+.LE
+.nL
+.ne 1.5i
+.SH "Related Information"
+\*Ldcecp\*O Objects:
+\*Lserver(8dce)\*O.
+.PP
+.ad l
+Functions:
+\*Ldce_server_disable_if(3dce)\*O, 
+\*Ldce_server_enable_if(3dce)\*O,
+\*Ldce_server_register(3dce)\*O,
+\*Ldced_binding_create(3dce)\*O,
+\*Ldced_binding_from_rpc_binding(3dce)\*O,
+\*Ldced_server_enable_if(3dce)\*O.
+.ad b
+.PP
+Books:
+\*(Dg.

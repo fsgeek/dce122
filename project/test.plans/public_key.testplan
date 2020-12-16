@@ -1,0 +1,1597 @@
+
+
+
+DCE PUBLIC KEY TEST PLAN
+
+I. Introduction
+
+    This is a live document.  This document will be extended with any
+    changes or additions as the testing is being performed.  The
+    intention is to use this as the basis for documenting the functional
+    tests for Public Key login for DCE 1.2.2.
+
+    The functional tests will be implemented in programs which will be
+    organized by Positive tests(expected to get ok status) and Negative
+    (expected to get error status). All of the API's will be tested directly,
+    with their various parameters and error values. Some functions perform
+    double duty as the objects of tests, and are also used as setup and cleanup
+    for api's being tested. These programs will be implemented such that
+they can
+    be run in their entirety, under the TET test harness, as part of automated
+    testing, or standalone(with certain TET env variables set).  The tests will
+    use a fixed data set of usernames, passwords, and keys.
+
+
+II. Overview
+
+
+User Interface/Admin Tool Tests:
+
+ * dce_login
+
+    Add to existing dce_login tests, covering valid login attempts as well
+    as unauthorized attempts.
+
+ * dcecp
+
+    The current dcecp account create/modify positive and negative tests are
+    enhanced to cover public key functionality.
+
+
+
+API Tests:
+
+        * sec_login_
+                sec_login_validate_identity()
+                sec_login_valid_and_cert_identity()
+              (error conditions)
+
+        * dced: KRB Public Key Cache
+                rsec_pk_cache_kdc_key()
+
+              (param variables, err cond)
+
+        * sec_psm_
+                sec_psm_open()
+                sec_psm_close()
+                sec_psm_sign_data()
+                sec_psm_verify_data()
+                sec_psm_encrypt_data()
+                sec_psm_decrypt_data()
+                sec_psm_gen_key()
+                sec_psm_put_key()
+                sec_psm_update_key()
+
+              (param variables, err cond)
+
+        * sec_pubkey_
+                sec_pubkey_store()
+                sec_pubkey_retrieve()
+                sec_pubkey_retrieve_kdc_key()
+
+                sec_pk_data_free()
+                sec_pk_data_zero_and_free()
+              (param variables, err cond)
+
+        * sec_pvtkey_
+                sec_pvtkey_open()
+                sec_pvtkey_close()
+                sec_pvtkey_get_capability_uuid()
+                sec_pvtkey_capabilities()
+                sec_pvtkey_store()
+                sec_pvtkey_delete()
+                sec_pvtkey_generate()
+                sec_pvtkey_get()
+                sec_pvtkey_update()
+                sec_pvtkey_update_generate()
+              (param variables, err cond)
+
+        * sec_rgy_acct_replace()
+              (param variables, err cond)
+
+
+
+
+Miscellaneous Quality Verification:
+
+        * Migration
+
+        * Memory Leaks (purify) using the current Public Key Tests.
+
+        * Test "exportability" of API's: sec_pvtkey_, sec_bsafe_
+
+        * Performance
+
+        * Size
+
+
+=============================================================================
+
+III. DESIGN
+
+GUI's
+====
+
+dcecp
+- -----
+
+test/functional/admin/dcecp/ts/rgy/account_create_P.tcl
+
+POSITIVE - "account create"
+- ---------------------------
+(This illustrates the pk syntax only, the rest of the required options
+for 'account create' (group, etc) are not shown for clarity):
+
+1. Specify storage mechanism:
+
+   dcecp> account create the_account -pkmechanism file
+   dcecp>
+
+   dcecp> account create the_account -pkmechanism pkss
+   dcecp>
+
+   dcecp> account create the_account -attribute {pkmechanism file}
+   dcecp>
+
+   dcecp> account create the_account -attribute {pkmechanism pkss}
+   dcecp>
+
+2. With 'generatekey' turned on, 'newpassphrase' specified:
+
+   dcecp> account create the_account -pksignature {{gen 1024} {new pokey}}
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{gen default} {new pokey}}
+   dcecp>
+
+   dcecp> account create the_account -attribute {pksignature {{gen 888} {new
+the_account}}}
+   dcecp>
+
+   dcecp> account create the_account -attribute {pksignature {{gen default}
+{new the_account}}}
+   dcecp>
+3. With 'generatekey' turned off and both keyfiles, 'newpassphrase' specified:
+
+   dcecp> account create the_account -pksignature {{public /tmp/bite1} \
+   > {private /tmp/bite2} {newpass pokey}}
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{generate 0} {public
+/tmp/bite1} \
+   > {private /tmp/bite2} {newpass pokey}}
+   dcecp>
+
+   dcecp> account create the_account -attribute {pksignature {{public
+/tmp/bite1} \
+   > {private /tmp/bite2} {newpass pokey}}}
+   dcecp>
+
+   dcecp> account create the_account -attribute {pksignature {{gen 0}
+{public /tmp/bite1} \
+   > {private /tmp/bite2} {newpass pokey}}}
+   dcecp>
+
+============================================================================
+========
+test/functional/admin/dcecp/ts/rgy/account_create_N.tcl
+
+NEGATIVE - "account create"
+- ---------------------------
+
+0. Bad syntax:
+
+   dcecp> account create the_account -pkmechanism
+   Error: The '-pkmechanism' option requires a character string value.
+   dcecp>
+
+   dcecp> account create the_account -attr {pkmechanism}
+   Error: The attribute list syntax is invalid.
+   dcecp>
+
+   dcecp> account create the_account -pksignature
+   Error: The '-pksignaturesigusage' option requires a character string value.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {pokey}
+   Error: The attribute list syntax is invalid.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {generatekey}
+   Error: The attribute list syntax is invalid.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {privatekeyfile}}
+   Error: The attribute list syntax is invalid.
+   dcecp>
+
+   dcecp> account create the_account -pkmechanism file -attr {pksignature
+{gen 0}}
+   Error: Only options or an attribute list are allowed.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {new the_account} {public
+goober}
+   Error: Unrecognized argument 'public goober'.
+   dcecp>
+
+1. Bad attribute:
+
+   dcecp> account create the_account -pksignature {{generate 101} {newpass
+blah} {badattr the_account}}
+   Error: Supplied attribute 'badattr' is unknown.
+   dcecp>
+
+   dcecp> account create the_account -attr {{pksignature {{public
+/tmp/bite1} {badattrib pokey}}} \
+   > {group none} {acctvalid no}}
+   Error: Supplied attribute 'badattrib' is unknown.
+   dcecp>
+
+2. Value for 'generatekey' attribute not numeric:
+
+   dcecp> account create the_account -pksignature {{generate pokey} {newpass
+blah}}
+   Error: Supplied value for 'generatekey' must be zero, a positive integer
+or 'default'.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {{generate pokey}
+{newpass blah}}}
+   Error: Supplied value for 'generatekey' must be zero, a positive integer
+or 'default'.
+   dcecp>
+
+3. Value for 'generatekey' attribute a negative number:
+
+   dcecp> account create the_account -pksignature {generate -100}
+   Error: Supplied value for 'generatekey' must not be a negative integer.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {generate -100}}
+   Error: Supplied value for 'generatekey' must not be a negative integer.
+   dcecp>
+
+4. Value for 'generatekey' attribute too large:
+
+   dcecp> account create the_account -pksignature {generate 999999999999}
+   Error: Supplied value for key generation attribute must be less than
+2147483647.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {generatekey
+999999999999}}
+   Error: Supplied value for key generation attribute must be less than
+2147483647.
+   dcecp>
+
+5. Bad value for 'pkmechanism':
+
+   dcecp> account create pokey -pkmechanism the_account
+   Error: The value for 'pkmechanism' must be either 'file' or 'pkss'.
+   dcecp>
+
+   dcecp> account create pokey -attr {pkmechanism the_account}
+   Error: The value for 'pkmechanism' must be either 'file' or 'pkss'.
+   dcecp>
+
+6. Same attribute specified more than once:
+
+   dcecp> account create the_account -pksignature {{generate 0} {generate 1024}}
+   Error: Supplied attribute 'generatekey' was specified more than once.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{private the_account}
+{private pokey}}
+   Error: Supplied attribute 'privatekeyfile' was specified more than once.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{publickey /tmp/bite1}
+{publickey /tmp/bite2}}
+   Error: Supplied attribute 'publickeyfile' was specified more than once.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{oldpassphrase blah}
+{oldpassphrase blah2}}
+   Error: Supplied attribute 'oldpassphrase' was specified more than once.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{new {long string}} {new
+shortstring}}
+   Error: Supplied attribute 'newpassphrase' was specified more than once.
+   dcecp>
+
+   dcecp> account create the_account -attr {{pksignature {{public
+/tmp/bite1} {public /tmp/bite1}}} \
+   > {acctvalid no}}
+   Error: Supplied attribute 'publickeyfile' was specified more than once.
+   dcecp>
+
+7. Keyfile specified along with 'generatekey':
+
+   dcecp> account create the_account -pksignature {{gen 1024} {new pokey}
+{private /tmp/bite1}}
+   Error: Cannot specify a public or private keyfile when 'generatekey' is
+also specified.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{gen default} {new
+the_account} {public /tmp/bite1}}
+   Error: Cannot specify a public or private keyfile when 'generatekey' is
+also specified.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{generatekey 101}
+{newpassphrase the_account_string} \
+   > {publickeyfile /tmp/the_account} {privatekeyfile /tmp/pokey}}
+   Error: Cannot specify a public or private keyfile when 'generatekey' is
+also specified.
+   dcecp>
+
+   dcecp> account create pokey -attr {pksignature {{generatekey 1001} {new
+pokey} \
+   > {publickeyfile /tmp/bite2} {privatekeyfile /tmp/bite3}}}
+   Error: Cannot specify a public or private keyfile when 'generatekey' is
+also specified.
+   dcecp>
+
+8. Must specify 'newpassphrase':
+
+   dcecp> account create the_account -pksignature {{generatekey 101}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {generate 0}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{generate 0} {public
+/tmp/the_account1}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{gen 0} {public
+/tmp/the_account1} \
+   > {private /tmp/the_account2}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {publickey /tmp/bite1}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{generatekey 1024}
+{public /tmp/pokey}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{public /tmp/the_account1} \
+   > {private /tmp/the_account2}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{gen default} {public
+/tmp/the_account1} \
+   > {private /tmp/the_account2}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account create the_account -attr {{pksignature {gen default}}
+{acctvalid no}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {gen 0}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {{gen 0} {public
+/tmp/the_account1}}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {{gen 0} {public
+/tmp/the_account1} \
+   > {private /tmp/the_account2}}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {publickey /tmp/bite1}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {{gen 1024} {public
+/tmp/the_account}}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {{public
+/tmp/the_account1} \
+   > {private /tmp/pokey1}}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+>   dcecp> account create the_account -attr {pksignature {{gen default}
+{public /tmp/the_account} \
+   > {private /tmp/pokey}}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+9. If not generating a key, must specify both keyfiles on create:
+
+   dcecp> account create the_account -pksignature {newpass pokey}
+   Error: Must specify both 'publickeyfile' and 'privatekeyfile'.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{gen 0} {newpass pokey1}}
+   Error: Must specify both 'publickeyfile' and 'privatekeyfile'.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {newpass pokey}}
+   Error: Must specify both 'publickeyfile' and 'privatekeyfile'.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {{gen 0} {newpass
+pokey1}}}
+   Error: Must specify both 'publickeyfile' and 'privatekeyfile'.
+   dcecp>
+
+10. If specifying a keyfile, must specify both:
+
+   dcecp> account create the_account -pksignature {{new the_account}
+{privatekey the_account1}}
+   Error: Must specify both 'publickeyfile' and 'privatekeyfile'.
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{new the_account}
+{publickey pokey1}}
+   Error: Must specify both 'publickeyfile' and 'privatekeyfile'.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {new the_account}
+{privatekeyfile goober}}
+   Error: Must specify both 'publickeyfile' and 'privatekeyfile'.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {{new the_account}
+{publickeyfile goober}}}
+   Error: Must specify both 'publickeyfile' and 'privatekeyfile'.
+   dcecp>
+
+11. You cannot use 'oldpassphrase' on create:
+
+   dcecp> account create the_account -pksignature {{gen 101} {old
+the_account} {new pokey}}
+   Error: Supplied attribute 'oldpassphrase' is illegal during a create
+operation."
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{gen 0} {old the_account}
+{new pokey}}
+   Error: Supplied attribute 'oldpassphrase' is illegal during a create
+operation."
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{old the_account} {new
+pokey}}
+   Error: Supplied attribute 'oldpassphrase' is illegal during a create
+operation."
+   dcecp>
+
+   dcecp> account create the_account -pksignature {{oldpass the_account}
+{newpass pokey} \
+   > {publickeyfile /tmp/bite1} {privatekeyfile /tmp/bite2}}
+   Error: Supplied attribute 'oldpassphrase' is illegal during a create
+operation."
+   dcecp>
+
+   dcecp> account create the_account -attribute {pksignature {{gen 101} {old
+the_account} \
+>   > {new pokey}}}
+   Error: Supplied attribute 'oldpassphrase' is illegal during a create
+operation."
+   dcecp>
+
+   dcecp> account create the_account -attribute {pksignature {{gen 0} {old
+the_account} \
+   > {new pokey}}}
+   Error: Supplied attribute 'oldpassphrase' is illegal during a create
+operation."
+   dcecp>
+
+   dcecp> account create the_account -attribute {pksignature {{old
+the_account} {new pokey}}}
+   Error: Supplied attribute 'oldpassphrase' is illegal during a create
+operation."
+   dcecp>
+
+   dcecp> account create the_account -attribute {pksignature {{oldpass
+the_account} {newpass pokey} \
+   > {publickeyfile /tmp/bite1} {privatekeyfile /tmp/bite2}}}
+   Error: Supplied attribute 'oldpassphrase' is illegal during a create
+operation."
+   dcecp>
+
+12. Same filename specified for both public and private in same structure:
+
+   dcecp> account create the_account -pksignature {{newpass the_account}
+{public /tmp/bite1} \
+   > {private /tmp/bite1}}
+   Error: The same file cannot be used for public and private keys.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {{newpass
+the_account} {public /tmp/bite1} \
+   > {private /tmp/bite1}}}
+   Error: The same file cannot be used for public and private keys.
+   dcecp>
+
+13. Unable to open specified public or private key file:
+
+   dcecp> account create the_account -pksignature {{gen 0} {newpass
+the_account} {privatekey /tmp/bad1} \
+   > {public /tmp/bad2}}
+
+
+
+   Error: Could not open file '/tmp/bad2'.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {{gen 0} {new
+the_account} {privatekey /tmp/bad1} \
+   > {publickeyfile /tmp/bite2}}}
+   Error: Could not open file '/tmp/bad1'.
+   dcecp>
+
+14. Unable to read existing specified public or private key file:
+
+   dcecp> account create the_account -pksignature {{new the_account} {public
+/tmp/bite1} \
+   > {private /tmp/bite3}}
+   Error: Could not read from file '/tmp/bite3'.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {{new the_account}
+{public /tmp/bite1} \
+   > {private /tmp/bite3}}}
+   Error: Could not read from file '/tmp/bite3'.
+   dcecp>
+
+15. The same pk string is used for public key and private key:
+
+   dcecp> account create the_account -pksignature {{newpass the_account}
+{public /tmp/bite1} \
+   > {private /tmp/bite11}}
+   Error: Must specify both 'publickeyfile' and 'privatekeyfile'.
+   dcecp>
+
+   dcecp> account create the_account -attr {pksignature {{new the_account}
+{public /tmp/bite1} \
+   > {private /tmp/bite11}}}
+   Error: security server program error
+   dcecp>
+
+============================================================================
+==========
+test/functional/admin/dcecp/ts/rgy/account_modify_P.tcl
+
+POSITIVE - "account modify"
+- ---------------------------
+
+1. Specify storage mechanism:
+
+   dcecp> account modify the_account -pkmechanism file
+   dcecp>
+
+   dcecp> account modify the_account -pkmechanism pkss
+   dcecp>
+
+   dcecp> account modify the_account -change {pkmechanism file}
+   dcecp>
+
+   dcecp> account modify the_account -change {pkmechanism pkss}
+   dcecp>
+
+2. Specify KDC new PK pair:
+
+   dcecp> account modify the_account -pkgenprivkey 1024 -mypwd -dce-
+   dcecp>
+
+   dcecp> account modify the_account -pkgenprivkey default -mypwd -dce-
+   dcecp>
+
+   dcecp> account modify the_account -change {{pkgenprivkey 868} {-mypwd -dce-}}
+   dcecp>
+
+   dcecp> account modify the_account -change {{pkgenprivkey default} {-mypwd
+- -dce-}}
+   dcecp>
+
+3. No privkey generation and the zero attribute value works with password:
+
+   dcecp> account modify the_account -pkgenprivkey 0
+   dcecp>
+
+   dcecp> account modify the_account -password pokey -mypwd -dce-
+- -pkgenprivkey 0
+   dcecp>
+
+   dcecp> account modify the_account -change {pkgenprivkey 0}
+   dcecp>
+
+   dcecp> account modify the_account -change {{password pokey} {mypwd -dce-}
+{pkgenprivkey 0}}
+   dcecp>
+
+4. With 'generatekey' turned on, 'oldpassphrase' specified:
+
+   dcecp> account modify the_account -pksignature {{gen 1024} {oldpass pokey}}
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{gen default} {oldpass
+pokey}}
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{gen 1024}
+{oldpass the_account}}}
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{gen default}
+{oldpass the_account}}}
+   dcecp>
+
+5. With 'generatekey' turned on, 'newpassphrase' specified:
+
+   dcecp> account modify the_account -pksignature {{gen 1001} {newpass pokey}}
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{gen default} {newpass
+pokey}}
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{gen 1001}
+{newpass the_account}}}
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{gen default}
+{newpass the_account}}}
+   dcecp>
+
+6. With 'generatekey' turned on, both passphrases specified:
+
+   dcecp> account modify the_account -pksignature {{generate 1001} {oldpass
+pokey} \
+   > {newpass pokey2}}
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{generate default}
+{oldpass pokey} \
+   > {newpass pokey2}}
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{generate 1001}
+{oldpass the_account} \
+   > {newpass pokey}}}
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{generate
+default} {oldpass the_account} \
+   > {newpass pokey}}}
+   dcecp>
+
+7. With 'generatekey' turned off and both keyfiles specified,
+'oldpassphrase' specified:
+
+   dcecp> account modify the_account -pksignature {{public /tmp/bite1} \
+   > {private /tmp/bite2} {oldpass pokey}}
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{generate 0} {public
+/tmp/bite1} \
+   > {private /tmp/bite2} {oldpass pokey}}
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{public /tmp/bite1} \
+   > {private /tmp/bite2} {oldpass pokey}}}
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{gen 0} {public
+/tmp/bite1} \
+   > {private /tmp/bite2} {oldpass pokey}}}
+   dcecp>
+
+8. With 'generatekey' turned off and both keyfiles specified,
+'newpassphrase' specified:
+
+   dcecp> account modify the_account -pksignature {{public /tmp/bite1} \
+   > {private /tmp/bite2} {newpass pokey}}
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{generate 0} {public
+/tmp/bite1} \
+   > {private /tmp/bite2} {newpass pokey}}
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{public /tmp/bite1} \
+   > {private /tmp/bite2} {newpass pokey}}}
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{gen 0} {public
+/tmp/bite1} \
+   > {private /tmp/bite2} {newpass pokey}}}
+   dcecp>
+
+9. With 'generatekey' turned off and both keyfiles specified, both
+passphrases specified:
+
+   dcecp> account modify the_account -pksignature {{oldpass the_account}
+{newpass pokey} \
+   > {publickeyfile /tmp/bite1} {privatekeyfile /tmp/bite2}}
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{generate 0} {oldpass
+the_account} \
+   > {newpass pokey} {publickeyfile /tmp/bite1} {privatekeyfile /tmp/bite2}}
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{oldpass
+the_account} {newpass pokey} \
+   > {publickeyfile /tmp/bite1} {privatekeyfile /tmp/bite2}}}
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{generate 0}
+{oldpass the_account} \
+   > {newpass pokey} {publickeyfile /tmp/bite1} {privatekeyfile /tmp/bite2}}}
+   dcecp>
+
+10. With 'generatekey' turned off and no files specified, both passphrases
+specified:
+
+   dcecp> account modify the_account -pksignature {{oldpass pokey} {newpass
+pokey2}}
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{gen 0} {old pokey} {new
+pokey2}}
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{oldpass
+the_account} {newpass pokey}}}
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{generate 0}
+{oldpass the_account} \
+   > {newpass pokey}}}
+   dcecp>
+
+============================================================================
+=========>test/functional/admin/dcecp/ts/rgy/account_modify_N.tcl
+NEGATIVE - "account modify"
+- --------------------------
+0. Bad syntax:
+   dcecp> account modify the_account -pkmechanism
+   Error: The '-pkmechanism' option requires a character string value.
+   dcecp>
+
+   dcecp> account modify the_account -change {pkmechanism}
+   Error: The attribute list syntax is invalid.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature
+   Error: The '-pksignaturesigusage' option requires a character string value.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {pokey}
+   Error: The attribute list syntax is invalid.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {generatekey}
+   Error: The attribute list syntax is invalid.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {privatekeyfile}}
+   Error: The attribute list syntax is invalid.
+   dcecp>
+
+   dcecp> account modify the_account -pkmechanism file -change {pksignature
+{gen 0}}
+   Error: Only options or an attribute list are allowed.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {new the_account} {public
+goober}
+   Error: Unrecognized argument 'public goober'.
+   dcecp>
+
+1. Bad attribute:
+
+   dcecp> account modify the_account -pksignature {{generate 101} {newpass
+blah} {badattr pokey}}
+   Error: Supplied attribute 'badattr' is unknown.
+   dcecp>
+
+   dcecp> account modify the_account -change {{pksignature {{public
+the_account} {badattrib pokey}}} \
+   > {group none} {acctvalid no}}
+   Error: Supplied attribute 'badattrib' is unknown.
+   dcecp>
+
+2. Value for 'generatekey' attribute not numeric:
+
+   dcecp> account modify the_account -pksignature {{generate pokey} {newpass
+blah}}
+   Error: Supplied value for 'generatekey' is not zero, a positive integer
+or 'default'.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{generate pokey}
+{newpass blah}}}
+   Error: Supplied value for 'generatekey' is not zero, a positive integer
+or 'default'.
+   dcecp>
+
+3. Value for 'generatekey' attribute a negative number:
+
+   dcecp> account modify the_account -pksignature {generate -100}
+   Error: Supplied value for 'generatekey' must not be a negative integer.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {generate -100}}
+   Error: Supplied value for 'generatekey' must not be a negative integer.
+   dcecp>
+
+4. Value for 'generatekey' attribute too large:
+
+   dcecp> account modify the_account -pksignature {generate 999999999999}
+   Error: Supplied value for key generation attribute must be less than
+2147483647.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {generatekey
+999999999999}}
+   Error: Supplied value for key generation attribute must be less than
+2147483647.
+   dcecp>
+
+5. Value for 'pkgenprivkey' attribute not numeric:
+
+   dcecp> account modify the_account -pkgenprivkey pokey
+   Error: Supplied value for 'pkgenprivkey' must be zero, a positive integer
+or 'default'.
+   dcecp>
+
+   dcecp> account modify the_account -change {pkgenprivkey pokey}
+   Error: Supplied value for 'pkgenprivkey' must be zero, a positive integer
+or 'default'.
+   dcecp>
+
+6. Value for 'pkgenprivkey' attribute a negative number:
+
+   dcecp> account modify the_account -pkgenprivkey -100
+   Error: Supplied value for 'pkgenprivkey' must not be a negative integer.
+   dcecp>
+
+   dcecp> account modify the_account -change {pkgenprivkey -100}
+   Error: Supplied value for 'pkgenprivkey' must not be a negative integer.
+   dcecp>
+
+7. Value for 'pkgenprivkey' attribute too large:
+
+   dcecp> account modify the_account -pkgenprivkey 99999999999
+   Error: Supplied value for key generation attribute must be less than
+2147483647.
+   dcecp>
+
+   dcecp> account modify the_account -change {pkgenprivkey 99999999999}
+   Error: Supplied value for key generation attribute must be less than
+2147483647.
+   dcecp>
+
+8. Both 'pkgenprivkey' and password specified in the same command:
+
+   dcecp> account modify the_account -password pokey -pkgenprivkey 101
+   Error: Cannot specify a password when 'pkgenprivkey' is also specified.
+   dcecp>
+
+   dcecp> account modify the_account -password pokey -pkgenprivkey default
+   Error: Cannot specify a password when 'pkgenprivkey' is also specified.
+   dcecp>
+
+   dcecp> account modify the_account -password pokey -mypwd -dce-
+- -pkgenprivkey 101
+   Error: Cannot specify a password when 'pkgenprivkey' is also specified.
+   dcecp>
+
+   dcecp> account modify the_account -change {{password pokey} {pkgenprivkey
+101}}
+   Error: Cannot specify a password when 'pkgenprivkey' is also specified.
+   dcecp>
+
+   dcecp> account modify the_account -change {{password pokey} {pkgenprivkey
+efault}}
+   Error: Cannot specify a password when 'pkgenprivkey' is also specified.
+   dcecp>
+
+   dcecp> account modify the_account -change {{password pokey} {mypwd -dce-}
+{pkgenprivkey 101}}
+   Error: Cannot specify a password when 'pkgenprivkey' is also specified.
+   dcecp>
+
+9. Bad value for 'pkmechanism':
+
+   dcecp> account modify the_account -pkmechanism pokey
+   Error: The value for 'pkmechanism' must be either 'file' or 'pkss'.
+   dcecp>
+
+   dcecp> account modify the_account -change {pkmechanism pokey}
+   Error: The value for 'pkmechanism' must be either 'file' or 'pkss'.
+   dcecp>
+
+10. Same attribute specified more than once:
+
+   dcecp> account modify the_account -pksignature {{generate 0} {generate 1024}}
+   Error: Supplied attribute 'generatekey' was specified more than once.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{private pokey} {private
+pokey2}}
+   Error: Supplied attribute 'privatekeyfile' was specified more than once.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{publickey the_account}
+{publickey pokey}}
+   Error: Supplied attribute 'publickeyfile' was specified more than once.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{oldpassphrase blah}
+{oldpassphrase blah2}}
+   Error: Supplied attribute 'oldpassphrase' was specified more than once.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{new {long string}} {new
+shortstring}}
+   Error: Supplied attribute 'newpassphrase' was specified more than once.
+   dcecp>
+
+   dcecp> account modify the_account -change {{pksignature {{public
+the_account} {public pokey}}} \
+   > {acctvalid no}}
+   Error: Supplied attribute 'publickeyfile' was specified more than once.
+   dcecp>
+
+11. Keyfile specified along with 'generatekey':
+
+   dcecp> account modify the_account -pksignature {{generatekey 111} {public
+pokey}}
+   Error: Cannot specify a public or private keyfile when 'generatekey' is
+also specified.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{gen default} {public
+/tmp/the_account1} \
+   > {private /tmp/the_account2}}
+   Error: Cannot specify a public or private keyfile when 'generatekey' is
+also specified.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{gen 1024} {new pokey}
+{private /tmp/bite1}}
+   Error: Cannot specify a public or private keyfile when 'generatekey' is
+also specified.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{gen default} {new
+the_account} {public the_account}}
+   Error: Cannot specify a public or private keyfile when 'generatekey' is
+also specified.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{generatekey 101}
+{newpassphrase the_account_string} \
+   > {publickeyfile the_account} {privatekeyfile pokey}}
+   Error: Cannot specify a public or private keyfile when 'generatekey' is
+also specified.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{gen 111} {public
+/tmp/bite1}}}
+   Error: Cannot specify a public or private keyfile when 'generatekey' is
+also specified.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{gen default}
+{public /tmp/the_account1} \
+   > {private /tmp/the_account2}}}
+   Error: Cannot specify a public or private keyfile when 'generatekey' is
+also specified.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{gen 1024} {new
+pokey} \
+   > {privatekeyfile /tmp/bite1}}}
+   Error: Cannot specify a public or private keyfile when 'generatekey' is
+also specified.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{gen default}
+{new the_account} \
+   > {publickeyfile the_account}}}
+   Error: Cannot specify a public or private keyfile when 'generatekey' is
+also specified.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{generatekey
+1001} {new pokey} \
+   > {publickeyfile /tmp/bite2} {privatekeyfile /tmp/bite3}}}
+   Error: Cannot specify a public or private keyfile when 'generatekey' is
+also specified.
+   dcecp>
+
+12. If not generating a key and no files specified, 'newpassphrase' is required:
+
+   dcecp> account modify the_account -pksignature {oldpass the_account1}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{gen 0} {oldpass
+the_account1}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {oldpass
+the_account1}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{gen 0} {oldpass
+the_account1}}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {old the_account}
+{public goober}}
+   Error: Required attribute 'newpassphrase' not entered.
+   dcecp>
+
+13. If not generating a key and no files specified, 'oldpassphrase' is required:
+
+   dcecp> account modify the_account -pksignature {new pokey}
+   Error: Required attribute 'oldpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{gen 0} {new pokey}}
+   Error: Required attribute 'oldpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {new pokey}}
+
+
+
+
+   Error: Required attribute 'oldpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{gen 0} {new pokey}}}
+   Error: Required attribute 'oldpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {new the_account}
+{public goober}}
+   Error: Required attribute 'oldpassphrase' not entered.
+   dcecp>
+
+14. Generating a key, but the passphrase information is missing:
+
+   dcecp> account modify the_account -pksignature {generatekey 101}
+   Error: Attribute 'oldpassphrase' and/or 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {generatekey def}
+- -acctvalid no
+   Error: Attribute 'oldpassphrase' and/or 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {generatekey 101}}
+   Error: Attribute 'oldpassphrase' and/or 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -change {{pksignature {gen default}}
+{acctvalid no}}
+   Error: Attribute 'oldpassphrase' and/or 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {gen 1001} {public
+the_account}}
+   Error: Attribute 'oldpassphrase' and/or 'newpassphrase' not entered.
+   dcecp>
+
+15. Not generating a key, but the passphrase information is missing:
+
+   dcecp> account modify the_account -pksignature {{generate 0} {public
+the_account1}}
+   Error: Attribute 'oldpassphrase' and/or 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {publickey /tmp/bite1}
+   Error: Attribute 'oldpassphrase' and/or 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{public
+/tmp/the_account1} {private /tmp/the_account2}}
+   Error: Attribute 'oldpassphrase' and/or 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{gen 0} {public
+the_account1}}}
+   Error: Attribute 'oldpassphrase' and/or 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {public the_account1}}
+   Error: Attribute 'oldpassphrase' and/or 'newpassphrase' not entered.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{public
+the_account1} {private pokey1}}}
+   Error: Attribute 'oldpassphrase' and/or 'newpassphrase' not entered.
+   dcecp>
+
+16. Not generating a key, but not doing anything else either:
+
+   dcecp> account modify the_account -pksignature {generate 0}
+   Error: No action specified by the public key attribute list.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {gen 0}}
+   Error: No action specified by the public key attribute list.
+   dcecp>
+
+17. If specifying a keyfile, must specify both:
+
+   dcecp> account modify the_account -pksignature {{new the_account}
+{privatekey the_account1}}
+   Error: Must specify both 'publickeyfile' and 'privatekeyfile'.
+   dcecp>
+
+   dcecp> account modify the_account -pksignature {{new the_account}
+{publickey pokey1}}
+   Error: Must specify both 'publickeyfile' and 'privatekeyfile'.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{new the_account}
+{privatekey goober}}}
+   Error: Must specify both 'publickeyfile' and 'privatekeyfile'.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{new the_account}
+{publickeyfile goober}}}
+   Error: Must specify both 'publickeyfile' and 'privatekeyfile'.
+   dcecp>
+
+18. Same filename specified for both public and private in same structure:
+
+   dcecp> account modify the_account -pksignature {{newpass pokey} {public
+/tmp/bite1} \
+   > {private /tmp/bite1}}
+   Error: The same file cannot be used for public and private keys.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{new pokey}
+{public /tmp/bite1} \
+   > {private /tmp/bite1}}}
+   Error: The same file cannot be used for public and private keys.
+>   dcecp>
+
+19. Unable to open specified public or private key file:
+
+   dcecp> account modify the_account -pksignature {{gen 0} {new pokey}
+{privatekey /tmp/bad1} \
+   > {public /tmp/bad2}}
+   Error: Could not open file '/tmp/bad2'.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{gen 0} {newpass
+pokey} \
+   > {privatekey /tmp/bad1} {publickeyfile /tmp/bite2}}}
+   Error: Could not open file '/tmp/bad1'.
+   dcecp>
+
+20. Unable to read existing specified public or private key file:
+
+   dcecp> account modify the_account -pksignature {{new pokey} {public
+/tmp/bite1} \
+   > {private /tmp/bite3}}
+   Error: Could not read from file '/tmp/bite3'.
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{new pokey}
+{public /tmp/bite1} \
+   > {private /tmp/bite3}}}
+   Error: Could not read from file '/tmp/bite3'.
+   dcecp>
+
+21. The same pk string is used for public key and private key:
+
+   dcecp> account modify the_account -pksignature {{new pokey} {public
+/tmp/bite1} \
+   > {private /tmp/bite11}}
+   Error: security server program error
+   dcecp>
+
+   dcecp> account modify the_account -change {pksignature {{new pokey}
+{public /tmp/bite1} \
+   > {private /tmp/bite11}}}
+   Error: security server program error
+   dcecp>
+
+=============================================================================
+
+
+dce_login
+- ---------
+
+Positive:
+
+1.Issue dce_login with a valid asymmetric key pair and test for
+  successful login.  Go on to issue basic DCE commands (ie. klist)
+  to ensure further commands function normally.
+
+2.Issue dce_login with an invalid asymmetric key pair for a user
+  not required to use public key pre-authentication.  Check to see
+  that sec_login code will fall back to the existing symmetric key
+  password based authentication.
+
+3.Enable PK login on master security server but not on all replicas.
+Ensure that all replicas not supporting PK login will shutdown
+gracefully.
+
+
+Negative:
+
+1.Issue dce_login with an invalid asymmetric key pair for a user that
+  is required to be a public key user.  Test for correct error message.
+
+2.Attempt to dce_login as a public key user but delete or rename the
+  user's Personal Security Module.  Test for correct error message.
+
+3.Attempt to use the public key dce_login function while the function
+  is disabled.  Test for proper error message.
+
+4.Attempt to enable the replica security servers for PK login before
+  the master is enabled.  Test for proper error message,
+
+
+=============================================================================
+
+
+API's
+=====
+
+sec_pubkey_*()
+- --------------
+Positive:
+
+Test sec_pubkey_store(): check successful call, with
+ec_pk_usage_digitalSignature;>sec_pubkey_retrieve(): check successful call,
+with sec_pk_usage_digitalSignature
+>sec_pk_data_free(): check sucessful call, data_p should be NULL.
+>>Test sec_pubkey_store(): check successful call, with
+sc_pk_usage_keyEncipherment;
+>sec_pubkey_retrieve(): check successful call, with
+sec_pk_usage_keyEncipherment;
+>sec_pk_data_free(): check successful call, data_p should be NULL, address
+contents should be zero.
+
+Test sec_pubkey_store(): check successful call, with both
+sec_pk_usage_digitalSignature and sec_pk_usage_keyEncipherment;
+sec_pubkey_retrieve(): check successful call, with sec_pk_usage_keyEncipherment;
+sec_pk_data_free(): check successful call, data_p should be NULL, address
+ contents should be zero.
+
+Test sec_pubkey_retrieve_kdc_key(): check successful call, with
+sec_pk_usage_digitalSignature.
+Negative:
+
+Test sec_pubkey_store():  check Unsuccessful call, with unsupported domain.
+
+Test sec_pubkey_store(): check unsuccessful call, with
+sec_pk_usage_nonRepudiation.
+
+Test sec_pubkey_store(): check unsuccessful call for sec_rgy_object_not_found.
+
+Test  sec_pubkey_store(): check unsuccessful call with kvno NOT 0.
+
+Test sec_pubkey_retrieve(): check Unsuccessful call, with unsupported domain.
+
+Test sec_pubkey_retrieve(): check unsuccessful call, with
+sec_pk_usage_nonRepudiation.
+
+Test sec_pubkey_retrieve(): check unsuccessful call for
+sec_rgy_object_not_found.
+
+Test sec_pubkey_retrieve(): check unsuccessful call with kvno NOT 0.
+
+Test sec_pubkey_retrieve_kdc_key():  check Unsuccessful call, with
+unsupported domain.
+
+Test sec_pubkey_retrieve_kdc_key(): check Unsuccessful call for
+sec_rgy_object_not_found.
+
+
+
+sec_pvtkey_*()
+- --------------
+
+Positive:
+
+Test successful call with usage sec_pk_usage_digitalSignature:
+ sec_pvtkey_open();
+ sec_bsafe_gen_pub_key();
+ sec_pvtkey_store();
+ sec_pvtkey_get();
+    Verify that the value in *pvtkey is the same value
+    _stored previously by doing a byte-by-byte comparison.
+ sec_pvtkey_update();
+ sec_pvtkey_get();
+    Verify that the value in *pvtkey is the same value
+    _stored previously by doing a byte-by-byte comparison.
+
+Test sec_pk_data_free() for successful call an release of data.
+
+Test sec_pvtkey_close() for successful call.
+
+Negative:
+
+Test sec_pvtkey_get: check Unsuccessful call, with no match private key.
+
+Test sec_pvtkey_update: check Unsuccessful call, with no match private key.
+
+Test sec_pvtkey_update: check Unsuccessful call, with invalid password.
+>
+Test sec_pvtkey_store: check unsuccessful call, with bogus handle.
+
+Test sec_pvtkey_get: check unsuccessful call, with bogus handle.
+
+Test sec_pvtkey_update: check unsuccessful call, with bogus handle.
+
+Test sec_pvtkey_close(): check unsuccessful call, with bogus handle.
+
+Test sec_pvtkey_store(): check unsuccessful call, with same usages and domain.
+
+Test sec_pvtkey_store(): two calls with same key usages.
+
+Test sec_pvtkey_generate(): check unsuccessful call, Unsupported.
+
+Test sec_pvtkey_update_generate: check unsuccessful call, Unsupported.
+
+sec_psm_*()
+- -----------
+
+Positive:
+
+Test using key usages sec_pk_usage_digitalSignature,
+ sec_pk_usage_keyEncipherment these scenarios:
+
+   sec_psm_open(),
+   sec_psm_gen_pub_key(),
+   sec_psm_put_pub_key(),
+   sec_psm_update_pub_key(),
+   sec_psm_close()
+
+   sec_psm_open(),
+   sec_psm_gen_pub_key(),
+   sec_psm_put_pub_key(),
+   sec_psm_sign_data()
+   sec_psm_verify_data()
+   sec_psm_close()
+
+Test using key usage sec_pk_usage_keyEncipherment scenario:
+
+   sec_psm_open(),
+   sec_psm_gen_pub_key(),
+   sec_psm_put_pub_key(),
+   sec_psm_encrypt()
+   sec_psm_decrypt()
+   sec_psm_close()
+
+
+Negative:
+
+Test sec_psm_put_pub_key(): check Unsuccessful call, using bogus handle.
+
+Test sec_psm_update_pub_key(): check Unsuccessful call, using bogus handle.
+
+Test sec_psm_sign_data(): check Unsuccessful call, using bogus handle.
+
+Test sec_psm_verify_data(): check Unsuccessful call, using bogus handle.
+
+Test sec_psm_encrypt_data(): check Unsuccessful call, using bogus handle.
+
+Test sec_psm_decrypt_data(): check Unsuccessful call, using bogus handle.
+
+Test sec_psm_close(): check Unsuccessful call, using bogus handle.
+
+Test sec_psm_put_pub_key(): check Unsuccessful call, using uninitiated handle.
+
+Test sec_psm_update_pub_key(): check Unsuccessful call, using uninitiated
+handle.
+
+Test sec_psm_sign_data(): check Unsuccessful call, using uninitiated handle.
+
+Test sec_psm_verify_data(): check Unsuccessful call, using uninitiated handle.
+
+Test sec_psm_encrypt_data(): check Unsuccessful call, using uninitiated handle.
+
+Test sec_psm_decrypt_data(): check Unsuccessful call, using uninitiated handle.
+
+Test sec_psm_put_pub_key(): check Unsuccessful call, using (wrong) key
+  usage sec_pk_usage_nonRepudiation.
+
+Test sec_psm_update_pub_key(): check Unsuccessful call, using (wrong)
+sec_pk_usage_nonRepudiation.
+
+Test sec_psm_sign_data(): check Unsuccessful call, using (wrong)
+sec_pk_usage_nonRepudiation.
+
+Test sec_psm_verify_data(): check Unsuccessful call, using (wrong)
+sec_pk_usage_nonRepudiation.
+
+Test sec_psm_encrypt_data(): check Unsuccessful call, using unsupported key
+type.
+
+Test sec_psm_gen_pub_key(): check Unsuccessful call, using illegal sign id.
+
+Test sec_psm_put_pub_key setup for illegal sign id.
+
+Test sec_psm_sign_data(): check Unsuccessful call, using illegal sign id.
+
+Test sec_psm_verify_data(): check Unsuccessful call, using illegal sign id.
+
+Test sec_psm_encrypt_data(): check Unsuccessful call, using illegal sign id.
+
+Test  sec_psm_decrypt_data(): check Unsuccessful call, using illegal sign id.
+
+Test  sec_psm_put_pub_key(): check Unsuccessful call, using handle from
+unsupported domain open.
+
+Test  sec_psm_update_pub_key(): check Unsuccessful call, using handle from
+unsupported domain.
+
+Test sec_psm_verify_data(): check Unsuccessful call, using unknown signed data.
+
+Test sec_psm_verify_data(): check Unsuccessful call, using bad signature, len
+10.
+
+
+sec_rgy_*()
+- -----------
+
+Positive:
+
+Test sec_rgy_acct_replace(): check successful call,
+ with krbtgt, sec_passwd_genprivkey, sec_passwd_c_version_none.
+
+Test sec_rgy_acct_replace(): check successful call,
+ with krbtgt, sec_passwd_genprivkey, sec_passwd_c_version_none.
+
+
+Negative:
+
+Test sec_rgy_acct_user_replace(): check Unsuccessful call,
+ with user, sec_passwd_privkey, version=1 for sec_rgy_key_bad_type.
+
+Test sec_rgy_acct_user_replace(): check Unsuccessful call,
+ with user, sec_passwd_genprivkey, version=1 for sec_rsdb_acct_bad_keytype.
+
+Test sec_rgy_acct_user_replace(): check Unsuccessful call,
+ with krbtgt_princ, sec_passwd_privkey, version=1 for sec_rgy_key_bad_type.
+
+Test sec_rgy_acct_user_replace(): check Unsuccessful call,
+ with krbtgt, sec_passwd_genprivkey, version=5 for sec_rgy_key_bad_version.
+
+Test sec_rgy_acct_user_replace(): check Unsuccessful call,
+ with bogus princ, sec_passwd_privkey, version=0 for sec_rgy_object_not_found.
+
+Test sec_rgy_acct_replace(): check Unsuccessful call,
+ with krbtgt, modulus size 1, too small for sec_s_bsafe_mod_size_out_of_range.
+
+
+
+rsec_pk_*():
+- ------------
+
+Positive:
+
+Test rsec_pk_cache_kdc_key(): check successful call,
+ with key usage digitalSignature. Verify that the value in *public_key is the
+ same value _stored.
+
+Negative:
+
+Test rsec_pk_cache_kdc_key(): check Unsuccessful call, with bad cell name.
+
+Test  rsec_pk_cache_kdc_key(): check Unsuccessful call,
+ with bad key usage sec_pk_usage_keyEncipherment.
+
+Test rsec_pk_cache_kdc_key(): check Unsuccessful call, with more than one
+ usage bit set sec_pk_usage_digitalSignature | sec_pk_usage_keyEncipherment.
+
+Test rsec_pk_cache_kdc_key(): check Unsuccessful call,
+ with a too recent key cache operation.
+
+
+Miscellaneous Quality Testing Objectives
+- -------------
+
+Exportablity:
+
+Test that there are no sec_pvtkey or sec_bsafe symbols in libdce.
+
+
+Migration:
+
+Only 1 new server API, rsec_pk_cache_kdc_key.
+Manually test migration from 1.2.1 -> 1.2.2
+Check for new PK schemas.
+
+Registry Migration:
+
+HP has manually tested the following cases:
+a) New database creation
+b) Detection of a pre-DCE 1.2.2 database by a server running DCE
+   1.2.2 [Note: requires checkpoint prior to bringing down pre-DCE
+   1.2.2 server due to Global Groups log change bug]
+c) DCE 1.2.2 client with a DCE 1.2.2 server that has not upgraded
+   version via "dcecp> registry modify -version secd.dce.1.2.2"
+d) DCE 1.2.2 client with DCE 1.2.2 server that has upgraded version
+   via "dcecp> registry modify -version secd.dce.1.2.2"
+
+
+secd version migration:
+
+A.  Test migration schema add.
+1. Create a 1.2.1's cell.  Use sec_admin stop comand to stop secd
+   (don't kill it).  Use sec_salvage_db to print the DB.
+2. Use "dce.clean" to stop daemons.
+3. Install 1.2.2's software.
+4. use "rc.dce" to restart daemons.
+5. dce_login as cell_admin.
+6. Issue dcecp command "registry modify -version secd.dce.1.2.2".
+7. Use sec_admin stop comand to stop secd.
+8. Use sec_salvage_db to print the DB.
+9. Diff 1.2.1 and 1.2.2's sec_salvage_db's output file:
+   rgy_print/attr_schema.prt.  1.2.2's should have three extra schema.
+
+B.  Test migration schema add's replay log:
+
+Follow steps 1-6 in A.
+7. Kill secd by "kill -9 secd_pid" before checkpoint happening.
+8. bring up secd again.
+9. Follow steps 7-9 in A.
+
+C. Test new dce1.2.2 DB.
+1. Use sec_create_db to create a brand new secd DB.
+2. Follow steps 8-9 in A.
+>
+
+
+=============================================================================
+
+>IV. Resources
+>
+        Machines
+                HP-UX
+                AIX
+
+        Software, Tools, Utilities
+                Leverage any existing tests
+                TET test environment
+                Purify, for memory leaks
+
+
+VI. References
+
+        Anne Anderson
+        Sue Cuti
+        Mike Burati
+        Jim Truitt
+        Sean Mullan

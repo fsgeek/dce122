@@ -1,0 +1,840 @@
+
+
+
+                      DCE Authorization Services
+
+                           Privilege Server
+
+
+                            Joseph N. Pato
+
+                Cooperative Object Computing Operation
+                         Hewlett-Packard Co.
+
+               file: priv_spec.ms version: (6) 12/05/90
+
+     1_.  O_v_e_r_v_i_e_w_
+
+     The DCE authorization component is composed of three ser-
+     vices and two facilities.  The three  services are the user,
+     group and account registry, the authentication service and
+     the  privilege service.  The two facilities are the access
+     control list (A_C_L_) and the authenticated RPC facility.
+
+     The DCE P_r_i_v_i_l_e_g_e_ S_e_r_v_e_r_ is an online certification author-
+     ity.  It provides a trusted  mechanism to derive authoriza-
+     tion information concerning principals.  Authorization
+     information  includes a principal's identity expressed as a
+     universal unique identifier (U_U_I_D_) and a set of privileges,
+     also expressed as UUIDs, that should be granted by distri-
+     buted service providers.  This  authorization information is
+     collected into a privilege attribute certificate (P_A_C_).
+
+     Client applications in the distributed computing environment
+     can exercise a_p_p_r_o_p_r_i_a_t_e_ or  l_e_a_s_t_ p_r_i_v_i_l_e_g_e_ when interact-
+     ing with other system components.  The privileges sealed in
+     a PAC can be constrained by the initiator to be a subset of
+     the maximal set of privileges granted to the principal.
+     This allows a principal to restrict their activities to a
+     selected subset of all activities they can  potentially per-
+     form thereby limiting accidental damage to the system and
+     data.
+
+     The privilege server certifies PACs, thereby allowing ser-
+     vice providers to believe the authorization  information
+     sealed in the PAC.  This certification allows service pro-
+     viders to avoid calculating a  principal's privileges.
+     Trusting a PAC has two benefits.  It allows applications to
+     exercise appropriate  privilege rather than having every
+     service provider determine maximal privilege.  It also
+     reduces total  system overhead by moving the privilege cal-
+     culation away from server access functions and to client
+     identity setting operations.  Privilege calculation at
+     servers must occur on every access to protected data whereas
+     identity setting operations are performed infrequently at
+     client machines.
+
+
+
+
+
+                                       1               OSF DCE Confidential
+
+
+
+
+
+
+
+
+     2_.  T_h_e_ R_e_l_a_t_i_o_n_s_h_i_p_ B_e_t_w_e_e_n_ N_a_m_e_s_ a_n_d_ I_d_e_n_t_i_t_i_e_s_
+
+     In the DCE environment, the authentication service provides
+     communicating principals with guarantees of their names.
+     For some applications,  the knowledge of a peer's name is
+     sufficient - but for many others this is insufficient and
+     inappropriate information for determining authorization.
+     Names are inappropriate for long term identification of
+     principals and groups.  This is true for two reasons -
+     social mores allow and sometimes encourage name changes or
+     the use of aliases, and authorization decisions should not
+     be affected by changes to the namespace.
+
+     Because names can change, they should not be stored in ACLs
+     to be used as the basis for authorization decisions.  If
+     names were used as the primary identifier in an ACL, then
+     every time a principal's name were changed all references to
+     the old name in all ACLs would also have to be changed.
+     This operation is impractical due to the number and distri-
+     bution of ACLs.  Access control lists are pervasive in a
+     distributed environment.  They are both widespread and long
+     lived.  It is also likely that at least some of the ACLs
+     will be unavailable at any time - either because they reside
+     on removable media that is temporarily unavailable or
+     because some portion of the distributed environment is tem-
+     porarily disconnected.
+
+     Knowing a principal's identity alone is not sufficient for
+     applications that use the ACL facility because ACLs may
+     allow access to be granted based on group membership.
+     Group identities should also not rely on names as the pri-
+     mary identifier.  Group names are just as likely to change
+     as principal names due to organizational changes.  Further-
+     more, group names are more susceptible to manipulations of
+     the name space since unlike principal names they are not
+     directly authenticated.  Renaming an ancestor directory in a
+     hierarchical group name can compromise all objects that are
+     accessible by that group.
+
+     To avoid these problems, the DCE environment stores all
+     references to authorization entities  (principals and
+     groups) as permanent unchanging identifiers - UUIDs.  UUIDs
+     are not convenient for users to utter, so all user interac-
+     tion with the system is performed using names - but these
+     names are translated by system components into UUIDs as they
+     are uttered.  All identifiers in ACLs are represented as
+     UUIDs and all identities and privileges sealed in PACs are
+     also represented as UUIDs.
+
+     3_.  T_r_u_s_t_e_d_ C_o_m_m_u_n_i_c_a_t_i_o_n_
+
+     All network communication between components of the DCE
+     environment is achieved through the use of NCS RPC.  Trusted
+     communication (e.g., an operation that requires
+
+
+
+                                       2               OSF DCE Confidential
+
+
+
+
+
+
+
+
+     authorization checks) is accomplished using authenticated
+     RPC as described in a companion specification.  The DCE
+     authenticated RPC facility uses the MIT/Athena Kerberos V5
+     authentication architecture augmented  with the privilege
+     attribute certificates described in this specification.
+
+     Applications need not be aware of the details of the authen-
+     tication mechanism selected by the distributed computing
+     environment.  Interactions with the authentication service
+     and with the privilege service are conducted by the imple-
+     mentation of the authentication system independent applica-
+     tion programmer's interface (A_P_I_).   Applications are only
+     responsible for determining the principal identities with
+     which they wish to interact and for expressing those identi-
+     ties in a manner compatible with the underlying mechanism.
+
+     4_.  P_r_i_v_i_l_e_g_e_ A_t_t_r_i_b_u_t_e_ C_e_r_t_i_f_i_c_a_t_e_s_
+
+     A privilege attribute certificate (PAC) is a typed object
+     that contains an authorization principal's  privilege attri-
+     butes.  There can be many forms of privilege attributes used
+     in authorization decisions.   Identities, group membership,
+     clearances and capabilities are each examples of privilege
+     attributes that could be used for authorization decisions.
+     The DCE authorization model currently only supports identi-
+     ties and group membership information in a PAC, but the PAC
+     is extensible and can evolve to accommodate other forms of
+     privilege attributes.
+
+     4_.1_.  P_A_C_ F_o_r_m_a_t_ V_1_ C_o_n_t_e_n_t_s_
+
+      P_i_c_k_ u_p_ d_e_f_i_n_i_t_i_o_n_s_ f_r_o_m_ i_d__b_a_s_e_.i_d_l_
+
+     5_.  T_r_u_s_t_i_n_g_ P_A_C_s_
+
+     All DCE services providing controlled access to persistent
+     objects rely on PACs to identify their clients.  For these
+     services to trust a PAC, two guarantees must exist.  First,
+     PACs must not be able to be forged.  Users should only be
+     able to acquire a valid PAC from the trusted privilege
+     server; they cannot construct an arbitrary PAC.  Second the
+     privilege server, like the authentication server, must be a
+     trusted application suitably protected from tampering.
+
+     5_.1_.  P_r_o_t_e_c_t_i_n_g_ P_A_C_s_ F_r_o_m_ F_o_r_g_e_r_y_
+
+     To guarantee the authenticity of a PAC and thereby the iden-
+     tity and privileges of the principal initiating an opera-
+     tion, the PAC is certified by the privilege server.   Cer-
+     tification is achieved in the DCE environment through the
+     use of two Kerberos V5 protocol features: forwarded tickets
+     and sealed authorization data.
+
+     A DCE PAC is sealed in a Kerberos V5 ticket's authorization
+
+
+
+                                       3               OSF DCE Confidential
+
+
+
+
+
+
+
+
+     data area.  The ticket is a forwarded ticket in the well-
+     known name of the privilege server to the desired target
+     principal.  The authenticated RPC facility at the target
+     server unseals the ticket and verifies that it was a valid
+     ticket granted to the privilege server.  If the ticket is
+     valid, the now unsealed authorization data is trusted and
+     the privilege attributes are made available to the target
+     application.  If the ticket is not valid, the privilege
+     attributes are ignored and the target application observes
+     privilege attributes that indicate an unauthenticated user
+     initiated the operation.
+
+     5_.2_.  M_u_l_t_i_p_l_e_-R_e_a_l_m_ O_p_e_r_a_t_i_o_n_
+
+     A r_e_a_l_m_ is the unit of administrative authority for authori-
+     zation principals.  Realms, like cells, represent organiza-
+     tional boundaries in the global distributed computing
+     environment.  Cells represent the collection of resources
+     that belong to a common naming authority while a realm
+     represents the common authorization authority.   Generally
+     organizational structures define these boundaries and a
+     one-to-one relationship exists between cells and realms.
+
+     When operating in a single realm environment (i.e., in the
+     absence of connectivity to the global distributed computing
+     environment) applications need only trust the local authori-
+     zation services.  In a multi-realm environment, applications
+     may also trust other f_o_r_e_i_g_n_ realms.  Trust in foreign
+     realms is expressed in two forms.  Objects may possess ACLs
+     that contain explicit references to principals form foreign
+     realms.  In this way the object's owner has expressed expli-
+     cit trust in the foreign realm.  Before access to objects in
+     a given realm can be provided to principals in a second
+     realm, the realm administrators must also establish a trust
+     relationship.  This is accomplished by creating a shared
+     secret between the two realms.
+
+     Operating in a multi-realm environment transparent to appli-
+     cations. The additional steps required to authenticate prin-
+     cipals in other realms are entirely handled by the authenti-
+     cated RPC facility.  The only aspect of multi-realm opera-
+     tion that is visible to applications is that naming of prin-
+     cipals in a foreign realm requires the use of fully quali-
+     fied names. Naming a principal in the local realm can be
+     accomplished independently of the name system (an unquali-
+     fied principal name implies the local realm whereas a fully
+     qualified principal name specifies both the realm and the
+     principal).
+
+     5_.2_.1_.  O_b_t_a_i_n_i_n_g_ C_r_o_s_s_-R_e_a_l_m_ T_i_c_k_e_t_s_
+
+     Access to a service is controlled via the possession of a
+     ticket to the service (and if the service is controlling
+     access to its objects, the ticket must contain a sealed
+
+
+
+                                       4               OSF DCE Confidential
+
+
+
+
+
+
+
+
+     PAC).  Tickets are dispensed by the realm's ticket-granting
+     service (T_G_S_).  The TGS has access to each of the
+     principal's secret key and will use these keys to construct
+     a ticket that will allow the principal's to establish an
+     authenticated conversation.  (Details of this protocol are
+     available in the MIT/Athena Kerberos V5 specification and
+     the DCE authenticated RPC specification.)
+
+     When constructing a ticket for a principal from one realm to
+     communicate with a principal from a second realm, there is
+     not a single TGS that has access to both principals' secret
+     keys.   To allow controlled sharing of information across
+     realms, Kerberos provides a protocol for establishing trust
+     between multiple realms.  The process requires realm
+     administrators to create a principal for each foreign realm
+     they are willing to trust.  When constructing a ticket for a
+     target principal in a foreign realm, the initiating princi-
+     pal requests a ticket granting ticket (T_G_T_) for the foreign
+     realm.  The TGT is created using the secret key of the
+     foreign realm's surrogate principal. This allows the ini-
+     tiating principal to acquire a TGT to the foreign realm
+     without the foreign realm needing to know the initiating
+     principal's secret key.  The foreign realm trusts the ini-
+     tiating realm's TGS to have properly authenticated the ini-
+     tiating principal.
+
+     In Kerberos version 4, cross-realm authentication was lim-
+     ited to realms that have directly exchanged trust informa-
+     tion.  It is impractical to presume that, in a global dis-
+     tributed computing environment, all realms that contain
+     principals that wish to interact will have established these
+     direct links.  Kerberos version 5 has been extended to allow
+     transitive trust relationships to be established.  To
+     acquire a TGT for a particular realm it is no longer neces-
+     sary for the local realm administrator to have established a
+     surrogate principal for that specific realm.  Instead it is
+     sufficient for the administrator to have trusted a realm
+     that then trusts the desired destination realm.  This
+     indirection, or transitivity, can be extended to any number
+     of intermediaries.  The final ticket to the target server
+     will contain an enumeration of all realms that were involved
+     in constructing the ticket.
+
+     5_.2_.2_.  C_e_r_t_i_f_y_i_n_g_ P_r_i_v_i_l_e_g_e_ A_t_t_r_i_b_u_t_e_s_ F_r_o_m_ R_e_m_o_t_e_ R_e_a_l_m_s_
+
+     DCE applications allow access to principals from foreign
+     realms in the same way that access is granted to principals
+     from the local realm.  Access to a controlled object is
+     granted provided that the client principal possesses a valid
+     PAC issued by the service's realm and that the principal is
+     granted access via the object's ACL.  The mechanism for
+     specifying principals from foreign realms is described in
+     the ACL specification.
+
+
+
+
+                                       5               OSF DCE Confidential
+
+
+
+
+
+
+
+
+     PACs must be certified by the local realm's privilege server
+     to restrict the amount of damage that can be caused due to
+     the compromise of another realm's authorization services.
+     If a foreign realm's privilege server were trusted to assert
+     privileges from any realm,  a single poorly secured
+     privilege server could compromise the security of the entire
+     global network.  To prevent this attack PACs that are sealed
+     in tickets originating with any principal other than the
+     local realm's privilege server are rejected.  Furthermore,
+     each foreign realm's privilege server is only trusted to
+     issue privilege attributes for principals and groups from
+     that realm.
+
+     When contacting a server in a foreign realm, not only does
+     the initiating principal  have to acquire a ticket to the
+     desired service, it must also first acquire a PAC sealed by
+     the target service's realm's privilege server.  This is done
+     in a manner analogous to the acquiring a PAC to the local
+     realm.  The only difference is that the initiator will
+     already have privileges from the initiating realm sealed in
+     the ticket to the foreign realm's privilege server. The
+     foreign realm's privilege server examines these privileges
+     and will copy all privileges that pertain to the principal's
+     originating realm and will delete any privileges for other
+     realms.
+
+     5_.2_.3_.  C_u_r_b_i_n_g_ T_r_a_n_s_i_t_i_v_e_ T_r_u_s_t_
+
+     The Kerberos V5 protocol enumerates the ticket granting
+     servers that have participated in the generation of a
+     ticket.  This allows an application to examine the ticket
+     and decide if it is willing to trust each of the enumerated
+     servers.  This information is necessary to determine if the
+     ticket should be trusted, but it is not enough.  The appli-
+     cation must have access to some algorithm for evaluating the
+     trustworthiness of each foreign realm.  Generally this algo-
+     rithm is a simple list of realms maintained by the local
+     realm administrator.  Requiring each application to make
+     this determination is awkward and subject to error.
+
+     In the DCE environment applications are shielded for the
+     underlying authentication mechanisms - therefore they are
+     unaware of tickets and of any sort of transitive trust rela-
+     tionships.  The need to weed out untrustworthy links in the
+     global environment is still necessary and is provided by the
+     authorization system components.  The privilege server pro-
+     vides a centralized facility for evaluating transitive trust
+     relationships.  We have already observed that the privilege
+     server for the target realm must be involved in PAC genera-
+     tion for communications between principals from different
+     realms (to eliminate the compromise of a third party realm
+     by a malicious realm).  The privilege server also evaluates
+     the list of realms that were involved in the construction of
+     a ticket and will reject the request for a PAC if any of
+
+
+
+                                       6               OSF DCE Confidential
+
+
+
+
+
+
+
+
+     those realms is determined to be untrustworthy.
+
+     5_.2_.4_.  H_i_e_r_a_r_c_h_i_c_a_l_ T_r_a_n_s_i_t_i_v_e_ T_r_u_s_t_
+
+     Imposing a hierarchical structure on the transitivity of
+     trust allows potential damage to be contained and provides
+     an algorithmic description of trust between realms.  The
+     Privilege Server uses this structure for determining the
+     trustworthiness of realms involved in certifying a foreign
+     principal.  The following diagram depicts a portion of the
+     naming tree.  The nodes /.../com/hp, /.../com/dec, and
+     /.../com/apple are cell roots that correspond to the root
+     realms for the corresponding companies. Subordinate to these
+     nodes are other cell roots (realms) that correspond to
+     organizational structures of each company.
+
+                                     com
+                                      |
+             --------------------------------------------------------
+                   |                       |                      |
+                  hp                      dec                  apple
+                   |                       |                      |
+          ----------------          --------------            --------
+          |    |        |           |      |     |            |      |
+         hpl  ma      boise        lkg    src   crl          mac    II
+               |                    |
+             apollo                rpc
+
+
+     The goal is to allow realms to act as intermediaries for
+     other realms while preventing this extension of trust from
+     subverting the entire global environment.  Compromising a
+     realm should not result in compromise to realms that are
+     unrelated to the realm.  Damage should be restricted to
+     objects subordinate to that realm and possibly to objects in
+     other realms that are open to access by principals in the
+     subverted realm or its subordinates.  For example,
+     Compromising the apollo realm should not result of comprom-
+     ise to any data in the apple realm except possibly for data
+     that is available to principals in the apollo realm and for
+     data stored in the apollo realm.  A small number of rules
+     governing the transitivity of trust provide these features.
+
+         1) A Peer Realm is trusted to certify principals from
+         that realm.
+
+         2) Realms are trusted to certify descendent realms.
+
+         3) Ancestor realms are trusted to certify any realm they
+         trust.
+
+         4) Realm traversal must first travel up the hierarchy to
+         an ancestor which will serve as an articulation point.
+         Traversal may then proceed across 0 or 1 peer links.
+
+
+
+                                       7               OSF DCE Confidential
+
+
+
+
+
+
+
+
+         Traversal may then continue down the hierarchy to des-
+         cendents.  Once a peer link or a down link has been fol-
+         lowed, no subsequent ancestor links may be followed.
+
+     These rules allow us to construct an environment as depicted
+     in the following figure.
+
+                                     com
+                                      |
+             --------------------------------------------------------
+                   |                       |                      |
+                  hp - - - - - - - - - - -dec                  apple
+                   ^                       ^                      ^
+          ----------------          --------------            --------
+          ^    ^        ^           ^      ^     ^            ^      ^
+         hpl  ma      boise        lkg    src   crl          mac    II
+               ^                    ^
+             apollo                rpc
+
+
+     This figure depicts ancestral/descendant relationships with
+     the token "^" and peer trust relationships with a dashed
+     line "- -".  In this figure any principal in any realm at HP
+     can trust other principals at HP and at DEC;  any principal
+     at DEC can trust principals from DEC and HP;  principals at
+     apple can only trust other principals at apple.  Trust
+     between principals at DEC and HP exists if the HP and DEC
+     realms were involved in the certification process.  Subver-
+     sion of the HP realm allows an attacker to impersonate any
+     legitimate HP principal to any realm inside HP or DEC except
+     for the principal's actual realm.  It also allows the
+     attacker to impersonate any principal from any other realm
+     (e.g., an apple realm) to realms inside HP.  This attack,
+     however, does not allow the attacker to impersonate another
+     realm (e.g., apple) to DEC.
+
+     The following diagram shows a different trust model between
+     the companies. Instead of a high degree of trust at the
+     upper level of the organization, there is a more limited
+     degree of trust established.  The com/hp/ma/apollo realm
+     shares keys with the com/dec/lkg and the com/apple/mac
+     realms.  In this scenario principals at apollo can interact
+     with principals at lkg, lkg/rpc and mac.  Principals at lkg
+     and lkg/rpc, however, cannot interact with principals at
+     mac.
+
+
+
+
+
+
+
+
+
+
+
+
+                                       8               OSF DCE Confidential
+
+
+
+
+
+
+
+
+
+                                     com
+                                      |
+             --------------------------------------------------------
+                   |                       |                      |
+                  hp                      dec                  apple
+                   ^                       ^                      ^
+          ----------------          --------------            --------
+          ^    ^        ^           ^      ^     ^            ^      ^
+         hpl  ma      boise    / - lkg    src   crl          mac    II
+               ^              /     ^                        /
+             apollo - - - - -      rpc                      /
+               |                                           /
+               + - - - - - - - - - - - - - - - - - - - - -
+
+
+     Subversion of the apollo realm creates havoc inside the
+     apollo realm and allows the intruder to impersonate apollo
+     principals to lkg, lkg/rpc and mac.  This attack however
+     does not allow principals at lkg or lkg/rpc to interact with
+     princpals at mac.  This is because neither lkg nor mac are
+     descendents of apollo - they are simply peer realms.
+
+     Subversion of the lkg realm will allow the attacker to
+     impersonate any realm and principal combination to its des-
+     cendent lkg/rpc, but it will only allow attacks on objects
+     protected for lkg and lkg/rpc principals in the apollo
+     realm.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                       9               OSF DCE Confidential
+
+
+
+
+May  9 14:40 1991  id_base.idl_p Page 1
+
+
+/* Identity base type definitions
+** 
+*/
+
+[
+    uuid(47EAABA3-3000-0000-0D00-01DC6C000000)
+]
+
+interface sec_id_base {
+
+    import "dce/nbase.idl";
+
+    /*  s e c _ i d _ t
+     *
+     *  A sec_id_t is the basic unit for identifying principals or groups etc.
+     *  It contains the uuid (object handle for the identity) and an optional
+     *  printstring name.  The name is optional for principals - it is not
+     *  optional for realm names.  Cross-realm authentication will involve
+     *  checking the names of realms as opposed to the uuid.
+     *
+     *  This datatype requires a destructor function since the printstring
+     *  name is dynamically allocated.  Generally this datatype is embedded
+     *  in other datatypes (like acl's) which have their own destructor which
+     *  will release the printstring storage as well.
+     */
+    typedef struct {
+        uuid_t              uuid;
+        [ string,ptr ] char *name;
+    } sec_id_t;
+
+    /* s e c _ i d _ f o r e i g n _ t
+     *
+     *  A foreign id (sec_id_foreign_t) is an identity from a foreign realm.
+     *  It contains a sec_id_t for the foreign user or group and a sec_id_t
+     *  for the foreign realm.
+     */
+    typedef struct {
+        sec_id_t            id;
+        sec_id_t            realm;
+    } sec_id_foreign_t;
+
+    /* s e c _ i d _ p a c _ f o r m a t _ t
+     * 
+     *  A format label to indicate which PAC format is being used.
+     */
+    typedef enum {
+        sec_id_pac_format_v1
+    } sec_id_pac_format_t;
+
+    /* s e c _ i d _ p a c _ t      (sec_id_pac_format_v1)
+     * 
+     *  A privilege attribute certificate contains the principal's identity
+     *  along with the current group and concurrent group set.  The pac is
+     *  generally not directly visible to applications.  It is normally included
+     *  in an authentication ticket where it appears as a sealed certificate.
+     *  Anticipating future systems that wish to extend the PAC structure, we
+
+
+
+
+
+
+
+May  9 14:40 1991  id_base.idl_p Page 2
+
+
+     *  include a format label (which takes the value sec_id_pac_format_t)
+     *  and we also add version specific encodings of the type.  Applications
+     *  that wish to provide persistent storage of a PAC should
+     *  use the version specific type name, applications that wish the latest
+     *  version should use the simple sec_id_pac_t generic type name.
+     *
+     *  The pac contains an "authenticated" field which when set indicates that
+     *  the certificate was obtained from an authenticated source.  When unset
+     *  the certificate should not be trusted.  (The field is unset - false -
+     *  when it is obtained from the rpc_auth layer and the "assert_id" mode
+     *  was selected.  This indicates that no authentication protocol was
+     *  actually used in the rpc, the identity was simply transmitted from the
+     *  caller to the callee.  If an authentication protocol was used, then
+     *  the flag is set to true)
+     */
+    typedef struct {
+        sec_id_pac_format_t pac_type;
+        boolean32           authenticated;
+        sec_id_t            realm;
+        sec_id_t            principal;
+        sec_id_t            group;
+        unsigned16          num_groups;
+        unsigned16          num_foreign_groups;
+        [size_is(num_groups), ref] 
+            sec_id_t        *groups;
+        [size_is(num_foreign_groups), ref]
+            sec_id_foreign_t *foreign_groups;
+    } sec_id_pac_t, sec_id_pac_format_v1_t;
+
+    /* s e c _ i d _ p i c k l e d _ p a c _ t
+     * 
+     *  An pickled privilege attribute certificate is a labeled pac.  It
+     *  contains an ndr_format_t label which describes the pickle format.
+     *  Generally a pickled pac occurs in an authentication ticket where
+     *  the data is also encrypted.
+     */
+    typedef struct {
+        ndr_format_t        format_label;
+        unsigned32          num_bytes;
+        [size_is(num_bytes)]
+            byte            pickled_data[];
+    } sec_id_pickled_pac_t;    
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Jun 19 09:43 1991  priv.idl_p Page 1
+
+
+/* Privilege Server Client Agent Interface
+** 
+**
+**  The basic privilege server interface simply allows the acquisition of 
+**  privilege ticket granting tickets (PTGTs).  These tickets allow Kerberos
+**  version 5 tickets to be transformed into privilege attribute certificates
+**  (PACs)  The privilege server will seal the principal's privileges into the
+**  PAC which will allow the authorization system to make access decisions
+**  based on inbformation other than just the principal's identifier.
+*/
+
+[ local ]
+interface sec_priv {
+
+    import "dce/nbase.idl";
+    import "dce/prvbase.idl";
+
+    /*
+     * S E C _ P R I V _ S I T E _ O P E N 
+     *
+     * Establish a connection to a privilege server.  If site name is NULL,
+     * a site is selected by the client agent.
+     *
+     * Error Status: 
+     *    sec_priv_s_server_unavailable. 
+     */
+    void sec_priv_site_open (
+        [in]        unsigned char       *site_name,  /* [in]  */
+        [out]       sec_priv_handle_t   *context,   /* [out] */
+        [out]       error_status_t      *status     /* [out] */
+    );
+
+
+    /*
+     * S E C _ P R I V _ S I T E _ G E T 
+     *
+     * Return the string representation of the site binding associated with the
+     * context parameter.  If the context is the default context, the default
+     * site binding is returned.  If non-NULL, the site_name parameter must be
+     * freed by calling "free"
+     */
+    void sec_priv_site_get (
+        [in]    sec_priv_handle_t   context,     /* [in]  */
+        [out]   unsigned char       **site_name,  /* [out] */
+        [out]   error_status_t      *status      /* [out] */
+    );
+
+    /*
+     * S E C _ P R I V _ S I T E _ C L O S E 
+     *
+     * Destroys the site binding associated with the context parameter. 
+     * Subsequent use of the context causes an error. 
+     */
+     void sec_priv_site_close (
+        [in]    sec_priv_handle_t   context,  /* [in]  */
+        [out]   error_status_t      *status   /* [out] */
+
+
+
+
+
+
+
+Jun 19 09:43 1991  priv.idl_p Page 2
+
+
+    );
+
+    /* S E C _ P R I V _ G E T _ P T G T        (Secure)
+     *
+     *  Get a privilege ticket granting ticket (PTGT) so that privilege tickets
+     *  can be synthesized by the KDC.  This is a secure call - the initiator
+     *  must possess a valid ticket to the privilege server in order to get
+     *  a new PTGT.  If the privilege server ticket is itself a privilege
+     *  ticket, then the privileges encoded in that ticket are transferred to
+     *  the new PTGT.  (This is generally used when privileges are needed
+     *  from privilege servers from independent realms.  The initiator must
+     *  chain through the various privilege servers accumulating a ptgt that
+     *  will eventually encapsulate all of the necessary privileges).
+     *  The PTGT will include only those groups requested in the group_info
+     *  list.  If the principal is not a member of one of these groups, that
+     *  group will be omitted from the ptgt, but the operation will succeed.
+     *
+     *  ERRORS:
+     *     sec_priv_s_not_member_any_groups  - principal is not a member of any
+     *                                         of the requested groups.
+     *     sec_priv_s_invalid_principal
+     *     sec_priv_s_server_unavailable
+     *
+     *  NOTE: the storage allocated for the "ptgt" parameter must be freed 
+     *        by the caller (via a call to "free") unless the value returned
+     *        is NULL (which it will be whenever the return status is bad)
+     *
+     */
+    void sec_priv_get_ptgt (
+        [in]        sec_priv_handle_t     context,
+        [in, ref]   sec_rgy_login_name_t  *initiator,   /* temporary */
+        [in]        unsigned32            num_groups,
+        [in, size_is(num_groups)]
+                    sec_id_t              *group_info,
+        [out]       sec_priv_ticket_t     **ptgt,
+        [out, ref]  error_status_t        *status
+    );
+}
+
+
+
+
+
+------- End of Forwarded Message
+
+

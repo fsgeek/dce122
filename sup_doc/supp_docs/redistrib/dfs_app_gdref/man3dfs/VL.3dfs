@@ -1,0 +1,337 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: VL.3dfs,v $
+...\" Revision 1.1.2.3  1994/08/30  00:27:44  jeff
+...\" 	{defect, 11947, R1.1}
+...\" 	Correct/clarify some DFS APIs.
+...\" 	[1994/08/30  00:27:20  jeff]
+...\"
+...\" Revision 1.1.2.2  1994/06/10  21:13:52  devobj
+...\" 	cr10872 - fixed copyright
+...\" 	[1994/06/10  20:53:45  devobj]
+...\" 
+...\" Revision 1.1.2.1  1994/04/05  15:18:30  rom
+...\" 	{enh, 10283, R1.1}
+...\" 	Moved from dce_books/app_ref/man3dfs/VL.3dfs to
+...\" 	supp_docs/redistrib/dfs_app_gdref/man3dfs/VL.3dfs.
+...\" 	[1994/04/04  22:07:40  rom]
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc. ALL RIGHTS RESERVED
+.TH "VL" "3dfs" "" "" ""
+.iX "Fileset Location Database server (DFS)"
+.SH "NAME"
+.PP
+\*LVL\*O - Introduction to the Fileset Location Database server functions
+.SH "SYNOPSIS"
+.PP
+.sS
+.zA"defect,5992,r1.0.2,fixed include directory"
+\*L#include <dcedfs/param.h>
+.nL
+#include <dcedfs/sysincludes.h>
+.nL
+#include <dcedfs/stds.h>
+.nL
+#include <dcedfs/common_data.h>
+.nL
+#include <dce/rpc.h>
+.nL
+#include <dce/pthread.h>
+.nL
+#include <dce/exc_handling.h>
+.nL
+#include <dcedfs/compat.h>
+.nL
+#include <dcedfs/nubik.h>
+.nL
+#include <dcedfs/fldb_proc.h>
+.nL
+#include <dcedfs/flserver.h>
+.nL
+#include <dcedfs/flclient.h>\*O
+.zZ"defect,5992,r1.0.2,fixed include directory"
+.sE
+.SH "Libraries"
+.PP
+All \*LVL(\|)\*O functions are defined in the library \*Llibdcedfs.a\*O.
+.PP
+.SH "DESCRIPTION"
+.iX "fileset location (DFS)"
+.iX "VL fileset maintenance (DFS)"
+.iX "VL configuration discovery (DFS)"
+.iX "\*Lvldbentry\*O structure (DFS)"
+.iX "\*Lcompactvldbentry\*O structure (DFS)"
+.iX "\*LafsNetAddr\*O structure (DFS)"
+.iX "\*LsiteDesc\*O structure (DFS)"
+.iX "\*LbulkSites\*O structure (DFS)"
+.PP
+The \*LVL(\|)\*O fileset location call functions are used by remote
+clients to interact with the Fileset Location Server. These procedures
+are the basic means by which DFS Cache Managers locate filesets in a DCE
+File System cell. The prime resource located is the fileset
+(formerly volume), the collection of files that is the unit of backup,
+quota enforcement, and replication. The locations of filesets are listed in
+the Fileset Location Database (FLDB), and it is this database that the
+Fileset Location Server primarily reads and updates.
+.PP
+The functions provided fall into several categories.
+.ML
+.LI
+Fileset Location: These functions determine the location of a fileset
+by its (64-bit) identifier or by its (character string) name.
+.LI
+Fileset Maintenance: These functions create, delete, and change
+attributes of filesets, enumerate entries in the FLDB,
+report statistics, and change attributes of fileset-bearing servers. In order
+to modify the FLDB, the caller must be the cell administrator.
+.LI
+Configuration Discovery: This function allows a Cache Manager to get
+information about a cell from the Fileset Location Server.
+.LE
+.PP
+There are several types of descriptor blocks passed between the Fileset
+Location Server and its clients. The simplest
+clients retrieve a fileset-descriptor block called a \*Lvldbentry\*O.
+.iX "\*Lvldbentry\*O structure (DFS)"
+.iS
+/* defines for convenience of vl users */
+#define VLF_RWEXISTS    0x01000  /* flags for whole fldb entry */
+#define VLF_ROEXISTS    0x02000
+#define VLF_BACKEXISTS  0x04000
+#define VLF_LAZYREP     0x08000  /* Replication of RO filesets by sched rep */
+#define VLF_LAZYRELE    0x10000  /* even if LAZYREP, one R/O is vos-released */
+#define VLSF_NEWREPSITE 0x01     /* flags for indiv. server entry */
+#define VLSF_SAMEASPREV 0x10
+#define VLSF_DEFINED    0x20
+#define VLSF_ZEROIXHERE ((unsigned32) 0x80000000)
+
+/* External (visible) representation of an individual fldb entry */
+struct vldbentry{
+\&       unsigned char name[MAXNAMELEN];
+\&       unsigned32 volumeType;
+\&       unsigned32 nServers;
+\&       struct afsNetAddr siteAddr[MAXNSERVERS];
+\&       unsigned32 sitePartition[MAXNSERVERS];
+\&       unsigned32 siteFlags[MAXNSERVERS];
+\&       unsigned32 sitemaxReplicaLatency[MAXNSERVERS];
+\&       struct kerb_princ_name sitePrincipal[MAXNSERVERS];
+\&       struct afsUUID siteOwner[MAXNSERVERS];
+\&       struct afsUUID siteObjID[MAXNSERVERS];
+\&       struct afsHyper VolIDs[MAXVOLTYPES];
+\&       unsigned32 VolTypes[MAXVOLTYPES];
+\&       struct afsHyper cloneId;
+\&       unsigned32 flags;
+\&       unsigned32 maxTotalLatency;
+\&       unsigned32 hardMaxTotalLatency;
+\&       unsigned32 minimumPounceDally;
+\&       unsigned32 defaultMaxReplicaLatency;
+\&       unsigned32 reclaimDally;
+\&       unsigned32 WhenLocked;
+\&       unsigned32 spare1;
+\&       unsigned32 spare2;
+\&       unsigned32 spare3;
+\&       unsigned32 spare4;
+\&       unsigned char LockerName[MAXLOCKNAMELEN];
+\&       unsigned char charSpares[50];
+\&    }
+.iE
+.PP
+The fields of this structure are as follows:
+.VL 4m
+.LI "\*Vname\*O"
+The string naming the fileset.
+.LI "\*VvolumeType\*O"
+The fileset type, one of the following:
+.ML
+.LI
+\*LVOLTIX_TO_VOLTYPE(RWVOL)\*O (read/write)
+.LI
+\*LVOLTIX_TO_VOLTYPE(ROVOL)\*O (read-only)
+.LI
+\*LVOLTIX_TO_VOLTYPE(BACKVOL)\*O (backup)
+.LE
+.iX "fileset types"
+...\" .iX "\*LVOLTIX_TO_VOLTYPE\*O"
+The macro \*LVOLTIX_TO_VOLTYPE\*O takes one of the three types as its
+argument and produces the actual type representation, which is internal.
+.LI "\*VnServers\*O"
+The number of servers that contain this fileset, up to
+\*LMAXNSERVERS\*O.  This field is one larger than the maximum meaningful
+index for the \*VsiteAddr, sitePartition, siteFlags, sitemaxReplicaLatency,
+sitePrincipal, siteOwner,\*O and \*VsiteObjId\*O arrays; indices start at 0.
+.LI "\*VsiteAddr\*O"
+An array of server addresses; everything after the
+\*VnServers\*Oth entry is meaningless.
+.LI "\*VsitePartition\*O"
+An array, as in the previous example, listing aggregate identifiers for
+the fileset on each server.
+.LI "\*VsiteFlags\*O"
+Flags for each server.
+.LI "\*VsitemaxReplicaLatency\*O"
+The maximum age, in seconds, that a fileset
+replica can be without the Replication Server attempting to update it.
+.LI "\*VsitePrincipal\*O"
+The name of the DCE principal.
+.LI "\*VsiteOwner\*O"
+The UUID of the authentication group that can modify site information.
+.LI "\*VsiteObjId\*O"
+The UUID of the site.
+.LI "\*VVolIDs\*O"
+The fileset IDs for all related filesets.
+.LI "\*VVolTypes\*O"
+The types of those related filesets. This
+array and the previous one are paired.
+.LI "\*VcloneId\*O"
+IDs of cloned copies of a fileset.
+.LI "\*Vflags\*O"
+General flags, as opposed to site flags.
+.LI "\*VmaxTotalLatency\*O"
+The maximum age, in seconds, a cached copy of
+data from a fileset can be before the DFS Cache Manager seeks to refresh it.
+.LI "\*VhardMaxTotalLatency\*O"
+The replica age at which the Cache Manager
+refuses to use cached data.
+.LI "\*VminimumPounceDally\*O"
+The amount of time, in seconds, for the
+Replication Server to wait before attempting to retrieve a new token after
+losing one.
+.LI "\*VdefaultMaxReplicaLatency\*O"
+The age, in seconds, a replica can be, before
+the Replication Server will not trust it.
+.LI "\*VreclaimDally\*O"
+The time, in seconds, between keep-alive messages
+sent by the Cache Manager.
+.LI "\*VWhenLocked\*O"
+The time at which this entry was locked, if it is
+currently locked.
+.LI "\*VLockerName\*O"
+The name of the user holding the current lock on the entry, if any.
+.LE
+.PP
+The \*LVLSF_SAMEASPREV\*O flag is set in an indexed entry in \*VsiteFlags\*O
+when its index represents an
+additional network address for the server listed with the previous index.
+.PP
+The \*LVLSF_DEFINED\*O flag is set in \*VsiteFlags\*O
+for only those indices where the
+corresponding fields are meaningful, and is cleared otherwise.
+.PP
+The \*LVLSF_ZEROIXHERE\*O flag, right-shifted between 0 and 7 bits, is set in
+\*VsiteFlags\*O to say which fileset instances are on which servers. Multiple
+fileset instances can be on a single server, such as read/write and backup
+instances. The rule is
+as follows: \*LVLSF_ZEROIXHERE\*O, right-shifted by \*Vk\*O bits, is set in the
+\*VsiteFlags\*O entry for a server on which the fileset with identifier
+\*VVolIDs\*O[\*Vk\*O] and type \*VVolTypes\*O[\*Vk\*O] is present. Thus:
+.iS
+VLSF_ZEROIXHERE: indicates a fileset with ID VolIDs[0], type VolTypes[0]
+\&VLSF_ZEROIXHERE >> 1: indicates a fileset with ID VolIDs[1], type VolTypes[1]
+\&VLSF_ZEROIXHERE >> 2: indicates a fileset with ID VolIDs[2], type VolTypes[2]
+\&    .....
+\&VLSF_ZEROIXHERE >> 7: indicates a fileset with ID VolIDs[7], type VolTypes[7]
+.iE
+.PP
+In many cases, a complete \*Lvldbentry\*O structure is not necessary, and
+a \*Lcompactvldbentry\*O structure can be used instead. Its definition
+follows.
+.iX "\*Lcompactvldbentry\*O structure (DFS)"
+.iS
+struct compactvldbentry {
+\&       unsigned char name[MAXNAMELEN];
+\&       unsigned32 volumeType;
+\&       unsigned32 nServers;
+\&       unsigned32 siteCookies[MAXNSERVERS];
+\&       unsigned32 sitePartition[MAXNSERVERS];
+\&       unsigned32 siteFlags[MAXNSERVERS];
+\&       unsigned32 sitemaxReplicaLatency[MAXNSERVERS];
+\&       afsHyper VolIDs[MAXVOLTYPES];
+\&       unsigned32 VolTypes[MAXVOLTYPES];
+\&       afsHyper cloneId;
+\&       unsigned32 flags;
+\&       unsigned32 maxTotalLatency;
+\&       unsigned32 hardMaxTotalLatency;
+\&       unsigned32 minimumPounceDally;
+\&       unsigned32 defaultMaxReplicaLatency;
+\&       unsigned32 reclaimDally;
+\&       unsigned32 WhenLocked;
+\&       unsigned32 spare1;
+\&       unsigned32 spare2;
+\&       unsigned32 spare3;
+\&       unsigned32 spare4;
+\&       unsigned char LockerName[MAXLOCKNAMELEN];
+\&       unsigned char charSpares[50];
+}
+.iE
+.PP
+The fields in this structure have the same meanings as the corresponding
+fields in the \*Lvldbentry\*O structure.
+.PP
+Calls that update the server-specific information add or remove
+\*LafsNetAddr\*O structures from the set of attributes of
+servers, or set the name of the DCE principal that is authoritative
+for that server. The \*LafsNetAddr\*O structure is a copy of the BSD 4.3
+\*Lsockaddr\*O, with a 16-bit address type field and 14 bytes of
+type-specific address specification; the name of a DFS principal is simply 
+an array of 64 characters terminated by a \*LNULL\*O.
+.iX "\*Lkerb_princ_name\*O structure (DFS)"
+.iS
+struct kerb_princ_name {
+\&       unsigned char text[MAXKPRINCIPALLEN];
+};
+.iE
+.PP
+Calls that obtain information about the set of servers known to the FLDB
+(the \*LVL_GetSiteInfo(\|)\*O and \*LVL_GenerateSites(\|)\*O
+calls) do so by returning a
+\*LsiteDesc\*O structure. This structure describes a single
+server, and contains up to four \*LafsNetAddr\*O
+(\*Lsockaddr\*O) structures and a DCE principal structure.
+.iX "\*LsiteDesc\*O structure (DFS)"
+.iS
+struct siteDesc {
+\&       struct afsNetAddr Addr[ADDRSINSITE];
+\&       unsigned char KerbPrin[MAXPRINCIPALLEN];
+\&       afsUUID owner;
+\&       afsUUID ObjID;
+\&       unsigned32 CreationQuota;
+\&       unsigned32 CreationUses;
+\&       unsigned32 spare1;
+\&       unsigned32 spare2;
+\&       unsigned32 spare3;
+\&       unsigned32 spare4;
+\&       unsigned32 spare5;
+};
+.iE
+.PP
+The \*LVL_GenerateSites(\|)\*O call potentially returns information about many
+servers at once. It does so by returning the \*LbulkSites\*O
+structure, which is simply a fixed-size array of \*LsiteDesc\*O structures.
+.iX "\*LbulkSites\*O structure  (DFS)"
+.iS
+struct bulkSites {
+\&       struct siteDesc Sites[9];
+};
+.iE
+.br
+.ne 1.5i
+.SH "ERRORS"
+.PP
+In addition to the error messages listed with each function in this set,
+all functions can return lower level errors from other DCE components
+or from within DFS.
+.br
+.ne .8i
+.SH "RELATED INFORMATION"
+.ad l
+.PP
+Functions:
+\*Lintro(3dfs), VC(3dfs), FTSERVER(3dfs)\*O.
+.ad b

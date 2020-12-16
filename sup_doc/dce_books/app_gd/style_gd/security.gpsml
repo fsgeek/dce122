@@ -1,0 +1,3602 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: security.gpsml,v $
+...\" Revision 1.1.4.1  1995/11/29  20:11:52  weir
+...\" 	Editorial change
+...\" 	[1995/11/29  20:11:00  weir]
+...\"
+...\" Revision 1.1.2.9  1995/06/27  17:04:30  buckler
+...\" 	1.1 edits and Prentice Hall reformat
+...\" 	[1995/06/27  17:02:59  buckler]
+...\" 
+...\" Revision 1.1.2.8  1994/11/15  20:48:03  neilson
+...\" 	Converted book title references to macro form.
+...\" 	[1994/11/15  18:58:09  neilson]
+...\" 
+...\" Revision 1.1.2.7  1994/11/15  16:22:50  weir
+...\" 	Indexing added
+...\" 	[1994/11/15  16:22:11  weir]
+...\" 
+...\" Revision 1.1.2.6  1994/10/19  20:48:24  weir
+...\" 	Review comments
+...\" 	[1994/10/19  20:47:33  weir]
+...\" 
+...\" Revision 1.1.2.5  1994/10/19  16:02:56  weir
+...\" 	Review comments and edits
+...\" 	[1994/10/19  16:02:12  weir]
+...\" 
+...\" Revision 1.1.2.4  1994/10/11  14:05:53  weir
+...\" 	Updates
+...\" 	[1994/10/11  14:05:01  weir]
+...\" 
+...\" Revision 1.1.2.3  1994/09/23  19:57:50  weir
+...\" 	Updates for review
+...\" 	[1994/09/23  19:57:03  weir]
+...\" 
+...\" Revision 1.1.2.2  1994/06/13  18:22:40  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  18:20:05  devobj]
+...\" 
+...\" Revision 1.1.2.1  1994/03/11  23:05:14  rom
+...\" 	{enh, 10129, R1.1}
+...\" 	Initial split of App Dev Guide into three books and creation of
+...\" 	Intro and Style Guide.
+...\" 	[1994/03/11  23:01:58  rom]
+...\" 
+...\" $EndLog$
+...\"
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 1 "Security"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+For the purposes of the discussion in this chapter, the security services
+provided by DCE are assumed to consist of three elements: authentication,
+access control, and data protection.  (The DCE Audit Service, which is also a
+.iX "DCE Audit Service"
+part of DCE security, is described in the \*(Dk.)
+.P
+The roles of these three elements can be broadly defined as follows
+(rigorous definitions can be found in the \*EAES/DC Security\*O volume,
+which is the definitive exposition of DCE security): 
+.ML
+.LI
+\*EAuthentication\*O
+.iX "authentication" "definition of"
+establishes whether service requestors are who they say they are.  
+.LI
+\*EAccess control\*O provides mechanisms that applications can use to establish whether
+.iX "data protection" "definition of"
+.iX "access control (authorization)" "definition of"
+a given requester is permitted to perform some operation.  
+.LI
+\*EData protection\*O
+guarantees the secrecy and integrity of data exchanged between clients and
+servers.
+.LE
+.P
+.ne 10
+As with other DCE services, use of the security services raise two kinds of
+policy questions.  At one level, application programmers must decide which
+services and levels of service to employ.  At a second level, once a service
+has been chosen, the application programmer must make many decisions about
+how to use it.  This chapter covers both levels of policy, although it focuses
+mainly on the lower-level policy issues specific to each service.  This emphasis
+is due both to the fact that the higher-level issues are relatively 
+few\(emmainly whether to use a given service or not\(emand to the belief that it
+is far easier to understand the general issues once the specifics are clear.
+.P
+Security is an especially complex area from the policy point of view.
+Security systems must anticipate threats both from human ingenuity and
+random accident, and it can be difficult\(emperhaps impossible\(emto
+be confident that no serious threat is being overlooked.  DCE
+security provides an extensive security model that applications can
+incorporate in a few well-integrated chunks.  Thus applications can
+get the benefit of the DCE security design\(emand the extensive,
+specialized analysis that went into it\(emwith relatively little
+effort.  Applications should avoid creating security solutions \*Ead
+hoc\*O and should stick closely to the solutions provided by DCE
+security.  Unless the programmer is a security specialist, it is
+extremely unlikely that an application-specific solution will provide
+better security than the DCE security services, and it is practically
+guaranteed that such solutions will contain unforeseen weaknesses.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "The Basic Security Model"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "security" "basic model for DCE applications"
+.P
+At a high level, the DCE security model is as follows.
+Servers specify the authentication service they use (currently either
+none or DCE secret key).  Clients request an authentication
+service (which may be none) when making a call.  When a server
+specifies an authentication service, it is specifying the service it
+.iX "authentication" "requested by client"
+will use \*Eif authentication is requested by the client\*O.  This allows a
+server to permit both authenticated and unauthenticated access.  When
+a client requests authentication and the server provides it,
+authentication is carried out silently by the runtime as part of the
+RPC protocol.  The runtime will fail the call if the client cannot be
+.iX "authentication" "not requested by client"
+.iX "unauthenticated access"
+authenticated.  When no authentication is requested, none is
+performed.  If the client requests authentication and the server does
+not provide it, the runtime will fail the call.
+.P
+.iX "authentication" "effect of on RPC calls"
+.ne 10
+Table 3-1 shows how client and server authentication actions affect
+RPC calls.  Clients specify an authentication service for a binding
+.iX "authentication" "service specified in client's binding handle"
+handle by calling \*Lrpc_binding_set_auth_info(\|)\*O.  Servers
+register an authentication service by calling
+.iX "authentication" "service registered by servers"
+\*Lrpc_server_register_auth_info(\|)\*O.  The possible values are
+.iX "\*Lrpc_server_register_auth_info(\|)\*O"
+\*Lrpc_c_authn_none\*O for no authentication and
+\*Lrpc_c_authn_dce_secret\*O (or \*Lrpc_c_authn_default\*O) for DCE
+.iX "secret key" "authentication"
+secret key authentication.
+...\" 
+...\" 
+.PP
+.TB "Authentication"
+.in -.1i
+.ps 11
+.vs 12
+.TS 
+center,allbox,tab(#);
+lB lB lB
+lB lB lw(.8i).
+Client Specifies#Server Registers#Authentication
+_
+rpc_c_authn_none#rpc_c_authn_none#No authentication performed
+rpc_c_authn_none#rpc_c_authn_dce_secret#No authentication performed
+rpc_c_authn_dce_secret#rpc_c_authn_none#Call rejected by RPC runtime
+rpc_c_authn_dce_secret#rpc_c_authn_dce_secret#Authentication performed
+.TE
+.ps 12
+.vs 14
+.in
+...\" 
+...\" 
+...\" 
+.iX "authentication" "and authorization"
+.P
+Authentication establishes only that each of the parties is
+a principal known to the authentication service, and that each
+party knows who the other is.  Servers typically make an explicit
+.iX "authorization" "decision made by server"
+authorization decision using one of the DCE authorization services,
+to decide whether a given authenticated principal should in fact be
+granted access to some operation or resource.  In most cases, clients
+will not be satisfied with the mere assurance that they are communicating
+with an authenticated principal.  Clients must then check the authenticated
+.iX "authentication" "how often performed"
+identity of the server to be sure that it is one with which they are
+willing to communicate.  Note that this kind of server identity check
+is normally made at a low level of granularity: typically once per
+client-server session.  Server authorization of clients is usually
+.iX "authorization" "how often performed"
+much more specific: typically once per remote operation.
+.P
+Authorization is based on the identity of the caller, which may be
+.iX "authorization" "how identity expressed"
+expressed either as a principal name or as a set of privilege
+attributes.  What the RPC authentication model provides to the server
+are, essentially, guarantees as to the authenticity of the identity,
+and possibly, the privilege attributes of the caller.  Since an
+identity without such guarantees would be useless for access checking,
+.iX "authorization" "supported only with authentication"
+authorization is supported only for authenticated RPCs.  If the client
+chooses to call unauthenticated, the runtime permits the call and does
+not provide any authentication information.
+.P
+.iX "authorization" "decision made by server"
+.ne 10
+It is entirely up to the application manager code to make an access
+decision based on any authentication and authorization data provided
+by the runtime for a client.  Clients specify an authorization service
+.iX "authorization" "service specified per binding"
+.iX "authorization" "available services"
+for each binding: either none (\*Lrpc_c_authz_none\*O), client
+principal name-based authentication (\*Lrpc_c_authz_name\*O), or DCE
+credential-based authentication (\*Lrpc_\%c_\%authz_\%dce\*O).  When a server
+manager operation is invoked (implying either that no authentication was
+performed or that authentication was performed and succeeded), the
+application can retrieve any authorization information by calling
+.iX "\*Lrpc_binding_inq_auth_caller(\|)\*O"
+\*Lrpc_binding_inq_auth_caller(\|)\*O.
+.P
+The application manager must then make an access decision based on the
+retrieved information.  The DCE ACL facility provides applicaton
+support for ACL-based authorization using the
+.iX "authorization" "recommended scheme of"
+client credentials.  This is the recommended authorization scheme.
+.P
+In addition to authentication and authorization, the DCE security
+.iX "data protection" "supported levels of"
+services can also provide various levels of data secrecy and integrity
+guarantees.  The basic model is that the client application requests 
+the minimum acceptable protection level.  The runtime then provides
+the lowest supported protection level that is \*Eat least\*O as high
+as the one requested by the client.  If the runtime cannot provide
+at least the requested level, it fails the call.  Supported levels
+as well as the services provided by each level depend on the authentication
+service in use, so clients must take care to request a level that is
+meaningful for the authentication service they have specified. 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Application Roles"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+.iX "data protection" "steps involved in using"
+Each of the elements of DCE security makes very different demands on
+the application.  In the case of data protection, the application need
+only specify a protection level.  The RPC runtime takes care of data
+protection transparently and the guarantees provided are fairly easily
+understood.
+.P
+.iX "authentication" "steps involved in using"
+In the case of authentication, clients and servers have to do more
+work to establish the required state for authentication to take place.
+The required steps are described in detail in Section 3.3 of this
+chapter.  Once this initialization is taken care of, the RPC runtime
+provides authentication transparently. 
+.P
+.iX "authorization" "steps involved in using"
+.ne 6
+The authorization component of DCE security requires the most
+work from the application.  Essentially, DCE provides applications
+with a set of mechanisms for access control.  These include the following:
+...\" 
+...\" 
+.ML
+.LI
+The authenticated identity and privilege attributes (in the form of
+credentials) of service requesters,  provided by the RPC runtime to
+servers.
+.LI
+ACLs which servers may associate with objects
+they control.
+.LI
+A default mechanism for determining a service requestor's privileges
+from an ACL and the requestor's credentials.
+.LI
+Tools for administering ACLs.
+.LE
+...\" 
+...\" 
+.P
+.iX "ACL-based authorization"
+Servers that use the DCE ACL-based authorization services must do 
+a fair amount of initialization to create an ACL manager.  Each
+protected operation must then explicitly call the ACL manager to make
+an authorization decision for each protected operation.  A set of ACL
+management APIs is provided to make these tasks easier, but the work
+required remains nontrivial.  The steps are covered in detail in
+Section 3.4 of this chapter.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.nL
+.ne 10
+.H 2 "Authentication Model"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+.iX "authentication" "model of in DCE"
+.iX "Kerberos shared secret key protocol"
+The DCE authentication model is currently based on the Kerberos shared
+secret key protocol.  In theory, the application-level interface to
+authentication is sufficiently abstract that an alternative
+authentication protocol can be implemented.  However, given that none
+so far has been implemented, it would be difficult to define
+protocol-independent authentication policies based on a realistic
+understanding of the behavior of alternate authentication services or
+the as yet unspecified programmer's interface to such services.  The
+policy recommendations of this section do, therefore, make the
+assumption that Kerberos is the underlying authentication protocol.
+No guarantees can be given as to their appropriateness if an
+alternative authentication protocol is implemented.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "The DCE Authentication Model"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .P
+...\" While it is generally true that portable applications should depend as
+...\" little as possible on Kerberos-specific behavior (for example, DCE
+...\" does not export, and does not recommend the use of, the Kerberos API),
+...\" security-conscious applications still need to be aware of the the
+...\" Kerberos protocol activity that underlies application-level security.
+...\" That is, applications need to be aware, at a high level of
+...\" abstraction, of the mappings of application-level security API calls,
+...\" application and user-created security data, and application RPCs to
+...\" certain key points in the underlying Kerberos protocol.  Such
+...\" awareness makes it far easier to understand the application's security
+...\" responsibilities\(emand hence the appropriate program actions\(emat
+...\" each stage of operation.
+...\" 
+.P
+The authentication mechanism is based on two fundamental constructs:
+.iX "principal identity" "role of in authentication"
+.iX "secret key" "authentication"
+\*Eprincipal identities\*O and \*Esecrets\*O (keys).  These are, in a
+sense, the fundamental data of authentication.  The basic
+authentication policy issues therefore have to do with how
+applications manipulate this data: how they acquire their principal
+identities and how they maintain the security of their secret keys.
+This section discusses these questions.
+The following discussion assumes an understanding of the basic
+transactions of the Kerberos protocol as implemented by DCE.  That is,
+.iX "conversation keys"
+.iX "tickets"
+it assumes that you understand such concepts as conversation keys,
+tickets, a trusted computing base, and the like, as described in the
+\*EAES/DC Security\*O volume.  It does not assume
+that you know anything about the details of protocol encoding,
+encryption mechanisms, and so on. 
+.P
+At a very general level, authentication (Kerberos)-related activity
+takes place in three stages: 
+...\" 
+.iX "authentication" "three stages in"
+...\" 
+.AL
+.LI
+Before any application can make use of the authentication service,
+some \*Eadministrative actions\*O are required, mainly to establish
+the required principal identities and related secret keys.
+.LI
+Some \*Eapplication-level actions\*O are then required of the client
+and server principals: fundamentally, the client must obtain validated
+credentials, and the server must point the RPC runtime to the storage
+for its keys.  Note that, strictly speaking, the server need not
+itself obtain any credentials, as these are only used by the client of
+the Kerberos exchange.  However, since servers typically must also act
+as clients (of the name service, for example), they will normally also
+need to acquire credentials.
+.P
+In the case of the client, the application-level actions
+required to obtain credentials are normally carried out
+by a login program before the client is run, and the client inherits
+valid credentials.  Therefore, this stage of activity is not usually
+carried out explicitly by clients.  In the case of the server, these
+activities are usually carried out by the server explicitly.  The
+reasons for this difference are one of the topics covered in the
+discussion that follows.
+.LI
+Authentication related RPC protocol activity is then carried out
+transparently by the RPC runtime during each call.
+.LE
+...\" 
+...\" 
+.P
+In addition, server application code needs to make authorization
+decisions based on the assumption that authentication has been carried
+out, but these belong more properly to the realm of authorization, as
+described in Section 3.4.
+.P
+Note that the application code proper need only concern itself
+with item 2 in the above list.  This item is therefore the appropriate
+realm for policy recommendations about application-level
+authentication.  Item 1 is an administrative task required for the
+installation and maintainance of the application.  Nevertheless, the
+required administrative actions depend on how the application treats
+authentication and are, therefore, indirectly a policy concern for the
+application programmer.  What this policy guide recommends is
+essentially a standard application security model that results in a
+standard administrative task.  Note that, once the administrative and
+application setup covered by items 1 and 2 have been performed, item
+3 is handled transparently by the RPC runtime.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Application-Level Authentication"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+One of the obvious conclusions to be drawn from the general discussion
+of DCE authentication is that application-level client and server
+authentication responsibilities are highly asymmetrical: 
+.ML
+.LI
+Clients
+typically inherit identities, while servers assume them implicitly.
+.LI
+Clients are concerned with credentials while servers are concerned
+with keys.  
+.LE
+.P
+The reasons for these asymmetries have to do both with the
+underlying asymmetry of the Kerberos model and with an underlying
+model of RPC client and server behavior that is also asymmetrical.
+.P
+From the Kerberos point of view, the basic model is that a client
+.iX "tickets" "Kerberos use of"
+acquires and holds tickets (credentials), valid for some period of
+time.  These function as temporary proxies for the client's secret.
+The server, on the other hand, makes use of no such proxy: it needs
+constant access to its secrets in order to decrypt new client requests
+.iX "conversation keys"
+and discover the applicable conversation keys.
+.P
+.ne 10
+From the RPC point of view, the basic model is that servers are
+persistent entities in the sense that they normally perform services
+on behalf of more than one client principal session.  This may mean that
+servers are persistent in time: that is, that they run for a
+long time, possibly for as long as the machine they are running on is
+up and running.  But even servers that are invoked on demand (and
+therefore that run for a short period of time) can be invoked by multiple
+clients and, during their short lives, may well perform services for
+clients other than the invoker.
+...\" 
+...\" (See Chapter XXX of this volume for
+...\" more description of persistent and on-demand servers.)  
+.P
+Clients, on the other hand, will typically be invoked by an
+interactive principal to run within the scope of a single principal
+login session.
+...\" 
+...\" [Does this really mean anything without some kind of
+...\" integrated login?  There's really no such thing as a DCE logout action
+...\" that clears your credentials.  Therefore, the application can
+...\" presumably continue to run as long as the credentials are valid.
+...\" Similarly, a local login may remain in effect long after DCE
+...\" credentials have expired.]
+...\" 
+Such clients can therefore usefully acquire
+.iX "login context" "inheriting"
+their credentials from the principal who invoked them.  Note, however,
+that there is nothing to require clients to behave in this manner.  A
+persistent client can easily be written that assumes its own identity,
+manages keys, and acquires and updates credentials.  The
+basic authentication policies described here can be easily extended to
+cover this case.
+...\" 
+...\" [Talk about this later?].
+...\" 
+.P
+For a client that runs with an inherited identity, the principal
+security problem\(emthe maintainance of its secrets\(emis reduced to
+the problem of maintaining the security of its credentials while they
+are valid.  The client is basically passive in this respect, depending
+on the local operating system to prevent unauthorized access to the
+credential cache of the DCE principal that initiates the client
+application.  Direct management and discovery of keys (for example,
+reading them from a configuration file) is not required of such clients.
+Typically, such an application can do nothing about the security of the
+principal's keys used to acquire credentials, since all the
+authentication-related state is inherited.  The client's real security
+responsibility is therefore negative: not to take any action outside
+of the specified authentication policy model that could compromise
+security for the identity with which it runs (for example,
+indiscriminately giving other processes access to its credentials).
+.P
+Clients may or may not be concerned with the identities of the servers
+they call.  The Kerberos authentication exchange is mutual in the
+sense that both clients and servers must have genuine authentication
+identities to participate successfully.  However, a client may not
+trust a server simply because it can successfully authenticate to the
+client.  The client may want to make RPCs only to servers with specific
+principal identities that it trusts.  In this case, the client has the
+additional security task of safely maintaining a list of acceptable
+server identities with which it is willing to communicate.\*F
+...\" 
+...\" 
+.FS
+This is another of the basic asymmetries of the Kerberos-based security
+mechanism.  Servers can control client access by demanding that the
+client be authenticated and then making authorization
+decisions based on the client's authenticated privilege attributes.
+Clients can only require that the servers they call be authenticated.
+This leaves the client with three server authentication options:
+...\" 
+.iX "authentication" "three options for server"
+...\" 
+.AL
+.LI
+The client doesn't care about the identity of the server.
+.LI
+The client demands that the server be authenticated, but does not
+care which authenticated identity the server uses. 
+.LI
+The client only trusts principal identities known to it directly
+or indirectly, such as by being a member of a trusted group.
+.LE
+...\" 
+...\" 
+.sp .5
+Application steps for checking authenticated server identity are
+discussed in Section 3.3.
+.FE
+...\" 
+...\" 
+.P
+For the server, the basic authentication problem imposed by the
+.iX "keys" "maintenance of by server"
+DCE secret key authentication protocol is the maintainance of keys.
+This depends on local operating system access control to the key
+.iX "\*Lkeytab\*O file"
+storage (typically a so-called \*Lkeytab\*O file) for the DCE
+principal identity used by the server.  However, since servers
+normally also need to acquire credentials (in order to behave as
+clients of other services), application programmers need to think
+carefully about how the server identity is acquired.  In general, it
+is not satisfactory to have servers run with credentials inherited
+from human logins.  For one thing, this requires the server to share
+keys with human users.  This means that the server either needs to
+have access to the default key storage used by human principals
+(typically the default \*Lkeytab\*O file, probably owned by root) or
+.iX "keys" "local copies of user keys"
+it needs to keep separate copies of user keys in local storage.  Both
+of these schemes decrease the security of keys, and the latter makes
+key management difficult.
+.P
+A straightforward scheme that meets these requirements is to have the
+server identity supplied by the invoker (or a configuration file) and
+have the server assume this identity via a series of security service
+calls.  The only administrative overhead is in establishing at least one
+principal and the required \*Lkeytab\*O file.  This is typically handled through
+\*Ldced\*O facilities.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Obtaining an Authentication Identity"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "login context" "inheriting"
+.iX "credentials" "inheriting"
+.P
+DCE clients normally inherit valid credentials from the
+logged-in principal who invokes them.  DCE servers normally need to
+establish an identity explicitly.  The steps they take, and their
+relation to the Kerberos protocol, are described in this section.
+...\" 
+...\" 
+.P
+.iX "tickets" "privilege ticket granting ticket (PTGT)"
+.iX "tickets" "ticket granting ticket (TGT)"
+.iX "PTGT (privilege ticket granting ticket)"
+.iX "TGT (ticket granting ticket)"
+In actual practice, clients want to obtain a privilege ticket granting
+ticket (PTGT), since they want to prove not only their identities to
+servers, but also to provide their certified privileges (in the form
+of credentials).  However, from the point of view of authentication, the
+principle is the same: the client needs some kind of TGT.  For
+simplicity's sake, the following discussion pays little attention to
+the distinction between TGTs and PTGTs (as well as the many extra
+protocol steps involved.)
+...\" 
+...\" 
+...\" For a TGT to be of any use, the client must have been able to extract
+...\" from it the conversation key it needs to request Service Tickets
+...\" (STKTs) (and thus to obtain a PTGT and further STKTS).  An application
+...\" that has done this is said to have a \*Evalidated identity\*O.
+...\" 
+...\" 
+.P
+.iX "credentials" "definition of"
+.iX "authentication" "definition of identity"
+.iX "login context" "definition of"
+The terms \*Ecredentials\*O, \*Eauthentication identity\*O, and \*Elogin
+context\*O are often used to mean vaguely the same thing.  Here however,
+we will use \*Ecredential\*O to mean a ticket held by an application.  An
+application's credentials at any point typically consist of a number
+of cached tickets, including a TGT, PTGT, and a variety of service
+tickets. (Also, an application may have acquired more than one
+principal identity, in which case it will have credentials for each.)
+We will use \*Eauthentication identity\*O to mean the set of
+authentication-related data\(emincluding credentials\(emreferred to
+by a login context.  Finally, we will use \*Elogin context\*O to mean the
+opaque handle to authentication-related data that applications use.
+...\" 
+...\" [One can argue with these definitions, but they are pretty close
+...\" \(emwithin the limits imposed by much inconsistency\(emto the way the
+...\" terms are used by the API and in the code.]
+...\" 
+...\" 
+...\" 
+.P
+An instance of authentication identity data in its various states is
+represented to an application as an opaque login context
+.iX "login context" "represented by \*Lsec_login_handle_t\*O"
+(\*Lsec_login_handle_t\*O).  An application obtains an authentication
+identity by calling \*Lsec_login_setup_identity(\|)\*O, which returns
+.iX "\*Lsec_login_setup_identity(\|)\*O"
+a login context containing the TGT data.  An application validates the
+identity by passing the login context to \*Lsec_login_validate_identity(\|)\*O.
+.iX "\*Lsec_login_validate_identity(\|)\*O"
+Parts of the TGT obtained by \*Lsec_login_setup_identity(\|)\*O are encrypted
+using the requesting principal's key, obtained from the registry.
+The \*Lsec_\%login_\%validate_\%identity(\|)\*O routine requires the principal's key (from
+the \*Lkeytab\*O) to perform the decryption.  Once this has occurred, the client
+runtime also performs the further steps necessary to acquire a PTGT and other
+tickets.
+.P
+.ne 8
+The setup and validation operations are separate in order to minimize
+the amount of time that the application needs to maintain the
+principal's key in its address space.  Applications obtain the
+principal's key by calling \*Lsec_key_mgmt_get_key(\|)\*O.  The call to
+.iX "\*Lsec_key_mgmt_get_key(\|)\*O"
+\*Lsec_login_validate_identity(\|)\*O destroys the key in place before
+returning.  Applications should not violate the intention of this
+.iX "keys" "should not be kept in program memory"
+design by keeping the key in memory longer than necessary.  That is,
+they should make the required calls strictly in the sequence
+illustrated in the following code fragment:
+...\" 
+...\" 
+.oS
+sec_login_setup_identity(prin_name, sec_login_no_flags,
+                         &login_context, status);
+
+sec_key_mgmt_get_key(rpc_c_authn_dce_secret, keytab,
+                     prin_name, 0, (void**)&keydata,status);
+
+sec_login_validate_identity(login_context, keydata,
+                            &reset_pwd, &auth_src, status);
+.oE
+...\" 
+...\" 
+.P
+These calls are bundled into the \*Ldce_server_sec_begin(\|)\*O routine.
+.iX "\*Ldce_server_sec_begin(\|)\*O"
+.P
+Once an authentication identity has been obtained and validated, an
+application that intends to use the identity for authenticated RPC
+normally turns it into the \*Edefault login context\*O by calling
+.iX "login context" "default"
+\*Lsec_login_set_context(\|)\*O.  As the default login context,
+.iX "\*Lsec_login_set_context(\|)\*O"
+an authentication identity is implicitly available to authenticated
+RPC calls made within the same process.  An application, such as a
+.iX "login context" "inheriting"
+client, that inherits an authentication identity inherits it as the
+default login context.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "The Authenticated RPC Call"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Once an application has either inherited or established a validated
+authentication context, it establishes authentication for RPCs by annotating
+.iX "binding" "annotating handle for security"
+the binding handles on which those calls are made.  Clients do this by calling
+\*Lrpc_binding_set_auth_info(\|)\*O.  No further action is required of the
+.iX "\*Lrpc_binding_set_auth_info(\|)\*O"
+application: when an RPC is made on such a binding handle, all further
+authentication is carried out silently by the RPC runtime.
+...\" 
+...\" \*F
+...\" 
+...\" 
+...\" .FS 
+...\" There is some confusion in earlier DCE documentation about whether an
+...\" application also needs a \*Ecertified\*O credential, obtained by
+...\" calling \*Lsec_login_certify_identity(\|)\*O Certification ensures
+...\" that a credential was obtained from a legitimate security service.
+...\" Certification does not affect any state relevant to the Kerberos
+...\" protocol and is therefore \*Enot\*O required for authenticated RPC.
+...\" An illegitimate ticket would not be useful for authentication, so
+...\" certification does not add any security to authenticated RPC.
+...\" Certification is used by applications, such as login programs, that
+...\" use credentials as a means to establish local identities.
+...\" Certification assures the local TCB that local identities extracted
+...\" from login contexts are genuine.
+...\" .FE
+...\" 
+...\" 
+.P
+.ne 10
+The call to \*Lrpc_binding_set_auth_info(\|)\*O requires three pieces of
+.iX "\*Lrpc_binding_set_auth_info(\|)\*O" "parameters required by"
+authentication-related state:
+...\" 
+...\" 
+.AL
+.LI
+The authentication service to use: either DCE secret key or none.
+.LI
+The login context to use.  Most applications will specify the default
+login context (by setting the \*Vauth_identity\*O parameter to NULL).
+.iX "login context" "default"
+.LI
+A principal name for the server being called.
+.LE
+...\" 
+...\" 
+.P
+Note that applications may need to establish a default login context
+even if they do not explicitly call
+\*Lrpc_binding_set_auth_info(\|)\*O to set this context for a
+specific binding handle.  In particular, access to name and other services
+.iX "authentication" "necessity of for server access to namespace"
+involves authenticated RPC calls made by the runtime on the
+application's behalf.  In these cases, the application does not have a
+chance to call \*Lrpc_binding_set_auth_info(\|)\*O explicitly.  These
+implicit calls therefore use the default identity for authentication
+purposes.  It is mainly for this reason that servers need to establish
+a validated authentication identity for the principal under which they
+run and make this the default login context.
+.P
+The principal name specified to \*Lrpc_binding_set_auth_info(\|)\*O
+establishes the principal for which Kerberos service tickets will be
+requested for RPCs on the binding handle.  An application making RPC
+calls may or may not care about who the server principal is.  The
+client may be satisfied to call any server that provides the service
+it wants, or the client may need to trust the server and thus require
+a trusted server principal identity.
+.P
+.iX "principal name" "server" "how a client determines"
+Typically, a client learns the principal identity of a server by
+calling \*Lrpc_mgmt_inq_server_princ_name(\|)\*O.  If the client is
+.iX "\*Lrpc_mgmt_inq_server_princ_name(\|)\*O"
+willing to call any server, the returned principal name may be passed
+to \*Lrpc_\%binding_\%set_\%auth_\%info(\|)\*O without further checks.  If the
+.iX "\*Lrpc_binding_set_auth_info(\|)\*O"
+client must trust the server, then the client needs to check the
+returned principal identity against a list of (one of more) acceptable
+values.  The client needs to obtain this list by some
+application-specific means.
+...\" 
+...\" Some methods for obtaining and
+...\" maintaining lists of acceptable principal identities are discussed in
+...\" Section XXX [Client Authentication Steps]
+...\" 
+.P
+Note that it is not the call to
+\*Lrpc_mgmt_inq_server_princ_name(\|)\*O or any subsequent checks on
+the returned name that actually authenticates the server to the
+client.  A malicious server could certainly arrange to return a false
+principal name.  However, a false name would be useless for
+authentication since the false server would not have access to the
+secrets (keys) of this identity.  However, the client does need to
+protect its list of acceptable server identities to prevent a
+malicious server from modifying the list to include its own identity.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Managing Keys"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "keys" "managing server key"
+.iX "\*Lkeytab\*O file" "permissions needed to access"
+.P
+An application that wishes to perform the server side of the Kerberos
+protocol exchange is principally concerned with managing its keys.
+Keys are normally stored in \*Lkeytab\*O files which must be in the local
+host file system.  The server needs local system permission to read and
+write them, and they must be protected from any access by other local
+identities.
+...\" 
+...\" 
+.iX "\*Lkeytab\*O file" "how created"
+.nS note
+Keytab files are normally created by administrative action.  Be aware that
+the local identity or the process running \*Lrgy_edit\*O determines the
+.iX "\*Lrgy_edit\*O" "\*Lktadd\*O"
+initial local ownership of files created by \*Lktadd\*O.
+...\" 
+...\" [DCE Shell case?]
+...\" 
+.nE
+...\" 
+...\" 
+.P
+.iX "server" "local identity needed by"
+This means that the server needs its own local identity too, to
+correspond to its DCE identity.  Keytab files should be owned by this
+local identity.  The programmer or installer must arrange for the server
+to run under this local identity, and only a locally privileged user
+should have execute permission for the server.  On UNIX systems this
+can be arranged by having the server run \*Lsetuid(\|)\*O to the chosen
+local identity and giving execute permission only to specific local users.
+.P
+.iX "local login"
+.iX "DCE login"
+Because the degree of integration between local and DCE login varies
+with DCE implementations, it is difficult to give more general advice
+about local identities.  As the following paragraphs explain, however,
+it is generally not a good idea for the server to run with the DCE
+identity of a human user.  If DCE and local identities are the same,
+the same guideline must be applied to local identities.  That is,
+the server's local identity should not be that of a human user.
+.P
+.iX "keys" "where server obtains its key"
+When a server is initialized, it will get its key from its \*Lkeytab\*O file.
+The keys installed in \*Lkeytab\*O files should \*Enot\*O be tied to some
+human readable password: that is, they should be randomly generated
+and updated frequently (as enforced by administrative policy).  This
+means that servers do not have DCE passwords; passwords should be
+used for human login only.
+.P
+In general, the domains of human and nonhuman users should be
+separate.  For example, a human user needs a password from a
+restricted domain (typable on the keyboard), hence keys tied to
+passwords are generally less secure than keys not tied to passwords.
+Furthermore, when keys are tied to passwords, key management is much
+harder. 
+.P
+.ne 8
+Servers therefore should acquire their own nonhuman,
+server-specific identities.  Requiring a small amount of
+administrative overhead to set up a DCE identity for a server-specific
+principal is not an onerous task for a server that is not frequently
+installed.  In an identity-based security system, the server's
+principal name is the essential persistent security datum for a
+server.  Its importance is in some ways equivalent to that of the
+server's bindings.
+.P
+One might complain that keeping keys in a \*Lkeytab\*O file places all of
+the server security burden on the local operating system, and this is
+correct.  But an alternative scheme, such as requiring a user password
+to start a server, does nothing to improve on
+this.  Indeed, it is the cardinal fact of DCE security that, on any
+local system, it is only as secure as the local operating system upon
+which it runs.  It is therefore a sound policy to make this dependency
+explicit rather than erecting an illusory layer of DCE security on top
+of it.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Default Server Authentication Steps"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The default model for server authentication consists of the following
+steps:
+...\" 
+.iX "authentication" "default model for server authentication"
+...\" 
+.AL
+.LI
+The server specifies a server-specific \*Lkeytab\*O file and server-specific
+.iX "\*Lrpc_server_register_auth_info(\|)\*O"
+principal name when it calls \*Lrpc_server_register_auth_info(\|)\*O.
+.LI
+The server acquires valid credentials for its
+server-specific identity via a series of \*Lsec\*O API calls.
+.LI
+The server does periodic key management by establishing a separate
+thread that calls \*Lsec_key_mgmt_manage_key(\|)\*O.  This keeps the
+.iX "\*Lsec_key_mgmt_manage_key(\|)\*O"
+server's key up to date according to local key management policies and
+thus prevents the server from becoming inoperable because of an
+expired key.
+.LI
+The server contains code to check and, if necessary, revalidate and 
+recertify its credentials when undertaking operations that require
+valid credentials (such as name service export and unexport operations).
+.LE
+...\" 
+.P
+The following sample functions, reproduced from the sample DCE application
+.iX "credentials" "acquisition"
+.iX "credentials" "revalidation"
+reprinted in full in Appendix A, implement credential acquisition, credential
+revalidation, and key management.
+.P
+.ne 8
+In order to save space and to improve the readability of the text, the code
+shown below has been slightly edited: all status checks, and all calls to
+the DCE serviceability interface (to print or log status or informational
+messages), have been removed.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The \*Lmanagekey\*O Routine"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lmanagekey(\|)\*O routine manages the server principal's key, making
+.iX "keys" "managing server key"
+sure that it never expires.
+...\" 
+...\" 
+...\" 
+.iX "\*Lsec_key_mgmt_manage_key(\|)\*O"
+.nL
+.ps 9
+.vs 12
+.oS
+/******
+ *
+ * managekey -- Make sure the server principal's key is changed before
+ *              it expires.
+ * 
+ *      The key management thread which runs this function is created
+ *       in server_get_identity(), below.
+ *
+ *
+ ******/
+
+void managekey(char *prin_name){          /* Server principal name       */
+        unsigned32 status;
+
+        status = error_status_ok;
+
+        sec_key_mgmt_manage_key(
+                rpc_c_authn_dce_secret,   /* Authentication protocol     */
+                KEYTAB,                   /* Local key file              */
+                (idl_char *)prin_name,    /* Principal name              */
+                &status);
+
+}
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.nL
+.ne 12
+.H 4 "The \*Lserver_get_identity\*O Routine"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lserver_get_identity(\|)\*O routine sets up a new server identity.
+...\" 
+.iX "\*Lpthread_create(\|)\*O"
+.iX "\*Lsec_login_setup_identity(\|)\*O"
+.iX "\*Lsec_key_mgmt_get_key(\|)\*O"
+.iX "\*Lsec_login_validate_identity(\|)\*O"
+.iX "\*Lsec_login_set_context(\|)\*O"
+.iX "login context"
+.nL
+.ps 9
+.vs 12
+.oS
+/******
+ *
+ * server_get_identity -- Establish a new server identity with valid
+ *                        credentials.  This includes setting up a key
+ *                        management thread.
+ * 
+ * 
+ *    Called from main().
+ *
+ ******/
+
+void server_get_identity(
+unsigned_char_p_t prin_name,            /* Server principal name.           */
+sec_login_handle_t *login_context,      /* Returns server's login context.  */
+unsigned_char_p_t keytab,               /* Local key file.                  */
+unsigned32 *status)
+{
+
+        pthread_t keymgr;
+        sec_passwd_rec_t *keydata;
+        sec_login_auth_src_t auth_src;
+        boolean32 reset_pwd;
+
+        *status = error_status_ok;
+
+        /* Spin off thread to manage key for specified principal...         */
+        if (pthread_create(&keymgr,            /* Thread handle.            */
+                        pthread_attr_default,  /* Specifies default thread  */
+                                                /*  attributes.             */
+                        (pthread_startroutine_t)managekey, /* Start rou-    */
+                                                /*  tine; see above.        */
+                        (void*)prin_name))     /* Argument to pass to start */
+                                               /*  routine: server princi-  */
+                                               /*  pal name.                */
+        {
+                dce_svc_printf(CANNOT_MANAGE_KEYS_MSG);
+                return;
+        }
+
+        /* Create a context and get the login context...                    */
+        sec_login_setup_identity(prin_name,
+                sec_login_no_flags,
+                login_context,
+                status);
+
+.nL
+.ne 8
+        /* Get secret key from the keytab file...                           */
+        sec_key_mgmt_get_key(rpc_c_authn_dce_secret,
+                keytab,
+                prin_name,
+                0,
+                (void**)&keydata,
+                status);
+
+        /* Validate the login context...                                    */
+        sec_login_validate_identity(*login_context,
+                keydata,
+                &reset_pwd,
+                &auth_src,
+                status);
+
+        /* Finally, set the context...                                      */
+        sec_login_set_context(*login_context, status);
+
+}
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The \*Lserver_renew_identity\*O Routine"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lserver_renew_identity(\|)\*O routine makes sure that the server's
+credentials are valid.
+...\" 
+.iX "\*Lsec_login_get_expiration(\|)\*O"
+.iX "\*Lsec_login_refresh_identity(\|)\*O"
+.iX "\*Lsec_key_mgmt_get_key(\|)\*O"
+.iX "\*Lsec_login_validate_identity(\|)\*O"
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+/******
+ *
+ * server_renew_identity -- Make sure that credentials are still valid, and
+ *                          renew them if they are not.
+ * 
+ * 
+ *     This routine is called (with the current credentials) whenever a task
+ *     is about to be attempted that requires valid credentials.  For an ex-
+ *     ample, see the cleanup code in "main()" above.  A valid credential will
+ *     nevertheless be considered invalid if it will expire within time_left
+ *     seconds.  This gives a margin of time between the validity check that
+ *     occurs here and the actual use of the credential.
+ *
+ *    Called from main() (but can be called from elsewhere).
+ *
+ ******/
+
+.nL
+.ne 10
+void server_renew_identity(
+unsigned_char_p_t prin_name,      /* Server's principal name.               */
+sec_login_handle_t login_context, /* Server's login context.                */
+unsigned_char_p_t keytab,         /* Local key file.                        */
+unsigned32 time_left,             /* Amount of "margin" -- see above.       */
+unsigned32 *status)               /* To return status.                      */
+{
+        signed32 expiration;
+        time_t current_time;
+        sec_passwd_rec_t *keydata;
+        sec_login_auth_src_t auth_src;
+        boolean32 reset_pwd;
+
+        *status = error_status_ok;
+
+        /* Get the lifetime for the server's Ticket-Granting-Ticket (TGT).  */
+        /* Note that sec_login_get_expiration() returns a nonzero           */
+        /*  status for an uncertified login context.  This is not           */
+        /*  an error.  Hence the special error checking...                  */
+        sec_login_get_expiration(login_context,
+                &expiration,
+                status);
+
+        /* Get current time...                                              */
+        time(&current_time);
+
+        /* Now, if the expiration time is sooner than the desired "time     */
+        /*  left"...                                                        */
+        if (expiration < (current_time + time_left))
+        {
+                /* Refresh the server's authenticated identity...           */
+                sec_login_refresh_identity(login_context,
+                    status);
+
+                /* Get key from local file...                               */
+                sec_key_mgmt_get_key(rpc_c_authn_dce_secret,
+                        keytab,
+                        prin_name,
+                        0,
+                        (void**)&keydata,
+                        status);
+
+                /* Validate the login context...                            */
+                sec_login_validate_identity(login_context,
+                        keydata,
+                        &reset_pwd,
+                        &auth_src,
+                        status);
+        }
+
+}
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" .nS note
+...\" The \*LERROR_CHECK(\|)\*O macro in this and subsequent code is assumed to
+...\" represent some kind of generic status code checking function.  For
+...\" examples of how such a function might be implemented, see Chapter XXX
+...\" [Errors and Messaging]. The \*LERROR_RETURN(\|)\*O macro is,
+...\" similarly, a generic function that causes the calling function to
+...\" return on a nonzero status code. 
+...\" .nE
+...\" 
+...\" 
+.P
+The server initialization code need then only make the following calls
+to establish server authentication and obtain valid credentials:
+...\" 
+...\" 
+...\" 
+.iX "\*Lrpc_server_register_auth_info(\|)\*O"
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+        /* Register server authentication information...                    */
+        rpc_server_register_auth_info(server_principal_name,
+                        rpc_c_authn_dce_secret,
+                        NULL,
+                        KEYTAB,
+                        &status);
+
+        /* Assume new identity...                                           */
+        server_get_identity(server_principal_name,
+                        &login_context,
+                        (unsigned_char_p_t)KEYTAB,
+                        &status);
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+.P
+Once the server has been running for a while, so that credentials may
+have expired, the server calls \*Lserver_renew_identity(\|)\*O
+before undertaking any task that requires valid credentials.
+For example, a server typically needs to call this operation before
+attempting to clean up its name space before shutting down.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Default Client Authentication Steps
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Once a client has inherited or created a validated identity, the only
+step required is to call \*Lrpc_binding_set_auth_info(\|)\*O.  The
+.iX "\*Lrpc_binding_set_auth_info(\|)\*O"
+client must supply a server principal name as an argument to this
+call.
+.P
+Clients can inquire for the principal identity of a server by calling
+\*Lrpc_mgmt_inq_server_princ_name(\|)\*O.  If the client does not care
+.iX "\*Lrpc_mgmt_inq_server_princ_name(\|)\*O"
+about the principal identity of the server, the returned value can be
+supplied to \*Lrpc_binding_set_auth_info(\|)\*O without further ado.
+If the client will only accept certain server identities, then it
+needs to check the returned value against the acceptable ones.
+.P
+The list of acceptable values must be obtained and maintained by
+the client by some means of its own choosing: for example, a principal
+.iX "principal name" "how obtained by clients"
+name could be obtained from an environment variable.  The only
+security issue here is that the client must be sure that the list of
+acceptable values is a legitimate one.  For example, it must not be
+stored in such a way that a false server can modify it.
+.P
+The task of maintaining a list of acceptable principal names can be
+.iX "principal name" "maintaining a client list of"
+simplified somewhat by having all acceptable principals belong to a
+single group that is maintained by some trusted authority, such as a
+system administrator.  The client then needs to maintain only the name
+of the group, rather than the whole list of principal names.  To be
+sure that the server is authentic, the client need only check the
+principal name returned by \*Lrpc_mgmt_inq_server_princ_name(\|)\*O
+against the group by calling \*Lsec_\%rgy_\%pgo_\%is_\%member(\|)\*O.
+.iX "\*Lsec_rgy_pgo_is_member(\|)\*O"
+.P
+The following code fragment demonstrates this scheme.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The \*Lis_valid_principal\*O Routine"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lis_valid_principal(\|)\*O routine checks the group membership of the
+specified principal.
+...\" 
+...\" 
+...\" 
+.iX "\*Ldce_cf_get_cell_name(\|)\*O"
+.iX "\*Lsec_rgy_site_open(\|)\*O"
+.iX "\*Lfree(\|)\*O"
+.iX "\*Lmalloc(\|)\*O"
+.iX "\*Lsec_id_parse_name(\|)\*O"
+.iX "\*Lrpc_ep_resolve_binding(\|)\*O"
+.iX "\*Lrpc_mgmt_inq_server_princ_name(\|)\*O"
+.iX "\*Lis_valid_principal(\|)\*O"
+...\" 
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+/******
+ *
+ *
+ * is_valid_principal -- Find out whether the specified principal is a
+ *                       member of the group he's supposed to be.
+ *
+ *
+ ******/
+
+boolean32 is_valid_principal(
+unsigned_char_t *princ_name,          /* Full name of principal to test.    */
+unsigned_char_t *group,               /* Group we want principal to be in.  */
+unsigned32 *status)
+{
+
+        unsigned_char_t *local_name;       /* For principal's local name.   */
+        char *cell_name;                   /* Local cell name.              */
+        sec_rgy_handle_t rhandle;          /* Local registry binding.       */
+        boolean32 is_valid;             /* To hold result of registry call. */
+
+        fprintf(stdout, "sample_client: Initial principal name == %s\n", princ_name);
+        fprintf(stdout, "sample_client: Initial group name     == %s\n", group);
+
+        /* Find out the local cell name...                                  */
+        dce_cf_get_cell_name(&cell_name, status);
+.nL
+.ne 10
+
+        /* Now bind to the local cell registry...                           */
+        sec_rgy_site_open(cell_name, &rhandle, status);
+
+        /* Free the cellname string space...                                */
+        free(cell_name);
+
+        /* Get the specified principal's local (cell-relative) name...      */
+        local_name = malloc(strlen((char *)princ_name));
+
+        sec_id_parse_name(rhandle,    /* Handle to the registry server.     */
+                        princ_name, /* Global (full) name of the principal. */
+                        NULL, /* Principal's home cell name returned here.  */
+                        NULL, /* Pointer to UUID of above returned here.    */
+                        local_name, /* Principal local name returned here.  */
+                        NULL, /* Pointer to UUID of above returned here.    */
+                        status);
+        fprintf(stdout, "sample_client: Full principal name  == %s\n", princ_name);
+        fprintf(stdout, "sample_client: Local principal name == %s\n", local_name);
+
+        /* And finally, find out from the registry whether that principal   */
+        /*  is a valid member of the specified group...                     */
+        is_valid = sec_rgy_pgo_is_member(rhandle,
+                sec_rgy_domain_group,
+                group,
+                local_name,
+                status);
+
+        /* Free the principal name string area...                           */
+        free(local_name);
+        return(is_valid);
+
+}
+ 
+    <. . . . .>
+
+
+        /* Resolve the partial binding...                                   */
+        rpc_ep_resolve_binding(binding_h,
+                sample_v1_0_c_ifspec,
+                &status);
+
+        /* Find out what the server's principal name is...                  */
+        rpc_mgmt_inq_server_princ_name(binding_h,
+                rpc_c_authn_dce_secret,
+                &server_princ_name,
+                &status);
+
+.nL
+.ne 10
+        /* And now find out if it's a valid member of our sample_servers    */
+        /*  group...                                                        */
+        if (is_valid_principal(server_princ_name, (unsigned_char_t *)SGROUP, &status))
+        {
+                rpc_binding_set_auth_info(binding_h,
+                        server_princ_name,
+                        rpc_c_protect_level_pkt_integ,
+                        rpc_c_authn_dce_secret,
+                        NULL,
+                        rpc_c_authz_dce,
+                        &status);
+
+        }
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Authorization"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "authorization"
+.P
+Assuming either that authentication has taken place and succeeded, or that no
+authentication has taken place, some server manager operation will then be
+invoked by the RPC runtime to handle an RPC call.  This operation should, as
+its first duty, make an authorization decision.
+.P
+A server manager operation calls \*Lrpc_binding_inq_auth_client(\|)\*O to
+.iX "\*Lrpc_binding_inq_auth_client(\|)\*O" "used in authorization"
+extract any authentication information for the calling client and then makes
+a series of decisions.  The usual model is that the server establishes a set of
+access criteria and rejects the call if all criteria are not met.  This is
+implemented as a series of tests, the server rejecting the call at the first
+failed test.  The possible tests are as follows:
+...\" 
+.iX "access criteria" "tests of"
+...\" 
+.AL
+...\" 
+.LI
+Does the client binding provide any authentication information? For this
+purpose, the application should check status after the call to
+\*Lrpc_binding_inq_auth_client(\|)\*O.  If no authentication information is
+provided (the \*Vstatus\*O returned is \*Lrpc_s_binding_has_no_auth\*O),
+the authorization function must decide whether this is acceptable.
+The authorization function may make its decision based on the unauthenticated
+ACL type, as noted later in this section.
+.P
+If authentication information is provided, then the application should go on
+to ask:
+...\" 
+.nL
+.ne 10
+.LI
+.iX "authentication" "available services"
+Is the authentication service acceptable to the server? The application checks
+the \*Vauthn_svc\*O parameter.  Currently this check is redundant, since the only
+authentication service available is DCE secret key (the \*Vauthn_svc\*O returned
+is \*Lrpc_c_authn_dce_secret\*O).\*F
+...\" 
+...\" ???????????????????????????????????????????????????????????????
+.FS
+There is considerable asymmetry in the use of the \*Vauthn_svc\*O
+values on the client call to \*Lrpc_binding_set_auth_info(\|)\*O and the
+server call to \*Lrpc_binding_inq_auth_client(\|)\*O.  If the client specifies
+\*Lrpc_c_authn_none\*O, the server sees a status of
+\*Lrpc_s_binding_has_no_auth\*O, and no meaningful value is returned for the
+\*Vauthn_svc\*O parameter.  Furthermore, given that the default
+authentication service is DCE secret key, if the client specifies
+\*Lrpc_c_authn_default\*O, the server returns \*Lrpc_c_authn_dce_secret\*O from
+\*Vauthn_svc\*O.  In other words, while the client can specify three
+different values for \*Vauthn_svc\*O, the server can return only one.
+.FE
+...\" ???????????????????????????????????????????????????????????????
+...\" 
+.P
+The server may of course, simply be satisfied that the client is
+authenticated and check no further.  Or the server can do one or
+both of the following two things:
+...\" 
+.LI
+Check that the protection level is acceptable.  This too is a matter for
+.iX "protection level" "checking acceptability of by server"
+negotiation between the client and server applications, but it is important
+to begin by considering the runtime's mediation of the protection level request.
+Recall that the client specifies a specific protection level for a binding,
+whereas the server, when it registers its authentication information, specifies
+only the authentication service it will use.
+.P
+The chosen (agreed upon by the client and server) authentication service may
+not support all protection levels for all protocols.  Therefore, the runtime
+adopts the policy of translating the client's protection level request to the
+.iX "protection level" "client's specification altered by runtime"
+next highest protection level actually supported by the authentication service
+and protocol in use.  This means that the server application will see a
+protection level greater than or equal to the one requested by the client.
+...\" 
+...\" (It is theoretically possible for the authentication service not to support
+...\" an equal or higher level of protection.  In practice, the only way for this to
+...\" occur currently is for the client to request protection but no authentication.
+...\" This is not an error for the client, but since the server application will not
+...\" see any authentication data, the point is moot.)
+...\" 
+.P
+Most server applications will establish a policy for the minimum
+acceptable protection level.  In this case, if the level returned by
+.iX "protection level" "minimum level aceptable to server"
+.iX "protection level" "server policy with respect to"
+the server application when it calls \*Lrpc_binding_inq_auth_client(\|)\*O
+is below the standard, the server manager fails the access request.  It is
+perfectly possible, however, for a server to require a \*Elower\*O level of
+protection.  For example, a server may want to avoid the considerable
+overhead of full data encryption and thus refuse to service requests
+for this level.
+...\" 
+.LI
+Check that the authorization service is acceptable.  Once again,
+.iX "authorization" "checking service acceptability to server"
+this is a matter for negotiation between the client and server
+applications.  The server application provides an access testing
+mechanism for authorization services it supports.  There are three
+possibilities:
+...\" 
+.iX "authorization" "list of available services"
+.ML
+.LI
+.iX "authorization" "service based on client's principal name"
+Authorization based on the client's principal name (\*Lrpc_c_authz_name\*O).
+...\" 
+.LI
+.iX "authorization" "service based on client's credentials"
+Authorization based on the client's credentials
+(\*Lrpc_\%c_\%authz_\%dce\*O).  This involves checking the client identity's
+permission set (extracted from an ACL associated
+with the object the client is attempting to access) against the required
+permissions for the requested operation.  The client's identity is extracted
+from its credentials, contained in its binding.
+...\" 
+.LI
+.iX "authorization" "absence of service acceptable to server"
+The server may permit access without authorization checking
+(\*Lrpc_c_authz_none\*O).
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.P
+.iX "authorization" "service based on client's principal name"
+Name-based authorization is straightforward, but of very limited utility.  In
+the simplest form, the application compares the extracted name string with a
+set of permitted names.  However, the application is entirely responsible for
+maintaining and manipulating the set of permitted names securely, which is a nontrivial
+task.  For example, the application must provide for some administrative way to
+update the set of permitted users.  Typically, this will require maintainance of
+a restricted access file in some application-specific format.  This is the kind
+of administrative overhead that applications should be designed to avoid. 
+.P
+.iX "authorization" "service based on group and organization membership"
+If the server application is willing to permit access by group and organization,
+it can somewhat offset this difficulty by making a group or organization
+membership check for the specified principal name.  However, the basic objection
+remains that an application doing name-based authorization must maintain and
+administer a private security namespace (consisting of principals, groups, and
+organizations associated with access privileges).  Since the credential-based (ACL)
+method is designed to provide a general solution to this problem, it is much to
+be preferred.  ACL based access checking is described in the following sections.
+.P
+If the authorization service requested is acceptable, the server
+application makes the appropriate access tests as described in step 6.
+...\" 
+.nL
+.ne 8
+.LI
+Check that the server principal name specified by the client is acceptable.  This
+check is useful for a server that is running with more than one principal identity.
+The server may only want to allow the operation under a specific principal identity.
+If the server is running with only one principal identity, this check is
+redundant.
+...\" 
+.LI
+Extract the client privileges and perform the appropriate access testing.  The form
+of the client privileges depends on the authorization service.  The application needs
+to extract the privileges in the correct format and pass them to the appropriate
+access tests.
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Client Credentials
+...\" ----------------------------------------------------------------------
+...\" DEFINE THEM
+.iX "authorization" "service based on client's credentials"
+.P
+A client's credentials may be implicitly passed on to an ACL manager via a
+call to \*Ldce_acl_is_client_authorized(\|)\*O.  Or the credentials may
+.iX "\*Ldce_acl_is_client_authorized(\|)\*O"
+be extracted from the client binding by a call to
+\*Lrpc_\%binding_\%inq_\%auth_\%client(\|)\*O and then passed on to an ACL manager
+.iX "\*Lrpc_binding_inq_auth_client(\|)\*O"
+via a call to \*Lsec_acl_mgr_is_authorized(\|)\*O.  In the latter case, there
+.iX "\*Lsec_acl_mgr_is_authorized(\|)\*O"
+is some additional complication in the case that the client specified no
+authentication.  If the server supports credential-based authorization, it should
+handle this case by testing for unauthenticated access via the ACL manager.
+However, no credentials are returned from \*Lrpc_\%binding_\%inq_\%auth_\%client(\|)\*O
+in this case.  The convention is to set the \*Lpac\*O argument to NULL in
+this case (\*L(rpc_authz_handle_t)0\*O).  ACL managers that follow the recommended
+policies will test for unauthenticated access in the case of such a null handle.
+...\" 
+...\" [I assume that such a user is considered
+...\" to be any_other, with privileges masked against the unauthenticated
+...\" mask ?]
+...\" 
+.P
+.iX "credentials" "null"
+.iX "credentials" "anonymous"
+Null credentials are not the same thing as anonymous credentials.  Anonymous
+.iX "anonymous user UUID"
+credentials are simply credentials for the well-known anonymous user UUID.  They
+are tested in the normal way by the ACL manager against permissions for the
+anonymous user in the relevant ACL.
+.P
+The following code fragment shows the necessary steps:
+...\" 
+.nL
+.ne 3.5i
+.ps 9
+.vs 12
+.oS
+        rpc_authz_handle_t pac;
+
+        /* Get the client's credentials...                                  */
+        rpc_binding_inq_auth_client(. . . &pac . . &status);
+
+        /* If there is no authentication information, set up a set of null  */
+	/*  credentials...                                                  */
+        if (status == rpc_s_binding_has_no_auth)
+        {
+                pac = (rpc_authz_handle_t)0;
+        }
+
+        /* And now test the client's possession of the required permissions */
+        /*  by passing its credentials (along with other pertinent data) to */
+        /*  the following call...                                           */
+        sec_acl_mgr_is_authorized(. . . (sec_id_pac_t*)pac . . .);
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Access Control Lists"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "access control list (ACL)" "use of in authorization"
+.P
+Authorization decisions depend on the following information:
+...\" 
+...\" 
+.VL
+.LI "privilege attributes"
+.iX "privilege attributes" "defined"
+.nL
+A set of principal and group names qualified by the cell name in which the
+principals and groups exist.
+.P
+This information comes from the entity (client) that is attempting to perform
+the operation in question.
+...\" 
+...\" 
+.LI "ACL privilege attribute entries"
+.iX "access control list (ACL)" "defined"
+.nL
+This is the ACL.  It consists of a list of entries, each of which consists of an
+.iX "permissions set" "in ACL"
+\*Eentry type\*O, a \*Ekey\*O, and a \*Epermissions set\*O, which taken together
+describe what permissions a particular entity possesses for the object to which
+the ACL is attached.
+.P
+The ACL is looked up by the server through which the client is trying to
+perform the operation.
+...\" 
+...\" 
+.LI "ACL mask entries"
+.iX "mask entries" "in ACL, defined"
+.nL
+These consist of two \*Ventry_type\*L:\*Vpermissions_set\*O pairs.
+...\" 
+...\" 
+.LI "requested permissions"
+.nL
+A permission set which describes the permissions that a client must
+possess in order to perform the requested operation.  The server itself
+calculates this information.
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+.P
+.ne 10
+There are two levels of semantics/policy to be considered here. One
+is the semantics of privilege attributes, for which we specify a
+strict (POSIX compliant) policy in the form of an access checking
+algorithm.  This is embodied in the default access checking algorithm
+provided by the ACL library.  The second is the semantics of
+permissions.  Ultimately these depend on the ACL manager and the kinds
+of objects it protects.  However, some recommendations for keeping
+permissions as intuitive and consistent across applications as possible
+are offered in the following subsection.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Permissions Semantics Recommendations"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "permissions semantics"
+.P
+The basic model used for access checking is to iterate through a sequence of
+ACL privilege attribute entries for each member of the requested permissions
+set, looking for the first match with a privilege attribute (and possibly ANDing
+the result with the appropriate ACL mask entries (\*Vmask_obj\*O and
+\*Vunauthenticated\*O).  Entry types are checked in essentially the following
+order:
+.iX "entry types" "in ACL, recommended checking order"
+...\" 
+...\" 
+.ML
+.LI
+[\*Vuser_obj\*O]
+.LI
+\*Vuser\*O
+.LI
+\*Vforeign_user\*O
+.LI
+[\*Vgroup_obj\*O], \*Vgroup\*O, \*Vforeign_group\*O
+.LI
+\*Vother_obj\*O
+.LI
+\*Vforeign_other\*O
+.LI
+\*Vany_other\*O
+.LE
+...\" 
+...\" 
+.P 
+.iX "\*Luser_obj\*O ACL entry type"
+.iX "\*Lgroup_obj\*O ACL entry type"
+In actual practice, the bracketed [\*Vuser_obj\*O] and [\*Vgroup_obj\*O]
+entry types are ignored by the access checking algorithm implemented by
+.iX "access algorithm" "as implemented in DCE ACL library"
+the DCE ACL library.  The reasons for this will be explained shortly.  The
+access check is made at the first match, effectively giving precedence to
+the most specific match.  The group entries are unordered so the match is
+made against the union of all group entries.  This precedence allows
+explicit inclusion and exclusion of permissions depending on whether a
+more restrictive set of permissions is matched before or after a less
+restrictive set.
+.P
+.ne 10
+Except for the \*Vuser_obj\*O and \*Vgroup_obj\*O entry types, the ACL
+entry types have semantics clearly defined according to the specificity
+and the cell of the principals referred to.  In the local cell, \*Vuser\*O
+is the most specific, referring to some specific local principal.  The
+\*Vgroup\*O entry type refers to a specific set of principals.  The
+\*Vother_obj\*O type refers to other local principals not accounted for
+by \*Vuser\*O and \*Vgroup\*O entries.
+.P
+The \*Vuser\*O and \*Vgroup\*O entries are extended to foreign cells by
+.iX "foreign cells" "user and group ACL entries for"
+.iX "user ACL"
+.iX "group ACL"
+.iX "\*Lforeign_user\*O ACL entry type"
+.iX "\*Lforeign_group\*O ACL entry type"
+\*Vforeign_user\*O and \*Vforeign_group.\*O These are user and group
+identifiers that include a cell name.
+...\" [cell identifier ?]
+Strictly speaking, this distinction between the local and foreign cells
+is not required, since \*Vuser\*O and \*Vgroup\*O entries implicitly
+contain global names (that is, the global name of the local cell is
+implicitly known.)  The \*Vuser\*O and \*Vgroup\*O entries are therefore
+really an implementation convenience for principals and groups in the
+local cell.
+.P
+.iX "\*Lother_obj\*O ACL entry type"
+The \*Vother_obj\*O entry is extended by \*Vforeign_other\*O, which is
+a list of cell names.
+.P
+Finally, principals that do not meet any of the above criteria can be
+.iX "\*Lany_other\*O ACL entry type"
+authorized as \*Vany_other\*O.  The \*Vother_obj\*O, \*Vany_other\*O,
+and \*Vforeign_other\*O types are distinguished by cells: \*Vother_obj\*O
+applies to the local cell, \*Vforeign_obj\*O applies to specified foreign
+cells, \*Vany_other\*O applies to any cell.
+.P
+The \*Vuser_obj\*O and \*Vgroup_obj\*O types have less straightforward
+semantics.  They refer to a special principal and group that must be
+known to the ACL manager ``out of band'': that is, they cannot be
+determined from the ACL entry itself.  The semantics of the \*Vmask_obj\*O,
+which is applied to everything except the \*Vuser_obj\*O and \*Vother_obj\*O
+.iX "\*Lmask_obj\*O ACL entry type"
+entries, are also complicated.  The \*Vmask_obj\*O is implemented to permit
+POSIX ACLs to more or less maintain UNIX semantics for \*L000\*O
+permissions. 
+.P
+In general, the use of \*Vuser_obj\*O and \*Vgroup_obj\*O is deprecated:
+they unnecessarily create a special user, thus complicating the
+otherwise straightforward semantics of ACLs.  Unless you are implementing a
+file system, you probably do not need these types. (The \*Vother_obj\*O type
+is unobjectionable since it has well defined semantics.)  Similarly, the
+use of \*Vmask_obj\*O is deprecated because of its awkward semantics.
+...\" 
+...\" 
+.P
+.ne 10
+Thus it is recommended that you use only types from the following subset of
+entry types:
+...\" 
+...\" 
+.iX "ACL" "entry types"
+.ML
+.LI
+\*Vuser\*O 
+.LI
+\*Vgroup\*O
+.LI 
+\*Vother_object\*O 
+.LI
+\*Vforeign_user\*O 
+.LI 
+\*Vforeign_group\*O 
+.LI
+\*Vforeign_other\*O 
+.LI
+\*Vany_other\*O 
+.LE
+...\" 
+...\" 
+.P
+These types allow for the most specific to the most general principals,
+both for local, specific foreign cells, and for unspecified foreign cells.
+.P
+.iX "\*Luser_obj\*O ACL entry type" "ignored by DCE ACL library"
+.iX "\*Lgroup_obj\*O ACL entry type" "ignored by DCE ACL library"
+The DCE ACL library ignores \*Vuser_obj\*O and \*Vgroup_obj\*O, because
+there is no generic way to determine the user and group owners of an
+arbitrary ACL protected object: the semantics of ownership are application-specific.
+However, since these types are not recommended for general use anyway, their
+absence should not be a serious limitation for most applications that use the
+DCE ACL library.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+...\" ACL Manager Notes -- Example Application
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "ACL Managers"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "ACL" "manager"
+.P
+DCE entities expect to be able to access other DCE entities' objects' ACLs
+through a standard set of DCE routines, knowing nothing more than the names
+of the objects.  The names of the objects are in the form of
+CDS pathnames.
+.P
+.iX "ACL" "manager" "defined"
+.iX "ACL" "manager" "and remote ACL (\*Lrdacl\*O) interface"
+The DCE ACL library is an implementation of the remote ACL (\*Lrdacl\*O) interface,
+designed in such a way as to allow any DCE application to use it instead of
+having to implement the interface itself.  In DCE 1.0, applications that wished
+to use the DCE ACL functionality had to implement the full remote interface
+themselves; in DCE 1.1 this is no longer true.  Once an application has
+.iX "ACL" "manager" "and DCE ACL library"
+registered certain information with the ACL library (see Section
+3.4.3.2), its ACL management information will be hooked into
+the remote ACL implementation routines that make up the DCE ACL library.
+.P
+.ne 8
+Of course, an application still must take care of the details of storing and
+retrieving its ACLs (though these tasks are now made much easier by the DCE
+.iX "ACL" "manager" "and DCE backing store library"
+backing store library routines), setting up definitions that determine how
+its ACLs are interpreted, and so on.  Practical examples of how to do these
+things can be found in the DCE sample application (fully reprinted in Appendix
+A), which is explained in the following sections.
+.P
+For more detailed information about the interfaces mentioned below, see the
+\*(Dk.
+...\" .ML
+...\" .LI
+...\" ``The DCE Backing Store''
+...\" .LI
+...\" ``The Access Control List Application Program Interface''
+...\" .LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Who Does What?"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+In a properly-setup application ACL manager, who does what? That is, what
+does the application code have to do about ACLs, and what is left up to the
+ACL library?
+.P
+The DCE Security Service ACL API consists of the following routines:
+...\" 
+.iX "ACL" "operations implemented by library"
+.ML
+...\" 
+.LI
+.iX "\*Lsec_acl_bind(\|)\*O"
+\*Lsec_acl_bind(\|)\*O
+.LI
+.iX "\*Lsec_acl_bind_to_addr(\|)\*O"
+\*Lsec_acl_bind_to_addr(\|)\*O
+.LI
+.iX "\*Lsec_acl_calc_mask(\|)\*O"
+\*Lsec_acl_calc_mask(\|)\*O
+.LI
+.iX "\*Lsec_acl_get_access(\|)\*O"
+\*Lsec_acl_get_access(\|)\*O
+.LI
+.iX "\*Lsec_acl_get_error_info(\|)\*O"
+\*Lsec_acl_get_error_info(\|)\*O
+.LI
+.iX "\*Lsec_acl_get_manager_types(\|)\*O"
+\*Lsec_acl_get_manager_types(\|)\*O
+.LI
+.iX "\*Lsec_acl_get_mgr_types_semantics(\|)\*O"
+\*Lsec_acl_get_mgr_types_semantics(\|)\*O
+.LI
+.iX "\*Lsec_acl_get_printstring(\|)\*O"
+\*Lsec_acl_get_printstring(\|)\*O
+.LI
+.iX "\*Lsec_acl_lookup(\|)\*O"
+\*Lsec_acl_lookup(\|)\*O
+.LI
+.iX "\*Lsec_acl_replace(\|)\*O"
+\*Lsec_acl_replace(\|)\*O
+.LI
+.iX "\*Lsec_acl_test_access(\|)\*O"
+\*Lsec_acl_test_access(\|)\*O
+.LI
+.iX "\*Lsec_acl_test_access_on_behalf(\|)\*O"
+\*Lsec_acl_test_access_on_behalf(\|)\*O
+.LE
+...\" 
+...\" 
+.P
+As their names suggest (full descriptions can be found in the
+\*(Dr), these routines are what DCE clients call to use
+and manipulate ACLs, namely: bind to an object's ACL; retrieve an ACL;
+replace (that is, write to) an ACL; test (via its ACL) access to an object,
+and so on.
+.P
+A properly-set-up DCE application does not have to implement any of these
+operations; they are all taken care of by the remote ACL implementations
+in the DCE ACL library.  The only exception to this statement involves the
+binding operation.  The application must register a routine that can be
+.iX "ACL" "binding routine"
+called by the ACL library whenever necessary to make up a complete binding
+to a specific ACL (this involves returning an ACL UUID, as will be seen
+below).  This is the application's hook into the ACL library
+implementations: the registered routine will always be called during a
+binding operation on any of the application's ACLs, and once it has given
+the library a binding to the desired ACL, the library routines can perform
+any requested operation with it.
+.P
+The application is thus not responsible for implementing any ACL interface
+operations.  What the application is responsible for is the following:
+.iX "ACL" "manager" "operations responsible for"
+...\" 
+...\" 
+.ML
+.LI
+Setting up the necessary ACL data types and descriptions.
+.LI
+Supplying a routine that resolves object names into ACL UUIDs.
+.LI
+Setting up persistent databases in which the ACLs can be stored
+and retrieved.
+.LI
+Initializing the ACLs for all existing objects.
+.LE
+...\" 
+...\" 
+...\" 
+.P
+The purpose of the following sections is to describe how these
+requirements can be fulfilled.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The Requirements"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+In order for a DCE application to use the ACL library routines for ACL
+management, the following things must be true of its server code:
+...\" 
+...\" 
+.iX "ACL" "manager" "implementation requirements"
+.ML
+.LI
+.iX "ACL" "UUID"
+There must be a procedure that can take the valid name of an object and return
+that object's ACL UUID to a caller.  This typically is accomplished by (first)
+looking up an object UUID in a name-indexed database and then (secondly)
+extracting the ACL UUID from the object state information, which was looked
+up in a database indexed by object UUIDs.  The databases, of course, must be
+set up and maintained by the application.  Clients to bind to the objects through
+a CDS \*Ejunction\*O at the server's entry.
+...\" 
+...\" 
+...\" However, note that there are at least two ways to do the object UUID lookup.
+...\" Although this isn't usually a good idea, an application could use CDS for this
+...\" part, by creating CDS namespace entries for each of its objects, and storing
+...\" the object UUIDs in the entries. (The application will still have to store the
+...\" object data itself, however, in its own database, unless it uses XDS to store
+...\" additional, application-defined, data in the CDS entries.) The usual method is
+...\" to maintain all the object information in the server, store no object information
+...\" in CDS, &c., as above.
+...\" 
+.nL
+.ne 8
+.LI
+The application's object name resolver has to be registered into the
+DCE runtime remote ACL (\*Lrdacl\*O) interface mechanism, so that the DCE
+routines (such as \*Lsec_acl_bind(\|)\*O) and the \*Lacl_edit\*O command can
+access it.
+.P
+This is the server object name resolution procedure described in item 1.
+\*Lacl_edit\*O accepts a (CDS entry) name which it expects to be able to
+resolve into an object which has an ACL it can access.  For this to
+be so, the application server must register a routine (with the \*Lrdacl\*O
+interface UUID) which, when called by \*Lacl_edit\*O with an object name,
+will be able to return to \*Lacl_edit\*O the information it needs (that is, a
+UUID) to get the ACL itself.  In other words, the routine must be able
+to turn an object name into an ACL UUID.
+...\" 
+.LI
+.iX "ACL" "manager" "and DCE backing store library"
+A persistent database in which to store the ACLs must be created. (The
+database must be compatible with the interface that the security
+routines use; that is it must be created with the DCE backing store
+library routines.)
+...\" 
+.LI
+.iX "ACL" "database"
+The ACL database must be registered (together with a manager type UUID
+and a name-to-ACL UUID resolver procedure) with the ACL library.
+...\" 
+.LI
+.iX "manager" "type UUID" "use of"
+An object type (that is, manager type) UUID must be created to identify
+each of the application's ACL categories (that is, the kind of object the
+ACL applies to, and hence the kind of ACL itself: what permissions it
+can contain, and what they mean in regard to the object they protect).
+(The manager type will also serve as an identifier for the ACL database
+that the ACLs themselves are stored in\(emthis however is internal to
+the ACL library.)
+...\" 
+.LI
+UUIDs to identify the objects must be created.
+...\" 
+.LI
+The ACLs themselves on the relevant objects must be created.
+...\" 
+.LI
+The ACLs must be stored, indexed by UUID, in the backing store database.
+.LE
+...\" 
+...\" 
+.P
+Setting up an ACL manager is a matter of making these eight things happen.
+The sample application shows the easiest way of accomplishing this, namely
+by using the DCE ACL library.  See in particular the routine
+\*Lserver_acl_mgr_setup(\|)\*O in \*Lsample_server.c\*O.
+.P
+.ne 10
+Note, by the way, that discussing the details of setting up an ACL manager
+without first considering the representation and management of the objects
+themselves is a very artificial thing to do.  The excuse for doing it here
+is that ACL managers are the subject of this section.  However, keep in mind
+that ACLs are only an adjunct to the objects they guard access to.  In a real
+application one would never put the cart before the horse by working out the
+details of ACL management before settling on the way object management itself
+was to be done.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "What is an Object?"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "object" "defined"
+.P
+Network operations are like grammatical sentences: they must have a \*Esubject\*O
+(the client performing some operation), a \*Epredicate\*O (the operation itself),
+and an \*Eobject\*O (the ``thing'' on which the operation is performed).  Although
+meaningful sentences can sometimes omit some of its grammatical elements, a network
+operation must always have all three of its elements.
+.P
+In any application, distributed or not, an \*Eobject\*O is any externally
+accessible resource which is under the application's control.  Objects can be
+anything: printers, files, other machines, data\(emit all depends on the
+application.  What these things have in common is that they must be accessed
+through the application itself.  Entities in a distributed application request
+the use of these resources, via clients, from the application server; and the
+server normally decides whether or not to grant use of a resource to an entity
+by examining the object's ACLs.
+.P
+.iX "object" "ACL for"
+The object can have an existence quite independent of the application that
+manages it.  On the other hand, the state information associated with the
+object, which the application must have access to in order to manage the
+object in a reasonable way, is maintained by the application and is useful
+only to it.  This information is stored in a backing store database, where
+each separate record normally contains the state information for a single
+object.  An object's ACLs qualify as \*Estate information\*O for the purposes of
+this discussion.
+.P
+.iX "object" "as an abstraction"
+.ne 10
+In the sample application, the objects' state information is practically
+identical to the objects themselves, since the latter seem not to exist at
+all except as the information stored in the backing databases.  However, this
+is only partly true.  The \*Lsample_object\*O object is indeed a dummy and exists
+only as a pretext for showing how ACLs on objects are set up and manipulated.
+The server management object (\*Lserver_mgmt\*O), however, is different: it really
+has a purpose, although it is an abstraction (that is, access to an interface).  It
+is used whenever a client attempts to execute a remote management operation on
+the server.  In the sample application this happens when the client is invoked
+with the ``kill'' option.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Why Three Databases?"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "ACL" "manager" "and DCE backing store library"
+.P
+You might think that only one database would be required to hold the object
+state information described above.  Why, then, are three backing store databases
+employed in the sample application? The answer to this question has two parts.
+.P
+First: It is true that only one database is needed to hold the object state
+information itself.  The need for a second database arises from the necessity
+of organizing the object information in more than one way, so that it can be
+retrieved both by name and by object UUID.  The object information is stored
+directly in a database indexed by object UUIDs, and that is how it must be
+retrieved.  However, application users will specify resources by names, not
+UUIDs.  In order to make this work, the application stores its objects' UUIDs
+in a separate database indexed by their names.  Thus any object's information
+can be retrieved, if the object's name is known, by means of a two-step
+process involving (first) looking up an object UUID from the name-indexed
+database, and (second) looking up the object information from the object
+UUID-indexed database.
+.P
+Secondly: There is a third database to hold only the objects' ACLs.
+Theoretically speaking, there is no reason why the ACLs couldn't be held
+with the rest of the objects' information, in the object UUID-indexed
+database.  However, the application's ACLs must be accessible to the DCE ACL
+library routines, and these routines expect a database, indexed by ACL UUIDs,
+containing only ACLs.  
+.PP
+.ne 10
+This allows us, for example, to call a DCE routine such
+as \*Ldce_\%acl_\%is_\%client_\%authorized(\|)\*O (see the \*Lsample_\%mgmt_\%auth(\|)\*O
+.iX "\*Ldce_acl_is_client_authorized(\|)\*O"
+callback routine in \*Lsample_server.c\*O), passing the ACL manager type UUID
+and the ACL UUID, and get back an answer to some query about 
+permissions\(emthe library routine is 
+able to go into the database and access and read the ACL;
+we don't have to bother with that.  It also allows the \*Lrdacl\*O implementations
+in the ACL library to do the same thing, since they have a full ACL binding (which
+includes a handle to the database in which the ACL is stored).
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Object Name Resolution Routine"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "ACL" "manager" "object name resolution (to ACL UUID) in"
+.P
+Our application's name-to-ACL UUID resolution routine uses the following
+algorithm:
+...\" 
+.AL
+.LI
+Take the object name that has been passed to it and use it to look up the UUID
+that identifies the object itself (in the name-indexed database).
+...\" 
+.LI
+Use the object UUID to retrieve the object information, which contains (among
+many other things) the UUID that identifies the object's ACL (in the object
+UUID-indexed database).
+...\" 
+.LI
+Use the retrieved ACL UUID to retrieve the ACL itself (from the ACL UUID-indexed
+database).  If the manager types match, return the ACL UUID extracted in step 2 to
+the caller.
+.LE
+...\" 
+.P
+The caller is usually some routine in the ACL library.  All it needs from
+the resolution routine is the ACL UUID; with this it can retrieve the ACL
+itself and proceed to do whatever needs to be done with (or to) it.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "What is an ACL Manager?"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "ACL" "manager" "defined"
+.P
+A lot is said here and elsewhere about ACL managers, but you will not
+find in the sample application any specific routine or block of code with
+that name.  So where exactly is our sample ACL manager? What does it consist
+of?
+.P
+.ne 10
+Conceptually, \*EACL manager\*O is a way of referring comprehensively to the
+code and data present in an application to support ACLs.  Practically speaking,
+the ACL manager in the sample application consists of all the places in
+the code where \*Ldce_acl_is_client_authorized(\|)\*O is called to check a
+requestor's authorization.  This is done in \*Lsample_mgmt_auth(\|)\*O (in
+\*Lsample_server.c\*O) and \*Lsample_call(\|)\*O (in \*Lsample_manager.c\*O).
+.P
+Note that there are actually two ACL managers in the sample application. In
+\*Lsample_call(\|)\*O, the client's access to the sample_object is being checked,
+and the ACL manager type UUID passed to the call is \*Lsample_\%acl_\%mgr_\%uuid\*O.
+In \*Lsample_mgmt_auth(\|)\*O, on the other hand, the client's access to the
+\*Lserver_mgmt\*O object is being checked, so the ACL manager type UUID passed
+there is \*Lmgmt_acl_mgr_uuid\*O.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Why Two ACL Managers?"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "ACL" "manager" "need for multiple"
+.P
+The application has two ACL managers because it uses two different kinds of
+object.  This circumstance is a little obscured by the fact there are only two
+objects used in the application (in a real application, we might have
+expected many instances of \*Lsample_object\*O, although there would still of
+course be only one \*Lserver_mgmt\*O object).  Still, \*Lsample_object\*O and
+\*Lserver_mgmt\*O are very different kinds of object, and having access to one
+means something quite different from having access to the other. \*Lsample_object\*O
+is a dummy object with no independent meaning, but \*Lserver_mgmt\*O represents
+access to the server's remote management routines, which involves such things as
+being able to kill the server.
+.P
+A practical sense of what this means can be had from looking at the two
+managers' ACL printstrings, near the top of the \*Lsample_server.c\*O file.
+These strings, which contain text representations of the full range of permissions
+supported by the respective managers, show that there are many permissions that are
+unique to a single manager.  For example, there is a \*Lm_inq_if\*O permission
+(permission to execute the \*Lrpc_mgmt_inq_if_ids(\|)\*O routine against the server).
+.iX "\*Lrpc_mgmt_inq_if_ids(\|)\*O"
+This permission makes sense only in the context of the \*Lserver_mgmt\*O object.  A
+manager type identifies what set of permissions applies to a given set of objects.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "How the ACL Library Routines Extract and Evaluate ACLs"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "ACL" "manager" "extraction and evaluation of ACLs"
+.P
+One way of using ACLs to evaluate an entity's authorization to do something
+is by making a call to the DCE library routine
+\*Ldce_acl_is_client_authorized(\|)\*O.  For example, there are two places
+.iX "\*Ldce_acl_is_client_authorized(\|)\*O"
+in the sample application where this is done to check client access to the
+application's own objects:
+...\" 
+.ML
+.LI
+In \*Lsample_call(\|)\*O (in \*Lsample_manager.c\*O)
+.P
+This is an interface operation, called by the client.
+...\" 
+.LI
+In \*Lsample_mgmt_auth(\|)\*O (in \*Lsample_server.c\*O)
+.P
+This is the remote management callback function.
+.LE
+...\" 
+...\" 
+...\" 
+.P
+Similar routines are called remotely through the \*Lsec_acl_\*V*\*L(\|)\*O routines.
+.P
+Evaluation takes the form of a call to the procedure, passing (among other
+things)
+...\" 
+...\" 
+.ML
+.LI
+The client (that is requestor's) binding
+.LI
+The ACL manager type UUID
+.LI
+The ACL UUID
+.LI
+The desired permission set
+.LE
+...\" 
+...\" 
+.P
+The routine, given these parameters, is able to find and open the correct
+ACL database in which the ACL is held, extract the ACL, find the requestor's
+permission set (it determines who the requestor is from the credentials buried
+in the client binding), and compare it with the set of required permissions.  If
+the latter can be found among the former, the routine will return a Yes answer;
+if not, it will return a No.
+.P
+.iX "ACL" "manager" "and DCE backing store library"
+How does the library routine (especially when it is called, not from
+inside the application, as noted at the beginning of this section, but,
+say, by \*Lacl_edit\*O) know how to access the correct ACL database from
+.iX "\*Lacl_edit\*O"
+which to extract and examine the ACL identified by the ACL UUID? The answer
+is that the application's database will have become known to the caller in
+the course of establishing a binding to the server. 
+.PP
+.ne 10
+This is done by calling
+the application's registered resolver routine; the library finds the right
+.iX "resolver routine" "sample application's name resolution routine"
+resolver routine by calling all the resolvers that have been registered with
+it until it gets a successful return.  It finds the ACL manager type in the
+same way, since it calls each attempted resolver passing the manager type
+UUID that was registered with it.  See the \*Lsample_resolve_by_name(\|)\*O
+function in the \*Lsample_server.c\*O file.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Backing Store Database Items and Headers"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "backing store" "headers"
+.iX "backing store" "items (records)"
+.P
+Note that although backing stores are necessary in implementing an ACL
+manager, their use is not limited to ACL management.  Backing stores are
+designed to be used for all kinds of persistent storage of distibuted data.
+For more information, see the \*(Dk.
+.P
+As mentioned earlier, backing store databases are necessary for storing any
+information about the application's objects that must be preserved between
+application server sessions.  The sample application uses three such databases,
+as described in Section 3.4.3.5.
+.P
+From the point of view of the application that uses it, a database is
+characterized in the following two ways:
+...\" 
+.ML
+.LI
+How it is indexed
+.LI
+What kind of data item (record) can be stored in it
+.LE
+...\" 
+.P
+The former is specified by a flag passed to \*Ldce_db_open(\|)\*O when the
+.iX "\*Ldce_db_open(\|)\*O"
+database is first created; the latter is determined by the declarations you
+make in an \*L.idl\*O file.
+.P
+.iX "backing store" "database items" "how defined"
+An example of defining a backing store database item can be seen in the
+\*Lsample_db.idl\*O and \*Lsample_db.acf\*O files (note that the
+\*Ldce/database.idl\*O file must be imported into the \*L.idl\*O file).  A
+server stub and a header file is generated from these files when the application
+is compiled.  The purpose of the \*L.idl\*O definitions is to establish the routine
+that will handle the transmission of the data items across the wire.  Note that we
+don't implement the conversion routine; we just declare it in the \*L.idl\*O file:
+IDL itself does the rest, generating the necessary code in the client stub.
+.P
+.ne 10
+As has already been mentioned, the sample application uses three databases.
+The most complex of these is the object-indexed store (its handle is
+\*Ldb_object\*O).  The other two, name-indexed (\*Ldb_name\*O) and ACL UUID-indexed
+(\*Ldb_acl\*O), are much simpler.  Each of the three is briefly described in the
+following sections.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Object-Indexed Store"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "ACL" "manager" "and DCE backing store library"
+.P
+The sample application maintains objects whose data consists of a simple text
+string; however, the data type is also defined to contain a \*Estandard header\*O.
+.iX "backing store" "standard header"
+The standard header is a structure defined in \*Ldce/database.idl\*O.  Mostly it
+.iX "\*Ldce/database.idl\*O"
+contains fields for a set of UUIDs that identify
+...\" 
+.ML
+.LI
+The object itself
+.LI
+The owner of the object
+.LI
+The owner's group
+.LI
+The object's ACL
+.LI
+The default object ACL
+.LI
+The default container ACL
+.LE
+...\" 
+...\" 
+.P
+.iX "backing store" "standard header"
+The standard header is a convenient means of keeping track of all the object's
+associated UUIDs, without having to define fields for them in one's own data
+.iX "\*Ldce_db_std_header_init(\|)\*O"
+structure.  It is initialized by a call to the \*Ldce_\%db_\%std_\%header_\%init(\|)\*O
+routine.
+.P
+This is the only database whose data type is explicitly defined in the \*L\&.idl\*O
+file, because it's the only database whose data type contains an
+application-defined field (that is, \*Ls_data\*O).  The data type is also complex:
+that is, it contains both a header part and a data part.  The other two databases
+have record types that contain only (simple) data, no headers.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.nL
+.ne 12
+.H 4 "Name-Indexed Store"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "ACL" "manager" "and DCE backing store library"
+.P
+The name-indexed store contains only object UUIDs, indexed by the object names
+that they are stored (and looked up) by.  Note that there is no place where we
+actually declare the data type of this database; all we do is declare the
+conversion routine (\*Luu_convert(\|)\*O, in the IDL file).  The database is
+.iX "\*Luu_convert(\|)\*O"
+created without a header (the default), so all it will hold is UUIDs.
+.P
+If, for some reason, we did want to declare a header, then we would have to
+go through the steps of declaring a separate complex data type for the store
+in the \*L.idl\*O file, wherein would be declared the header type and the UUID
+type.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "ACL UUID-Indexed Store"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "ACL" "manager" "and DCE backing store library"
+.P
+The ACL database contains only ACLs; its records have no headers. The
+records are indexed by ACL UUIDs.  Here we do not even explicitly declare
+the conversion routine (\*Lrdacl_convert\*O); it is generated by IDL (from a
+definition in \*Ldce/dceacl.idl\*O).  All we have to do is pass the routine's
+.iX "\*Ldce/dceacl.idl\*O"
+name to the \*Ldce_db_open(\|)\*O call that opens this database.
+.iX "\*Ldce_db_open(\|)\*O"
+.P
+Note that this is the database that the ACL library has to have access to;
+this access is set up by a call to \*Ldce_acl_register_object_type(\|)\*O,
+.iX "\*Ldce_acl_register_object_type(\|)\*O"
+which registers a manager type plus database plus resolver routine combination.  The
+registration then allows the ACL library to derive any or all of these three
+things from an object name (the application's resolver routine has to help
+out in this, of course).
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "ACL Manager Coding Example"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following subsections contain extracts from the DCE sample application
+which is reprinted in full in Appendix A.  The subsections below contain only
+the ACL manager code portions of the server application.
+.P
+.ne 10
+In order to save space and to improve the readability of the text, the code
+shown below has been slightly edited: all status checks, and all calls to
+the DCE serviceability interface (to print or log status or informational
+messages), have been removed.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+...\" ----------------------------------------------------------------------
+...\" .cS
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Data Definitions"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following code consists of all ACL manager-related data and other
+definitions for the sample server application.
+...\" 
+...\" 
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+#define mgmt_perm_inq_if sec_acl_perm_unused_00000080 
+#define mgmt_perm_inq_pname sec_acl_perm_unused_00000100
+#define mgmt_perm_inq_stats sec_acl_perm_unused_00000200
+#define mgmt_perm_ping sec_acl_perm_unused_00000400
+#define mgmt_perm_kill sec_acl_perm_unused_00000800
+
+/* The constants below come from aclbase.h (aclbase.idl)...                 */
+#define OBJ_OWNER_PERMS sec_acl_perm_read | sec_acl_perm_write \\
+                                | sec_acl_perm_delete | sec_acl_perm_test \\
+                                | sec_acl_perm_control | sec_acl_perm_execute
+
+#define ALL_MGMT_PERMS mgmt_perm_inq_if | mgmt_perm_inq_pname \\
+                                | mgmt_perm_inq_stats | mgmt_perm_ping \\
+                                | mgmt_perm_kill | sec_acl_perm_test \\
+                                | sec_acl_perm_control
+
+/* These two UUIDs could be treated as "well known": that is applications   */
+/*   that use the same ACL manager for mgmt operations can use these...     */
+        
+uuid_t mgmt_acl_mgr_uuid = {/* 0060f928-bbf3-1d35-8d7d-0000c0d4de56         */
+        0x0060f928, 0xbbf3, 0x1d35, 0x8d, 0x7d, 0x00, 0x00, 0xc0, 0xd4, 0xde, 0x56
+};
+
+uuid_t mgmt_object_uuid = {/* 00573b0e-bcc2-1d35-a73e-0000c0d4de56          */
+        0x00573b0e, 0xbcc2, 0x1d35, 0xa7, 0xe3, 0x00, 0x00, 0xc0, 0xd4, 0xde, 0x56
+};
+
+/* These UUIDs are specific to this server...                               */
+/* Some ACL UUIDs that will be globally used:                               */
+uuid_t mgmt_acl_uuid;
+uuid_t sample_acl_uuid;
+
+/* The UUID of the sample ACL manager:                                      */
+uuid_t sample_acl_mgr_uuid = { /* 001a15a9-3382-1d23-a16a-0000c0d4de56      */
+        0x001a15a9, 0x3382, 0x1d23, 0xa1, 0x6a, 0x00, 0x00, 0xc0, 0xd4, 0xde, 0x56
+};
+
+.nL
+.ne 10
+/* A UUID for a sample object:                                              */
+uuid_t sample_object_uuid = {/* 00415371-f29a-1d3d-b8c8-0000c0d4de56        */
+        0x00415371, 0xf29a, 0x1d3d, 0xb8, 0xc8, 0x00, 0x00, 0xc0, 0xd4, 0xde, 0x56
+};
+
+/* The mgmt printstrings could be treated as standard for                   */
+/*   a standard mgmt ACL manager...                                         */
+sec_acl_printstring_t mgmt_info = {"mgmt", "Management Interface"};
+
+sec_acl_printstring_t mgmt_printstr[] = {
+        { "i",        "m_inq_if",     mgmt_perm_inq_if       },
+        { "n",        "m_inq_pname",  mgmt_perm_inq_pname    },
+        { "s",        "m_inq_stats",  mgmt_perm_inq_stats    },
+        { "p",        "m_ping",       mgmt_perm_ping         },
+        { "k",        "m_kill",       mgmt_perm_kill         },
+        { "c",        "control",      sec_acl_perm_control   },
+        { "t",        "test",         sec_acl_perm_test      }
+};
+
+sec_acl_printstring_t sample_info = {"sample", "Sample RPC Program"};
+
+sec_acl_printstring_t sample_printstr[] = {
+        { "r",        "read",         sec_acl_perm_read      },
+        { "w",        "write",        sec_acl_perm_write     },
+        { "d",        "delete",       sec_acl_perm_delete    },
+        { "c",        "control",      sec_acl_perm_control   },
+        { "t",        "test",         sec_acl_perm_test      },
+        { "x",        "execute",      sec_acl_perm_execute   }
+};
+
+/* These are the two entry point vectors that are explicitly initialized:   */
+extern rdaclif_v1_0_epv_t dce_acl_v1_0_epv;
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The \*Lserver_get_local_principal_id\*O Routine"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lserver_get_local_principal_id(\|)\*O routine retrieves a principal's
+UUID from the local cell registry.
+...\" 
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+/******
+ *
+ * server_get_local_principal_id -- Get (from the local cell registry) the
+ *                                  UUID corresponding to a principal name.
+ *
+ * 
+ *    Called from server_create_acl() and server_acl_mgr_setup().
+ * 
+ ******/
+
+void server_get_local_principal_id(
+                unsigned_char_t *p_name,    /* Simple principal name.       */
+                uuid_t *p_id,               /* UUID returned here.          */
+                unsigned32 *status)         /* Status returned here.        */
+{
+
+        char *cell_name;                    /* For local cell name.         */
+        sec_rgy_handle_t rhandle;           /* For registry server handle.  */
+
+        /* First, get the local cell name...                                */
+        dce_cf_get_cell_name(&cell_name, status);
+
+        /* Now bind to the cell's registry...                               */
+        sec_rgy_site_open(cell_name, &rhandle, status);
+
+        /* Free the string space we got the cell name in...                 */
+        free(cell_name);
+
+        /* Now get from the registry the UUID associated with the principal */
+        /*  name we got in the first place...                               */
+        sec_rgy_pgo_name_to_id(rhandle,
+                        sec_rgy_domain_person,
+                        p_name,
+                        p_id,
+                        status);
+
+}
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The \*Lserver_create_acl\*O Routine"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lserver_create_acl(\|)\*O routine creates an ACL for a specified
+principal.
+...\" 
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+/******
+ * 
+ * server_create_acl -- Create an ACL with some specified set of permissions
+ *                      assigned to some principal user.  
+ *
+ *
+ *    Called from server_acl_mgr_setup().
+ * 
+ ******/
+
+.nL
+.ne 10
+void server_create_acl(
+                uuid_t mgr_type_uuid,     /* Manager type of ACL to create. */
+                sec_acl_permset_t perms,  /* Permission set for ACL.        */
+                unsigned_char_t *user,    /* Principal name for new entry.  */
+                sec_acl_t *acl,           /* To return the ACL entry in.    */
+                uuid_t *acl_uuid,         /* To return the ACL's UUID in.   */
+                unsigned32 *status)       /* To return status in.           */
+{
+
+        uuid_t u;  /* For the principal's UUID (from the registry).         */
+
+        *status = error_status_ok;
+
+        /* Create a UUID for the ACL...                                     */
+        /* Note that the new UUID doesn't get associated with the entry in  */
+        /*  this routine.  It must happen in server_acl_mgr_setup()...      */
+        uuid_create(acl_uuid, status);
+
+        /* Create an initial ACL object with default permissions for the    */
+        /*  designated user principal identity...                           */
+        dce_acl_obj_init(&mgr_type_uuid, acl, status);
+
+        /* Get the specified principal's UUID...                            */
+        server_get_local_principal_id(user, &u, status);
+
+        /* Now add the user ACL entry to the ACL...                         */
+        dce_acl_obj_add_user_entry(acl, perms, &u, status);
+
+}
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The \*Lserver_store_acl\*O Routine"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lserver_store_acl(\|)\*O routine stores an ACL and its related information
+in the appropriate backing store databases.
+...\" 
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+/******
+ * 
+ * server_store_acl -- Store ACL-related data.
+ * 
+ * 
+ *      The data is stored in databases that support a
+ *      name->object_uuid->acl_uuid style of ACL lookup.
+ *
+ * 
+ *    Called from server_acl_mgr_setup().
+ *
+ ******/
+
+void server_store_acl(
+                dce_db_handle_t db_acl,     /* ACL (UUID)-indexed store.    */
+                dce_db_handle_t db_object,  /* Object (UUID)-indexed store. */
+                dce_db_handle_t db_name,    /* Name-indexed store.          */
+                sec_acl_t *acl,             /* The ACL itself.              */
+                uuid_t *acl_uuid,           /* ACL UUID.                    */
+                uuid_t *object_uuid,        /* Object UUID.                 */
+                unsigned_char_t *object_name, /* The name of the object.    */
+                void *object_data,      /* The actual object data contents. */
+                                        /* NOTE: NOT USED NOW.              */
+                boolean32 is_container,  /* Are we storing a container ACL? */
+                unsigned32 *status)         /* To return status.            */
+{
+
+        /* These two variables are used to hold UUIDs for the ACLs we will  */
+        /*  need to create if we have a container ACL on our hands...       */
+        uuid_t def_object, def_container;
+        sample_data_t sample_data;
+
+        *status = error_status_ok;
+
+        /* Null the contents of the object_data variable...                 */
+        bzero(object_data, sizeof object_data);
+
+        /* If we have a container ACL, then we have to create and store the */
+        /*  special stuff associated with it-- namely, the container ACL    */
+        /*  itself, and a default object ACL to go with it...               */
+        if (is_container)
+        {
+                /* Create a UUID for the default object ACL...              */
+                uuid_create(&def_object, status);
+
+                /* Create a UUID for the default container ACL...           */
+                uuid_create(&def_container, status);
+
+                /* Store the default object ACL into UUID-indexed store...  */
+                dce_db_store_by_uuid(db_acl, &def_object, acl, status);
+
+                /* Store the default container ACL into UUID-indexed        */
+                /*  store...                                                */
+                dce_db_store_by_uuid(db_acl, &def_container, acl, status);
+
+        }
+
+        /* Store the plain object ACL into ACL UUID-indexed store...        */
+        dce_db_store_by_uuid(db_acl, acl_uuid, acl, status);
+
+.nL
+.ne 10
+        /* Store the ACL UUID(s) into a standard object header...           */
+        dce_db_std_header_init(
+                        db_object,      /* Object database.         */
+                        &(sample_data.s_hdr), /* Object data hdr.   */
+                        object_uuid,    /* Object UUID.             */
+                        acl_uuid,       /* ACL UUID.                */
+                        &def_object,    /* Default object ACL.      */
+                        &def_container, /* Default container ACL.   */
+                        0,              /* Reference count.         */
+                        status);
+
+        /* Now store the object data keyed by object UUID...                */
+        if (strcmp(object_name, SAMPLE_OBJECT_NAME) == 0)
+                strcpy(sample_data.s_data.message,
+                       "THIS IS AN OFFICIAL SAMPLE OBJECT TEXT!");
+        else if (strcmp(object_name, MGMT_OBJ_NAME) == 0)
+                strcpy(sample_data.s_data.message,
+                       "THIS IS AN OFFICIAL MGMT OBJECT SAMPLE TEXT!");
+        else
+                strcpy(sample_data.s_data.message,
+                       "I DON'T KNOW WHAT THIS IS!");
+
+        dce_db_store_by_uuid(db_object, object_uuid, (void *)&sample_data, status);
+
+        /* Finally, store the object UUID keyed by the object ("residual")  */
+        /*  name...                                                         */
+        dce_db_store_by_name(db_name, (char *)object_name, object_uuid, status);
+
+}
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The \*Lserver_acl_mgr_setup\*O Routine"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lserver_acl_mgr_setup(\|)\*O routine performs all the steps necessary
+to set up ACL databases for the two object types used by the sample application.
+...\" 
+...\" 
+...\" 
+.nL
+.ne 15
+.ps 9
+.vs 12
+.oS
+/******
+ *
+ * server_acl_mgr_setup -- Open and, if necessary, create the ACL-related
+ *                         databases, that is:
+ * 
+ *         1.  Set up a default ACL manager for the management interface.
+ * 
+ *         2.  Create an initial ACL.  For servers that dynamically create
+ *            objects, this ACL is intended to be used as the ACL on the
+ *            "container" in which objects are created.  If the server
+ *            manages static objects, this ACL can be used for some other
+ *            purpose.
+ *
+ *
+ *    Called from main().
+ *
+ ******/
+
+void server_acl_mgr_setup(
+                unsigned_char_t *db_acl_path,    /* Pathname for databases. */
+                dce_acl_resolve_func_t resolver, /* sample_resolve_by_name. */
+                uuid_t acl_mgr_uuid,             /* ACL manager UUID.       */
+                uuid_t object_uuid,              /* Object UUID.            */
+                unsigned_char_t *object_name,    /* Object name.            */
+                sec_acl_permset_t owner_perms,   /* Owner permission set.   */
+                unsigned_char_t *owner,          /* Owner name.             */
+                boolean32 is_container,      /* Is this a container object? */
+                                                /* == TRUE from main().     */
+        /* [out] parameters: */
+                dce_db_handle_t *db_acl,    /* ACL-indexed store handle.    */
+                dce_db_handle_t *db_object, /* Object-indexed store handle. */
+                dce_db_handle_t *db_name,   /* Name-indexed store handle.   */
+                uuid_t *object_acl_uuid,    /* Object ACL UUID.             */
+                uuid_t *mgmt_acl_uuid,      /* Mgmt ACL UUID.               */
+                unsigned32 *status)
+{
+        sec_acl_t new_acl;
+        uuid_t machine_princ_id;
+        unsigned_char_t machine_principal[MAXHOSTNAMELEN + 20];
+        unsigned_char_t *uuid_string;
+        boolean32 need_init;        
+        unsigned32 dbflags;
+        static sample_data_t datahdr;
+        unsigned_char_t *acl_path_string;
+        sec_acl_permset_t   permset = (sec_acl_permset_t) 0;
+
+        *status = error_status_ok;
+        bzero(&datahdr, sizeof datahdr);
+
+        uuid_create_nil(object_acl_uuid, status);
+
+        need_init = 0;
+
+        /* Build the full pathname string for the db_acl database...        */
+        acl_path_string = malloc(MAX_ACL_PATH_SIZE);
+        strcpy(acl_path_string, db_acl_path);
+        strcat(acl_path_string, (unsigned_char_t *)"/");
+        strncat(acl_path_string, "db_acl", strlen("db_acl"));
+
+        /* If the thing doesn't exist yet, then we need to do some init-    */
+        /*  ialization...                                                   */
+        if (access((char *)acl_path_string, R_OK) != 0)
+                if (errno == ENOENT)
+                        need_init = 1;
+
+        /********************************************************************/
+
+        /* Create the indexed-by-UUID databases. There are two of these:    */
+        /*        One for the ACL UUID-indexed store, and                   */
+        /*        One for the Object UUID-indexed store...                  */
+
+        dbflags = db_c_index_by_uuid;
+        if (need_init)
+                dbflags |= db_c_create;
+
+        /* Open (or create) the "db_acl" ACL UUID-indexed backing store...  */
+        dce_db_open(
+                (char *)acl_path_string,  /* Filename of backing store.     */
+                NULL,      /* Backing store "backend type" default == hash. */
+                dbflags,   /* We already specified index by UUID for this.  */
+                (dce_db_convert_func_t)dce_rdacl_convert,  /* Serialization */
+                                /* function (generated by IDL).             */
+                db_acl,    /* The returned backing store handle.            */
+                status);
+
+        /* Set the global variable that records whether we actually have    */
+        /*  opened the databases; this enables us to avoid calling the      */
+        /*  dce_db_close() routine for unopened databases, which will cause */
+        /*  a core dump...                                                  */
+        databases_open = TRUE;
+
+        /* For the object database, we need standard backing store headers  */
+        dbflags |= db_c_std_header;
+        if (need_init)
+                dbflags |= db_c_create;
+
+.nL
+.ne 10
+        /* Now open (or create) the "db_object" store...                    */
+        /* Build the full pathname string for the database...               */
+        free(acl_path_string);
+        acl_path_string = malloc(MAX_ACL_PATH_SIZE);
+        strcpy(acl_path_string, db_acl_path);
+        strcat(acl_path_string, (unsigned_char_t *)"/");
+        strncat(acl_path_string, "db_object", strlen("db_object"));
+
+        dce_db_open(
+                (char *)acl_path_string, /* Filename of backing store.      */
+                NULL,      /* Backing store "backend type" default == hash. */
+                dbflags,   /* Specifies index by UUID, and include standard */
+                                /* headers.                                 */
+                (dce_db_convert_func_t)sample_data_convert, /* Serializa-   */
+                                /* tion function for object data.           */
+                db_object,    /* The returned backing store handle.         */
+                status);
+
+        /* Create the indexed-by-name database...                           */
+        dbflags = db_c_index_by_name;
+        if (need_init)
+                dbflags |= db_c_create;
+
+        /* Build the full pathname string for the database...               */
+        free(acl_path_string);
+        acl_path_string = malloc(MAX_ACL_PATH_SIZE);
+        strcpy(acl_path_string, db_acl_path);
+        strcat(acl_path_string, (unsigned_char_t *)"/");
+        strncat(acl_path_string, "db_name", strlen("db_name"));
+
+        dce_db_open(
+                (char *)acl_path_string,  /* Filename of backing store.     */
+                NULL,      /* Backing store "backend type" default == hash. */
+                dbflags,   /* Specifies index by name.                      */
+                (dce_db_convert_func_t)uu_convert, /* Serialization func-   */
+                                /* tion for name data.                      */
+                db_name,   /* The returned backing store handle.            */
+                status);
+
+        free(acl_path_string);
+
+.nL
+.ne 12
+        /********************************************************************/
+
+        /* Now register our ACL manager's object types with the ACL         */
+        /*  library...                                                      */
+
+        /* Register for the mgmt ACL...                                     */
+        dce_acl_register_object_type(
+                *db_acl,  /* Backing store where ACLs are to be stored.     */
+                &mgmt_acl_mgr_uuid,     /* Type of ACL manager: this one is */
+                        /* for mgmt ACL operations; the UUID is defined     */
+                        /* globally at the top of this file.                */
+                        /* Why do we need this parameter? Well, the way     */
+                        /*  that the ACL library keeps track of the differ- */
+                        /*  ent "sets" of ACL databases is by manager UUID. */
+                        /*  The manager UUID is what the library will use   */
+                        /*  to figure out which ACL database to open and    */
+                        /*  retrieve a requested ACL's contents from.       */
+                        /*  Essentially what we are doing here is setting   */
+                        /*  up things so that calls to the library routine  */
+                        /*  dce_acl_is_client_authorized() can be made to   */
+                        /*  check our ACLs, giving only the ACL UUID and a  */
+                        /*  manager UUID to get the desired result.         */
+
+                sizeof mgmt_printstr/sizeof mgmt_printstr[0], /* Number of  */
+                                /* items in mgmt_printstr array.            */
+                mgmt_printstr,  /* An array of sec_acl_printstring_t struc- */
+                                /*  tures containing the printable repre-   */
+                                /*  sentation of each specified permission. */
+                &mgmt_info,     /* A single sec_acl_printstring_t contain-  */
+                                /*  ing the name and short description for  */
+                                /*  the given ACL manager.                  */
+                sec_acl_perm_control,  /* Permission set needed to change   */
+                                /* an ACL. Constants like these are defined */
+                                /* in <dce/aclbase.h>.                      */
+                sec_acl_perm_test, /* Permission set needed to test an ACL. */
+
+                resolver,  /* Server function to get ACL UUID for a given   */
+                                /*  object; for us it's the                 */
+                                /*  sample_resolve_by_name() call, below.   */
+                                /* This routine is for the use of acl_edit: */
+                                /*  it allows acl_edit to receive an object */
+                                /*  name and come up with the ACL UUID; at  */
+                                /*  least that's what I think it's for.     */
+                NULL,           /* Argument to pass to resolver function.   */
+                0,              /* Flags -- none here.                      */
+                status);
+
+.nL
+.ne 12
+        /* Now register for the regular ACL...                              */
+        dce_acl_register_object_type(
+                *db_acl, /* Backing store where ACLs are to be stored.      */
+                &sample_acl_mgr_uuid,  /* Hard-coded at the top of this     */
+                                       /*  file.                            */
+                sizeof sample_printstr/sizeof sample_printstr[0], /* Number */
+                                /* of items in our printstring array.       */
+                sample_printstr, /* An array of sec_acl_printstring_t       */
+                                /* structures containing the printable rep- */
+                                /* resentation of each specified permis-    */
+                                /* sion set.                                */
+                &sample_info,   /* A single sec_acl_printstring_t contain-  */
+                                /*  ing the name and short description for  */
+                                /*  the manager we're registering.          */
+                sec_acl_perm_control, /* Permission set needed to change an */
+                                /*  ACL.                                    */
+                sec_acl_perm_test,    /* The permission you need to test an */
+                                        /* ACL maintained by this manager.  */
+
+                resolver,       /* Application server function that gives   */
+                                /*  the ACL UUID for a given object, when   */
+                                /*  presented with that object's name; for  */
+                                /*  us it's the sample_resolve_by_name()    */
+                                /*  routine, below.                         */
+                NULL,           /* Argument to pass to resolver routine;    */
+                                /*  identified as the "resolver_arg" in the */
+                                /*  code to that function below.            */
+                0,              /* Flags -- none here.                      */
+                status);
+
+        /* If we're initializing, then we have to create all this stuff...  */
+        if (need_init)
+        {
+
+                dce_svc_printf(NO_ACL_DBS_MSG);
+                /* Create the mgmt interface ACL...                         */
+                server_create_acl(
+                        mgmt_acl_mgr_uuid, /* Create mgmt manager type ACL. */
+                        ALL_MGMT_PERMS, /* Permission set for new ACL.      */
+                        owner,          /* Principal name for new entry.    */
+                        &new_acl,       /* This will contain the new ACL.   */
+                        mgmt_acl_uuid,  /* This will contain the ACL UUID.  */
+                        status);
+
+.nL
+.ne 10
+                /************************************************************/
+                /* For the management ACL we must add a default entry for   */
+                /*  the machine principal so dced can manage the server.    */
+
+                /* Construct the name entry string...                       */
+                strcpy(machine_principal, "hosts/");
+                gethostname((char *)(machine_principal + 6), MAXHOSTNAMELEN + 1);
+                strcat(machine_principal, "/self");
+
+                /* Get the machine principal's UUID...                      */
+                server_get_local_principal_id(
+                                              machine_principal,
+                                              &machine_princ_id,
+                                              status);
+
+                /* Add a user entry for the machine principal to the new    */
+                /*  ACL...                                                  */
+                permset = ALL_MGMT_PERMS;
+                dce_acl_obj_add_user_entry(
+                                           &new_acl,
+                                           permset,
+                                           &machine_princ_id,
+                                           status);
+
+                /* By default everybody must be able to get the principal   */
+                /*  name. They should be able to ping too. So add an appro- */
+                /*  priate unauthenticated permissions entry to the ACL...  */
+                permset = mgmt_perm_inq_pname | mgmt_perm_ping;
+                dce_acl_obj_add_unauth_entry(
+                        &new_acl,
+                        permset,
+                        status);
+
+                /* Add permissions for the any_other entry in the ACL...    */
+                permset = mgmt_perm_inq_pname | mgmt_perm_ping;
+                dce_acl_obj_add_any_other_entry(
+                        &new_acl,
+                        permset,
+                        status);
+
+.nL
+.ne 20
+                /* Store the mgmt ACL...                                    */
+                server_store_acl(
+                        *db_acl,     /* The ACL UUID-indexed store.         */
+                        *db_object,  /* The object UUID-indexed store.      */
+                        *db_name,  /* The name ("residual")-indexed store.  */
+                        &new_acl,           /* The ACL itself.              */
+                        mgmt_acl_uuid,      /* The mgmt ACL UUID.           */
+                        &mgmt_object_uuid,  /* The mgmt object UUID.        */
+                        (unsigned_char_t *)MGMT_OBJ_NAME,  /* The mgmt ob-  */
+                                                /*  ject name.              */
+                        /* (void*) */ &datahdr, /* The data header = object */
+                                                /*   contents.              */
+                        0,                  /* Not a container ACL.         */
+                        status);
+
+        /********************************************************************/
+        /* Object ACL creation code...                                      */
+
+                /* Now create the object ACL...                             */
+                server_create_acl(
+                        sample_acl_mgr_uuid,  /* Create an ACL with this    */
+                                        /*  manager type.                   */
+                        owner_perms,   /* Give it these permissions.        */
+                        owner,         /* Make this the principal name.     */
+                        &new_acl,      /* This will contain new ACL.        */
+                        object_acl_uuid, /* This will contain new ACL UUID. */
+                        status);
+
+                /* Null the data header...                                  */
+                bzero(&datahdr, sizeof datahdr);
+
+                /* Store the object ACL...                                  */
+                server_store_acl(
+                        *db_acl,     /* The ACL UUID-indexed store.         */
+                        *db_object,  /* The object UUID-indexed store.      */
+                        *db_name,  /* The name ("residual")-indexed store.  */
+                        &new_acl,           /* The ACL itself.              */
+                        object_acl_uuid,    /* The object ACL UUID.         */
+                        &object_uuid,       /* The object UUID.             */
+                        object_name,        /* The object name.             */
+                        /* (void*) */ &datahdr, /* The data header = object */
+                                                /*  contents.               */
+                        /* is_container */  0,       /* Is this a container */
+                                                /*  ACL?                    */
+                        status);
+
+                /* Finally, free the space we were using...                 */
+                dce_acl_obj_free_entries(&new_acl, status);
+
+        /* ...end of object ACL creation code.                              */
+        /********************************************************************/
+.nL
+.ne 10
+        }
+        else /* ACL databases already exist; get the two ACL UUIDs...       */
+        {
+
+                /* This is a call to sample_resolve_by_name() (see below);  */
+                /*  it gives us the UUID of the ACL of the object whose     */
+                /*  name we pass it...                                      */
+                (*resolver)(
+                        NULL,         /* No client bind handle; local call. */
+                        object_name,  /* Object whose ACL UUID we want.     */
+                        0,            /* Type of ACL we want UUID of.       */
+                        &sample_acl_mgr_uuid, /* Object's manager type.     */
+                        0,            /* Ignored as far as we're concerned. */
+                        NULL,         /* "resolver_arg"; unused.            */
+                        object_acl_uuid, /* Will contain object ACL UUID.   */
+                        status);
+
+                (*resolver)(
+                        NULL,         /* No client bind handle; local call. */
+                        (sec_acl_component_name_t)MGMT_OBJ_NAME, /* We want */
+                                                /* mgmt object's ACL UUID.  */
+                        0,             /* Type of ACL we want UUID of.      */
+                        &mgmt_acl_mgr_uuid, /* Object's manager type=mgmt.  */
+                        0,            /* Ignored as far as we're concerned. */
+                        NULL,         /* "resolver_arg"; ignored.           */
+                        mgmt_acl_uuid, /* Will contain mgmt ACL UUID.       */
+                        status);
+
+          }
+
+        /* Set up remote management authorization to use the ACL manager.   */
+        /*  Note that the first parameter to this call is the address of a  */
+        /*  management authorization callback routine, which is defined     */
+        /*  later in this file...                                           */
+        rpc_mgmt_set_authorization_fn(sample_mgmt_auth, status);
+
+        /* Finally, register the rdacl interface with the runtime...        */
+        rpc_server_register_if(
+                        rdaclif_v1_0_s_ifspec, /* Interface to register.    */
+                        NULL,                  /* Manager type UUID.        */
+                        (rpc_mgr_epv_t) &dce_acl_v1_0_epv, /* Entry point   */
+                                                        /* vector.          */
+                        status);
+
+}
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The \*Lserver_acl_mgr_close\*O Routine"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lserver_acl_mgr_close(\|)\*O routine closes the ACL databases.
+...\" 
+...\" 
+...\" 
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+/******
+ *
+ * server_acl_mgr_close --  Called at cleanup time to close 
+ *                          the three ACL databases.
+ *
+ * 
+ *    Called from main().
+ *
+ ******/
+
+void server_acl_mgr_close(
+dce_db_handle_t *db_acl,          /* ACL UUID-indexed database.             */
+dce_db_handle_t *db_object,       /* Object UUID-indexed database.          */
+dce_db_handle_t *db_name,         /* Name-indexed database.                 */
+unsigned32 *status)
+{
+
+        *status = error_status_ok;
+
+        /* Close the ACL UUID-indexed database...                           */
+        dce_db_close(db_acl, status);
+
+        /* Close the Object UUID-indexed database...                        */
+        dce_db_close(db_object, status);
+
+        /* Close the name-indexed database...                               */
+        dce_db_close(db_name, status);
+
+}
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The \*Lserver_rdacl_export\*O Routine"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lserver_rdacl_export(\|)\*O routine registers the remote ACL interface
+in the local endpoint map.
+...\" 
+...\" 
+.nL
+.ne 10
+.ps 9
+.vs 12
+.oS
+/******
+ *
+ * server_rdacl_export -- Make the rdacl interface available
+ *                        for ACL editors.
+ * 
+ * 
+ *     Note that we don't export to the namespace.  Instead, the ACL editor
+ *      will typically bind to the server via some other entry that holds
+ *      the application-specific interface bindings.  This must hold at least
+ *      one object UUID, and the same UUID must be put into the endpoint map
+ *      too.  If not, ACL editors will have no way to distinguish the end-
+ *      points of this server from those of other servers on the same host
+ *      that also export the rdacl interface.
+ *
+ *    Called from main().
+ *
+ ******/
+
+void server_rdacl_export(
+rpc_binding_vector_t *binding_vector, /* Binding handles from RPC runtime.  */
+uuid_vector_t *object_uuid_vector,    /* Server instance UUID(s).           */
+unsigned32 *status)
+{
+
+        uuid_vector_t my_uuids;
+
+        *status = error_status_ok;
+
+        /* Register the server's endpoints with the rdacl interface at the  */
+        /*  local endpoint map...                                           */
+        rpc_ep_register(rdaclif_v1_0_s_ifspec,
+                binding_vector,    /* Our binding handles from RPC runtime. */
+                object_uuid_vector,  /* Server instance UUID (only one).    */
+                (unsigned_char_p_t) "rdacl interface", /* Annotation.       */
+                status);
+
+}
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The \*Lserver_rdacl_cleanup\*O Routine"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lserver_rdacl_cleanup(\|)\*O routine removes the remote ACL interface
+information from the local endpoint map.
+...\" 
+...\" 
+...\" 
+.nL
+.ne 10
+.ps 9
+.vs 12
+.oS
+/******
+ *
+ * server_rdacl_cleanup -- Called at cleanup time to
+ *                         unregister the rdacl interface.
+ *
+ * 
+ *    Called from main().
+ *
+ ******/
+
+void server_rdacl_cleanup(
+rpc_binding_vector_t *binding_vector,  /* Binding handles from RPC runtime. */
+uuid_vector_t *object_uuid_vector,     /* Server instance UUID(s).          */
+unsigned32 *status)
+{
+
+        *status = error_status_ok;
+
+        rpc_ep_unregister(rdaclif_v1_0_s_ifspec,
+                binding_vector,
+                object_uuid_vector,
+                status);
+
+}
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The \*Lsample_mgmt_auth\*O Routine"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lsample_mgmt_auth(\|)\*O routine assesses the authorization of any client
+attempting to execute a remote management operation on the sample application
+server.
+...\" 
+...\" 
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+/******
+ *
+ * sample_mgmt_auth -- Management authorization callback function.
+ * 
+ *    This is the routine that is implicitly called to test authorization
+ *     whenever someone tries to use the mgmt interface to tinker with us
+ *     or our ACLs.
+ * 
+ *    The callback is set up by a call to rpc_mgmt_set_authorization() in 
+ *    server_acl_mgr_setup().
+ *
+ ******/
+
+.nL
+.ne 10
+boolean32 sample_mgmt_auth(
+rpc_binding_handle_t client_binding, /* Client's binding, whoever he is.    */
+unsigned32 requested_mgmt_operation, /* What client is attempting to do.    */
+unsigned32 *status)
+{
+        boolean32 authorized = 0;
+        sec_acl_permset_t perm_required;
+        unsigned_char_t *uuid_string;
+
+        *status = error_status_ok;
+
+        /* Discover what permission is required in order to do what the     */
+        /*  client is trying to do...                                       */
+        switch (requested_mgmt_operation)
+        {
+                case rpc_c_mgmt_inq_if_ids:
+                        perm_required = mgmt_perm_inq_if;
+                        break;
+                case rpc_c_mgmt_inq_princ_name:
+                        perm_required = mgmt_perm_inq_pname;
+                        break;
+                case rpc_c_mgmt_inq_stats:
+                        perm_required = mgmt_perm_inq_stats;
+                        break;
+                case rpc_c_mgmt_is_server_listen:
+                        perm_required = mgmt_perm_ping;
+                        break;
+                case rpc_c_mgmt_stop_server_listen:
+                        perm_required = mgmt_perm_kill;
+                        break;
+                default:
+                /* This should never happen, but just in case...            */
+                        return(0);
+        }
+
+        /* Okay, now check whether the client is authorized or not...       */
+        dce_acl_is_client_authorized(
+                client_binding,          /* Client's binding handle.        */
+                &mgmt_acl_mgr_uuid,      /* ACL manager type UUID.          */
+                &mgmt_acl_uuid,          /* The ACL UUID.                   */
+                NULL,                   /*         Pointer to owner's UUID. */
+                NULL,                   /* Pointer to owner's group's UUID. */
+                perm_required,          /* The desired privileges.          */
+                &authorized,            /* Will be TRUE or FALSE on return. */
+                status);
+
+        /* Return the result to the caller...                               */
+        return(authorized);
+}
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The \*Lsample_resolve_by_name\*O Routine"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lsample_resolve_by_name(\|)\*O routine derives the ACL UUID of an
+object from its name.
+...\" 
+...\" 
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+/******
+ *
+ * sample_resolve_by_name -- take the name of an object, and return the
+ *                           UUID of the object's ACL.
+ * 
+ * The address of this function is passed (via the call to
+ * server_acl_mgr_setup()) to the dce_acl_register_object_type() call.  So
+ * it gets implicitly called anytime someone tries to retrieve the ACL of
+ * an object managed by the ACL manager we've set up. 
+ * 
+ * 
+ * Basically, the most a server needs is one resolve-by-name routine and
+ * one resolve-by-UUID routine; the former gets you the desired object's
+ * UUID; and the latter then will get you the object data itself (the way
+ * this works can be seen in the body of this routine below).  In most
+ * cases, these routines will share the same name and UUID databases; if
+ * they don't, the resolver_arg can be used to point to the correct other
+ * database.  Typically, the only difference between the managers is that
+ * they use different print strings.
+ * 
+ * 
+ * For the official statement of the signature of a dce_acl_resolve_func_t,
+ * see the dce_acl_resolve_by_uuid() reference page; that routine has the same
+ * type.
+ * 
+ *
+ *******/
+
+dce_acl_resolve_func_t sample_resolve_by_name(
+handle_t h,                     /* Client binding handle passed into the    */
+                                /*  server stub. sec_acl_bind() is used to  */
+                                /*  create this handle.                     */
+sec_acl_component_name_t name,  /* The object whose ACL's UUID we want.     */
+sec_acl_type_t sec_acl_type,    /* The type of ACL whose UUID we want.      */
+uuid_t *manager_type,           /* The object's manager type.               */
+                                /* NOTE that this parameter isn't used be-  */
+                                /*  low.                                    */
+.nL
+.ne 10
+boolean32 writing,              /* "This parameter is ignored in OSF's im-  */
+                                /*  plementation" (from the reference page  */
+                                /*  for dce_acl_resolve_by_uuid()).         */
+void *resolver_arg,             /* This is the app-defined argument passed  */
+                                /*  to dce_acl_register_object_type(); it   */
+                                /*  should be a handle for a backing store  */
+                                /*  indexed by UUID. Note that it isn't     */
+                                /*  used here though.                       */
+uuid_t *acl_uuid,               /* To return ACL's UUID in.                 */
+error_status_t *st              /* To return status in.                     */
+)
+{
+        uuid_t u, *up; /* To hold the retrieved object UUID, and to         */
+                       /*  take a pointer to it.                            */
+        unsigned_char_t *uuid_string;
+        sec_acl_t retrieved_acl;
+
+        /* The definition of the following is in the sample.idl file.       */
+        /*                                                                  */
+        /* See the "Examples" section in the dce_db_open() ref page,        */
+        /*  where the skeleton IDL interface for a server's backing         */
+        /*  store is given.  The data type definition (which is what        */
+        /*  sample_data_t is) is there prescribed as consisting of a        */
+        /*  dce_db_header_t, plus whatever server-specific data is          */
+        /*  quired, all in a single structure.                              */
+        /*                                                                  */
+        /*  Essentially it's a dce_db_header_t structure (with an           */
+        /*  application-defined message string tacked on); this is          */
+        /*  the object header data structure that is returned, such as,     */
+        /*  by dce_db_header_fetch(); in other words, this is the           */
+        /*  thingie that actually contains the data "in" an object          */
+        /*  held in an object store.                                        */
+        sample_data_t dataheader;
+
+        *st = error_status_ok;
+
+        /* Check for nonexistence of object name...                         */
+        if (!name || !*name)
+        {
+                dce_svc_printf(CANNOT_RESOLVE_NAME_MSG);
+                return;
+        }
+
+        /* Get the object's UUID, which will be the key that we will use to */
+        /*  fetch this particular object's data in the call following this  */
+        /*  one...                                                          */
+        dce_db_fetch_by_name(db_name, (char *)name, /* (void *) */ &u, st);
+
+        up = &u;     /* ...take the pointer to the key.                     */
+
+.nL
+.ne 10
+        /* Using the UUID "key" that we just retrieved, get the dataheader  */
+        /*  for the desired object (note that the data that one retrieves   */
+        /*  with this routine can be anything; it depends on what we are    */
+        /*  using the backing store for)...                                 */
+        dce_db_fetch_by_uuid(db_object, up, /* (void *) */ &dataheader, st);
+
+        /* Now, depending on the kind of ACL we're hunting for (that is ob- */
+        /*  ject, container, etc.), extract its UUID from the object's      */
+        /*  header structure...                                             */
+        switch (sec_acl_type)
+        {
+                case 1:
+                        *acl_uuid = dataheader.s_hdr.tagged_union.h.def_object_acl;
+                        break;
+                case 2:
+                        *acl_uuid = dataheader.s_hdr.tagged_union.h.def_container_acl;
+                        break;
+                default:
+                        *acl_uuid = dataheader.s_hdr.tagged_union.h.acl_uuid;
+        }
+
+        /* Here it might be interesting to try retrieving the ACL itself,   */
+        /*  and e.g seeing what its manager type is...                      */
+        dce_db_fetch_by_uuid(db_acl,
+                        acl_uuid,
+                        &retrieved_acl,
+                        st);
+
+        /* We are handling two ACL managers through this function, so we      */
+        /*  have to make sure that we've extracted from the single ACL        */
+        /*  database the correct ACL: that is, one whose manager type UUID is */
+        /*  identical to the manager_type parameter we were passed: this is   */
+        /*  the manager whose ACL the runtime is trying to bind to.  So...    */
+        if ((manager_type != NULL) &&
+            (!uuid_equal(manager_type, &(retrieved_acl.sec_acl_manager_type), st)))
+        {
+                /* Return a bad status...                                     */
+                *st = acl_s_bad_manager_type;
+                /* And no ACL UUID...                                         */
+                acl_uuid = NULL;
+                return(0);
+        }
+
+}
+.oE
+.ps 12
+.vs 14

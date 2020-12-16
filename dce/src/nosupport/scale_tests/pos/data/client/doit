@@ -1,0 +1,115 @@
+
+usage()
+{
+clear
+echo "\ndoit -a|-c|-s|-r -S [sourcedir] -o [outputdir] -t -u -b -d\n\
+-a  all - complete test suite     -c  cds - cds test suite\n\
+-s  sec - sec test suite          -r  rpc - rpc test suite\n\
+-S  sourcedir - source directory  -o  outputdir    - output directory\n\
+-t  tcp - use tcp protocol        -u  udp - use udp protocol\n\
+-b  both - use tcp/udp protocol   -d  debug - turn trace on\n\
+ \n\
+ example:  doit -a -o 24KDCE -b\n\
+ \n\
+" 
+#dceatom.aix
+exit 2
+}
+
+ALL=""
+CDS=""
+SEC=""
+RPC=""
+DEBUG=""
+TCP=""
+UDP=""
+BOTH=""
+SRC=""
+OUT=""
+
+set -- `getopt acsrdtubS:o: $* `
+if [ $? != 0 ]
+then usage
+fi
+
+while [ $# -gt 0 ]
+do
+  case $1 in
+  -a )  ALL="all";;
+  -c )  CDS="cds";;
+  -s )  SEC="sec";;
+  -r )  RPC="rpc";;
+  -d )  DEBUG="debug";;
+  -t )  TCP="tcp";;
+  -u )  UDP="udp";;
+  -b )  BOTH="both";;
+  -S) SRC="src $2";shift ;;
+  -o) OUT="out $2";shift ;;
+  -- )  shift;break;;
+  esac
+if [ $# -gt 0 ]
+then
+  shift
+fi
+done
+
+# Parse items to be unconfigured
+if [ "$ALL$CDS$SEC$RPC$TCP$UDP$BOTH" = "" ];then
+        usage
+fi
+
+
+initial_sec_server_addr=`tail -1 $DCELOCAL/etc/security/pe_site 2>/dev/null | cut -d':' -f2 | cut -d'[' -f1`
+src=net.id
+dest=net1.id
+
+PIPES_SRCFILE=$src
+PIPES_DSTFILE=$dest
+HOSTNAME=`hostname`
+HOSTADDR=`host $HOSTNAME | awk '{print $3}'`
+echo "addr\t$HOSTADDR">>$PIPES_SRCFILE
+
+
+export PIPES_SRCFILE PIPES_DSTFILE HOSTNAME HOSTADDR 
+
+DCELOCAL=/opt/dcelocal
+DCEUSRNAME=cell_admin
+DCEUSRID=100
+DCEGRPID=12
+DCEPASSWD=-dce-
+export DCELOCAL DCEUSRNAME DCEUSRID DCEGRPID DCEPASSWD
+KRB5CCNAME=`$DCELOCAL/bin/dce_login_noexec $DCEUSRNAME $DCEPASSWD`
+if [ $? -ne 0 ]; then
+	echo  "Unable to authenticate $DCEUSRNAME\n"
+	exit 1
+fi
+export KRB5CCNAME 
+
+
+# check for ktab  of cell_admin in registry
+
+
+rgy_edit << ! | grep cell_admin
+ktl
+!
+if [ $? -eq 0 ];then
+	echo got one
+else
+rgy_edit << !
+kta -p cell_admin -pw -dce-
+!
+fi
+
+	
+if [ "$ALL$CDS$SEC" = "" ];then
+
+	dceatom.aix $RPC $SRC $OUT $TCP $UDP $BOTH AIX
+
+else
+
+
+	preptest # change the hardcoded cds-server name 
+	dceatom.aix $ALL $CDS $SEC $RPC $SRC $OUT $TCP $UDP $BOTH AIX
+	unpreptest # change it back
+
+fi

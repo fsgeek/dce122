@@ -1,0 +1,310 @@
+
+---------------------------------------------------------
+
++ mhstest.pl: Begin test initialization.
+
+
++ Looking-up client-host IP addresses.
+
++ Performing server-host domain-name to IP-address mapping.
+
++ Performing gateway domain-name to IP-address mapping.
+
++ Reading server-host binding information from CDS.
+dcecp -c rpcentry show /.:/hosts/slab/self
+dcecp -c rpcentry show /.:/hosts/gemini/self
+
++ Reading server-host address information from FLDB.
+fts lsserv -server /.:/hosts/slab
+fts lsserv -server /.:/hosts/gemini
+
++ Reading server-host aggregate information.
+fts lsaggr -server /.:/hosts/slab
+fts lsaggr -server /.:/hosts/gemini
+
++ Reading flserver list from DFS junction in CDS.
+dcecp -c rpcgroup list /.:/fs
+
++ Verifying that all info meets test config requirements.
+
++ Reordering server-host connection information if required.
+
++ Creating filesets required for tests
+fts create -ftname cmMHSTest.21226 -server /.:/hosts/slab -aggregate epi0
+cmMHSTest.21226
+	readWrite   ID 0,,98  valid
+	readOnly    ID 0,,99  invalid
+	backup      ID 0,,100  invalid
+number of sites: 1
+   server           flags     aggr   siteAge principal      owner
+slab.transarc.com   RW       epi0    0:00:00 hosts/slab     <nil>               
+Fileset 0,,98 created on aggregate epi0 of /.:/hosts/slab
+fts crmount -dir /:/cmMHSTest.RW -fileset cmMHSTest.21226 -rw
+chmod 777 /:/cmMHSTest.RW
+fts setrepinfo -fileset cmMHSTest.21226 -scheduled
+fts addsite -fileset cmMHSTest.21226 -server /.:/hosts/slab -aggregate epi0
+Added replication site /.:/hosts/slab epi0 for fileset cmMHSTest.21226
+fts addsite -fileset cmMHSTest.21226 -server /.:/hosts/gemini -aggregate epi0
+Added replication site /.:/hosts/gemini epi0 for fileset cmMHSTest.21226
+fts crmount -dir /:/cmMHSTest.RO -fileset cmMHSTest.21226.readonly 
+
++ Sleeping 30 seconds to ensure sites are created
+
++ Creating files required for tests
+Creating file /:/cmMHSTest.RW/cmMHSTestfile.txt
+fts update -fileset cmMHSTest.21226 -all
+fts update: Repserver on slab.transarc.com requested to update fileset 0,,99
+fts update: Repserver on gemini.transarc.com requested to update fileset 0,,99
+
++ Sleeping 30 seconds to ensure replicas are updated
+
++ Setting initial server-host client-route configurations.
+/bin/rsh gemini /etc/ifconfig en1 up
+/bin/rsh gemini /etc/route add -host 158.98.15.6 192.55.207.164 1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+/bin/rsh slab /etc/ifconfig en1 up
+/bin/rsh slab /etc/route add -host 158.98.15.6 192.55.207.164 1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+
++ Adjusting server-host binding information in CDS.
+dcecp -c rpcentry unexport /.:/hosts/slab/self -interface {e1af8308-5d1f-11c9-91a4-08002b14a0fa 3.0}
+
+dcecp -c rpcentry export /.:/hosts/slab/self -interface {e1af8308-5d1f-11c9-91a4-08002b14a0fa 3.0} -binding {ncadg_ip_udp 158.98.15.3 135}
+
+dcecp -c rpcentry export /.:/hosts/slab/self -interface {e1af8308-5d1f-11c9-91a4-08002b14a0fa 3.0} -binding {ncadg_ip_udp 192.55.207.62 135}
+
+
++ Adjusting server-host address information in FLDB.
+fts edserv -server 158.98.15.3 -addaddr 192.55.207.62
+fts edserv -server 158.98.15.5 -addaddr 192.55.207.61
+fts edserv -server 158.98.15.5 -rmaddr
+
++ Setting cache-manager address-preference ranks.
+cm setpreferences -server 192.55.207.62 1000
+cm setpreferences -server 192.55.207.62 1000 -fldb
+cm setpreferences -server 192.55.207.61 2000
+cm setpreferences -server 192.55.207.61 2000 -fldb
+cm setpreferences -server 158.98.15.3 3000
+cm setpreferences -server 158.98.15.3 3000 -fldb
+cm checkfilesets
+All backup filesets checked.
+
+---------------------------------------------------------
+
++ mhstest.pl: Starting test ftloc
+
+
+		CDS Address Acquisition Test - Fileset Location Check
+
++ Performing test initialization
+dfstrace setset -set cm -active
+
++ Beginning test phase 0
+dfstrace clear
+
++ Fetching location of '/:/' from FLDB - should succeed via slab-207 (192.55.207.62)
+cm checkfilesets
+All backup filesets checked.
+cm whereis /:/
+The file '/:/' resides in the cell 'slab.dce.transarc.com', 
+in fileset 'root.dfs', on host slab-207.transarc.com.
+dfstrace dump -set cm : searching for multi-server binding to FL at 192.55.207.62
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) DOWN
+/bin/rsh slab /etc/route delete -host 158.98.15.6 192.55.207.164
+192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+/bin/rsh slab /etc/route add -host 158.98.15.6 158.98.15.1 1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 158.98.15.1
+/bin/rsh slab /etc/ifconfig en1 down
+
++ Fetching location of '/:/' from FLDB - should succeed via slab (158.98.15.3) AFTER fail-over from slab-207 (192.55.207.62)
+cm checkfilesets
+All backup filesets checked.
+cm whereis /:/
+The file '/:/' resides in the cell 'slab.dce.transarc.com', 
+in fileset 'root.dfs', on host slab.transarc.com.
+dfstrace dump -set cm : searching for failure of 192.55.207.62
+dfstrace dump -set cm : searching for multi-server binding to FL at 158.98.15.3
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) UP
+/bin/rsh slab /etc/ifconfig en1 up
+/bin/rsh slab /etc/route delete -host 158.98.15.6 158.98.15.1
+158.98.15.1 host 158.98.15.6: gateway 158.98.15.1
+/bin/rsh slab /etc/route add -host 158.98.15.6 192.55.207.164 1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+
++ Sleeping address-revival poll time (960 seconds)
+
++ Flserver connection slab-207 (192.55.207.62) should now be UP
+dfstrace dump -set cm : searching for revival of 192.55.207.62
+dfstrace clear
+
++ Fetching location of '/:/' from FLDB - should succeed via slab-207 (192.55.207.62)
+cm checkfilesets
+All backup filesets checked.
+cm whereis /:/
+The file '/:/' resides in the cell 'slab.dce.transarc.com', 
+in fileset 'root.dfs', on host slab-207.transarc.com.
+dfstrace dump -set cm : searching for multi-server binding to FL at 192.55.207.62
+dfstrace clear
+
++ Removing flserver host address slab (158.98.15.3) from CDS
+dcecp -c rpcentry unexport /.:/hosts/slab/self -interface {e1af8308-5d1f-11c9-91a4-08002b14a0fa 3.0}
+
+dcecp -c rpcentry export /.:/hosts/slab/self -interface {e1af8308-5d1f-11c9-91a4-08002b14a0fa 3.0} -binding {ncadg_ip_udp 192.55.207.62 135}
+
+
++ Beginning test phase 1
+dfstrace clear
+
++ Fetching location of '/:/' from FLDB - should succeed via slab-207 (192.55.207.62)
+cm checkfilesets
+All backup filesets checked.
+cm whereis /:/
+The file '/:/' resides in the cell 'slab.dce.transarc.com', 
+in fileset 'root.dfs', on host slab-207.transarc.com.
+dfstrace dump -set cm : searching for multi-server binding to FL at 192.55.207.62
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) DOWN
+/bin/rsh slab /etc/route delete -host 158.98.15.6 192.55.207.164
+192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+/bin/rsh slab /etc/route add -host 158.98.15.6 158.98.15.1 1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 158.98.15.1
+/bin/rsh slab /etc/ifconfig en1 down
+
++ Fetching location of '/:/' from FLDB - should fail with flserver at slab-207 declared DOWN
+cm checkfilesets
+All backup filesets checked.
+cm whereis /:/
+cm: '/:/': Connection timed out
+dfstrace dump -set cm : searching for server down after failure of 192.55.207.62
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) UP
+/bin/rsh slab /etc/ifconfig en1 up
+/bin/rsh slab /etc/route delete -host 158.98.15.6 158.98.15.1
+158.98.15.1 host 158.98.15.6: gateway 158.98.15.1
+/bin/rsh slab /etc/route add -host 158.98.15.6 192.55.207.164 1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+
++ Sleeping dead-server poll time (240 seconds)
+
++ Flserver at slab-207 should now be UP
+dfstrace dump -set cm : searching for server up after contact via 192.55.207.62
+dfstrace clear
+
++ Fetching location of '/:/' from FLDB - should succeed via slab-207 (192.55.207.62)
+cm checkfilesets
+All backup filesets checked.
+cm whereis /:/
+The file '/:/' resides in the cell 'slab.dce.transarc.com', 
+in fileset 'root.dfs', on host slab-207.transarc.com.
+dfstrace dump -set cm : searching for multi-server binding to FL at 192.55.207.62
+dfstrace clear
+
++ Adding flserver host address slab (158.98.15.3) to CDS
+dcecp -c rpcentry export /.:/hosts/slab/self -interface {e1af8308-5d1f-11c9-91a4-08002b14a0fa 3.0} -binding {ncadg_ip_udp 158.98.15.3 135}
+
+cm setpreferences -server 158.98.15.3 3000
+cm setpreferences -server 158.98.15.3 3000 -fldb
+
++ Beginning test phase 2
+dfstrace clear
+
++ Fetching location of '/:/' from FLDB - should succeed via slab-207 (192.55.207.62)
+cm checkfilesets
+All backup filesets checked.
+cm whereis /:/
+The file '/:/' resides in the cell 'slab.dce.transarc.com', 
+in fileset 'root.dfs', on host slab-207.transarc.com.
+dfstrace dump -set cm : searching for multi-server binding to FL at 192.55.207.62
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) DOWN
+/bin/rsh slab /etc/route delete -host 158.98.15.6 192.55.207.164
+192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+/bin/rsh slab /etc/route add -host 158.98.15.6 158.98.15.1 1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 158.98.15.1
+/bin/rsh slab /etc/ifconfig en1 down
+
++ Fetching location of '/:/' from FLDB - should succeed via slab (158.98.15.3) AFTER fail-over from slab-207 (192.55.207.62)
+cm checkfilesets
+All backup filesets checked.
+cm whereis /:/
+The file '/:/' resides in the cell 'slab.dce.transarc.com', 
+in fileset 'root.dfs', on host slab.transarc.com.
+dfstrace dump -set cm : searching for failure of 192.55.207.62
+dfstrace dump -set cm : searching for multi-server binding to FL at 158.98.15.3
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) UP
+/bin/rsh slab /etc/ifconfig en1 up
+/bin/rsh slab /etc/route delete -host 158.98.15.6 158.98.15.1
+158.98.15.1 host 158.98.15.6: gateway 158.98.15.1
+/bin/rsh slab /etc/route add -host 158.98.15.6 192.55.207.164 1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+
++ Sleeping address-revival poll time (960 seconds)
+
++ Flserver connection slab-207 (192.55.207.62) should now be UP
+dfstrace dump -set cm : searching for revival of 192.55.207.62
+dfstrace clear
+
++ Fetching location of '/:/' from FLDB - should succeed via slab-207 (192.55.207.62)
+cm checkfilesets
+All backup filesets checked.
+cm whereis /:/
+The file '/:/' resides in the cell 'slab.dce.transarc.com', 
+in fileset 'root.dfs', on host slab-207.transarc.com.
+dfstrace dump -set cm : searching for multi-server binding to FL at 192.55.207.62
+dfstrace clear
+
+---------------------------------------------------------
+
++ mhstest.pl: Restoring environment.
+
+
++ Restoring server-host client-route configurations.
+/bin/rsh gemini /etc/route delete -host 158.98.15.6 192.55.207.164
+192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+/bin/rsh slab /etc/route delete -host 158.98.15.6 192.55.207.164
+192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+
++ Restoring server-host binding information in CDS.
+dcecp -c rpcentry unexport /.:/hosts/slab/self -interface {e1af8308-5d1f-11c9-91a4-08002b14a0fa 3.0}
+
+dcecp -c rpcentry export /.:/hosts/slab/self -interface {e1af8308-5d1f-11c9-91a4-08002b14a0fa 3.0} -binding {ncadg_ip_udp 158.98.15.3 135}
+
+
++ Restoring server-host address information in FLDB.
+fts edserv -server 192.55.207.62 -rmaddr
+fts edserv -server 192.55.207.61 -addaddr 158.98.15.5
+fts edserv -server 192.55.207.61 -rmaddr
+
++ Cache-manager address-preference ranks remain altered.
+
++ Removing filesets and files created for tests
+fts delmount -dir /:/cmMHSTest.RO
+fts rmsite -fileset cmMHSTest.21226 -server /.:/hosts/gemini -aggregate epi0
+Removed replication site /.:/hosts/gemini 1 for fileset cmMHSTest.21226
+fts rmsite -fileset cmMHSTest.21226 -server /.:/hosts/slab -aggregate epi0
+Removed replication site /.:/hosts/slab 2 for fileset cmMHSTest.21226
+fts delmount -dir /:/cmMHSTest.RW
+fts delete -fileset cmMHSTest.21226 -server /.:/hosts/slab -aggregate epi0
+Fileset 0,,98 on aggregate epi0 server /.:/hosts/slab deleted
+
+---------------------------------------------------------
+
++ mhstest.pl: Testing complete.
+

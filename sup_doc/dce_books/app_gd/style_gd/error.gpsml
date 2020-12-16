@@ -1,0 +1,863 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: error.gpsml,v $
+...\" Revision 1.1.2.10  1995/06/27  17:04:05  buckler
+...\" 	1.1 edits and Prentice Hall reformat
+...\" 	[1995/06/27  17:02:51  buckler]
+...\"
+...\" Revision 1.1.2.9  1994/11/15  20:47:58  neilson
+...\" 	Converted book title references to macro form.
+...\" 	[1994/11/15  18:58:03  neilson]
+...\" 
+...\" Revision 1.1.2.8  1994/11/15  16:25:45  weir
+...\" 	No change
+...\" 	[1994/11/15  16:25:08  weir]
+...\" 
+...\" Revision 1.1.2.7  1994/10/19  20:48:12  weir
+...\" 	Review comments
+...\" 	[1994/10/19  20:47:18  weir]
+...\" 
+...\" Revision 1.1.2.6  1994/10/19  16:02:46  weir
+...\" 	Review comments and edits
+...\" 	[1994/10/19  16:01:54  weir]
+...\" 
+...\" Revision 1.1.2.5  1994/10/11  14:05:47  weir
+...\" 	Updates
+...\" 	[1994/10/11  14:04:54  weir]
+...\" 
+...\" Revision 1.1.2.4  1994/09/23  19:57:46  weir
+...\" 	Updates for review
+...\" 	[1994/09/23  19:56:55  weir]
+...\" 
+...\" Revision 1.1.2.3  1994/08/17  20:56:23  weir
+...\" 	First set of updates
+...\" 	[1994/08/17  20:55:40  weir]
+...\" 
+...\" Revision 1.1.2.2  1994/06/13  18:22:35  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  18:19:57  devobj]
+...\" 
+...\" Revision 1.1.2.1  1994/03/11  23:04:56  rom
+...\" 	{enh, 10129, R1.1}
+...\" 	Initial split of App Dev Guide into three books and creation of
+...\" 	Intro and Style Guide.
+...\" 	[1994/03/11  23:01:50  rom]
+...\" 
+...\" $EndLog$
+...\" 
+...\" 
+...\" 
+.nr H1 6
+...\" 
+...\" ----------------------------------------------------------------------
+.H 1 "Errors and Messaging"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Applications should adopt a consistent and portable error handling style. This
+includes methods for returning errors from remote procedure calls, generation of
+application-specific status codes, and the generation and display of error text.
+This chapter recommends a set of techniques for handling all of these issues.  The
+chapter also makes recommendations about error logging for applications that choose
+to use the logging facilities.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Error Handling"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+By default, the RPC runtime generates exceptions for RPC remote and communications
+errors.  However, the default exception handler dumps core, which is not a very
+useful client response to such errors as failure to connect with a server that is
+down.  Although the default error handling model attempts to treat an RPC call as a
+single continuous thread, propagating server errors back to the client, it will
+probably be more useful for most applications to contain the effects of server
+errors on the server side of the application.  In this model, the client will output
+an error message when, for example, the server dumps core.
+.P
+Thus, it is recommended that applications establish some explicit error handling
+mechanism for RPC calls.  The \*EAES/DC\*O recommends the use of status returns as
+being a more portable way of handling errors than using exceptions.  This
+recommendation is also consistent with the error-handling model for the RPC API.
+...\" 
+...\" 
+.P
+You can have remote calls' communications and remote runtime errors reported through
+a status parameter by specifying the \*L[comm_status]\*O and \*L[fault_status]\*O
+attributes for the calls in the 
+application's \*L.acf\*O file.  The IDL compiler does
+not require that a status parameter be explicitly declared in the interface declaration,
+since it will add such a parameter implicitly.  The \*Lcomm_status\*O and \*Lfault_status\*O
+parameters are not really part of the remote interface: they are supplied by the client
+stub as one way of handling remote exceptions.
+.P
+However, server managers need 
+to report application-specific errors as well.  Although
+such errors can be reported through function return values or a separate application
+error status parameter, the most consistent method is to use a single status parameter
+to report all errors.  In this way a client need not concern itself with two or three
+separate error parameters, and can use a consistent error handling scheme for both API
+and application RPC errors.  In order to return application-specific errors, such a
+status parameter must be part of the IDL specification of the interface.  The recommended
+method is therefore to declare a \*Vstatus\*O parameter as part of the application's
+\*L\&.idl\*O file declarations, and then add the \*L[com_status]\*O and \*L[fault_status]\*O
+attributes to the parameter by declarations in the \*L.acf\*O file.
+.P
+Of course, if application and DCE runtime errors are to share the same status
+parameter, they must use disjoint error number spaces.  The DCE messaging facilities
+provide a means to do this.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Messaging Facilities"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The need to acquire an error number space is related to the larger issue of messaging
+in general.  Applications typically need messages both for error reporting and for other
+status reporting and informational purposes.  The recommended practice is to use messages
+catalogs for all messaging.  
+.PP
+.ne 10
+Message catalogs permit applications to deal with messages
+as numerical constants and to keep all associated text separate from the application itself.
+This is especially important for internationalization requirements; applications deal
+only with generic error numbers; locale-specific message text is kept in separate
+catalogs.
+.iX "message catalogs"
+.P
+Message numbers are partitioned by technology, component, and code. The technology
+and component fields select a message catalog, and the code indexes messages within
+a catalog.
+...\" 
+...\" (See RFC 24.2 for details.)
+...\" 
+The requirement to have a unique application-specific error number space can be met by
+adopting a unique component field within a given technology.  To facilitate this, OSF
+makes component numbers available in two ways.  
+...\" 
+...\" 
+.AL
+...\" 
+.LI
+Within the \*Ldce\*O technology (the default core component technology field used by
+DCE implementations), OSF sets aside two
+...\" 
+...\" Correct?
+...\" 
+components guaranteed not to be used by DCE implementations.
+...\" 
+.LI
+OSF sets aside an ISV technology and maintains a registry of component numbers
+which may be assigned to ISVs.
+...\" 
+.LE
+...\" 
+...\" 
+.P
+This makes two levels of uniqueness available to applications. An \*Eunregistered\*O
+application can guarantee that its message number space does not conflict with that
+of DCE implementations or of any registered ISV components by using one of the
+reserved component numbers within the \*Ldce\*O technology space.  This does not, of
+course, guarantee that the application's message number space does not conflict with
+that of other unregistered applications.  This is a sufficient guarantee only for
+applications that do not communicate or share application-specific message catalogs
+with other unregistered applications.  For example, the client side of an unregistered  
+application may encounter error number conflicts if it makes RPCs to the server side
+of an application that uses an overlapping error number space.
+.iX "unregistered applications"
+...\" 
+.nS note
+A related restriction on such non-registered applications is that they must
+install their message catalogs in some application-specific place.  Since message
+catalog names depend on component numbers, other applications may be using the
+same message catalog names.
+.nE
+...\" 
+.P
+Applications that need to guarantee a unique error number space among all DCE
+applications should use a registered component number obtained from OSF.
+...\" 
+...\" What's the procedure?
+...\" 
+This is the recommended procedure for applications that have public interfaces
+that are likely to be called by other applications.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "DCE Errors and DCE Messages"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+An application that wishes to use the DCE message facilities must organize all
+of its message text into a separate file which is compiled by the \*Lsams\*O
+utility to generate a message catalog.  The result of the \*Lsams\*O compilation
+is that a set of DCE-consistent, application-specific codes for all the messages
+(not only errors) is generated.  Use of the DCE facilities thus guarantees that
+application-specific status codes will be disjoint from those used by DCE for
+\*Lfault\*O and \*Lcomm\*O status values, and for API calls.  The application can
+then use exactly the same error handling and reporting strategy for application RPC
+calls as for API calls.
+.iX "\*Lsams\*O utility"
+...\" 
+...\" It is recommended that applications use \*Ldce_svc_printf(\|)\*O to display
+...\" error messages.  
+...\" The sample application in Appendix A illustrates this approach.
+...\" 
+.P
+Of course, generating the message catalogs is only one aspect of using the DCE
+facilities.  The DCE routines that access the message catalogs to output the
+messages must also be used.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "DCE Application Message APIs"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Message generation by distributed programs can be divided into two broad kinds:
+...\" 
+.ML
+.LI
+Normal (often user-prompted, client-generated) messages
+.LI
+Server event messages, containing information about server activity,
+either normal or extraordinary
+.LE
+...\" 
+.iX "message generation"
+.P
+Similarly, DCE makes available to applications two messaging APIs:
+...\" 
+.ML
+.LI
+The DCE messaging interface
+...\" 
+.LI
+The DCE serviceability interface
+...\" 
+.LE
+...\" 
+.P
+The DCE serviceability interface is designed specifically to output messages
+of the second (server event) type.  Messages in the first category can be
+output using the DCE general purpose application messaging routines.
+.P
+.ne 10
+Although the two interfaces, broadly speaking, do the same 
+general thing (that is,
+write messages), their functionality was designed to serve different needs,
+both of which occur in most distributed applications.  Nevertheless, either
+interface can be used more or less exclusively of the other, if desired.
+Both interfaces use message catalogs (for the most part) to generate output;
+the catalogs themselves are generated by \*Lsams\*O during compilation, as
+mentioned earlier.
+...\" 
+.P
+The following sections describe some aspects of using the serviceability
+interface.  Full discussions of both interfaces can be found in
+...\" (``DCE Application Messaging'') and 4 (``Using the DCE Serviceability
+...\" Application Interface'') in the
+the \*(Dk.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Serviceability and Logging"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The DCE serviceability facilities allow server applications to display or log
+messages, to control message routing, and to associate actions with messages.  A
+remote serviceability interface also makes it possible to control server message
+routing and filtering via \*Ldcecp\*O or from application management clients.
+...\" 
+...\" It is recommended that all 
+...\" error and informational message text be displayed or
+...\" logged via the \*Ldce_svc_printf(\|)\*O call.  At the most basic level,
+...\" \*Ldce_svc_printf(\|)\*O can be used to as substitute for \*Lprintf(\|)\*O to
+...\" display message catalog text at the terminal.  
+...\" With little additional work, the
+...\" application can also add elaborate message logging and routing.
+...\" 
+...\" 
+.iX "serviceability"
+...\" .nS note
+...\" The use of the messaging facility does not 
+...\" require the use of the serviceability
+...\" interface to display or log messages.  The messaging interface can be used to
+...\" extract messages directly from catalogs via the 
+...\" \*Ldce_msg_get_msg(\|)\*O call.
+...\" Applications can also use the \*Ldce_error_inq_text(\|)\*O to retrieve text
+...\" associated with error messages created within the 
+...\" DCE error numbering scheme.  Such
+...\" messages can then be displayed or otherwise 
+...\" handled by applications as they see
+...\" fit.  However, the serviceability interface 
+...\" is the recommended means for handling
+...\" error message text.
+...\" .nE
+...\" 
+...\" 
+.P
+The serviceability mechanism is designed to be used mainly for server informational
+and error messaging\(emthat is, for messages that are of interest to those who
+are concerned with server maintenance and administration (in the broadest sense of
+these terms).  The essential idea of the mechanism is that all server events that
+are significant for maintaining or restoring normal operation should be reported in
+messages that are made to be self-documenting, so that (provided all significant
+events have been correctly identified and reported) users and administrators will by
+definition always be able to learn what action they should take whenever anything
+out of the ordinary occurs.  User-prompted, interactive, client-generated messaging
+should be handled through the DCE messaging interface.
+.P
+Serviceability is also used by the DCE components (for example, 
+DTS, CDS, and so forth) themselves.
+Consistent use of the same message mechanism by DCE implementations and applications
+should result in simplified DCE administration.
+.P
+.ne 10
+DCE components use the serviceability facilities according to the following
+guidelines; it is recommended that DCE applications use them also.
+...\" 
+...\" 
+...\" 
+.ML
+...\" 
+.LI
+All servers should report when they are started, and when they have completed
+their initialization and are ready to perform work.  They should also indicate
+when they are going off-line.
+...\" 
+.LI
+All program exits should be reported as fatal errors.  Similarly, all calls to
+\*Labort(\|)\*O should be replaced by calls to \*Ldce_svc_printf(\|)\*O with
+the \*Lsvc_c_action_abort\*O action attribute specified.
+...\" 
+.LI
+Errors which make it impossible for the application to proceed should be reported
+as close as possible to the point of occurrence.  This includes such
+conditions as: failure to allocate memory, failure to open a configuration file for
+reading, or a log file for writing, and so on.
+...\" 
+.LI
+Conditions which may indicate system-level malfunction or poor performance must
+be reported.
+...\" 
+.LI
+Routine administrative actions should be reported as informational messages.  This
+includes: creation, modification and deletion of tickets, threads, files, sockets,
+RPC endpoints, or other objects; message transfer, including name lookup, binding,
+and forwarding;
+...\" 
+...\" directory maintenance, including caching, 
+...\" advertisting, skulking, and replication;
+...\" 
+and database maintenance, including replication or synchronization.
+...\" 
+.LE
+...\" 
+...\" 
+.P
+The severity level attribute for each message can be determined according to the
+following criteria:
+.iX "severity level attribute"
+...\" 
+...\" 
+.ML
+...\" 
+.LI
+Fatal error exit (\*Lsvc_c_sev_fatal_error\*O).  An unrecoverable error has occurred
+requiring special manual recovery actions to take place, such as database restoration.
+The program usually terminates immediately.
+...\" 
+.LI
+Error detected (\*Lsvc_c_sev_error\*O).  An unexpected event that is nonterminal or is
+correctable via human intervention has occurred, such as a timeout.  The program continues
+although some functions or services may not be available.  This may also be used to
+indicate that a particular request or action could not be completed.
+...\" 
+.LI
+Correctable error (\*Lsvc_c_sev_warning\*O).  An error occurred that was automatically
+corrected, such as a configuration file was not found so that defaults were used.  This
+may also be used to indicate a condition that may be an error if the effects are
+undesireable, such as removing all files when a nonempty directory is removed.  This
+may also be used to indicate a condition that if not corrected will eventually result
+in an error, such as when a printer is running out of paper.
+...\" 
+.LI
+Informational notice (\*Lsvc_c_sev_notice\*O).  A predetermined major event has occurred,
+such as a server started.
+...\" 
+.LI
+Verbose information notice (\*Lsvc_c_sev_notice_verbose\*O).  A predetermined event has
+occurred, such as a directory entry was removed.
+...\" 
+.LI
+Debug level 1 (\*Lsvc_c_debug1\*O) through debug level 9 (\*Lsvc_c_debug9\*O).  Messages
+in the nine debug levels would not normally appear in production code.
+...\" 
+.LE
+...\" 
+...\" 
+.P
+An appropriate action may be associated with an error message by ORing one of the
+\*Lsvc_c_action. . .\*O values with the message attribute.  Note that the
+\*Lsvc_c_action_abort\*O action, which results in a call to \*Labort(\|)\*O, does
+not provide any reliable means to clean up and should only be used where the default
+\*Labort(\|)\*O action, which is typically to dump core, is appropriate.  Cleanup for
+the \*Lsvc_c_action_exit\*O action can implemented by supplying an \*Latexit(\|)\*O
+handler.
+.P
+In addition to these guidelines, a persistent server application that does message
+logging should consider exporting the remote serviceability interface as a means to
+simplify server administration.
+...\" 
+...\" [Need to add this to the sample code.  It's very simple.  Doug has an
+...\" example.]
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Sample Code"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The sample server application source compiles a message catalog as well as the
+required auxiliary \*L.c\*O and \*L.h\*O files from a \*Lsams\*O file.  In part,
+the file looks like the following (for the full file, see Appendix A):
+...\" 
+...\" 
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+# Part I
+component       smp
+table           smp__table
+technology      dce
+
+####################################################################
+# Part II
+serviceability  table smp_svc_table handle smp_svc_handle
+start
+    subcomponent smp_s_server   "server"       smp_i_svc_server
+    subcomponent smp_s_manager  "manager"      smp_i_svc_manager
+    subcomponent smp_s_binder   "binder"       smp_i_svc_binder
+end
+
+####################################################################
+# Part III
+# Note that defining the "sub-component" and "attributes" fields
+#  will result in a convenience macro's being generated for the
+#  message in question...
+
+start
+code              sign_on
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "Starting up"
+explanation       ""
+action            "None required."
+end
+
+start
+code              cleanup
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "Cleaning up"
+explanation       "Starting server cleanup"
+action            "None required."
+end
+
+start
+code              server_exit
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "Exiting"
+explanation       ""
+action            "None required."
+end
+
+start
+code              signal_catcher
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "Spawning signal handler thread"
+explanation       ""
+action            "None required."
+end
+
+start
+code              no_signal_catcher
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "Spawn signal handler failed"
+explanation       "RPC runtime error. pthread_create() failed."
+action            ""
+end
+
+start
+code              bad_entryname_count
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "Bad entryname count"
+explanation       "Count of entrynames doesn't match count of object uuids"
+action            ""
+end
+
+start
+code              cannot_resolve_name
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "Can't resolve name"
+explanation       "ACL manager resolver failed to resolve name"
+action            "The ACL databases may be corrupt and need to be regenerated."
+end
+
+start
+code              cannot_manage_keys
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "Can't spawn key management thread."
+explanation       "RPC runtime error."
+action            ""
+end
+
+start
+code              no_acl_dbs
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "ACL databases not found, creating them from scratch"
+explanation       ""
+action            "None required."
+end
+
+start
+code              exporting_to
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "Exporting to %s"
+explanation       "Exporting to CDS entry"
+action            "None required."
+end
+
+.nL
+.ne 10
+start
+code              unexporting_from
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "Unexporting from %s"
+explanation       "Unexporting from CDS entry"
+action            "None required."
+end
+
+
+start
+code              importing_from
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "Importing from %s"
+explanation       "Importing from CDS entry"
+action            "None required."
+end
+
+start
+code              auth_set_client
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "Beginning client authentication setup"
+explanation       ""
+action            "None required."
+end
+
+start
+code              bindings_received
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "Nr of %s bindings received == %d"
+explanation       "Server diagnostic message."
+action            "None required."
+end
+
+start
+code              full_binding
+subcomponent      smp_s_server
+attributes        "svc_c_sev_notice"
+text              "Full %s binding in string form == %s"
+explanation       "Server diagnostic message."
+action            "None required."
+end
+
+.nL
+.ne 10
+start
+code              server_error
+subcomponent      smp_s_server
+attributes        "svc_c_sev_fatal"
+text              "%s: %s"
+explanation       "general error message"
+action            "?"
+end
+
+start
+code              no_permissions
+subcomponent      smp_s_manager
+attributes        "svc_c_sev_notice"
+text              "No permissions"
+explanation       "Client does not have permissions for operation"
+action            "None required."
+end
+
+start
+code              object_not_found
+subcomponent      smp_s_manager
+attributes        "svc_c_sev_error"
+text              "Object not found"
+explanation       "object was not found in UUID-indexed database"
+action            "None required."
+end
+
+start
+code              manager_error
+subcomponent      smp_s_manager
+attributes        "svc_c_sev_fatal"
+text              "%s: %s"
+explanation       "general error message"
+action            "?"
+end
+
+start
+code              binder_error
+subcomponent      smp_s_binder
+attributes        "svc_c_sev_fatal"
+text              "%s: %s"
+explanation       "general error message"
+action            "?"
+end
+
+.nL
+.ne 10
+####################################################################
+# Part IIIa
+# Messages for serviceability table
+# 
+#  Note that there has to be one of these for each of
+#   the subcomponents declared in the second part of
+#   the file (above)...
+
+
+start             !intable undocumented
+code              smp_i_svc_server
+text              "Sample server"
+end
+
+start             !intable undocumented
+code              smp_i_svc_binder
+text              "Sample object binder"
+end
+
+start             !intable undocumented
+code              smp_i_svc_manager
+text              "Sample manager"
+end
+.oE 
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+.P
+The server \*Lmain()\*O function then establishes the required serviceability
+context and defines a message table with the following calls:
+...\" 
+...\" 
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+/* Set the program name for serviceability messages...              */
+dce_svc_set_progname(argv[0], &status);
+
+/* Get serviceability handle...                                     */
+smp_svc_handle = dce_svc_register(smp_svc_table,
+                        (idl_char*)"smp",
+                        &status);
+
+/* Set up in-memory serviceability message table...                 */
+dce_msg_define_msg_table(smp__table,
+                        sizeof smp__table / sizeof smp__table[0],
+                        &status);
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" 
+.P
+.ne 15
+The following fragments illustrate remote error handling using a common
+\*Vstatus\*O parameter.  The \*L.idl\*O file for the \*Lsample\*O interface
+includes the following declarations:
+...\" 
+...\" 
+...\" 
+.nL
+.ps 9
+.vs 12 
+.oS
+void sample_call(
+        [in] handle_t binding,
+        [out] long *status,
+        [in,out] error_status_t *remote_status);
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+.P
+This is matched in the \*L.acf\*O file by the following:
+...\" 
+...\" 
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+interface sample
+{
+    sample_call([comm_status,fault_status] remote_status);
+}
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+.P
+Then, for example, the server implementation of the \*Lsample_call(\|)\*O
+remote call can return the \*Lsmp_s_no_perms\*O status code on authorization
+failure:
+...\" 
+...\" 
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+void 
+sample_call(
+    rpc_binding_handle_t binding,       /* Client binding.          */
+    idl_long_int *status,
+    error_status_t *remote_status)
+{
+
+    extern uuid_t sample_acl_mgr_uuid, sample_acl_uuid;
+    boolean32 authorized = 0;
+
+    /* We have to explicitly initialize the remote status value;    */
+    /*  otherwise, if no error occurs in the transmission (which    */
+    /*  would cause the runtime to assign an error value to this    */
+    /*  variable), its value will be whatever it happened to be     */
+    /*  when the RPC was made by the client...                      */
+    *remote_status = rpc_s_ok;
+
+    DCE_SVC_DEBUG((smp_svc_handle,
+                   smp_s_manager,
+                   svc_c_debug6,
+                   "Entering sample_call()..."));
+
+    /* Check whether client is authorized or not...                 */
+    DCE_SVC_DEBUG((smp_svc_handle,
+                   smp_s_manager,
+                   svc_c_debug6,
+                   "Calling dce_acl_is_client_authorized()..."));
+.nL
+.ne 10
+    dce_acl_is_client_authorized(
+            binding,                /* Client's binding handle.         */
+            &sample_acl_mgr_uuid,   /* ACL manager type UUID.           */
+            &sample_acl_uuid,       /* The ACL UUID.                    */
+            NULL,                   /*  Pointer to owner's UUID.        */
+            NULL,                   /* Pointer to owner's group's UUID. */
+            sec_acl_perm_read,      /* The desired privileges.          */
+            &authorized,            /* Will be TRUE or FALSE on return. */
+            remote_status);
+
+    if (*remote_status != error_status_ok)
+    {
+            print_manager_error("dce_acl_is_client_authorized()",
+                                *remote_status);
+            return;
+    }
+
+    if (authorized)
+    {
+            DCE_SVC_DEBUG((smp_svc_handle,
+                           smp_s_manager,
+                           svc_c_debug8,
+                           "Call authorized"));
+
+            /* HERE'S WHERE WE SHOULD ACTUALLY DO SOMETHING!        */
+
+    *status = error_status_ok;
+    }
+    else
+    {
+            DCE_SVC_DEBUG((smp_svc_handle,
+                           smp_s_manager,
+                           svc_c_debug8,
+                           "Call not authorized"));
+
+            /* Return no permissions status to client               */
+            *status = no_permissions;
+    }
+
+    DCE_SVC_DEBUG((smp_svc_handle,
+                   smp_s_manager,
+                   svc_c_debug6,
+                   "Successfully exiting sample_call()"));
+
+}
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+.P
+.ne 15
+The client making the \*Lsample_call(\|)\*O remote call can then check both RPC
+\*Lcomm\*O and \*Lfault\*O status and application-specific status and display
+any error messages with the same code:
+...\" 
+...\" 
+...\" 
+.nL
+.ps 9
+.vs 12
+.oS
+sample_call(binding_h, &rpc_status, &rpc_remote_status);
+if (rpc_remote_status != error_status_ok)
+{
+        print_error("sample_call()", rpc_remote_status);
+        exit(1);
+}
+.oE
+.ps 12
+.vs 14

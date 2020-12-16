@@ -1,0 +1,243 @@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+...\" ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+...\" src directory for the full copyright text. 
+...\" 
+...\" HISTORY
+...\" $Log: cm_setpreferences.8dfs,v $
+...\" Revision 1.1.4.4  1996/12/17  20:49:23  damon
+...\" 	Expanded OSF C O P Y R I G H T   N O T I C E
+...\" 	[1996/12/17  20:46:41  damon]
+...\"
+...\" Revision 1.1.4.3  1996/08/21  13:00:05  wfl
+...\" 	Editorial changes as necessary
+...\" 	[1996/08/21  12:59:41  wfl]
+...\" 
+...\" Revision 1.1.4.2  1996/07/16  20:46:50  wfl
+...\" 	{enh, 13566, R1.2.2}
+...\" 	Added multihomed servers
+...\" 	[1996/07/16  20:46:24  wfl]
+...\" 
+...\" Revision 1.1.4.1  1996/05/14  20:26:50  wardr
+...\" 	{enh,R1.2.2}
+...\" 	Removed changebars
+...\" 	[1996/05/14  20:22:08  wardr]
+...\" 
+...\" Revision 1.1.2.2  1995/10/04  15:39:22  wfl
+...\" 	{def, 13140, R1.2.1}
+...\" 	Fixed quotes in change markers
+...\" 	[1995/10/04  15:39:05  wfl]
+...\" 
+...\" Revision 1.1.2.1  1995/09/16  14:49:02  wfl
+...\" 	{enh,13093,R1.2.1}
+...\" 	Add description of server preferences
+...\" 	[1995/09/16  14:48:40  wfl]
+...\" 
+...\" 	{enh, 13093, R1.2.1}
+...\" 	Created file for description of server preferences
+...\" 
+...\" $EndLog$
+...\" 
+.TH "cm setpreferences" "8dfs" "" "" ""
+.iX "-[" "\*Lcm\*O command suite" "\*Lsetpreferences\*O"
+.iX "-[" "Cache Manager" "setting File Server preferences"
+.iX "-[" "File Server machines" "setting Cache Manager preferences"
+.SH "NAME"
+.PP
+\*Lcm setpreferences\*O \- Sets the Cache Manager's preferences for File
+Server or File Location (FL) Server machines
+.SH "SYNOPSIS"
+.sS
+\*Lcm setpreferences\*O [\*L-server \*Vmachine rank\*O...] [\*L-path\*O \*Vfilename\*O] [\*L-stdin\*O] [\*L\-fldb\*O] [\*L-help\*O]
+.sE
+.SH "OPTIONS"
+.VL
+.LI "\*L-server \*Vmachine rank\*O"
+.zA "enh,13566,R1.2.2,Add multihomed server"
+Specifies File Server or FL Server preference entries, with each entry
+consisting of a machine specification (a host name or IP address) and
+a preference rank.  Separate each machine specification and each rank
+with one or more spaces.  By default, the \*L-server\*O option
+specifies File Server machine entries; add the \*L-fldb\*O option to
+specify FL Server machine entries. Each server machine can have
+multiple preference entries, with each entry having a unique host name or
+IP address. Refer to the "Specifying Preferences" section of this reference page for information about specifying File Server or FL Server entries.
+.LI "\*L-path\*O \*Vfilename\*O"
+Specifies the full pathname of a file from which the command is to
+read preference entries.  Each entry consists of a File Server or FL
+Server machine specification (a host name or IP address) and its
+respective rank. Separate each machine specification from its rank
+with one or more spaces, and include each paired machine specification
+and rank on a separate line. Refer to the "Specifying Preferences" section of this reference page for information about specifying
+File Server or FL Server entries.
+.LI "\*L-stdin\*O"
+Directs the command to read File Server or FL Server preference
+entries from standard input (\*Lstdin\*O). Each entry must consist of
+a machine specification (either a host name or IP address) and a ranking
+value.  Separate each machine specification and each rank with one or
+more spaces. Refer to the "Specifying Preferences" section of this reference page for information about specifying File Server or FL Server entries.
+.LI "\*L-fldb\*O" 
+Directs the command to consider the servers specified in the
+\*L-server\*O option as FL Servers.
+.LI "\*L-help\*O"
+Prints the online help for this command. All other valid options specified
+with this option are ignored.
+.LE
+.SH "DESCRIPTION"
+.PP
+The \*Lcm setpreferences\*O command can be used to add preference
+entries to a Cache Manager preference list or modify ranking values
+for existing preference entries. The Cache Manager preference list is
+created each time a Cache Manager is initialized with the \*Ldfsd\*O
+command (each time the client machine is rebooted).  Each Cache
+Manager maintains its own separate preference list. Each entry in the
+list consists of the IP address of an FL Server or File Server and an
+automatically assigned preference value.  New entries are
+automatically added to the preference list as necessary when filesets
+are first referenced.
+.PP
+In operation, when the Cache Manager needs to contact an FL Server, it
+consults its list of FL Servers and attempts to contact a server at
+the address with the lowest-ranking value in the preference list.
+Similarly, when a Cache Manager needs to contact a File Server, it
+consults its preference list and contacts a suitable File Server at
+the address with the lowest-ranking value.
+.PP
+If the Cache Manager cannot access a server at the address with the
+lowest preference rank (because of a problem with either the machine or the
+network), the Cache Manager attempts to access a similar server at the
+address with the next-lowest rank. It continues in this way until it
+either succeeds in accessing an appropriate server or determines that
+all such servers are unavailable.
+.PP
+By default, the Cache Manager assigns preferences that make sensible
+choices based on the location of servers. Therefore, you should
+adjust the default values only if there is a compelling reason to do so. The
+default values force the Cache Manager to attempt to connect to
+servers in the following order:
+.AL
+.LI
+The same machine as the client (default rank of 5000).
+.LI
+The same subnetwork as the client (default rank of 20000).
+.LI
+The same network as the client (default rank of 30000).
+.LI
+Different networks (default rank of 40000).
+.LE
+.PP
+For example, a server on the same machine as the Cache Manager
+receives a rank of 5000, while a server on the same subnetwork receives a
+rank of 20000.  The entry with the lowest-ranking value has the highest
+"preference."  Thus, a server with a preference value of 5000 will be
+chosen before a server with a rank of 20000.  
+.PP
+Should two servers be assigned the same preference value, such as two
+File Servers on the same subnetwork both receiving a default value of
+20000, the server with the lowest round-trip value is chosen. Each
+server is assigned a random round-trip value when the Cache Manager is
+initialized. The assigned round-trip value is always higher than the
+upper bound for stored actual round-trip values.  This ensures that an
+actual round-trip value will always be chosen over assigned values.
+.PP
+The Cache Manager stores its preferences in the kernel of the local
+machine. The preferences are lost each time the Cache Manager is
+initialized. You can include the \*Lcm setpreferences\*O command in a
+machine's initialization file to load a predefined collection of
+server preferences when the machine is rebooted. 
+.SS "Specifying Preferences"
+.PP
+Using the \*Lcm setpreferences\*O command, you specify Cache Manager
+preference entries as pairs of values. The first value of the pair is
+the machine specification (either the host name or IP address in
+dotted decimal format) of a File Server or FL Server; the second value
+is the preference rank (an integer in the range from 1 to 65,534).
+The FLDB can contain up to four addresses for each server machine
+(although the machine can have more connections); therefore, the Cache
+Manager preference list will normally have up to four entries for a
+given server machine.
+.PP
+You can specify preference entries 
+.ML
+.LI
+On the command line via the \*L-server\*O option. Use this option to
+tune the preferences manually in response to system or network
+adjustments.
+.LI
+From a file via the \*L-path\*O option. Use this option to configure
+one or more Cache Managers with a fixed set of preferences. You can
+use the \*Lcm getpreferences\*O command to generate a file of
+preferences that has the proper format.
+.LI
+From standard input via the \*L-stdin\*O option. Use this option to pipe
+preferences to the command from a user-defined process that generates
+preferences in an acceptable format.
+.LE
+.PP
+The \*L-server\*O, \*L-path\*O, and \*L-stdin\*O options are not
+mutually exclusive. You can include any combination of these options
+with the command to provide input from multiple sources. Note that the
+command does not verify host names or IP addresses specified with any
+of its options. You can add a preference for an invalid host name or IP
+address; the Cache Manager stores invalid preferences in the kernel, but
+it ignores them (the Cache Manager never needs to consult such
+preferences).
+.zZ "enh,13566,R1.2.2,Add multihomed server"
+.SS "Privilege Required"
+.PP
+The issuer must be logged in as \*Lroot\*O on the local machine.
+.SH "OUTPUT"
+.PP
+By default, the \*Lcm setpreferences\*O command displays no output.
+.SH "EXAMPLES"
+.PP
+.zA "enh,13566,R1.2.2,Add multihomed server"
+The following command uses the \*L-server\*O option to set the Cache
+Manager's preferences for the File Servers named \*Lfs3.abc.com\*O and
+\*Lfs4.abc.com\*O, the latter of which is specified by IP address. The
+two File Servers reside in a different subnetwork that is in the same
+network as the local machine. Therefore, the Cache Manager assigned
+each a default rank of 30,000. To make the Cache Manager prefer these
+File Servers over File Servers in other subnetworks, the 
+\*Lcm setpreferences\*O command is used to assign these machines ranks of
+25,000.
+.iS
+\*C#\*O \*Lcm setp -se fs3.abc.com 25000 128.21.18.100 25000\*O
+.iE
+.PP
+The following command uses the \*L-server\*O option to set the Cache
+Manager's preferences for the same two File Servers, but it also uses
+the \*L-path\*O option to read a collection of preferences from a file
+that resides on the local machine at \*L/etc/cm.prefs\*O:
+.iS
+\*C#\*O \*Lcm setp -se fs3.abc.com 25000 128.21.18.100 25000 -p
+/etc/cm.prefs\*O
+.iE
+.PP
+The file \*L/etc/cm.prefs\*O has the following contents and format:
+.oS
+128.21.16.214 7500
+128.21.16.212 7500
+121.86.33.41 39000
+121.86.33.34 39000
+121.86.33.36 41000
+121.86.33.37 41000
+.oE
+.PP
+The following command uses the \*L-stdin\*O option to read preferences from
+standard input. The preferences are piped to the command from a program,
+\*Lcalc_prefs\*O, which was written by the issuer to calculate preferences
+based on values significant to the local cell.
+.zZ "enh,13566,R1.2.2,Add multihomed server"
+.iS
+\*C#\*O \*Lcalc_prefs | cm setp -stdin\*O
+.iE
+.SH "RELATED INFORMATION"
+.PP
+Commands:
+\*Lcm getpreferences(8dfs)\*O,
+\*Ldfsd(8dfs)\*O.
+.iX "-]" "\*Lcm\*O command suite" "\*Lsetpreferences\*O"
+.iX "-]" "Cache Manager" "setting File Server preferences"
+.iX "-]" "File Server machines" "setting Cache Manager preferences"
+

@@ -1,0 +1,1495 @@
+CR Number                     : 13419
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : app_ref
+Short Description             : caller_key in sec_rgy_acct_passwd always needed
+Reported Date                 : 4/1/96
+Found in Baseline             : 1.1
+Found Date                    : 4/1/96
+Severity                      : C
+Priority                      : 3
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/3/96 public]
+I did delete the sentence cited by Transarc.  However, this 
+CR requires more work.  I am enclosing some explanatory mail from 
+rps and marked it as defer, since we will not fix it for 1.2.2. 
+
+The explanatory mail follows:
+
+There is code there to handle the described "default", though it isn't
+as simple as it can be interpreted it to be.  That is, you
+can't just pass NULL -- you still have to pass a sec_passwd_rec_t *
+struct, initialized to zeroes with memset(), and then with a
+key.key_type set to sec_passwd_plain.  Also, not only does the
+_pkt_privacy level has to be available on the system (ie not running an
+international release) but there has to be a login context set to use it.
+
+This is fairly involved to describe.  Here's explanatory source to 
+past into the OT.
+
+rca_pwd.c:rca_pwd_gen_transmit_rep()
+
+    /*
+     * Compute the caller's ciphertext key from plaintext, if necessary.
+     * if the caller's key is plaintext, and has no "pepper", then use
+     * the pepper in the login context, if any, to compute the ciphertext
+     * key.
+     */
+    if (PASSWD_TYPE(caller_key) == sec_passwd_plain) {
+        if (caller_key->pepper == NULL) {
+            caller_key->pepper =
+                (unsigned_char_p_t) sec_login_util_get_pepper(identity, stp);
+        }
+
+        if (GOOD_STATUS(stp)) {
+            use_ekey = true;
+            sec_crypt_compute_key(caller_key, sec_passwd_des, &ekey, stp);
+        }
+    } else {
+        PASSWD_TYPE(&ekey) = PASSWD_TYPE(caller_key);
+ }
+
+    if (GOOD_STATUS(stp)) {
+        if (use_ekey) {
+            ch = sec_crypt_create_context(&ekey, etype, stp);
+        } else {
+            ch = sec_crypt_create_context(caller_key, etype, stp);
+        }
+    }
+
+
+Transarc Deltas                      [text]: 
+Transarc Status                      [text]: open
+
+[2/20/96 public]
+The man page description of the caller_key says, "If communications
+secure to the rpc_c_authn_level_pkt_privacy level are available on a
+system, then this parameter is not necessary, and the packet
+encryption is sufficient to ensure security."  However, passing NULL
+to the caller_key causes a core dump.
+Two developers who reviewed the code found no checks in the code to
+ignore the caller_key when packet privacy is used.  It is not clear
+whether this is a code bug or a doc bug, but according to the
+developers, the doc bug is a lot easier to fix.
+Added field Transarc Deltas with value `' 
+Added field Transarc Status with value `open'
+
+[5/16/96 public]
+
+Assigned to HP.
+
+
+
+CR Number                     : 12717
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 12529
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : command_ref
+Short Description             : Admin Guide Documents Transitive Trust
+Reported Date                 : 10/25/94
+Found in Baseline             : 1.1doc
+Found Date                    : 10/25/94
+Severity                      : A
+Priority                      : 0
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : doc/dce_books/admin_gd/security/security/5_multicell.gpsml
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/25/94 public]
+
+Due to late changes in the DCE project, DCE 1.1 does not include support
+for transitive trust.  Section 33.1 of the DCE Administration Guide -- Core
+Components volume includes information on transitive trust and its
+administrative use and implications.  The information in this section on
+transitive trust is not valid for this release.  The information in this
+section on direct trust /*Eis/*O valid.  The status of transitive trust
+code is discussed in OT CR 12529.  The relevant documentation should be
+commented out for the Prentice Hall books UNLESS the code is committed to
+go in the "migration" patch release.  For 1.2, the code should be changed
+to reflect the status at that time.
+
+[11/1/94 public]
+
+This should be fixed for the 1.1 Prentice Hall edition.  There are some
+issues however: There may be a fix for this in a patch due out in January;
+if so, the note saying this is not supported should be removed, and the
+documentation should be kept.  If it is not patched, then the documentation
+should be commented out so that it will not appear in the printed book (but
+should not be deleted from the source.
+
+[11/18/94 public]
+
+I've been informed that there will be a fix for the problems in the Patch
+release.  Therefore, the current not must be removed from the Prentice Hall
+documentation ONCE WE ARE CONVINCED THAT THIS REALLY WILL/HAS happened.
+I've reopened the CR and marked it a A0.
+
+[1/15/96 public]
+
+Corrected sub-component field.
+
+[1/19/96 public]
+
+Assigned responsibility to myself.
+
+[3/11/96 public]
+I updated the note in Chapter 33 to read version "1.2.1", per Diane
+Sherman's advice. At the same time I'm now moving the fixby baseline
+to 1.2.2, for reconsideration then.
+
+[12/14/96 public]
+Deferred.
+
+
+
+CR Number                     : 12716
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : app_ref
+Short Description             : ref pages for four unimplemented interfaces
+Reported Date                 : 10/25/94
+Found in Baseline             : 1.1doc
+Found Date                    : 10/25/94
+Severity                      : B
+Priority                      : 2
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : in dce_books/app_ref/man3sec/
+	sec_rgy_attr_get_effective.3sec
+	sec_rgy_attr_test_and_update.3sec
+	sec_attr_trig_query.3sec
+	sec_attr_trig_update.3sec
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/25/94 public]
+
+The following calls are not functional in DCE 1.1.  While they have full
+reference pages in the OSF DCE Application Development Reference and they
+have entry points in the DCE library, they return a "not implemented"
+status code.
+
+	sec_rgy_attr_get_effective()
+	sec_rgy_attr_test_and_update()
+	sec_attr_trig_query()
+	sec_attr_trig_update()
+
+For Prentice Hall, we should put the statement "This call is not
+implemented in DCE Version 1.1 provided by OSF" right after the .TH line in
+the reference pages.  For 1.2, the documentation should reflect the state
+of the code at that time.
+
+[10/26/94 public]
+I  believe that sec_attr_trig_query is implemented in 1.1.  
+For further info contact mob@apollo.hp.com.
+
+[1/11/96 public]
+
+Added sub-component value which was mysteriously missing. It is
+unclear at the moment whether there is any reason for this CR to
+still be open.
+
+[1/19/96 public]
+
+Assigned responsibility to myself.
+
+[3/15/96 public]
+
+From a recent message from Pam Millette:
+
+  sec_rgy_attr_get_effective() (not implemented, put in disclaimer)
+  sec_rgy_attr_test_and_update() (not implemented, put in disclaimer)
+  sec_attr_trig_query() (implemented, sort of)
+  sec_attr_trig_update() (not implemented, put in disclaimer)
+
+  <...>
+
+  I can't remember exact details, but triggers are user implemented
+  items. We don't support update triggers at all, but we do query.  
+  sec_attr_trig_query() can be used if the user created trigger server
+  stuff.  
+
+I inserted the following Note at the top of the three unimplemented
+routines' manpages: "This function is not implemented in DCE 1.2.1.",
+and surrounded the entire pages with a set of change bars referring
+to this CR. For sec_attr_trig_query(), I inserted the following note
+at the top of the manpage: "This routine can be used only if the
+application has implemented an attribute trigger server.", and sur-
+rounded the manpage with a set of change bars referring to this CR.
+
+I have left the CR open and set the Fixby-date to 1.2.2, since it's
+my impression that this state of things is not to be eternal. Since
+there is code for three of these routines (in
+
+    security/client/rca/sec_rgy_attr.c
+
+), I assume they're not like the notorious ACL routines that always
+had to be implemented by users, and whose manpages were present in
+the App Ref only as guides for implementors. If I'm wrong about this,
+then the whole approach described here is wrong, and should be changed
+for 1.2.2.
+
+
+
+CR Number                     : 12707
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dts
+Subcomponent Name             : aes
+Short Description             : Minor Editorial fixes to Time AES
+Reported Date                 : 10/24/94
+Found in Baseline             : 1.0.3
+Found Date                    : 10/24/94
+Severity                      : D
+Priority                      : 3
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/24/94 public]
+
+Arthur Harvey has requested the following changes to the AES that we were unable to make in time fore the 1.1 DCE Release:
+
+In Appendix C, put vertical lines betweent he cloumns in the tables.
+
+In the utc_subtime reference page, put spaces around the arithmetic
+operators (- and =) in the description.
+
+
+
+CR Number                     : 12699
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcedoc
+Subcomponent Name             : 
+Short Description             : dcecp "operations" called commands
+Reported Date                 : 10/21/94
+Found in Baseline             : 1.1b22
+Found Date                    : 10/21/94
+Severity                      : D
+Priority                      : 3
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : admin guide files
+Sensitivity                   : public
+
+[10/21/94 public]
+
+DCE control program "objects" and "operations" are incorrectly called
+commands in CDS, DTS, and Security chapters of the DCE Admin Guide. When
+used alone, they should be called objects as in "acl object" and "Use the
+directory object ...".  When used with a verb or when some action is
+implied use the word "operations" as in "An acl modify operation..." or
+"When performing directory operations...". In all cases the object name
+should be bold.  The word ACL or directory can be non-bolded when they
+refer to the things being operated on like an ACL or a CDS directory.
+
+The effort of this important change is being left to the DCE 1.2
+documentation team.
+
+[11/07/94 public]
+Changed section headings, table titles, and table headings in
+5_cds_cp.gpsml, 3_dts_managing_dts.gpsml, and 2_rgyedit.gpsml so that they
+contain "operation", instead of  "command operation".  This should help to
+distinguish more clearly between dcecp commands and their operations.
+
+Further changes related to this CR may or may not be made for the 1.1PH
+version of the guide, depending on other edits by the production editor.
+
+
+
+CR Number                     : 12652
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 11548
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcedoc
+Subcomponent Name             : portgd
+Short Description             : pre-authen temp directory
+Reported Date                 : 10/18/94
+Found in Baseline             : 1.1
+Found Date                    : 10/18/94
+Severity                      : B
+Priority                      : 2
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/18/94 public]
+
+I don't know if this is a real defect or not -- do we document all
+internal pathnames and directories in DCE?  At any rate, secval in
+dced requires that a directory dcelocal/var/security/preauth exists
+and be owned by the privileged user (uid 0, gid 0).  This dir is
+created by rc.dce and dce_config, and its existence&mode is checked
+by dced (admin/dced/server/sv_preauth.c).  So:
+	dced checks
+	security (secval) uses it
+	config creates it
+
+[10/25/94 public]
+Marked this CR "defer" until 1.2.
+
+
+
+CR Number                     : 12501
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcedoc
+Subcomponent Name             : 
+Short Description             : ACL format inconsistent throughout DCE documentation
+Reported Date                 : 10/4/94
+Found in Baseline             : 1.1
+Found Date                    : 10/4/94
+Severity                      : C
+Priority                      : 2
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/4/94 public]
+ACLs currently appear throughout the DCE documentation set
+in both the old acl_edit format (colons, no curly brackets),
+and in the new dcecp format (no colons, curly brackets).
+Presentation of ACLs should be made consistent throughout the
+doc set.
+
+I have just updated Appendix A in the Admin Guide Intro
+(admin_gd/overview/overview/appa.gpsml) to reflect the
+new ACL format.  This appendix contains numerous table
+entries that describe default ACLs.  I updated it as part
+of adding a number of entries for the new dced namespace,
+since John Bowe pointed out that the ACL presentation was
+inconsistent within the appendix.  We decided to take care
+of this one file, for the sake of internal consistency.
+
+The rest of the global sweep is not possible before the
+freeze on 1.1 DCE doc.
+
+[11/1/94 public]
+
+This is editorial, so I am changing it back to 1.1PH.  However, there may
+be significant risk in doing so without a thorough technical review of the
+results.  Therefore, this should ONLY be done for Prentice Hall if the
+resulting changes are technically reviewed.
+
+[11/15/94 public]
+I am changing this CR back to deferred.  Fixing the instances of the ACL
+format throughout the doc set is a large task that will take a lot of time
+and will require a technical review.
+
+[11/18/94]
+Just marking defer and 1.2, per the last note.
+
+
+
+CR Number                     : 12263
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 10263
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcedoc
+Subcomponent Name             : 
+Short Description             : AppDevGuide on tower use
+Reported Date                 : 9/20/94
+Found in Baseline             : 1.1
+Found Date                    : 9/20/94
+Severity                      : B
+Priority                      : 2
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/20/94 public]
+
+When we made part of the RPC tower API public for DCE 1.1, we did not
+have resource to document how to use the manpages.  See OT CR 10263
+for details.
+
+
+
+CR Number                     : 12172
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcedoc
+Subcomponent Name             : 
+Short Description             : Change unsigned32 in App Ref
+Reported Date                 : 9/13/94
+Found in Baseline             : 1.0.3
+Found Date                    : 9/13/94
+Severity                      : D
+Priority                      : 3
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/13/94 public]
+A global change should be made to all Application Development 
+Reference pages:
+
+unsigned32 *st
+
+to indicate a status return should be changed to
+
+error_status_t *st
+
+The need for this change was pointed out by Rich Salz.
+
+
+
+CR Number                     : 12088
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : gds
+Subcomponent Name             : port_gd
+Short Description             : test procedure for "abandon" is needed
+Reported Date                 : 9/7/94
+Found in Baseline             : 1.1
+Found Date                    : 9/7/94
+Severity                      : B
+Priority                      : 1
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[9/7/94 public]
+
+A description of how to manually test the abandon operation is
+needed for the GDS chapter in the Porting Guide. Here's what
+Jochen Keutel said to me about it:
+
+   There is a way of manual testing it - it is described a little
+   bit in the reference page of xt_test (which is - as far as I know -
+   not yet available for you). But it's not only that there is a way
+   of testing it (concerning porting and testing guide) - it's also
+   possible to use this functionality in an application (concerning
+   application development guide).
+   I'll check this with Rudi on Monday - he will return from vacations
+   on Monday.
+   Could you please open a defect for this - just that we don't forget this?
+
+[10/17/94 public]
+Deferred - it's too late to document this for 1.1.
+
+[12/14/96 public]
+Deferred.
+
+
+
+CR Number                     : 11890
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcedoc
+Subcomponent Name             : Application Development Reference
+Short Description             : Eliminate Permuted Index
+Reported Date                 : 8/25/94
+Found in Baseline             : 1.1doc
+Found Date                    : 8/25/94
+Severity                      : C
+Priority                      : 2
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : dce_books/app_ref/Description
+Sensitivity                   : public
+
+[8/25/94 public]
+We need to eliminate the Permuted index from the Application development
+Reference because the DTE will not support the number of entries that are
+now in the book.  This will require a change to the Description file.
+
+[hal 8/25/94 public] 
+Reassigned to myself and revised the Description file.  Formatted in my
+sandbox.  I'm changing this to a deferred 1.2 CR in order to keep the
+history of this problem alive for the 1.2 crew.  Either the tools
+should be revised, or if 1.2 goes to a non-SML/DTE solution, the problem will
+be moot.
+
+
+
+CR Number                     : 11593
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcedoc
+Subcomponent Name             : 
+Short Description             : doc how to change hostname
+Reported Date                 : 8/8/94
+Found in Baseline             : 1.0.3
+Found Date                    : 8/8/94
+Severity                      : C
+Priority                      : 3
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/8/94 public]
+Along the same lines as "how to change your ethernet address" we should doc
+"how to change your hostname".  No I don't know whats involved :-(
+
+[08/09/94 public]
+Assigned to writer Ward Rosenberry.
+
+[8/11/94 public]
+Just to be sure everyone knows.  I marked this fixby 1.2, I think it will
+be a lot of research to find out what's involved and we probably don't have
+time for 1.1.
+
+[8/31/94 public]
+Since Howard set this to fixby 1.2, I changed the status from open to
+defer.
+
+
+
+CR Number                     : 11281
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcedoc
+Subcomponent Name             : 
+Short Description             : use root and cell_admin carefully
+Reported Date                 : 7/13/94
+Found in Baseline             : 1.1b11
+Found Date                    : 7/13/94
+Severity                      : C
+Priority                      : 3
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/13/94 public]
+The accounts root and cell_admin should be described very carefully in
+docs.  We should not be referring to "login as root", we should say "you
+need permission to write to directory <foo>" or whatever.  Cell_admin is
+not a superuser.  We should do things like:
+
+  from admin_gd/directory/cds/subtree.gpsml:
+
+  While logged in to a privileged account (\*Lcell_admin\*O or a member
+  of \*Lcds-admin\*O group)
+
+Or better yet, mentioning what privileges you will need:
+
+  You'll need rw on the parent directory, etc.
+
+Now I realize that it might be too late to fix this in existing code,
+but new code should follow this.  Also, e.g., in the Admin_gd core book,
+there aren't that many references to cell_admin (~22) or root (257 but
+that includes Cell Root, etc. \*Lroot\*O has <20 references).
+
+Also, as I commented on the DFS/NFS appendix, we can't say things like:
+
+  1. login as root
+  2. authenticate as cell_admin
+
+with a unified login which we want/expect, this isn't possible (without
+dcecp's login command of course :-)
+
+[10/24/94 public]
+
+The DCE 1.1 doc team worked to follow the conventions that
+Howard suggests (describing permissions for objects and commands
+rather than saying "be root" or "be cell_admin") when developing
+new documentation for DCE 1.1. However, the DCE 1.1 documentation
+still needs to be reviewed to 1) ensure that the "new" documentation
+is consistent about using "root" and "cell_admin" and 2) find and
+fix the references to "root" and "cell_admin" in the "old", pre-1.1
+documentation.
+
+I am changing this CR to "defer" and "fixby DCE 1.2".
+
+
+
+CR Number                     : 10630
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 12735
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcedoc
+Subcomponent Name             : Command Ref
+Short Description             : Fix structure or Command Ref
+Reported Date                 : 5/13/94
+Found in Baseline             : 1.0.3
+Found Date                    : 5/13/94
+Severity                      : B
+Priority                      : 2
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : dce_books/command_ref/*
+Sensitivity                   : public
+
+[hal 5/13/94 public] The DCE Command Ref really needs reorganizing and
+rationalizing of both its structure and the filenames and .TH names of the
+commands.  Issues include: 
+
+There are three files currently with .TH help(8sectionname) (althought the
+physical file names are inconsistenly different, so at least there is not
+duplication of the file names.)  If the long section names are stripped,
+they are not unique.
+
+The commands with subcommands are treated in four different ways, unless I
+missed something:
+
+	All subcommands glommed onto the single command page (e.g,
+	rgy_edit) [note also that the sec commands include dceshared/
+	as part of the synopsis]
+
+	All subcommands associated with a single verb on a page, without
+	the main command name in the ref page name (the dts commands,
+	e.g., show(8dts).  [of course, if these were broken any finer
+	we would have hundreds of them].
+
+	Individual subcommands on individual pages, without the main
+	command name in the ref page name (e.g., create directory(8cds).
+	Note that this results in one case where there are identically
+	named 8cds and 8rpc command ref pages (I forget which one).
+
+	Individual subcommands on individual pages, with the main
+	command name in the ref page name (e.g., bos setauth(8dfs).
+
+The book is broken up into multiple subsections.  A survey of users
+(dce-talk, comp.unix.osf.misc, sig-dce, sig-doc) resulted in a > 4/1
+preference for a straight alphabetical order to the book (or at least
+within the "standard" UNIX numeric section number divisions).
+
+Some of these issues may be resolved at 1.2 by obsoleting the "old" control
+programs.  However, this general issue really does need resolving.
+
+We have decided to defer this issue to 1.2 because of the effort required
+to correct it (e.g., correcting cross references) and the limitation of
+resources.
+
+[11/1/94 public]
+
+See also CR 12735 for a related suggestion for rearranging the Command Ref.
+
+
+
+CR Number                     : 9352
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 9700
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : Need to be to change addr of DCE system without a reconfig
+Reported Date                 : 11/3/93
+Found in Baseline             : 1.0.3
+Found Date                    : 11/3/93
+Severity                      : C
+Priority                      : 1
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+admin_dg/security/security/9_recon.gpsml, admin_gd/oveview/overview/9_tasks.gpsml
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : 
+Transarc Status               : open
+
+[11/3/93 public]
+This bug is being opened to try get someone thinking about what
+seems to be a very serious DCE limitation.  It a 'real' DCE
+environment in which a cell is intended to exist for a very long
+period of time, it is frequently necessary to change the IP address
+of systems due to changes in network topology or movement of systems.
+When this happens to a DCE server, the result is that the cell has
+to be completely reconfigured.  I think most customers will find
+this very unacceptable, particularly if lots of CDS, Security, and
+DFS data exist.
+
+The dependencies on the IP address needs to be streamlined into
+a few well-defined places with a configuration process established 
+for changing it. 
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `' 
+Added field Transarc Status with value `open'
+
+[11/3/93 public]
+Changed Short Description from `Need to be to change addr of core server 
+ without a reconfig' to `Need to be to change addr of DCE system without a 
+ reconfig'
+
+[11/04/93 public]
+This has already been addressed under another OT, and I am assigning
+Dave Weisman (who did the investigation) to this bug so he can dup it.
+
+In any event, we have changed the IP address of a DCE server, and it works.
+
+[11/4/93 public]
+It worked without requiring reconfiguration?  Is this process documented
+somewhere?
+
+[11/04/93 public]
+As far as I know, it will be.
+Check with Dave on when and where.
+
+[11/4/93 public]
+No this does not work yet!!
+It might if you have not replication, I'm not, sure but it certainly will
+not if you have replication. Alan Peckham is still looking at the problem.
+
+[11/4/93 public]
+
+JD is correct.  The short story is that CDS eventually does the right
+thing, but it takes it 24 hours to do so.  There is a background thread in
+cdsd which runs periodically every 24 hours.  This thread corrects much of
+the havoc left by changing the IP address.  Alan Peckham is working on a
+fix to allow the cdsd management interface to force this thread to run.
+
+[8/24/94 public]
+So, whats the status on this, now that it has sat here ignored through-out
+the 1.1 project.  Does CDS own this defect now?  I believe that
+it is the only thing left that doesn't handle IP address changes gracefully,
+but I though this was getting fixed as a 1.1 delieverable.
+
+Please advise before it too late for 1.1.
+
+[8/24/94 public]
+Alan Peckham has been hard at work on this for a while now. Its really
+a dup of cds ot 9700 and that's what I'll make it.
+
+[8/30/94 public]
+I'm not convinced that this problem is really limited to CDS.
+What about the RPC endpoint map, pe_site files, etc? Can replicated
+security handle the change without any config changes? Assuming
+9700 is fixed so that CDS can absorb the address change aren't
+there some configuration related changes that need to happen
+at both the server and the clients??
+
+I think a config tool is in order to do this part...
+Filled in Inter-dependent CRs with `9700' 
+Changed Status from `dup' to `open' 
+Changed Duplicate Of from `9700' to `'
+
+[8/30/94 public]
+Fine by me. My intent was to test configuration, opening  appropriate
+bugs as needed when 9700 gets finished. We can leave this here as a 
+reminder.
+
+[8/30/94 public]
+Not fine with me, this OT preserves no usefull information,
+there is not going to be a config tool written to 'fix' this.
+
+When John gets the CDS work and tests, we can open up component
+defects to address any other failures in this area.  
+
+From work previously done by Dave Weisman, 
+we have determined that a *gracefull* shutdown of DCE, 
+followed by a few edits to config files (pe_site)
+will allow you to change the IP address of a host.
+
+In fact this works now, I believe, its just that it takes CDS 12 hours
+to 'catch-up' with all the relevant info.
+
+In any case, this particular defect is canceled.
+
+[8/30/94 public]
+In reality, the way this 'works' now is a series of at least a
+dozen steps (in addition to the actual OS commands to change the
+address) at the server including a number of cdscp commands
+(which may be minimized by the CDS fix for 9700) and a similiar
+set of steps on EVERY client in the cell.  I have had the fun
+task of walking several customers through this on the phone, and
+also get to go through the pain of it next month in our self-host
+cell which now has about 100 clients.  Even with a fairly DCE literate
+user base, this will not be trivial.
+
+Where is the process that Weisman came up with documented??  Is
+it in the 1.1 docs somewhere?
+
+At any rate, this is very ugly.  We can sit here and open and close
+this bug all day long, if you want to pretend its not a problem.  I
+realize that a new tool in the 1.1 timeframe is not realistic, but
+I assume there will be some transition of the existing bug database
+to whoever ends up doing the 1.2 work.  This enhancement should be
+examined in that timeframe, not ignored.
+
+[8/30/94 public]
+Weisman's procedure can be found in the DCE 1.0.3 Admin Guide -
+Introduction book, section 6.2.  Included here for reference:
+
+  "Changing the Network Address of a DCE Machine"
+  
+  Occasionally a machine running DCE will need to change its network address.
+  DCE stores the network address in several files which need to be updated.
+  
+  When a DCE machine's network address is changed, the following procedure
+  must be performed in order to update DCE of the change:
+
+  1. Shutdown DCE (by selecting option 4 in the dce_config Main Menu).
+  2. Change the machine's network address and reboot the operating system,
+     as needed. 
+  3. Remove the machine's CDS cache:
+        rm /opt/dcelocal/var/adm/directory/cds/cds_cache*
+  4. Update the network address in the /opt/dcelocal/etc/security/pe_site file.
+  5. Update the network address in the /opt/dcelocal/etc/cds_config file.
+  6. Restart DCE (by selecting option 3 in the dce_config Main Menu).
+
+Is this accurate as per your experiences?
+
+As far as I can see CR 9700 has no information in it now.  I don't see what
+benefit we have from using it as opposed to continuing this CR.
+
+Now this might be able to be done via a dcecp script.  Certainly changing
+the contents of all the files can be done, even remotely, and 
+
+  foreach h [dir list /.:/hosts] {
+  }
+
+works great :-)  Also, the "clearinghouse verify" command in dcecp I think
+will kick off that background thread in CDS so you don't have to wait 24
+hours.  It could be very useful.
+
+There is a problem with shutting down DCE first, but maybe we could change
+that to just shuting down cds so that dced is still running.  Someone would
+have to play with it.  Now I don't know anyone here who has the time to
+work on this in the next couple of weeks.  Does someone at IBM?  
+
+Also no one seemed to be trying to stop the problem from being tracked.  It
+just got moved to another CR which is in the open state, not cancel.  So I
+don't think anyone was trying to ignore the problem.  But I do wonder what
+the benefit of opening another CR was.
+
+[8/31/94 public]
+Howard, can I assume from your comment above that the pe_site file will be one
+of the 'hostdata' files exported from each machine (as configured by 1.1's
+dce_config)?  If so, the above sounds reasonable (once you get everything
+in your cell moved up); otherwise, it needs to be exported (as do all the 
+config files).
+
+Also, it would be nice if the books (as quoted by you above) were a little more
+clear.  For example, pe_site needs to be changed on ALL machines, not just the
+local one, and only if the machine you are changing is a Security server.
+
+[8/31/94 public]
+Yes the pe_site file will be a hostdata object exported by dced by default
+(dce_config really isn't involved).  Though I should make it clear that
+even if it weren't you could create it at any time via:
+
+  dcecp> hostdata create /.:/hosts/<hostname>/config/hostdata/pe_site \
+  > -entry -storage /opt/dcelocal/etc/security/pe_site
+
+For the second point I think you're right.  You mean that any pe_site file
+(anywhere in the world, not even limited to the cell :-( ) that references
+the old ip address needs to change.
+
+How about we mention it, but only really call it out if you are changing
+the ip address of security servers.  So:
+
+ 4.  The pe_site file stores the ip address of security servers to contact.
+ This file needs to be modified as well.  If you are changing the ip
+ address of the security server, then all clients should be checked to see
+ if they reference that server in their pe_site file, and if so they need
+ to be updated.
+
+[8/31/94 public]
+When the work on 9700 is finished, that will be this week, I will see what
+it takes to make an ip address change work. I've updated 9700
+to make this an Inter-dependent CR. My guess is that to make things work
+some additional things will need to be done in dce_config but I may be wrong.
+We'll find out. If any significant changes are needed the new version may
+end up in the unintegrated tree but we will do the best we can in the time
+left to supply something that works reasonably well. 
+
+In the meantime anyone who has been through the process should feel free to 
+add anything to this ot that they think may be required. We won't have a lot
+of time to spend on this so any little bit will help.
+
+[8/31/94 public]
+Howard's step 4 is better.  Step 5 should also mention that the cds_config
+file will only be found on CDS server machines (changing the IP address
+on a CDS client will not require performing step 5).
+
+Also, do the changes to DCE files (steps 3-5) before rebooting (in step 2).  
+Some folks have DCE start automatically on reboot...
+
+[9/1/94 public]
+(Howard channelling for dstokes...
+
+Maybe I misunderstood the distinction between 9700 and this defect,
+but it seems that 9700 is being used to make a specific code change
+needed in CDS.  My intent was that this defect would address the
+more general configuration issues.  Is this incorrect?
+
+  [Howard: This is correct.  I'll change this to a doc CR]
+
+Here is the info which I have successfully used to change the IP
+addresses in a cell.  What follows is a file provided by Transarc
+(which I verified with Dan Hamel could be shared).  The commands
+it lists are csh based.  I have figured out what needs to be
+done for a DFS server as well.  After the core services are done,
+rpccp needs to be used to change the address in the string binding
+for the hosts/<hostname>/self entry in the namespace, and fts
+edserverentry should be used to change the server address in the
+FLDB.
+
+Here is Dan's file:
+
+  [Howard: Note this should all be changed to dcecp commands.]
+
+
+******************************************************************************
+
+/* Copyright (C) 1994 Transarc Corporation. All rights reserved. */
+
+########################################################################
+
+The following procedure was used to change the IP address of a machine
+configured as a CDS and Security server.  This was the simple case for
+a server:  no DFS, no DTS, no license management, no security or CDS
+replication in the cell.  Of all the other possibilities, only DFS should 
+require significant additional steps, and hopefully will be included in
+a future version of this document.
+
+Dan Hamel
+Product Support Specialist
+Transarc Corporation
+February 25, 1994
+
+########################################################################
+
+Procedure to change the IP address for a CDS/Security server machine:
+
+The cell:
+
+    Cell name:   mars.dce.transarc.com
+    CDS server:  mough (158.98.10.173)
+    Sec server:  mough (158.98.10.173)
+    Client:      cury  (158.98.10.57)
+
+Goal:
+    
+    change mough's IP address to 158.98.10.165
+
+
+Procedure:
+
+Remove knowledge of the clearinghouse on the machine.  It will be
+reinstated after the IP address is changed.
+
+      mough# cdscp clear clearinghouse /.:/mough_ch
+
+
+
+Stop all DCE daemons on the machine:
+
+      mough# /etc/rc.dce stop
+
+
+
+Remove the end-point database. It will be recreated on restart:
+
+      mough# rm /opt/dcelocal/var/rpc/*.dat
+
+
+
+Remove the clerk cache. It will be recreated on restart:
+
+      mough# cd /opt/dcelocal/var/adm/directory/cds/
+      mough# rm cds_cache.* cdsclerk_* clerk_mgmt_acl.dat
+
+
+Change the pe_site file, so that security can start:
+
+      mough# cat pe_site
+      /.../mars.dce.transarc.com \
+          0044da54-5497-1d6e-9642-9e620aadaa77@ncadg_ip_udp:158.98.10.173[]
+      mough# 
+      mough# 
+      mough# rm pe_site
+      mough# echo  "/.../mars.dce.transarc.com \
+       0044da54-5497-1d6e-9642-9e620aadaa77@ncadg_ip_udp:158.98.10.165[]" \
+       > pe_site
+      mough# 
+
+      NOTE: The pe_site is all on one line - split here for display only
+
+      
+Remove old credentials:
+
+      mough# cd /opt/dcelocal/var/security/creds
+      mough# rm *
+
+
+Change the configuration file for CDS:
+
+      From:
+
+      mough# more cds_config 
+      namespace:
+      /.../mars.dce.transarc.com
+      11ed2286-49bb-11ca-8f29-08002b0dc46c
+      clearinghouse:
+      /.../mars.dce.transarc.com/mough_ch
+      00163960-55d5-1d6e-8793-9e620aadaa77
+  >>  158.98.10.173
+
+
+      To:
+
+      mough# more cds_config
+      namespace:
+      /.../mars.dce.transarc.com
+      11ed2286-49bb-11ca-8f29-08002b0dc46c
+      clearinghouse:
+      /.../mars.dce.transarc.com/mough_ch
+      00163960-55d5-1d6e-8793-9e620aadaa77
+  >>  158.98.10.165
+
+
+
+At this point, take whatever steps that are required to change the IP address
+at your site. In this case, this simply means changing the /etc/hosts file
+and rebooting.
+
+      mough# grep mough /etc/hosts
+      158.98.10.173 mough.transarc.com        mough           # Sun4c_413
+
+      # vi /etc/hosts
+      ...
+   
+      mough# grep mough /etc/hosts
+      158.98.10.165 mough.transarc.com        mough           # Sun4c_413
+
+      # sync; sync; reboot
+
+
+
+AFTER THE REBOOT
+
+Since CDS is not available, you need to side-step it for security via
+the BIND_PE_SITE environment variable.
+
+ 
+      mough# setenv BIND_PE_SITE 1
+      mough# 
+      mough# dce_login cell_admin -dce-
+      Password must be changed!
+      mough# 
+
+
+
+At this point, CDS must be made aware of the clearinghouse it should be 
+managing (make sure you use the same name as in the 'clear clearinghouse'
+command above):
+
+      mough# cdscp create clearinghouse /.:/mough_ch
+
+
+Because the CDS server wasn't aware of it's clearinghouse when it was
+started, the cdsadv process is also unaware of the existence of this
+clearinghouse.  The clerk cache will have to be rebuilt:
+
+      mough# /etc/rc.dce stop
+      mough# cd /opt/dcelocal/var/adm/directory/cds/
+      mough# rm cds_cache.* cdsclerk_* clerk_mgmt_acl.dat
+      mough# /etc/rc.dce start
+
+
+The CDS/Security server is now reconfigured to use it's new IP address:
+
+      mough# unsetenv BIND_PE_SITE
+      mough# 
+      mough# dce_login cell_admin
+      Enter Password: 
+      Password must be changed!
+      mough# 
+
+      mough# cdsls /.: 
+      o p     cell-profile
+      o       fs
+      o       lan-profile
+      o c     mough_ch
+      o g     sec
+      o g     sec-v1
+      d       hosts
+      d       subsys
+      mough# 
+
+
+There are still changes that need to be made on client machines:
+
+
+
+Stop all DCE daemons on the machine:
+
+      cury# /etc/rc.dce stop
+
+
+
+Remove the end-point database. It will be recreated on restart:
+
+      cury# rm /opt/dcelocal/var/rpc/*.dat
+
+
+
+Remove the clerk cache since it has references to the CDS server's old 
+IP address. The cache will be recreated on restart:
+
+      cury# cd /opt/dcelocal/var/adm/directory/cds/
+      cury# rm cds_cache.* cdsclerk_* clerk_mgmt_acl.dat
+
+
+Change the pe_site file, so that sec_clientd can find the security
+server on restart:
+
+      cury# cat pe_site
+      /.../mars.dce.transarc.com \
+          0044da54-5497-1d6e-9642-9e620aadaa77@ncadg_ip_udp:158.98.10.173[]
+      cury# 
+      cury# 
+      cury# rm pe_site
+      cury# echo  "/.../mars.dce.transarc.com \
+       0044da54-5497-1d6e-9642-9e620aadaa77@ncadg_ip_udp:158.98.10.165[]" \
+       > pe_site
+      cury# 
+
+      NOTE: The pe_site is all on one line - split here for display only
+
+      
+Remove old credentials:
+
+      cury# cd /opt/dcelocal/var/security/creds
+      cury# rm *
+
+
+Start the daemons:
+
+      cury# /etc/init.d/dce start
+
+
+Set the BIND_PE_SITE variable, since CDS access isn't restored yet:
+
+      cury# setenv BIND_PE_SITE 1
+      cury# dce_login cell_admin -dce-
+      Password must be changed!
+
+
+Finally, inform the cdsadv process of the CDS server's new IP address:
+
+      cury# cdscp define cached server mough tower \
+              ncadg_ip_udp:158.98.10.165
+
+
+At this point, the client is fully aware of the server's new IP address:
+
+
+      cury# unsetenv BIND_PE_SITE
+      cury# dce_login cell_admin -dce-
+      Password must be changed!
+
+      cury# cdsls /.:
+      o p     cell-profile
+      o       fs
+      o       lan-profile
+      o c     mough_ch
+      o g     sec
+      o g     sec-v1
+      d       hosts
+      d       subsys
+
+
+END
+
+[09/06/94 public]
+Assigned this CR to writer Susan Teto (owner of config doc).
+
+[10/27/94 public]
+It appears that the information about network address changes in the R1.1
+version of the Admin.Guide - Intro. still needs work.  I will do this for
+the Prentice Hall edition.
+
+[11/14/94 public]
+I am deferring this CR until DCE 1.2.  Chapter 5 of the Admin. Guide-Intro.
+(9_tasks.gpsml) provides instructions for updating the network address on
+a server.  These should be checked and instructions should be added for
+changing this information for a client.
+
+The instructions in Chapter 5 are for a machine that is configured as a CDS
+and Security server, running DTS, and using DFS.  The instructions
+explain how to check and manually change the address for the self
+and dts-entity namespace objects (the Security and CDS objects that are
+automatically updated are not mentioned).  They tell the user
+how to update the address for DFS and direct him/her to update
+the Security Service's pe_site file.  There currently isn't a pointer to the
+instructions for updating the pe_site file.  One should be added; they
+exist in Chapter 37 of the Admin Guide-Core (9_recon.gpsml).  The
+instructions do say to remove the CDS cache.  If other files, such as the
+creds and cds_config files, need to be modified, more instructions will have
+to be added.
+
+As noted above, there are currently no instructions for changes to a
+client.
+
+Also, the instructions in the Admin. Guide-Intro. are given mostly from
+the point of view of CDS.  Is this the best idea?
+
+
+
+CR Number                     : 9262
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : rpc
+Subcomponent Name             : rpc_ss_xxx/rpc_sm_xxx
+Short Description             : Docs for rpc_sm_xxx very confusing
+Reported Date                 : 10/26/93
+Found in Baseline             : 1.0.3
+Found Date                    : 10/26/93
+Severity                      : C
+Priority                      : 2
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/26/93 public]
+
+The rpc_sm_xxx allocation functions are just wrappers around the
+rpc_ss_xxx functions.  Reading the manpages, however, makes you think
+that there are very subtle differences between the two.  I think we
+should rip out all the rpc_sm_xxx manpages and just have a single
+manpage that explains:
+	rpc_sm_xxx is the same as rpc_ss_xxx except that they do
+	not throw exceptions but rather have an additional
+	error_status_t parameter.
+
+[11/3/93 public]
+
+Assigned this CR to writer Steve Lewontin.
+
+[3/24/94 public]
+
+Reassigned this CR to John Shirley from Steve Lewontin.
+
+[03/28/94 public]
+I want to invert the sense of this report.  The AES documents rpc_sm_xxx
+becuase the AES avoids exceptions.  I think we should take the same
+tack, perhaps even to the point of marking rpc_ss_xxx "to be avoided" or
+"primarily for internal use" or some such.
+
+[4/11/94 public]
+
+More information regarding this CR. Rich Salz says:
+
+  We MUST document rpc_sm_XXX because they are in the AES.
+  I would like to see us no longer document rpc_ss_XXX
+  or at the worst case discourage their use.
+
+  We should encourage what the AES documents and
+  discourage the alternatives.
+
+A grep of the Application Development Guide reveals
+the following affected files:
+
+app_gd/overview/chap2.gpsml
+  "Guidelines for Server Writers". refers to rpc_ss_allocate
+   and rpc_ss_get_thread_handle.
+
+app_gd/rpc/9_idl.gpsml
+   "Interface Definition Language". Approx. 30 references 
+
+app_gd/rpc/10_acf.gpsml
+   "Attribute Configuration File". Approx. 5 references
+    to using rpc_ss_xxx.
+
+app_gd/rpc/10a_encode.gpsml
+   "IDL Encoding Services". 2 references to rpc_ss_xxx calls.
+
+The references in text to rpc_ss_xxx will need to be changed
+to rpc_sm_xxx. In cases, where actual rpc_ss_xxx syntax is
+is used (9_idl.gpsml contains syntax examples), the
+syntax will need to be changed to show the status parameter
+e.g., rpc_ss_XXX(param) --> rpc_sm_xxx(param, &st).
+
+app_ref/man3rpc/* files are also affected.
+
+[4/11/94 public]
+
+Fixed typos in above text caused by bizzaro emacs behavior.
+
+[4/11/94 public]
+
+Consolidated "stub support routine" and nonstub support routine lists
+into a single list of "DCE RPC runtime" functions. Removed rpc_s_xxx 
+function descriptions completely from list.
+
+If decision is to keep rpc_ss_xxx man pages in App Ref, someone
+will need to add a note to intro.3rpc telling readers that
+rpc_ss_xxx calls are for internal use, and to use rpc_sm_xxx
+calls in their place.
+
+[10/27/94 public]
+Alluded to this issue in the RPC Topics Chapter under Memory Management,
+but did not complete it. See file:
+	dce_books/app_gd/rpc/topics.gpsml
+
+
+
+CR Number                     : 8281
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcedoc
+Subcomponent Name             : 
+Short Description             : Inconsistent use of period and
+dot in docs
+Reported Date                 : 7/15/93
+Found in Baseline             : 1.0.2
+Found Date                    : 7/15/93
+Severity                      : E
+Priority                      : 3
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : Many in several docs
+Sensitivity                   : public
+
+[7/15/93 public]
+
+We use both dot and period for the . character in file names and, I
+believe, net addresses.  We should us one term consistently across all the
+documentation.  My preference would be period, because it is the period
+character, but I know that OSF/1 documentation refered to it (possibly
+inconsistently as well, I haven't checked) as dot.
+
+[3/29/94 public]
+
+Reassigned this CR to myself from Julie Buckler.
+
+[4/18/94 public]
+
+Changed component field to use "dcedoc".
+
+[9/6/94 public]
+
+Reassigned this CR back to Julie Buckler.
+
+[09/09/94 public]
+I am deferring this CR until after 1.1.  
+It would be good to address it in an overall review of
+DCE doc terminology.
+
+[11/1/94 public]
+Reopening for 1.1PH work.  At least we should look at doing it, but it is low
+priority.
+
+[11/15/94 public]
+Searched through the documentation set and found 20 or so references that
+would need changing.  This change is not, however, important enough to
+make now; the explanations of the coding are clear enough so that the
+reader will not be confused.  I am therefore deferring the CR to DCE 1.2.
+
+
+

@@ -1,0 +1,2435 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" HISTORY
+...\" $Log: 8_time.gpsml,v $
+...\" Revision 1.1.2.15  1994/10/30  22:47:47  weir
+...\" 	Last updates
+...\" 	[1994/10/30  22:46:49  weir]
+...\"
+...\" Revision 1.1.2.14  1994/10/30  16:25:51  weir
+...\" 	Updates
+...\" 	[1994/10/30  16:24:33  weir]
+...\" 
+...\" Revision 1.1.2.13  1994/10/29  23:26:11  weir
+...\" 	More Updates
+...\" 	[1994/10/29  23:24:59  weir]
+...\" 
+...\" Revision 1.1.2.12  1994/10/28  20:50:32  weir
+...\" 	DCE 1.1 updates
+...\" 	[1994/10/28  20:49:13  weir]
+...\" 
+...\" Revision 1.1.2.11  1994/10/26  20:41:03  weir
+...\" 	DCE 1.1 Updates
+...\" 	[1994/10/26  20:39:45  weir]
+...\" 
+...\" Revision 1.1.2.10  1994/10/14  18:39:04  weir
+...\" 	Minor edit changes
+...\" 	[1994/10/14  18:38:06  weir]
+...\" 
+...\" Revision 1.1.2.9  1994/06/20  21:39:54  weir
+...\" 	Beta Update
+...\" 	[1994/06/20  21:38:53  weir]
+...\" 
+...\" Revision 1.1.2.8  1994/06/20  20:28:59  weir
+...\" 	Beta Update
+...\" 	[1994/06/20  20:27:45  weir]
+...\" 
+...\" Revision 1.1.2.7  1994/06/19  20:54:08  weir
+...\" 	Beta Update
+...\" 	[1994/06/19  20:53:07  weir]
+...\" 
+...\" Revision 1.1.2.6  1994/06/17  13:50:36  weir
+...\" 	Beta Update
+...\" 	[1994/06/17  13:49:12  weir]
+...\" 
+...\" Revision 1.1.2.5  1994/06/13  19:25:39  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  19:24:46  devobj]
+...\" 
+...\" Revision 1.1.2.4  1994/06/12  17:32:12  weir
+...\" 	No change-- for copyright insertion
+...\" 	[1994/06/12  17:30:53  weir]
+...\" 
+...\" Revision 1.1.2.3  1994/06/08  18:47:33  weir
+...\" 	Beta Update
+...\" 	[1994/06/08  18:46:35  weir]
+...\" 
+...\" Revision 1.1.2.2  1994/06/02  21:12:55  weir
+...\" 	Beta Updates
+...\" 	[1994/06/02  21:11:16  weir]
+...\" 
+...\" Revision 1.1.2.1  1994/05/03  19:00:36  weir
+...\" 	Reorganization
+...\" 	[1994/05/03  18:59:21  weir]
+...\" 
+...\" $EndLog$
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 1 "DCE Distributed Time Service"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Overview"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "-: DTS" "Distributed Time Service"
+.iX "overview" "of DTS"
+.iX "DTS" "overview of"
+...\" 
+.P
+The DCE Distributed Time Service (DTS) synchronizes the clocks on computer
+systems connected by a network. DTS uses the client/server model and provides
+a command-driven management interface for configuration and management functions.
+An Application Programming Interface (API) is provided for application developers
+to write programs that use DTS services. Finally, DTS provides a Time-Provider
+Interface to obtain Coordinated Universal Time (UTC) from time-provider devices,
+as well as several example time provider implementations.
+.P
+The UTC-based time structure in DTS uses 128-bit binary numbers to represent the
+time value internally. These binary timestamps consist of the time in terms of
+100-nanosecond units since 00:00:00:00, October 15, 1582, the count of 100-nanosecond
+units of inaccuracy applied to the preceding time, the time differential factor
+expressed as the signed number of minutes east or west of Greenwich mean time,
+and the DTS version number. The inaccuracy represents the upper bound on all
+nonfaulty sources of inaccuracy (for example, clock drift, resolution of discrete
+computer clock, software communication path lengths, and so on). The clerks and
+servers compute a correct time from time values obtained from several servers or
+from a time provider. The synchronization is accomplished by intersecting
+intervals. This algorithm provides fault detection and withstands the failures
+of a small number of servers.
+...\" 
+...\" 
+...\" This algorithm is from K.A. Marzullo, "Maintaining Time
+...\" in a Distributed System: An Example of a Loosely Coupled Distributed
+...\" Service,"
+...\" Ph.D dissertation, Stanford University, February, 1984.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Considerations and Dependencies"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "DTS" "dependencies"
+.iX "dependencies" "of DTS"
+...\" 
+.P
+DTS requires and depends on the following components:
+...\" 
+.BL
+.LI
+Threads, for intra-process concurrency
+.LI
+RPC, for communications
+.LI
+CDS, for directory services
+.LI
+Security, for secure communications, authentication, and authorization
+services
+.LE
+...\" 
+.P
+One decision you will have to make is whether your port will consist of a
+user or kernel space implementation of DTS. This depends on  whether your
+kernel already has the \*Lutc_gettime(\|)\*O and \*Lutc_adjtine(\|)\*O system
+calls (the OSF/1 reference platform, for example, does have them) and, if not,
+how difficult it would be to add them. Sample code for adding these calls to a
+BSD 4.4 kernel is included in the DCE distribution. In general, a kernel
+implementation of DTS is preferable. Two reference platforms use a kernel
+space implementation; on the AIX platform, DTS is implemented as a loadable
+kernel extension.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "DTS File Locations"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "file locations" "DTS"
+.iX "DTS" "file locations"
+...\" 
+.de ZY
+\v'-3p'\\$1\v'3p'\s0
+..
+.P
+The following table lists the locations of libraries and programs built in DTS.
+.P
+All paths for location of source files are relative from \*Vdce-root-dir\*L/dce/src\*O.
+The path indicates the directory in which the \*LMakefile\*O attempts to build the
+component.
+.P
+All paths for location of installation are relative from
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/opt/dce1.1\*O
+.DE
+.P
+unless otherwise noted ``N/A.''
+The path indicates the directory in which the subcomponent is installed.
+...\" 
+.nS note
+A subcomponent can consist of multiple source files.
+.nE
+...\" 
+...\" 
+.nP
+.TB "Locations of DTS Subcomponent Files"
+.ad l
+...\" .ne 4i
+.TS H
+expand tab (@) box;
+lB | lB | lB | lB
+lB | lB | lB | lB
+lB | l | lB | lB.
+DTS@@Location of@Location of
+Subcomponent@Function\h'1.6i'@Source Files@Installation
+_
+.TH
+_
+libutc-kernel.a@T{
+Kernel-mode API library
+T}@time/libutc/kernel@libdce
+_
+libutc-user.a@User-mode API library@time/libutc/user@libdce
+_
+libdtss_common.a@Internal DTS library@time/common@libdce
+_
+dtsd@DTS daemon (server and clerk)@time/service@bin
+_
+dtscp@DTS control program@time/control@bin
+_
+dts_acts_provider@ACTS time provider@time/service@/bin
+_
+dts_ntp_provider@NTP time provider@time/service@/bin
+_
+dts_null_provider@null time provider@time/service@/bin
+_
+dts_spectracom_provider@Spectracom time provider@time/service@/bin
+_
+dts_traconex_provider@Traconex time provider@time/service@/bin
+_
+dts_hopf_provider@HOPF time provider@time/service@/bin
+_
+dtsprovider.idl@time provider interface@time/service@/share/include/dce
+_
+dtsprovider.acf@time provider ACF@time/service@/share/include/dce
+_
+dtsprovider.h@time provider definitions@time/service@/share/include/dce
+_
+dts_acts_provider.c@ACTS time provider@time/service@/usr/examples/dts
+_
+dts_ntp_provider.c@NTP time provider@time/service@/usr/examples/dts
+_
+dts_null_provider.c@null time provider@time/service@/usr/examples/dts
+_
+dts_spectracom_provider.c@Spectracom time provider@time/service@/usr/examples/dts
+_
+dts_traconex_provider.c@Traconex time provider@time/service@/usr/examples/dts
+_
+dts_hopf_provider.c@HOPF time provider@time/service@/usr/examples/dts
+_
+dtss-graph@DTS graph test tool@test/time/service@N/A\v'-3p'\\1\v'3p'\s0
+_
+rantest_api@T{
+Portable API test program
+T}@test/time/common@N/A\v'-3p'\\1\v'3p'\s0
+...\" _
+...\" test_dtscp_ultrix.sh@T{
+...\" Exercises the \*Ldtscp\*O program.
+...\" T}@test/time/control@N/A\v'-3p'\\1\v'3p'\s0
+_
+test_kernel@T{
+Kernel interface test program linked to \*Llibdce.a\*O
+T}@test/time/common@N/A\v'-3p'\\1\v'3p'\s0
+_
+test_zonecvt@T{
+Time conversion test program
+T}@test/time/common@N/A\v'-3p'\\1\v'3p'\s0
+_
+test_kernel-kernel@T{
+Kernel interface test program linked to kernel-mode \*Llibutc-kernel.a\*O
+T}@test/time/common@N/A\v'-3p'\\1\v'3p'\s0
+_
+test_kernel-user@T{
+Kernel interface test program linked to user-mode \*Llibutc-user.a\*O
+T}@test/time/common@N/A\v'-3p'\\1\v'3p'\s0
+.TE
+...\" 
+.P
+.ZY "1"
+These items are tests and are therefore not installed.
+.ad b
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Porting"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "DTS" "porting"
+.iX "porting" "DTS"
+...\" 
+.P
+DCE Version 1.1 contains DTS code ported to the reference platforms listed in
+the ``Reference Platforms'' section of Chapter 1 of this guide. If you are porting
+to a different platform, you may need to do the following:
+...\" 
+.BL
+.LI
+Modify byte-order information. This is controlled by declarations in:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/export/\*Vplatform\*L/usr/include/dce/dce.h\*O
+.DE
+...\" 
+...\" 
+...\" .P
+...\" The \*Lutc\*O structure is 128 bits in size, which crosses the native machine word
+...\" boundary. In general, machine architectures define two different byte orders within
+...\" a byte stream: big-endian and little-endian. To ensure interoperability between
+...\" different systems, big-endian systems (such as RISC System/6000, MC/68000, SUN SPARC,
+...\" and so on) must be able to interpret timestamps generated on little-endian systems
+...\" (VAX, IBM PC, and so on) and vice versa. You must modify the following three DTS files
+...\" to make sure they contain the correct information:
+...\" 
+...\" 
+...\" .BL
+...\" .LI
+...\" \*Vdce-root-dir\*L/dce/src/time/common/utcapi.c\*O
+...\" 
+...\" .LI
+...\" \*Vdce-root-dir\*L/dce/src/time/kernel/\*Vmachine/\*Lkern_utctime.c\*O
+...\" .LE
+...\" 
+...\" 
+...\" .LI
+...\" Use \*L#ifdef\*O statements.
+...\" .P
+...\" Use \*L#ifdef\*O in the
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/time/common/private.h\*O
+...\" .DE
+...\" .P
+...\" header file to determine whether to use \*Lvoid*\*O or \*Lchar*\*O
+...\" pointers for declarations. You also need to use \*L#ifdef\*O in this
+...\" module for the \*LP\*O macro to enable or disable function prototyping.
+...\" 
+...\" 
+.LI
+Modify time zone conversion files.
+.P
+DTS uses the public domain time zone code circulated on \*Lcomp.sources.unix\*O
+(\*Llocaltime3\*O) to implement local time zone rules. The rule database is stored
+in the
+.DS
+    \*L/etc/zoneinfo\*O
+.DE
+.P
+directory. This implementation is one possible extension of POSIX.
+This extension lets different clerks obtain arbitrary time zone
+offsets without affecting the global state of the server process.
+This approach takes the time zone conversion rules completely out of
+the C library and requires no system code changes in order to change
+the rules. Under the
+.DS
+    \*L/etc/zoneinfo\*O
+.DE
+.P
+directory there are two rule files:  \*Llocaltime\*O and \*Lposixrules\*O.
+The rule in \*Llocaltime\*O generates the correct time for U.S. eastern time.
+The rule in \*Lposixrules\*O is used in the absence of the correct time zone
+rule. Two modules, \*Ltzset.c\*O and \*Ltzfile.h\*O, are responsible for
+local time zone processing.
+.P
+Although DTS comes with the existing timezone and rules files listed
+above, these may not be well matched to your platform, or you may have
+files you wish to use instead. If you intend to use your own timezone
+information with DTS, generate the files and define \*LTZDEFAULT\*O to be
+your timezone file and \*LTZDEFRULES\*O to be your rules file in \*Ltzfile.h\*O,
+also in the \*Lcommon\*O directory.
+...\" 
+...\" 
+.LI
+If you are porting a user space implementation of DTS, you may create a file
+called \*Ldtss_kernel.conf\*O, which specifies the resolution, maximum drift,
+frequency, and adjustment rate of your platform's system clock. An example of
+this file's contents is as follows:
+...\" 
+.oS
+    resolution=10000000
+    maxdrift=1000
+    frequency=1000000000
+    adjrate=100
+.oE
+...\" 
+...\" 
+.P
+(The above values are the defaults used if no \*Ldtss_kernel.conf\*O file
+exists.)
+...\" 
+...\" .zA "def,4673,R1.0.2,description of dtss_kernel.conf"
+...\" 
+.P
+The \*Lresolution\*O parameter should be the clock resolution expressed in units
+of nanoseconds. You should set this parameter to the largest tick value of the
+clock. For example, if the clock ticks 255 times per second (with a change
+of .003906 seconds) and ticks once per second with a change of .003970 seconds,
+set the resolution parameter to 3970000.
+.P
+The \*Lmaxdrift\*O parameter specifies the maximum drift rate of the clock.
+If the hardware of the clock keeps accurate time to one part in 20,000, set the
+parameter to 20,000. If the hardware is accurate to one part in 50,000, set the
+parameter to 50,000.
+.P
+Set the \*Lfrequency\*O parameter to 1,000,000,000 nsec/sec. This parameter is
+intended for future extensions.
+.P
+The \*Ladjrate\*O parameter specifies the adjustment rate used by the adjrate
+time primitive on the system. You should set this parameter to the lowest rate
+used by the primitive. For example, if the adjrate time primitive accelerates
+or decelerates the clock by one part in 100, set the parameter to 100. If the
+primitive performs large adjustments by one part in 10, and small adjustments
+by one part in 1,000, set the parameter to 1,000.
+.P
+The \*Ldtss_kernel.conf\*O file must be installed in:
+.DS
+    \*Vdcelocal\*L/var/adm/time/dts_kernel.conf\*O
+.DE
+.P
+(where \*Vdcelocal\*O usually stands for
+.DS
+    \*L/opt/dcelocal\*O
+.DE
+.P
+as set up by default by \*Ldce_config\*O during cell configuration). You will
+need to modify the DCE configuration script to automatically install this file
+on machines you are configuring to use DTS.
+...\" 
+...\" .zZ "def,4673,R1.0.2,description of dtss_kernel.conf"
+...\" 
+.LI
+Note that the single executable \*Ldtsd\*o can act as both clerk \*Vand\*O
+server. The \*Llibutc.a\*O routines do not communicate directly with \*Ldtsd\*O,
+but rather access the system clock (although in a user space implementation
+\*Llibutc.a\*O does communicate, via shared memory, with the local \*Ldtsd\*O).
+...\" 
+...\" 
+...\" 
+.LE
+...\" 
+.P
+The following files should be reviewed and modified as indicated:
+...\" 
+...\" .zA "def,9349,R1.0.3,deleted utctime.h"
+.BL
+.LI
+\*Vdce-root-dir\*L/dce/src/time/kernel/\*Vmachine\*L/int64.h\*O
+.P
+The \*Lhi\*O and \*Llo\*O members of the \*Lint64\*O structure must be
+ordered to reflect the endian architecture of the target hardware.
+In big-endian architectures, the high member must be defined first.
+...\" 
+...\" .LI
+...\" \*Vdce-root-dir\*L/dce/src/time/kernel/\*Vmachine\*L/utctime.h\*O
+...\" 
+.LI
+\*Vdce-root-dir\*L/dce/src/time/kernel/\*Vmachine\*L/kern_utctime.c\*O
+.P
+The units of the system time value must be converted to microseconds
+when the system time is read. Initialization of the variable
+\*Ldiff_base_times\*O must be ordered to reflect the endian architecture
+of the target machine.
+.P
+\*LMAXDRIFTRECIP\*O must be defined as the reciprocal of the maximum
+drift rate of the target machine system clock used to track system time.
+.LE
+...\" 
+...\" .zZ "def,9349,R1.0.3,deleted utctime.h"
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Machine-Dependent Modules"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following sections describe machine-dependent modules.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Common Directory"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+There are no machine-dependent modules for the AIX operating system
+in the
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common\*O
+.DE
+...\" 
+.P
+directory.
+.P
+The \*Ldts.h\*O file is located in the
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/POSIX\*O
+.DE
+...\" 
+.P
+directory, which should be suitable for most POSIX-compliant platforms.
+.P
+The two files
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/\*Vplatform\*L/int64.h
+    \*Vdce-root-dir\*L/dce/src/time/common/\*Vplatform\*L/utctime.h
+.DE
+...\" 
+.P
+are used for the \*Llibutc\*O implementation of \*Lutc_adjtime(\|)\*O.
+...\" 
+...\" 
+...\" 
+...\" .P
+...\" The \*LMakefile\*O in the \*Lcommon\*O directory specifies the following
+...\" compiler arguments for the AIX operating system:
+...\" 
+...\" .BL
+...\" .LI
+...\" \*L-Dunix\*O
+...\" .P
+...\" Used to declare all UNIX-related variables and structures
+...\" .LI
+...\" \*L-D_BSD\*O
+...\" .P
+...\" Used to declare all BSD-related variables and structures
+...\" .LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Service Directory"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+There are no machine-dependent directories in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/service\*O
+.DE
+.P
+directory. However, time-provider programs might need to be modified.
+For example, the program \*Ldts_acts_provider\*O, which calls the National
+Institute of Standards and Technology to obtain UTC, is hard-coded for
+the Scholar Plus DF242 modem.  If a different modem is used, the \*Ldial\*O
+command in this program must be modified.
+.P
+The \*LMakefile\*O in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/service\*O
+.DE
+.P
+directory includes the following libraries:
+...\" 
+.VL 2i
+.LI "\*Llibdce.a\*O"
+The DCE API library.
+.LI "\*Llibdtss_common.a\*O"
+The common time-support library.
+.LI "\*Llibm.a\*O"
+For \*Lfabs(\|)\*O (for the AIX operating system only).
+.LI "\*Llibcurses.a\*O"
+The \*Lcurses\*O library.  The routine used is \*Lnsleep(\|)\*O.
+.LI "\*Llibbsd.a\*O"
+The BSD \*Lftime(\|)\*O routine.
+.LE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Kernel Directory"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/kernel\*O
+.DE
+...\" 
+.P
+directory contains machine-specific subdirectories that contain the DTS kernel
+code for the supported platforms. The AIX versions in
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/kernel/RIOS/\*O
+.DE
+...\" 
+.P
+are actually used and tested; the
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/kernel/RENO/\*O
+.DE
+...\" 
+.P
+directory contains sample RENO code for BSD 4.4 kernels.
+...\" 
+...\" 
+...\" 
+...\" There are two directories, \*LMIPS\*O and \*LVAX\*O, under \*Lcommon\*O for
+...\" machine-dependent modules to link to the system calls.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The libutc/kernel Subdirectories"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/libutc/kernel/\*Vmachine\*O
+.DE
+.P
+subdirectories contain the platform-specific ``glue'' code necessary to access
+the DTS system calls provided by the code contained in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/kernel/\*Vmachine\*O
+.DE
+.P
+subdirectories.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Building and Linking"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "building component code" "DTS"
+.iX "DTS" "building component code"
+...\" 
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/src/time\*O
+.DE
+.P
+directory contains the source code for building the DCE Distributed Time Service.
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/time.mk\*O
+.DE
+.P
+file contains the compiler flags for building the Distributed Time Service.
+Machine-specific compiler flags that affect the compilation of the whole component
+or flags for individual subdirectories should be set in this file, and any machine
+libraries that need to be used to link binaries should be set in this file.
+...\" 
+...\" 
+...\" 
+...\"      The DTS_LIBUTC_MODE build variable is defined in time.mk,
+...\"      and determines what version of libutc.a is built and exported
+...\"      for inclusion in the libdce.a library. The variable must be set
+...\"      to ``user'' or ``kernel'' to select either the user-mode library
+...\"      or the kernel-mode library.
+...\" 
+...\"      Both versions of the library are built so the test 'test_kernel'
+...\"      [[ Maybe give a reference to src/test/time/common/Makefile ]]
+...\"      can explicitly link against the version it wants to test.
+...\"      These libraries are built as libutc-user.a and libutc-kernel.a.
+...\"      If your platform doesn't support one of these libraries, you will
+...\"      not be able to build all three versions of the 'test_kernel' time
+...\"      test.
+...\" 
+...\" 
+...\" 
+.P
+The \*LDTS_LIBUTC_MODE\*O build variable is defined in \*Ltime.mk\*O, and determines
+what version of \*Llibutc.a\*O is built \*Vand exported\*O for inclusion in the
+\*Llibdce.a\*O library. The variable must be set to ``user'' or ``kernel'' to select
+either the user-mode library or the kernel-mode library.
+.P
+Note that \*Vboth\*O versions of the library are built, in order that the \*Ltest_kernel\*O
+tests (see ``Additional Testing'' later in this chapter) can explicitly link against the
+version to be tested. The libraries are built as \*Llibutc-user.a\*O (the user-mode
+version) and \*Llibutc-kernel.a\*O (the kernel-mode version). If your platform
+does not support one of these libraries, you will not be able to build all three
+versions of the \*Ltest_kernel\*O time test.
+.P
+The flags for the DTS test cases in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/time\*O
+.DE
+.P
+directory are set in:
+.DS
+    \*Vdce-root-subdir\*L/dce/src/test/test.mk\*O
+.DE
+.P
+DTS uses the \*Llibdce.a\*O global library to resolve subroutines from other
+components. If DTS is being built as a stand-alone service, some of the
+dependencies on other components may be eliminated by setting or unsetting
+some of the flags described in the next subsection.
+.P
+For a listing of directories where libraries and executables are built, see
+the table in the ``DTS File Locations'' section of this chapter.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .zA "Conditional Symbols Added"
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Preprocessor Variables"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following C preprocessor variables are used in building DTS.
+...\" 
+...\" 
+...\" 
+.VL .5i
+...\" 
+.LI
+\*LALTZONE\*O
+.P
+Used to export the \*Laltzone\*O variable from
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/tzset.c\*O
+.DE
+...\" "defined in the public domain zoneinfo code" (zic)
+...\" 
+.LI
+\*LBYTE_ORDER\*O
+.P
+Defined in:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/export/\*Vplatform\*L/usr/include/dce/dce.h\*O
+.DE
+...\" 
+.P
+This variable controls the characteristics of various byte order sensitive
+DTS operations.
+...\" 
+...\" 
+...\" 
+.LI
+\*LDCE_DEBUG\*O
+.P
+Compilation option: Turns on generic debug code.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .LI
+...\" \*LFD_SET\*O
+...\" .P
+...\" Defined in providers in case the operating system does not provide them.
+...\" 
+...\" 
+.LI
+\*LINCLUDED\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/utcapi.c\*O
+.DE
+...\" 
+.P
+When defined, indicates to
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/arith.c\*O
+.DE
+.P
+that
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/dtss_includes.h\*O
+.DE
+.P
+has already been included, and all routines here should be declared static.
+...\" 
+...\" 
+.LI
+\*LKERNEL\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/kernel/Makefile\*O
+.DE
+...\" 
+.P
+Used when building kernel libraries.
+...\" 
+...\" 
+.LI
+\*LMAL\*O
+.P
+Part of the time zone information compiler (\*Lzic\*O) program, i.e.:
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/zoneinfo/zic/ialloc.c\*O
+.DE
+...\" 
+...\" 
+...\" 
+...\" 
+.LI
+\*LNOSOLAR\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/tzfile.h\*O
+.DE
+...\" 
+.P
+Defined if solar time not supported.
+...\" 
+...\" 
+...\" 
+.LI
+\*LSNI_SVR4\*O
+.P
+Turn on to build the SNI System V port.
+...\" 
+...\" 
+.LI
+\*LSNI_SVR4_POSIX\*O
+.P
+Use POSIX features of the SNI System V port.
+...\" 
+...\" 
+...\" 
+.LI
+\*LSTD_INSPIRED\*O
+.P
+Controls whether \*Ltzsetwall(\|)\*O is exported from
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/tzset.c\*O
+.DE
+...\" 
+...\" 
+...\" 
+.LI
+\*LSYSTYPE\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/control/POSIX/prsdep.h\*O
+.DE
+...\" 
+.P
+Indicates we know type of system (VMS,UNIX).
+...\" 
+...\" 
+.LI
+\*LSYS_utc_adjtime\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/libutc/kernel/\*Vmachine\*L/utc_adjtime.c\*O
+.DE
+...\" 
+.P
+Syscall number of \*Lutc_adjtime\*O.
+...\" 
+...\" 
+.LI
+\*LSYS_utc_gettime\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/libutc/kernel/\*Vmachine\*L/utc_gettime.c\*O
+.DE
+...\" 
+.P
+Syscall number of \*Lutc_gettime\*O.
+...\" 
+...\" 
+...\" 
+.LI
+\*LTM_GMTOFF\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/utcapi.c\*O
+.DE
+...\" 
+.P
+Defined if time struct has \*Ltm_gmtoff\*O field.
+...\" 
+...\" 
+.LI
+\*LTM_ZONE\*O
+.P
+Defined in:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/utcapi.c\*O
+.DE
+...\" 
+.P
+Defined if time struct has \*Ltm_zone\*O field.
+...\" 
+...\" 
+.LI
+\*LUSE_OWN_LOCALTIME\*O
+.P
+Controls whether \*Ltzset\*O defines routines. The purpose of this flag is
+to provide \*Lzoneinfo\*O support. It should not be defined if your
+operating system already has such support. It is defined in:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/tzset.c\*O
+.DE
+...\" 
+.P
+The
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/utcapi.c\*O
+.DE
+...\" 
+.P
+file \*L#include\*Os \*Ltzset.c\*O, which (by means of conditional operators)
+checks to see if its routines are needed on the present platform (\*Lutcapi.c\*O
+needs a version of \*Ltzset(\|)\*O that creates the \*Llclstate\*O structure); if
+so, it defines \*LUSE_OWN_LOCALTIME\*O, which activates the compilation of the static
+\*Ltzset(\|)\*O routines from \*Ltzset.c\*O. Otherwise, the platform's \*Ltzset(\|)\*O
+can be used. The \*L#include\*Oing of \*Ltzset.c\*O is necessitated by the fact
+that DTS's \*Ltzset(\|)\*O cannot simply be built and exported, since the local
+\*Llibc\*O may already have a \*Ltzset(\|)\*O.
+...\" 
+...\" 
+.LI
+\*LUSG\*O
+.P
+Defined if \*LSNI_SVR4\*O is defined.
+...\" 
+...\" 
+.LI
+\*LUSG_COMPAT\*O
+.P
+Defined in
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/tzset.c\*O
+.DE
+.P
+if System V compatible code is desired.
+...\" 
+...\" 
+.LI
+\*L_CMA_PROTO_\*O
+.P
+True if CMA prototypes are being used.
+...\" 
+...\" 
+.LI
+\*L_CMA_VARARGS_\*O
+.P
+True if CMA varargs are being used.
+...\" 
+...\" 
+.LI
+\*L_DECTHREADS_\*O
+.P
+Defined if DECthreads package is being used.
+...\" 
+...\" 
+.LI
+\*Lnotdef\*O
+.P
+Used to comment out unused code.
+...\" 
+...\" 
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .zZ "Conditional Symbols Added"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Other Flags"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following symbols are used to prevent the redefinition of \*Ltypedefs\*O:
+.VL 1i
+.LI "\*L_RELTIMESPEC_T_\*O"
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/utc.h\*O
+.DE
+...\" 
+.LI "\*L_TIMESPEC_T_\*O"
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/utc.h\*O
+.DE
+...\" 
+.LI "\*L_UTC_T_\*O"
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/utc.h\*O
+.DE
+...\" 
+.LE
+...\" 
+...\"
+...\" 
+...\" 
+...\" .cS
+...\" The library \*Llibdce.a\*O must be built after \*Llibutc.a\*O is built
+...\" and exported, and before the \*Ltime/control\*O and \*Ltime/service\*O
+...\" subdirectories are built.
+...\" .cE
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Setup, Testing, and Verification"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following types of DTS tests are shipped with DCE:
+...\" 
+.BL
+.LI
+API tests
+.LI
+Synchronization tests
+.LI
+Control program tests
+.LI
+Time conversion tests
+.LI
+Kernel (or user-mode) tests
+.LE
+...\" 
+...\" 
+.P
+These tests are described in more detail in following sections. Results from tests
+described in the test plan are also included.
+.P
+The DTS test directory contains three subdirectories: \*Lcontrol\*O, \*Lcommon\*O
+and \*Lservice\*O. The first, \*Lcontrol\*O, contains a script which tests
+\*Ldtscp\*O command line syntax. The second, \*Lcommon\*O, contains the tests.
+The third, \*Lservice\*O, contains \*Ldtss-graph.c\*O, the graph tool for
+displaying the test environment.
+.P
+Before executing the test cases, you must configure DTS for testing, using the
+instructions found in the following section of this chapter. You can run tests
+on the configurations described in that section.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+...\" .zA "dcetest_config information added"
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Installing DTS Functional Tests with dcetest_config"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+You can install the functional tests described in the following sections
+by running the menu-driven \*Ldcetest_config\*O script described in Chapter
+13 of this guide. \*Ldcetest_config\*O will install the tests you select at
+the path you specify, and will create a softlink (called \*L/dcetest/dcelocal\*O)
+to that location. The functional tests for a given component will thus be
+installed under a:
+.DS
+    \*L/dcetest/dcelocal/test/\*Vcomponent_name\*L/\*O
+.DE
+...\" 
+.P
+directory, where the \*Ltest/\*Vcomponent_name\*O elements of this path are
+equivalent to the \*Ltest/\*Vcomponent_name\*O elements in the pathnames given in
+the sections below, which refer to the tests' source or build locations.
+.P
+Note that \*Ldcetest_config\*O will prompt you for the location \*Vfrom which\*O
+the tests should be installed (in other words, the final location of the built
+test tree). For the DTS functional tests, this path should be the location, on
+your machine, of:
+.DS
+    \*Vdce-root-dir\*L/dce/install\*O
+.DE
+...\" 
+...\" 
+.P
+\(emwhich is the DCE \*Linstall\*O tree (for more information on the structure
+of the DCE tree, see Chapter 12 of this guide).
+.P
+Thus, \*Ldcetest_config\*O will install the DTS functional tests at:
+.DS
+    \*L/dcetest/dcelocal/test/time/\*O
+.DE
+...\" 
+.P
+where \*L/dcetest/dcelocal\*O is the link to whatever path you supplied as
+the install destination. 
+.P
+The advantage in using \*Ldcetest_config\*O to install the functional tests
+is that it will install \*Vall\*O that is needed and \*Vonly\*O what is needed
+out of the DCE build, thus avoiding the mistakes that can occur with manual
+installation.
+.P
+Note that you can only \*Vinstall\*O (if you choose) functional tests with
+\*Ldcetest_config\*O; for test configuration and execution you must follow
+the instructions in the sections below.
+.P
+Refer to Chapter 13 of this guide for further information on using
+\*Ldcetest_config\*O.
+...\" 
+...\" 
+...\" .zZ "dcetest_config information added"
+...\" 
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Building the Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The tests are delivered as source: you must build the executables on
+your system.
+To do so, you must pick up the appropriate headers to define structures
+such
+as \*Ltimespec\*O, \*Ltimeval\*O, and \*Lutc_t\*O.
+Depending on the platform to which you are porting, you may have to
+change the include files.
+Kernel structures can differ from non-kernel structures of the same name, so
+you will have to keep straight which structures correspond with which
+symbols.
+For example, you may have to modify \*Ltest_kernel.c\*O in the
+\*Lcommon\*O subdirectory to define \*L_TIMESPEC_T_\*O and include
+<\*Lutctime.h\*O>.
+In addition, you may have to include <\*Lsys/time.h\*O> instead of
+<\*Ltime.h\*O>.
+Once you start to build the tests, these constraints will become
+obvious;
+if the wrong files are included, you are likely to get compiler
+warnings.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "DTS Setup"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Before running many DTS tests, you must first configure a DCE cell. Refer to
+the following chapters of the \*VOSF DCE Administration Guide\(emIntroduction\*O
+for information on configuring a DCE cell:
+...\" 
+.BL
+.LI
+Overview of The DCE Configuration Script
+.LI
+Phase One: Initial Cell Configuration
+.LI
+Phase Two: Configuring a DCE Client and Other DCE Services
+.LE
+...\" 
+...\" 
+...\" .cS
+...\" .iX "DTS" "setup for testing"
+...\" .iX "setup for testing" "DTS"
+...\" .P
+...\" To configure and start DTS for testing, you must do the following:
+...\" .AL
+...\" .LI
+...\" Edit \*L/opt/dcelocal/dce_cf.db\*O and create an entry containing the
+...\" name of the local host for each node where a DTS server or clerk will
+...\" run.
+...\" For example, create the entry
+...\" .br
+...\" 	\*Lhostname /\*Vname\*O
+...\" .br
+...\" where \*Vname\*O is the name of your host.
+...\" The keyword \*Lhostname\*O must be present.
+...\" .LI
+...\" Use the \*Lrgy_edit\*O tool to create a principal entry and an account
+...\" in the registry for all DTS server principals.
+...\" This step assumes that the security server is already running on a
+...\" designated node.
+...\" .P
+...\" After the principals and accounts are in place, create a group called
+...\" "timeServers" and make each principal you plan to run as a server a
+...\" member of this group.
+...\" On each node where a DTS server will run, run the \*Lktadd\*O command
+...\" within \*Lrgy_edit\*O:
+...\" .br
+...\" 	\*Lrgy_edit=> \*Lktadd timeS/\*Vname\*O
+...\" .P
+...\" The \*Lktadd\*O command adds the server principal's key in the local
+...\" keytab database (\*L/krb5/v5srvtab\*O).
+...\" .P
+...\" The key management routines (\*Lsec_key_mgmt*\*O) are not
+...\" yet in place.
+...\" When a DTS server or clerk starts up, it must create a context in
+...\" which to perform authenticated RPC calls.
+...\" To do this, it must know its principal name and password with which
+...\" the account was created.
+...\" The key management routines will retrieve this information, but for
+...\" now we store the password in a configuration file, as described in the
+...\" following step.
+...\" .LI
+...\" On each host where a DTS server or clerk will run, create  the
+...\" configuration file \*L/usr/var/dss/dtss.conf\*O.
+...\" This file stores the password corresponding to the DTS account
+...\" principal.
+...\" The only entry in this file consists of the keyword \*LPASSWORD\*O,
+...\" followed by the password of the principal.
+...\" So, for example, on node \*Vname\*O there will be a DTS server running
+...\" with the principal name "timeS/\*Vname" and the account password
+...\" "foo."
+...\" The entry in \*L/usr/var/dss/dtss.conf\*O looks like this:
+...\" .br
+...\" 	\*CPASSWORD foo\*O
+...\" .LI
+...\" Make sure that the \*Lrpcd\*O, \*Lcdsd\*O, and \*Lcdsadv\*O daemons
+...\" are already installed and running.
+...\" Create the node entries for each of the nodes where a DTS clerk or
+...\" server will be installed, and the LAN and CELL services profile
+...\" entries on the node that is running as a CDS server (\*Lcdsd\*O).
+...\" .P
+...\" On the node running the CDS server, enter
+...\" .br
+...\" 	\*Lcsh -x node_create.sh \*Vname\*O
+...\" .P
+...\" to run the \*Lnode_create.sh\*O shell script, which creates the first node
+...\" entry.
+...\" Then enter
+...\" .br
+...\" 	\*Lcsh -x cell_create.sh\*O
+...\" .br
+...\" to run the \*Lcell_create.sh\*O shell script, which creates the LAN
+...\" and CELL services profile entries.
+...\" .P
+...\" Subsequently, for each node where DTS will be installed, run
+...\" \*Lnode_create.sh\*O with the hostname as its argument.
+...\" Each hostname entry is a directory in the CDS space.
+...\" .LI
+...\" After the previous steps are taken, enter
+...\" .bf
+...\" 	\*Ldtsd\*O
+...\" .br
+...\" to start the DTS daemon.
+...\" .nS "note"
+...\" To start the DTS daemon in debugging mode, use the \*L-d\*O
+...\" switch:
+...\" .br
+...\" 	\*Ldtsd -d\*O
+...\" .nE
+...\" .LI
+...\" Using the \*Ldtscp\*O control program, create a clerk or server.
+...\" For a server, enter:
+...\" .br
+...\" 	\*Cdtscp> \*Lcreate type server\*O
+...\" .br
+...\" 	\*Cdtscp> \*Lenable\*O
+...\" .P
+...\" For a clerk, enter:
+...\" .br
+...\" 	\*Cdtscp> \*Lcreate type clerk\*O
+...\" .nL
+...\" 	\*Cdtscp> \*Lenable\*O
+...\" .LI
+...\" To set tracing ON within \*Ldtscp\*O, enter:
+...\" .br
+...\" 	\*Cdtscp> \*Lset service trace true\*O
+...\" .nL
+...\" 	\*Cdtscp> \*Lset comm trace true\*O
+...\" .P
+...\" To turn tracing OFF within \*Ldtscp\*O, enter:
+...\" .br
+...\" 	\*Cdtscp> \*Lset service trace false\*O
+...\" .nL
+...\" 	\*Cdtscp> \*Lset comm trace false\*O
+...\" .LE
+...\" .cE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "API Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "DTS" "testing" "API tests"
+.iX "testing" "DTS" "API tests"
+...\" 
+.P
+The \*Lrantest_api.c\*O file in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/time/common\*O
+.DE
+.P
+directory generates random test cases for the API. The program stops and
+displays information if a failure is found.
+.P
+Note that these tests do not require to be executed in a DCE cell; only a
+built and installed \*Llibdce\*O (DCE library) is needed.
+...\" 
+...\" 
+...\" 
+...\" .zA "def,8101,R1.0.3,added parameter"
+.P
+The test is invokes as follows:
+.iS
+    rantest_api [\*Vcount\*L]
+.iE
+...\" 
+.P
+where \*Vcount\*O is an integer specifying how many iterations the test
+should execute.
+...\" 
+...\" .zZ "def,8101,R1.0.3,added parameter"
+...\" 
+...\" 
+.P
+The following compiler arguments, which are defined in \*Lcommon/Makefile\*O:
+...\" 
+.BL
+.LI
+\*L-Dunix\*O
+.LI
+\*L-DSYSTEM_FIVE\*O
+.LE
+...\" 
+.P
+generate test invocations of the standard C library functions \*Lgmttime(\|)\*O
+and \*Llocaltime(\|)\*O, respectively.
+...\" 
+...\" .zA "def,9221,R1.0.3,change ifdef"
+...\" 
+...\" 
+.nS "Note"
+Certain operating systems have a bug in the \*Llocaltime(3)\*O code which
+manipulates the Daylight Savings Time switch on the last Sunday of October
+1974. The presence of this bug will cause a failure in the \*Lrantest_api\*O
+test for that date. See the comments under \*L#ifdef NOV1974_BUG\*O in
+\*Lrantest_api.c\*O for further information.
+.nE
+...\" 
+...\" 
+...\" .zZ "def,9221,R1.0.3,change ifdef"
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Synchronization Testing"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "DTS" "testing" "synchronization"
+.iX "testing" "DTS" "synchronization"
+...\" 
+.P
+In order to perform useful synchronization testing, you should have at least
+three \*Ldtsd\*O servers running (in a running DCE cell).
+.P
+The \*Ldtscp\*O control program command \*Lset synch trace true\*O
+tells the time service daemon \*Ldtsd\*O (see the \*LMakefiles\*O under
+\*Lcontrol\*O and \*Lservice\*O) to write the input and output values
+for each synchronization to:
+...\" 
+.DS
+    \*Vdcelocal\*L/var/adm/time/dts-inacc.log\*O
+.DE
+...\" 
+.P
+A separate program, \*Ldtss-graph\*O, located in the
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/time/service\*O
+.DE
+...\" 
+.P
+directory (where \*Vmachine\*O is your system type), processes the trace
+into a PostScript file of a graph of the synchronization. See the \*LMakefile\*O
+under:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/time/service\*O
+.DE
+...\" 
+.P
+The \*Ldtss-graph\*O command allows the user to see a large number of
+synchronizations quickly and in detail. The last page of the output includes
+statistics describing the interaction between the tracing node and all the
+servers it queried during the test.
+.P
+To use these tools to perform synchronization testing, do the following:
+...\" 
+.AL
+.LI
+Set up a test environment that includes one or more (preferably three)
+servers.
+.LI
+Enable the graph trace (using the \*Ldtscp\*O control program command
+\*Lset synch trace true\*O) on a sample of the nodes, including at least
+one client and one server. This causes DTS to write a trace file for the
+\*Ldtss-graph\*O command in:
+.DS
+    \*Vdcelocal\*L/var/adm/time/dts-inacc.log\*O
+.DE
+...\" 
+.P
+If there is a time-provider in the test, the test should include a trace
+from the daemon connected to the time-provider. (Note that DTS starts a
+new trace file each time the service restarts.)
+.LI
+Process the traces with \*Ldtss-graph\*O when the test run is complete.
+Enter \*Ldtss-graph -help\*O for options.
+.LI
+Print the graphs on a PostScript printer and examine the output.
+...\" 
+...\" For an example
+...\" of \*Ldtss-graph\*O output, see the directory on the distribution tape that
+...\" contains test results (consult the \*VOSF DCE Release Notes\*O for its location).
+.LE
+...\" 
+...\" 
+.zA "def,10867,1.1beta,remove test_dtscp_ultrix.sh"
+...\" 
+...\" ----------------------------------------------------------------------
+...\" .H 3 "Control Program Testing"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .iX "DTS" "testing" "control program"
+...\" .iX "testing" "DTS" "control program"
+...\" 
+...\" .P
+...\" The \*Ltest_dtscp_ultrix.sh\*O file is a shell script that exercises
+...\" the control program (\*Ldtscp\*O).
+...\" It can be found in the
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/test/time/control\*O
+...\" .DE
+...\" .P
+...\" directory. You may find it useful to run this test with the verbose shell flag
+...\" set (e.g., \*Lset -x\*O). The output of this test is verbose; for an example,
+...\" see the directory on the distribution tape that contains test results (consult
+...\" the \*VOSF DCE Release Notes\*O for its location).
+...\" .P
+...\" \*Ltest_dtsscp_ultrix.sh\*O tests the command line syntax for all the \*Ldtscp\*O
+...\" commands. If there are errors found you will see a standard format DCE error.
+...\" To find these in the output use \*Lgrep\*O to find strings of the form ``(dce / dts)''
+...\" or ``^error'' (note that the ``^'' at the beginning of the
+...\" string is a special character in regular expressions meaning
+...\" the beginning of a line, so this regular expression will only match
+...\" lines which begin with ``error'').
+...\" .P
+...\" In some cases, the tests expect an error. These are marked in the test results
+...\" before the command is executed. Unfortunately there are different ways of marking
+...\" these expected errors used, so it is difficult to automate checking for these, but
+...\" it should be obvious when examining the results. Two examples of expected errors from
+...\" the output of \*Ltest_dtsscp_ultrix.sh\*O are shown below:
+...\" 
+...\" 
+...\" .oS
+...\"     + echo Expect wrong state errors
+...\"     Expect wrong state errors
+...\"     
+...\"     #
+...\"     # This change epoch command should fail because DTS is disabled
+...\"     #
+...\"     
+...\"     + dtscp change epoch 2
+...\"     error executing command:
+...\"             time service in wrong state (dce / dts)
+...\" 
+...\"     ================================================================
+...\" 
+...\"     #
+...\"     # This delete command should fail because DTS is still enabled,
+...\"     # you can not do a delete until DTS is disabled
+...\"     #
+...\"     
+...\"     + dtscp delete
+...\"     error executing command:
+...\"             time service in wrong state (dce / dts)
+...\" .oE
+...\" 
+.zZ "def,10867,1.1beta,remove test_dtscp_ultrix.sh"
+...\" 
+...\" .zA "def,9219,R1.0.3,new test documentation"
+...\" ----------------------------------------------------------------------
+.H 3 "dtscp Testing"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Ltest_dtscp.ksh\*O script is a functional test which runs \*Ldtscp\*O
+commands and compares the resulting output to the contents of an ``expected
+results'' file.
+.P
+The test consists of the following parts, all located in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/time/control\*O
+.DE
+...\" 
+.P
+directory:
+...\" 
+.VL 2i
+...\" 
+.LI "\*Ltest_dtscp.ksh\*O"
+Test driver script.
+...\" 
+.LI "\*Ldtscp.ksh\*O"
+The test script.
+...\" 
+.LI "\*Ltest_dtscp_clerk.templ\*O"
+Expected results template for \*Ldtscp\*O clerk.
+...\" 
+.LI "\*Ltest_dtscp_server.templ\*O"
+Expected results template for \*Ldtscp\*O server.
+...\" 
+.LE
+...\" 
+.P
+The test is invoked as follows:
+...\" 
+.iS
+    test_dtscp \*Vtype \*O[\*Vremote_hostname\*O] [\*Vmachine_type\*O]
+.iE
+...\" 
+.P
+\(em where \*Vtype\*O is either \*Lserver\*O or \*Lclerk\*O, depending
+on what type of DTS machine the test is being executed on, server or
+clerk; and \*Vmachine_type\*O is \*LAIX\*O, \*LOSF1\*O, or \*LHPUX\*O.
+.P
+When invoked, the test edits the template files with local information such
+as the machine's hostname, clock adjustment rate, and the next TDF change.
+This information is placed in a file named \*Ltest_dtscp_clerk.exp\*O or
+\*Ltest_dtscp_server.exp\*O, depending on whether the clerk or server form
+of the test is running. (The contents of this file is used to determine the
+expected results when the remote test is executed.)
+.P
+The test will report whether the expected matches the actual output, and will
+record any differences between the two in a file named \*Ltest_dtscp.diff\*O.
+\*Ltest_dtscp.ksh\*O will also test commands which have variable output (such
+as the current time) and report any failures. The actual results of running the
+test will be placed in a file named \*Ltest_dtscp.act\*O.
+.P
+Note that the server test should be run with a server that has just been started,
+with no time provider, in a cell with no other DTS servers running. The clerk test
+should be run with a clerk that has just been started, in a cell with no \*Vglobal\*O
+servers, and at least one local server running.
+...\" 
+...\" .P
+...\" Note also that these test turn the DTS trace facility on and off; thus there may be
+...\" trace output on the tty which \*Ldtsd\*O was started from.
+...\" 
+...\" 
+...\" 
+.P
+Sample output from a clerk test:
+...\" 
+.oS
+    START DCE time functional test: dtscp.ksh; DATE: Thu Oct 21 11:53:41 EDT 1993
+    The value of NODE_TYPE is clerk
+    Begin test of dtscp command structure (Thu Oct 21 11:53:43 EDT 1993)
+    You are running this test on a dts clerk (right?)
+    Actual output is in file test_dtscp.act
+    Expected output is in file test_dtscp_clerk.exp
+    Compare actual output to expected output
+    Actual output matches expected output
+    Execute variable commands
+    PASSED, Test 1 "TEST_DTSCP" : test ran successfully
+    END DCE time functional test: dtscp.ksh; DATE: Thu Oct 21 11:59:16 EDT 1993
+.oE
+...\" 
+...\" 
+...\" 
+.P
+Sample output from a server test:
+...\" 
+.oS
+    START DCE time functional test: dtscp.ksh; DATE: Thu Oct 21 12:10:39 EDT 1993
+    The value of NODE_TYPE is server
+    Begin test of dtscp command structure (Thu Oct 21 12:10:42 EDT 1993)
+    You are running this test on a dts local server (right?)
+    Actual output is in file test_dtscp.act
+    Expected output is in file test_dtscp_server.exp
+    Actual output matches expected output
+    Execute variable commands
+    PASSED, Test 1 "TEST_DTSCP" : test ran successfully
+    END DCE time functional test: dtscp.ksh; DATE: Thu Oct 21 12:15:22 EDT 1993
+.oE
+...\" 
+...\" 
+...\" 
+...\" .zZ "def,9219,R1.0.3,new test documentation"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Additional DTS Testing"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+...\" 
+.P
+The following subsections describe how to run and interpret the output of some
+additional tests.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Timezone Conversion Test"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The DTS timezone conversion test (\*Ltest_zonecvt\*O) is invoked as follows:
+...\" 
+...\" .zA "def,6198,R1.0.2,fix zonecvt name"
+...\" 
+.P
+.iS
+    test/time/common/test_zonecvt < time/common/zonecvt.dat
+.iE
+...\" 
+...\" .zZ "def,6198,R1.0.2,fix zonecvt name"
+...\" 
+...\" .zA "Added zoneinfo information"
+...\" 
+.P
+Note that you must install all of the files built for \*L/etc/zoneinfo\*O
+in order to run this test (however, a running DCE cell is \*Vnot\*O required).
+The files should be located at:
+...\" 
+.DS
+    \*Vdceshared\*L/etc/zoneinfo\*O
+.DE
+...\" 
+.P
+where \*Vdceshared\*O is a link that \*Ldce_config\*O will try to create from
+\*L/etc/zone/info\*O (note however that your operating system may already have
+something at this location and if it does \*Ldce_config\*O will not overwrite it).
+...\" 
+...\" .P
+...\" These files are \*Vnot\*O installed by \*Ldce_config\*O. You should either
+...\" copy the files to \*L/etc/zoneinfo\*O or create a symbolic link to this
+...\" location.
+...\" 
+...\" .P
+...\" Note that some of the \*Lzoneinfo\*O files required by \*Ltest_zonecvt\*O
+...\" (and by other DTS functions, such as \*Lutc_localtime(\|)\*O, which use the
+...\" internal function \*Ltzload(\|)\*O) to be present in \*L/etc/zoneinfo\*O,
+...\" [e.g. /etc/zoneinfo/US/Eastern]
+...\" must be obtained from the public domain \*Llocaltime\*O package.
+...\" 
+...\" This software has been picked up by many vendors, including Sun and DEC
+...\" and is part of SysVr4 (at least some versions of standard svr4 have it).
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.sp 2
+.in -0.25i
+\s+1\*L
+How To Set up DTS to use Local Zone Information
+\*O\s-1
+.in +0.25i
+.sp 1
+...\" ----------------------------------------------------------------------
+...\" 
+...\"
+.P
+By default, DTS uses the GMT time zone, so time information you get from 
+either
+...\" 
+.iS
+    dtscp show current time
+.iE
+...\" 
+.P
+or the API function \*Lutc_gettime(\|)\*O will be in GMT. 
+.P
+The default time zone information used will be that in \*Llocaltime\*O;
+\*Ldce_config\*O will usually link this name to the correct zone, so that
+(for example) \*L/etc/zoneinfo/localtime\*O on an HP-UX machine will have
+been linked to \*L/etc/zoneinfo/US/Eastern\*O. If this has not been done,
+simply set the \*LTZ\*O environment variable to the desired zone. For example:
+...\" 
+...\"      /etc/zoneinfo/localtime -> US/Eastern
+...\" 
+...\"      /etc/zoneinfo/US/Eastern
+...\" 
+.iS
+    TZ=US/Eastern
+.iE
+...\" 
+.P
+or:
+...\" 
+.iS
+    TZ=EST5EDT
+.iE
+...\" 
+.P
+for a POSIX system.
+...\" 
+...\" 
+...\" .VL .5i
+...\" .LI "1."
+...\" You need to have a \*Llocaltime\*O file which contains the right information.
+...\" Usually every system has one such local time file. DCE by default asks 
+...\" if you want it to install the DCE version of localtime (GMT) under 
+...\" \*L/etc/zoneinfo\*O. To get the right local time, set the environment variable 
+...\" \*LTZ\*O to the correct local time.
+...\" .P
+...\" For example, suppose you have
+...\" .DS
+...\"     \*L/usr/share/lib/zoneinfo/localtime\*O
+...\" .DE
+...\" .P
+...\" which has the correct zone information:
+...\" .iS
+...\"     setenv TZ /usr/share/lib/zoneinfo/localtime
+...\"     dtscp show current time
+...\" .iE
+...\" .P
+...\" You will see that the time shown is in your local zone. All utc function
+...\" calls which return local time use \*LTZ\*O to interpret the local time. Of
+...\" course, all functions which return GMT time will always return GMT time.
+...\" 
+...\" .LI "2."
+...\" Install or restore the correct local time information files to the 
+...\" \*L/etc/zoneinfo\*O directory. Then set \*LTZ\*O to the name of the zone. 
+...\" For example, to get Eastern Standard time, do the following:
+...\" .iS
+...\"     setenv TZ US/Eastern
+...\" .iE
+...\" 
+...\" .LE
+...\" 
+...\" 
+...\" 
+.P
+If necessary, you can obtain the full distribution of \*Llocaltime\*O from:
+...\" 
+.iS
+    ftp.uu.net:usenet/comp.sources.unix/volume18/localtime3/part\*VXX\*L.Z
+.iE
+...\" 
+.P
+where \*VXX\*O runs from 01 to 07.
+...\" 
+...\" 
+.P
+When using API functions, remember to call \*Ltzset(\|)\*O before anything else.
+.P
+To change the localtime to a new zone, you can use \*Lzic\*O with the \*L-l\*O
+option.
+...\" 
+...\" However, one thing to remember is that you probably cannot change the
+...\" \*Llocaltime.dce\*O installed under \*L/etc/zoneinfo\*O, unless you have installed
+...\" in your system all the zone information under \*L/etc/zoneinfo\*O. Since \*Lzic\*O
+...\" remembers where its default path is, if you use the \*L-d\*O option to specify a
+...\" new path, it expects all zone  information files to be found under that path.
+...\" 
+...\" .zZ "Added zoneinfo information"
+...\" 
+...\" 
+...\" 
+...\" .zA "Added libutc info"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Kernel Library Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following tests:
+...\" 
+.BL
+.LI
+\*Ltest_kernel\*O
+.LI
+\*Ltest_kernel-kernel\*O
+.LI
+\*Ltest_kernel-user\*O
+.LE
+...\" 
+.P
+are built from source in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/time/common\*O
+.DE
+...\" 
+.P
+directory. The tests have similar output. The first, \*Ltest_kernel\*O, links in
+\*Llibdce\*O. The \*Ltest_kernel-kernel\*O test links in \*Llibutc-kernel.a\*O and
+runs in kernel mode; the \*Ltest_kernel-user\*O test links in \*Llibutc-user.a\*O
+and runs in user mode.
+.P
+Note that your platform must support both the kernel-mode and the user-mode DTS
+libraries in order for all three versions of this test to be built. See ``Building
+and Linking'' earlier in this chapter.
+...\" 
+...\" .zZ "Added libutc info"
+...\" 
+...\" .zA "Added DTS hand tests"
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "DTS Hand Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The text file
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/time/hand-tests\*O
+.DE
+.P
+consists of instructions for performing, by hand, further DTS functional
+testing. These tests are intended to be run by hand in the configurations
+specified.
+...\" 
+...\" .zZ "Added DTS hand tests"
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Test Run Examples"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Some annotated examples of test runs follow.
+.iS
+    # test_kernel
+.iE
+...\" 
+.oS
+    > resolution = 3970000 nanosecs
+    > drift = 1/20000
+    > frequency = 1000000000 nanosec / sec
+.oE
+...\" 
+.P
+This test checks various pieces of information that the kernel knows and
+DTS needs. The 3.97 milliseconds shown is the correct clock tick for the
+DECstation 3100. (The clock ticks at 256 hz = 3.90625, but since the kernel
+actually uses micro-seconds, once a second there's an extra 64 micro-seconds
+added to keep the clock correct; thus the longest tick is: 3.906 + 0.064 = 3.970).
+The drift is equal to 1 part in 20,000. The frequency of 1,000,000,000
+nanosecs/sec indicates that no clock training is occuring (yet). Note that
+the first two numbers will be different on different platforms.
+...\" 
+.oS
+    > 1992-06-09 22:04:40.045538
+    > 1992-06-09 22:04:40.045537000 +/- 0 00:00:00.052798900 (GMT)
+    > 1992-06-09 17:04:40.045537000 +/- 0 00:00:00.052798900 (GMT-5:00 = -18000)
+    > 1992-06-09 22:04:40.049443000 +/- 0 00:00:00.052798900 (GMT)
+    > 1992-06-09 17:04:40.049443000 +/- 0 00:00:00.052798900 (GMT-5:00 = -18000)
+.oE
+...\" 
+.P
+This section shows the output of three system calls: one to \*Lgettimeofday(\|)\*O,
+and two to \*Lutc_gettime(\|)\*O. They should give the same answer to within a few
+milliseconds. (If two calls to \*Lutc_gettime(\|)\*O should monotonically increase,
+they do.)
+...\" 
+.oS
+    > 1992-06-09 22:04:40.068973000 +/- 0 00:00:00.052799900 (GMT)
+    > 1992-06-09 17:04:40.068973000 +/- 0 00:00:00.052799900 (GMT-5:00 = -18000)
+    > 1992-06-09 22:04:40.088504
+    > Setting time forward 1 second
+    > Leap second set to: 1992-06-09 22:04:45.088504000 +/- 0 00:00:00.000000000 (GMT)
+    > 1992-06-09 22:04:41.088504
+    > 1992-06-09 22:04:41.084597000 +/- 0 00:00:00.004021000 (GMT)
+    > 1992-06-09 18:04:41.084597000 +/- 0 00:00:00.004021000 (GMT-4:00 = -14400)
+.oE
+...\" 
+.P
+This section show a \*Lset\*O of the time forward 1 second. Note that the time did
+in fact go forward about one second (from 40 to 41).
+...\" 
+.oS
+    > 1992-06-09 22:04:44.108035
+    > 1992-06-09 22:04:44.104127000 +/- 0 00:00:00.004171000 (GMT)
+    > 1992-06-09 18:04:44.104127000 +/- 0 00:00:00.004171000 (GMT-4:00 = -14400)
+    > 1992-06-09 22:04:47.115847
+    > 1992-06-09 22:04:47.111939000 +/- 0 00:00:01.004322000 (GMT)
+    > 1992-06-09 18:04:47.111939000 +/- 0 00:00:01.004322000 (GMT-4:00 = -14400)
+    > 1992-06-09 22:04:47.127564
+.oE
+...\" 
+.P
+This section verifies that the inaccuracy increases, due to drift, and also the second
+should be increased by one second because of the (possible) leap second.
+...\" 
+.oS
+    > Adjusting time backwards 0.1 second
+    > Leap second set to: 1992-06-09 22:04:52.127564000 +/- 0 00:00:00.000000000 (GMT)
+    > 1992-06-09 22:04:47.127565
+    > 1992-06-09 22:04:47.123657000 +/- 0 00:00:00.103971000 (GMT)
+    > 1992-06-09 18:04:47.123657000 +/- 0 00:00:00.103971000 (GMT-4:00 = -14400)
+    > 1992-06-09 22:04:50.109214
+    > 1992-06-09 22:04:50.105306000 +/- 0 00:00:00.074675000 (GMT)
+    > 1992-06-09 18:04:50.105306000 +/- 0 00:00:00.074675000 (GMT-4:00 = -14400)
+    > 1992-06-09 22:04:53.090863
+    > 1992-06-09 22:04:53.086955000 +/- 0 00:00:01.045340000 (GMT)
+    > 1992-06-09 18:04:53.086955000 +/- 0 00:00:01.045340000 (GMT-4:00 = -14400)
+.oE
+...\" 
+.P
+This section executes an \*Ladjust\*O and verifies that the inaccuracy decreases.
+The inaccuracy decreases during an \*Ladjust\*O under the assumption that the clock
+is being made more correct.
+...\" 
+.oS
+    > Ending adjustment prematurely
+    > 1992-06-09 22:04:53.098596
+    > 1992-06-09 22:04:53.094689000 +/- 0 00:00:01.045262000 (GMT)
+    > 1992-06-09 18:04:53.094689000 +/- 0 00:00:01.045262000 (GMT-4:00 = -14400)
+    > 1992-06-09 22:04:53.110314
+    > 1992-06-09 22:04:53.106407000 +/- 0 00:00:01.045263000 (GMT)
+    > 1992-06-09 18:04:53.106407000 +/- 0 00:00:01.045263000 (GMT-4:00 = -14400)
+    > 1992-06-09 22:04:53.118126
+.oE
+...\" 
+.P
+This section stops the adjustment and verifies that inaccuracy starts increasing again.
+...\" 
+.oS
+    > Adjusting time backwards 0.1 second
+    > Leap second set to: 1992-06-09 22:04:58.118126000 +/- 0 00:00:00.000000000 (GMT)
+    > TDF change set to : 1992-06-09 22:05:03.000000000 +/- 0 00:00:00.000000000 (GMT)
+    > 1992-06-09 22:04:53.118127
+    > 1992-06-09 22:04:53.114219000 +/- 0 00:00:00.103971000 (GMT)
+    > 1992-06-09 17:04:53.114219000 +/- 0 00:00:00.103971000 (GMT-5:00 = -18000)
+    > Adjustment should have completed.
+    > 1992-06-09 22:06:52.417993
+    > 1992-06-09 22:06:52.414085000 +/- 0 00:00:00.268508400 (GMT)
+    > 1992-06-09 18:06:52.414085000 +/- 0 00:00:00.268508400 (GMT-4:00 = -14400)
+    > 1992-06-09 22:06:52.445062
+    > 1992-06-09 22:06:52.441154000 +/- 0 00:00:00.268275400 (GMT)
+    > 1992-06-09 18:06:52.441154000 +/- 0 00:00:00.268275400 (GMT-4:00 = -14400)
+.oE
+...\" 
+.P
+This section allows the adjustment to complete by itself and verifies that the inaccuracy
+starts increasing again. It also verifies that the timezone changes back from -5:00 to -4:00.
+...\" 
+.oS
+    > Ending adjustment again
+    > 1992-06-09 22:06:52.452795
+    > 1992-06-09 22:06:52.448888000 +/- 0 00:00:00.268198400 (GMT)
+    > 1992-06-09 18:06:52.448888000 +/- 0 00:00:00.268198400 (GMT-4:00 = -14400)
+    > 1992-06-09 22:06:52.460607
+    > 1992-06-09 22:06:52.456700000 +/- 0 00:00:00.268198400 (GMT)
+    > 1992-06-09 18:06:52.456700000 +/- 0 00:00:00.268198400 (GMT-4:00 = -14400)
+.oE
+...\" 
+.P
+This section confirms that ending the \*Ladjust\*O (after it has run out) does
+not cause any problems, and that the inaccuracy increases (or stays the same).
+...\" 
+...\" 
+...\" .P
+...\" \*L# test_zonecvt < zonecvt.dat\*O
+...\" .oS
+...\" > EST5 1991-07-01-14:37:22+01:00I22.3             # Force standard time
+...\" > 1991-07-01-08:37:22.000-05:00I22.300 (EST) Standard Time
+...\" > 1991-07-01-14:37:22.000+01:00I22.300 (GMT+1:00)
+...\" > :US/Eastern 1991-07-01-14:37:22+01:00I22.3      # Check DST
+...\" > utc_localzone results did not compare
+...\" > 1991-07-01-13:37:22.000+00:00I22.300 (:US/Eastern) Standard Time
+...\" > 1991-07-01-14:37:22.000+01:00I22.300 (GMT+1:00)
+...\" > Failure detected!!
+...\" > Timezone: :US/Eastern, Time: 1991-07-01-14:37:22+01:00I22.3
+...\" .oE
+...\" .P
+...\" This is an example of a failure, which occurs if the file
+...\" \*L/etc/zoneinfo/US/Eastern\*O
+...\" is not installed.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "DTS Runtime Output and Debugging Output"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The DTS component outputs server information of all kinds via the DCE serviceability
+component. The following sections describe how to control the various kinds of
+information (including debugging output) available from DTS via serviceability.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Normal DTS Server Message Routing"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+There are basically two ways to control normal DTS server message routing:
+...\" 
+.BL
+.LI
+At startup, through the contents of a routing file (which are applied to
+all components that use serviceability messaging).
+.LI
+At startup, via the \*L-w\*O option to \*Ldtsd\*O.
+.LI
+Dynamically, through the \*Ldcecp log\*O object.
+...\" 
+.LE
+...\" 
+...\" 
+.P
+The following sections describe each of these methods.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Routing File"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+If a file called
+...\" 
+.DS
+    \*Vdce-local-path\*L/svc/routing\*O
+.DE
+...\" 
+.P
+exists when DTS is brought up (i.e., when \*Ldtsd\*O is executed or when the
+cell is started through \*Ldce_config\*O), the contents of the file (if in the
+proper format) will be used as to determine the routing of DTS serviceability
+messages.
+.P
+The value of \*Vdce-local-path\*O depends on the values of two \*Lmake\*O
+variables when DCE is built:
+...\" 
+...\" 
+...\" 
+.VL 1i
+.LI "\*LDCEROOT\*O"
+its default value is: \*L/opt\*O
+...\" 
+.LI "\*LDCELOCAL\*O"
+its default value is: \*L$DCEROOT/dcelocal\*O
+...\" 
+.LE
+...\" 
+.P
+Thus, the default location of the serviceability routing file is normally:
+...\" 
+.DS
+    \*L/opt/dcelocal/svc/routing\*O
+.DE
+...\" 
+.P
+However, a different location for the file can be specified by setting the
+value of the environment variable \*LDCE_SVC_ROUTING_FILE\*O to the complete
+desired pathname.
+...\" 
+.P
+The contents of the routing file consist of formatted strings specifying
+the routing desired for the various kinds of messages (based on message
+severity). Each string consists of three fields as follows:
+...\" 
+.DS
+    \*Vseverity\*L:\*Voutput_form\*L:\*Vdestination\*O\ [\*Voutput_form\*L:\*Vdestination\*O .\ .\ .\ ]
+.DE
+...\" 
+.P
+Where:
+...\" 
+.VL 1i
+.LI "\*Vseverity\*O"
+specifies the severity level of the message, and must be one of the following:
+.BL
+.LI
+\*LFATAL\*O
+...\" Fatal error, about to exit
+.LI
+\*LERROR\*O
+...\" Normal exit
+.LI
+\*LWARNING\*O
+...\" Error detected, program proceeding
+.LI
+\*LNOTICE\*O
+...\" Informational notice
+.LI
+\*LNOTICE_VERBOSE\*O
+...\" Verbose informational notice
+.LE
+...\" 
+.P
+(The meanings of these severity levels are explained in detail in Chapter 4 of
+the \*VOSF DCE Application Development Guide \(em Core Components\*O volume,
+in the section entitled ``Specifying Message Severity''.)
+...\" 
+...\" 
+...\" 
+.LI "\*Voutput_form\*O
+specifies how the messages of a given severity level should be processed, and
+must be one of the following:
+.BL
+.LI
+\*LBINFILE\*O
+.P
+Write these messages as binary log entries
+.LI
+\*LTEXTFILE\*O
+.P
+Write these messages as human-readable text
+.LI
+\*LFILE\*O
+.P
+Equivalent to \*LTEXTFILE\*O
+.LI
+\*LDISCARD\*O
+.P
+Do not record messages of this severity level
+.LI
+\*LSTDOUT\*O
+.P
+Write these messages as human-readable text to standard output
+.LI
+\*LSTDERR\*O
+.P
+Write these messages as human-readable text to standard error
+.LE
+...\" 
+.P
+Files written as \*LBINFILE\*Os can be read and manipulated with a set of
+logfile functions. See Chapter 4 of the \*VOSF DCE Application Development
+Guide \(em Core Components\*O volume, mentioned above, for further information.
+.P
+The \*Voutput_form\*O specifier may be followed by a two-number specifier of the form:
+...\" 
+.DS
+    \*L.\*Vgens\*L.\*Vcount\*O
+.DE
+...\" 
+.P
+Where:
+...\" 
+.VL .5i
+.LI "\*Vgens\*O"
+is an integer that specifies the number of files (i.e., generations) that
+should be kept
+.LI "\*Vcount\*O"
+is an integer specifying how many entries (i.e., messages) should be
+written to each file
+.LE
+...\" 
+.P
+The multiple files are named by appending a dot to the simple specified
+name, followed by the current generation number. When the number of entries
+in a file reaches the maximum specified by \*Vcount\*O, the file is closed,
+the generation number is incremented, and the next file is opened. When the
+maximum generation number files have been created and filled, the generation
+number is reset to 1, and a new file with that number is created and written
+to (thus overwriting the already-existing file with the same name), and so
+on, as long as messages are being written. Thus the files wrap around to their
+beginning, and the total number of log files never exceeds \*Vgens\*O, although
+messages continue to be written as long as the program continues writing them.
+...\" 
+...\" 
+...\" 
+...\" 
+.LI "\*Vdestination\*O
+specifies where the message should be sent, and is a pathname. The field
+can be left blank if the \*Voutput_form\*O specified is \*LDISCARD\*O,
+\*LSTDOUT\*O, or \*LSTDERR\*O. The field can also contain a \*L%ld\*O
+string in the filename which, when the file is written, will be replaced
+by the process ID of the program that wrote the message(s). Filenames may
+\*Vnot\*O contain colons or periods.
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+.P
+Multiple routings for the same severity level can be specified by simply
+adding the additional desired routings as space-separated
+...\" 
+.DS
+    \*Voutput_form\*L:\*Vdestination\*O
+.DE
+...\" 
+.P
+strings.
+...\" 
+.P
+For example, 
+...\" 
+.oS
+    FATAL:TEXTFILE:/dev/console
+    WARNING:DISCARD:--
+    NOTICE:BINFILE.50.100:/tmp/log%ld STDERR:-
+.oE
+...\" 
+.P
+Specifies that:
+...\" 
+.BL
+.LI
+Fatal error messages should be sent to the console.
+.LI
+Warnings should be discarded.
+.LI
+Notices should be written both to standard error and as binary entries in files
+located in the \*L/tmp\*O directory. No more than 50 files should be written, and
+there should be no more than 100 messages written to each file. The files will have
+names of the form:
+...\" 
+.DS
+    \*L/tmp/log\*Vprocess_id\*L.\*Vnn\*O
+.DE
+...\" 
+.P
+where \*Vprocess_id\*O is the process ID of the program originating the messages,
+and \*Vnn\*O is the generation number of the file.
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Routing by the dcecp log Object"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Routing of DTS server messages can be controlled in an already-started cell
+through the \*Ldcecp log\*O object. The name used to manipulate the routes
+is the server entry name, which is usually:
+...\" 
+.DS
+    \*Lhosts/\*Vmachine_name\*L/dts-entity\*O
+.DE
+...\" 
+.P
+See the \*Llog.8dce\*O reference page in the \*VOSF DCE Command Reference\*O
+for further information.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Debugging Output"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Debugging output from DTS can be enabled (provided that DTS has been built with
+\*LDCE_DEBUG\*O defined) by specifying the desired debug messaging level and route(s)
+in the
+...\" 
+.DS
+    \*Vdce-local-path\*L/svc/routing\*O
+.DE
+...\" 
+.P
+routing file (described above), or by specifying the same information in the
+\*LSVC_DTS_DBG\*O environment variable, before bringing up DTS. Debugging output
+can also be enabled and controlled through the \*Ldcecp log\*O object.
+.P
+Note that, unlike normal message routing, debugging output is always specified
+on the basis of DCE component/sub-component (the meaning of ``sub-component''
+will be explained below) and desired level.
+.P
+The debug routing and level instructions for a component are specified by the
+contents of a specially-formatted string that is either included in the value
+of the environment variable or is part of the contents of the routing file.
+.P
+The general format for the debug routing specifier string is:
+...\" 
+.DS
+\s-1
+    "\*Vcomponent\*L:\*Vsub_comp\*L.\*Vlevel\*L,\*V.\ .\ .\*L:\*Voutput_form\*L:\*Vdestination\*O \\
+    [\*Voutput_form\*L:\*Vdestination\*O .\ .\ .\ ] "
+\s+1
+.DE
+...\" 
+.P
+where the fields have the same meanings as in the normal routing specifiers
+described above, with the addition of the following:
+...\" 
+...\" 
+...\" 
+.VL 1i
+.LI "\*Vcomponent\*O"
+specifies the component name
+...\" 
+.LI "\*Vsub_comp\*L.\*Vlevel\*O"
+specifies a subcomponent name, followed (after a dot) by a debug level
+(expressed as a single digit from 1 to 9). Note that multiple
+subcomponent/level pairs can be specified in the string.
+.P
+A star (``\*L*\*O'') can be used to specify all sub-components. The sub-component
+list is parsed in order, with later entries supplementing earlier ones; so the
+global specifier can be used to set the basic level for all sub-components, and
+specific sub-component exceptions with different levels can follow (see the example
+below).
+...\" 
+.LE
+...\" 
+...\" 
+.P
+``Sub-components'' denote the various functional modules into which a component has
+been divided for serviceability messaging purposes. For DTS, the sub-components are
+as follows:
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+.VL 2.5i
+.LI "\*Lgeneral\*O"
+General server administration
+...\" 
+.LI "\*Levents\*O"
+Events received and acted upon
+...\" 
+.LI "\*Larith\*O"
+Math operations
+...\" 
+.LI "\*Lctlmsgs\*O"
+Control messages received
+...\" 
+.LI "\*Lmsgs\*O"
+Messages received
+...\" 
+.LI "\*Lstates\*O"
+Server state transitions
+...\" 
+.LI "\*Lthreads\*O"
+Thread interactions
+...\" 
+.LI "\*Lconfig\*O"
+Server/cell configuration
+...\" 
+.LI "\*Lsync\*O"
+Server/synchronization interactions
+...\" 
+.LE
+...\" 
+...\" 
+.P
+For example, the string
+...\" 
+.DS
+    "dts:*.1,events.3:TEXTFILE.50.200:/tmp/DTS_LOG
+.DE
+...\" 
+.P
+sets the debugging level for all DTS sub-components (\*Vexcept\*O
+\*Levents\*O) at 1; \*Levents\*O's level is set
+at 3. All messages are routed to \*L/tmp/DTS_LOG\*O. No more than
+50 log files are to be written, and no more than 200 messages are
+to be written to each file.
+.P
+The texts of all the DTS serviceability messages, and the sub-component list,
+can be found in the DTS sams file, at:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/time/common/dts.sams\*O
+.DE
+...\" 
+.P
+For further information about the serviceability mechanism and API, see Chapter 4
+of the \*VOSF DCE Application Development Guide \(em Core Components\*O volume,
+``Using the DCE Serviceability Application Interface''.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Test Plans"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "test plans" "DTS"
+.iX "DTS" "test plans"
+...\" 
+...\" .zA "def,4944,R1.0.2,correct test plans directory name"
+...\" 
+.P
+Refer to Chapter 1 of the \*VOSF DCE Release Notes\*O for the location of
+the DCE test plans on the DCE distribution tape.
+...\" 
+...\" 
+...\" .P
+...\" Test plans listing individual test cases and command tests are available in
+...\" subdirectories of the
+...\" .DS
+...\"     \*Vdce-root-dir\*L/doc/project/test.plans/time\*O
+...\" .DE
+...\" .P
+...\" directory.
+...\" 
+...\" .zZ "def,4944,R1.0.2,correct test plans directory name"
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Some DTS Questions and Answers"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .zA "Added Questions and Answers"
+.P
+This section contains several DTS questions and answers that have arisen
+during DCE porting and application development efforts so far. Some of this
+material is not directly applicable to porting but is included here as useful
+background information about the component and DCE.
+...\" 
+...\" 
+.VL .5i
+...\" 
+...\" QUESTION 1:
+.LI "\*LQ1:\*O"
+How many DTS time servers do you need in order to use DTS to
+synchronize time? Does it make sense to try to synchronize time when
+you have less than three time servers?
+...\" 
+.LI "\*LA:\*O"
+DTS has the ability to determine when the time being provided
+from a DTS server is faulty for some reason. This algorithm
+can only be used when there are at least three timestamps
+received so that a "two-out-of-three" vote can determine which,
+if any, of the timestamps are faulty and should be ignored.
+Having three DTS servers is thus the suggested minimum. If
+there are only three DTS servers and DTS is configured to require
+three servers, if one of those servers becomes temporarily
+unavailable, synchronizations will not be able to complete
+until all three servers are once again available. If the time
+coordination requirement of the network is high enough that this
+period of not being able to synchronize is not acceptable, the
+customer might wish to deploy several additional DTS servers so
+that if one becomes temporarily unavailable, there are still at
+least three DTS servers available which can provide the timestamps
+needed for synchronizations.
+...\"
+...\"
+...\" 
+.LE
+...\" 
+...\" .zZ "Added Questions and Answers"
+...\" ----------------------------------------------------------------------
+...\" ----------------------------------------------------------------------
+...\" ----------------------------------------------------------------------
+...\" ----------------------------------------------------------------------

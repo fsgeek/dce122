@@ -1,0 +1,173 @@
+...\"
+...\"  @OSF_COPYRIGHT@
+...\"  COPYRIGHT NOTICE
+...\"  Copyright (c) 1990, 1991, 1992, 1993 Open Software Foundation, Inc.
+...\"  ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE in the
+...\"  src directory for the full copyright text.
+...\"
+...\"
+...\" HISTORY
+...\" $Log: rpc_ss_set_thread_handle.3rpc,v $
+...\" Revision 1.1.8.1  1996/11/18  20:00:08  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  19:35:53  wardr]
+...\"
+...\" Revision 1.1.6.8  1995/06/21  15:21:59  buckler
+...\" 	More 1.1 edits.
+...\" 	[1995/06/21  13:46:17  buckler]
+...\" 
+...\" Revision 1.1.6.7  1995/06/07  20:12:31  buckler
+...\" 	1.1 edits  Prentice Hall reformat
+...\" 	[1995/06/07  20:07:59  buckler]
+...\" 
+...\" Revision 1.1.6.5  1994/11/03  23:47:30  neilson
+...\" 	Substituted macros for book names in cross refs.
+...\" 	[1994/11/03  01:39:42  neilson]
+...\" 
+...\" Revision 1.1.6.4  1993/01/27  16:57:15  cjd
+...\" 	Embedded copyright notice
+...\" 	[1993/01/26  18:36:19  cjd]
+...\" 
+...\" Revision 1.1.6.3  1993/01/26  19:06:57  cjd
+...\" 	Embedded copyright notice
+...\" 	[1993/01/26  18:36:19  cjd]
+...\" 
+...\" Revision 1.1.6.2  1992/10/01  21:00:17  weir
+...\" 	Removed change bars; moved into 1.0.2doc tree
+...\" 	[1992/10/01  20:17:23  weir]
+...\" 
+...\" 	For P/H, now and forever!
+...\" 	[1992/09/16  14:55:50  oaf]
+...\" 
+...\" Revision 1.1.4.3  1992/09/16  18:33:04  oaf
+...\" 	*** empty log message ***
+...\" 
+...\" Revision 1.1.4.2  1992/08/14  17:58:16  oaf
+...\" 	2nd edits, PURPOSE fix, .ad l on related functions (& restore)
+...\" 	[1992/08/14  17:04:11  oaf]
+...\" 
+...\" Revision 1.1.2.2  1992/05/19  15:53:14  buckler
+...\" 	Editorial review
+...\" 	[1992/05/19  15:46:05  buckler]
+...\" 
+...\" Revision 1.1  1992/01/29  15:38:57  damon
+...\" 	Initial revision
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc.  ALL RIGHTS RESERVED
+...\"   HISTORY COMMENTS:
+...\"
+...\"   DATE:                            COMMENT:
+...\"
+...\"	Fri Nov 8, 1991                 Initial file submission to HP
+...\"                                   for final integration at IBM.
+...\"                                   
+...\"
+...\" ********************************************************************
+...\"                                                                    *
+...\" HP/DIGITAL CONFIDENTIAL
+...\" Copyright (c) 1991 Hewlett-Packard Co. and Digital Equipment Corp.
+...\" All rights reserved.
+...\"                                                                    *
+...\" ********************************************************************
+.TH rpc_ss_set_thread_handle 3rpc
+.iX "memory" "management"
+.iX "server threads" "memory management"
+...\" .iX "memory" "\*Lrpc_ss_set_thread_handle(\|)\*O"
+...\" .iX "\*Lrpc_ss_set_thread_handle(\|)\*O"
+.iX "threads" "memory management"
+.SH "Name"
+\*Lrpc_ss_set_thread_handle\*O - Sets the thread handle for either
+a newly created spawned thread
+or for a server that was formerly a client and is ready to be a client
+again
+.PP
+Used by server or possibly by client applications
+.SH "Synopsis"
+.sS
+\*L#include <dce/rpc.h>\*L
+.sp .4v
+\*Lvoid rpc_ss_set_thread_handle\*L(
+.nL
+	\*Lrpc_ss_thread_handle_t \*Vid\*L
+.nL
+	\*L);
+.sE
+.nL
+.ne 1.5i
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vid\*O"
+A thread handle returned by a call to \*Lrpc_ss_get_thread_handle(\|)\*O.
+.LE
+.nL
+.ne 1.5i
+.SH "Description"
+.PP
+The \*Lrpc_ss_set_thread_handle(\|)\*O routine is used by
+a thread spawned in the manager code
+to associate itself with the main RPC manager thread.
+Each spawned thread that uses
+\*Lrpc_ss_allocate(\|)\*O and \*Lrpc_ss_free(\|)\*O for
+memory management must call \*Lrpc_ss_set_thread_handle(\|)\*O,
+using the handle that the main RPC manager thread
+obtained through \*Lrpc_ss_get_thread_handle(\|)\*O.
+.PP
+The \*Lrpc_ss_set_thread_handle(\|)\*O routine can also be used by
+a program that originally was a client, then became a server, and
+is now reverting to a client.  The program must re\-establish the
+client environment by calling the 
+\*Lrpc_\%ss_\%set_\%thread_\%handle(\|)\*O routine, supplying the handle
+it received (through \*Lrpc_\%ss_\%get_\%thread_\%handle(\|)\*O)
+prior to becoming a server, as a parameter.
+.nL
+.ne 1.1i
+.SH "Return Values"
+.PP
+An exception, \*Lrpc_x_no_memory\*O, when there is insufficient memory
+available to set up necessary data structures.
+.nL
+.ne 1.5i
+.SH "Examples"
+.PP
+When this function is invoked within a spawned thread, its
+argument is the thread handle of the calling thread.  This example assumes
+the data passed to the thread consists of only the middle thread.
+.oS
+#include <pthread.h>
+#include <dce/idlbase.h>
+
+ int helper_thread (
+     pthread_addr_t th
+     )
+ {
+     /*
+      * Set the memory management environment to match
+      * the parent environment.
+      */
+      rpc_ss_set_thread_handle(rpc_ss_thread_handle_t)th;
+     /*
+      * Real work of this thread follows here ...
+      */
+  }
+.oE
+.ne 1.5i
+.SH "Errors"
+.PP
+A representative list of errors that might be returned is not shown
+here.  Refer to the \*(Tg for complete descriptions of all error
+messages.
+.ne 1.5i
+.SH "Related Information"
+.ad l
+Functions:
+\*Lrpc_ss_allocate(3rpc)\*O,
+\*Lrpc_ss_free(3rpc)\*O,
+\*Lrpc_ss_get_thread_handle(3rpc)\*O.
+.PP
+Books:
+\*(Dk.
+.ad b

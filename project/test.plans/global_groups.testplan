@@ -1,0 +1,274 @@
+
+                      GLOBAL GROUP TEST PLAN
+                                                          Rev.1  4/23/96
+                                                          Hitachi, Ltd.
+1. INTRODUCTION
+
+    This document describes the plan for testing GLOBAL GROUP function
+    that is introduced to DCE Release 1.2.2.
+    This document covers the policy and target of the test, as well as
+    the detailed description of the test cases.
+
+
+2. GOALS AND NON-GOALS
+
+    GOALS of GLOBAL GROUP TEST are:
+    - To provide the method to verify new or modified function of
+      DCE's components relating to GLOBAL GROUP function.
+    - To make as much of testing automated as possible.  Those
+      that cannot be automated because of the nature of the tests
+      are to be executed manually.  For those executed manually,
+      the procedure of how to do the tests will be prepared.
+    - All tests will log the results in the file to verify if the
+      tests are successful or not later.  Additional information may
+      be available in the log file for finding how, where and when the
+      problems occurred.
+
+    NON GOALS:
+    - GLOBAL GROUP TEST has no specific means to inspect degrades
+      of DCE's components that may be affected by the enhancement of
+      GLOBAL GROUP.  Such area should be covered by the existing
+      tests.
+    - It is not the scope of GLOBAL GROUP TEST to dig out the cause
+      of the problems if any.
+
+
+3. Enhancement concerning with GLOBAL GROUP
+
+    Differences between DCE1.2.2 and pre-DCE1.2.2 to accomplish
+    GLOBAL GROUP's functional requirements are:
+
+    (a) DCE administration enhancements for group membership commands.
+
+    (b) `secd' support for foreign principals as members of local
+        groups.
+
+    (c) Privilege server support.
+
+    (d) Database conversion, migration, and `sec_salvage_db' support.
+
+
+
+
+
+
+4. TEST PLAN
+
+ 4.1 Test scenarios
+
+   The basic test scenarios are:
+
+    (a) Manipulating foreign principals by API's
+        for verifying functions in Section 3. (a).  See Section 4.2
+
+    (b) Manipulating foreign principals by COMMAND's
+        for verifying functions in Section 3. (a).  See Section 4.3
+
+    (c) Propagation test
+        for verifying functions in Section 3. (b).  See Section 4.4
+
+    (d) EPAC verification ( acl testing )
+        for verifying functions in Section 3. (b) and (c).  See Section 4.5
+
+    (e) Migration test
+        for verifying functions in Section 3. (d).  See Section 4.6
+
+    (f) `sec_salvage_db' test
+        for verifying functions in Section 3. (d).  See Section 4.7
+
+    (g) Stress test
+        See Section 4.8
+
+
+    For each modified or added functions in GLOBAL GROUP, NORMAL,
+    ABNORMAL and CRITICAL condition tests will be prepared.  They
+    will be automated by a method like TET.
+    If there is no reasonable way to execute the specific tests
+    automatically, the execution process to do it by hand will be
+    documented so that it can be exactly reproduced.
+
+
+ 4.2 Manipulating foreign principals by API's
+
+  This section includes tests for part of functions described in
+  section 4.1 (a).
+
+    Existing API's listed below are modified to handle foreign
+    principal as `person_name` as well as local principal.
+    - sec_rgy_pgo_add_member()
+    - sec_rgy_pgo_delete_member()
+    - sec_rgy_pgo_is_member()
+    - sec_rgy_pgo_get_members()
+
+    For `sec_rgy_pgo_get_members()', the returned `member_list`
+    parameter holds a list of principal names, or global names for
+    foreign.
+
+    Basic test plan of this area is:
+    Giving NORMAL, ABNORMAL, and CRITICAL (means equal to or a little
+    shorter than the maximum length of arguments) cases of global name
+    argument as person name to each API.  Then verify if return value
+    (if it exists) and status corresponding to the expected results.
+    Especially for sec_rgy_pgo_get_members(), principal list created by
+    the API will be verified.
+
+    This section's tests are written in scripts, and can be executed
+    automatically.
+
+
+ 4.3 Manipulating foreign principals by COMMAND's
+
+  This section includes tests for functions described in section 4.1 (b)
+
+   `dcecp` and `rgy_edit' are modified in DCE 1.2.2
+    - `dcecp' allows not only `principal_name' but also
+     `/.../cell_name/principal_name' for token of `group' sub command.
+      for detail:
+        (a) `group add <group_name> -member <principal_name>'
+        (b) `group remove <group_name> -member <principal_name>'
+        (c) `group list <group_name>'
+
+    - `rgy_edit' support foreign principals as local group members.
+      for detail:
+        (a) `member <group_name> [-a member_list] [-r member_list]
+        (b) `view pgo_name -m'
+
+    Those administration COMMAND's are to be verified if they work
+    correctly or not by the test cases outlined below.
+
+    Basic test plan of this term is:
+    Giving NORMAL, ABNORMAL, and CRITICAL cases of global name argument
+    to each sub-command of dcecp and rgy_edit.  Then verify if messages
+    (if it exist) are correct, if Database is actually modified or not.
+    For checking Database's status, APIs sec_rgy_pgo_is_member() and
+    sec_rgy_pgo_get_members() will be used.
+
+    This section's tests are written in scripts, and can be executed
+    automatically.
+
+
+ 4.4 Propagation test
+
+    Propagation tests require two cells consisting of three nodes at
+    minimum.  One of the cells must have a master and a replica server.
+    The other must have a master server.
+
+    [test 1]
+    Modify Database by adding or removing global principals,
+    then verify if global principal member operations items are
+    propagated to the replica in the same cell correctly.
+
+    [test 2]
+    Modify Database by global operations, and use dcpcp's commands
+    e.g. `registry synchronize' or `sec_admin initrep' to re-initialize
+    the replica, then verify if the global principal members are
+    re-created on the replica correctly.
+
+    [test 3]
+    Modify Database by global member operations then shutdown secd
+    and bring it up again, then verify if log should be replayed
+    and data has been synchronized.
+
+    In this section, the trigger of propagating Database is typing
+    commands manually.
+    It is difficult to replace above method to convenient scripts.
+    Nevertheless we can execute verifying part by scripts.
+
+
+ 4.5 EPAC verification (acl testing)
+
+    - verify if acl accesses to /.:/sec/foreign_principal or
+      its sub-directory are rejected as "Object not found"
+      since this domain created for foreign principal is not
+      intended to be readable from the public for this release.
+    - test a foreign principal group acl ability.  Details
+      are in ATTACHMENT 1.
+
+    - stress test, e.g. create a foreign principal belonging
+      to more than 10 local groups then do what is stated
+      in ATTACHMENT 1 with more group acl test.
+
+
+ 4.6 Migration test
+
+    a) database conversion:
+
+    - Install pre-DCE 1.2.2 bits, do some local member operation,
+      then install DCE 1.2.2 bits, database should be automatically
+      converted.
+
+
+    b) Migration:
+
+    - After testing a) above, do some global principal member
+      operations, they should be rejected as error "Object not found".
+      After the following command to set software version forward
+
+      dcecp> registry modify -version secd.dce.1.2.2
+
+      global principal member operations should succeed and
+      propagation for these data should also be successful.
+
+
+ 4.7 sec_salvage_db test
+
+    On DCE 1.2.2 `sec_salvage_db' can manipulate registry Database contains
+    foreign principal name as group member.
+    Then we are going to test it's enhanced specification just using
+    -print and -reconstruct options.
+
+    The procedures is:
+    (1) Modify Database by NORMAL and CRITICAL global principal operations.
+    (2) shutdown secd.
+    (3) Do sec_salvage_db -print to dump Database to ascii files.
+    (4) Verify if global principal operation is reflected in print_file.
+    (5) Do sec_salvage_db -reconstruct to restore previous Database's
+        contents.
+
+    This can be done by scripts.
+
+
+ 4.8 Stress test
+
+    For each test scenario described from 4.2 to 4.7, re-execute similar
+    tests with the number and length of the test data being augmented.
+
+
+5. VOLUME OF TESTS
+
+    [TBD]
+
+
+
+6. SCHEDULE
+     Here is the schedule for the GlobalGroup testing.
+
+Task                            Base    New     Modify  Total   Start   Finish
+- ------------------------------- ----------------------------------------------
+Writing TestSpecification                                       Feb.01  Apr.26
+                                ----------------------------------------------
+ -BasicPlan                                                     Feb.01  Mar.21
+ -TestScenario (API CMD ACL)                                    Apr.01  Apr.19
+ -TestScenario (PPGT MGRT SLVG)                                 Apr.22  Apr.26
+ -TestScenario (STRS)                                           Apr.22  Apr.26
+
+Writing TestSuite                                               Apr.15  May.17
+                                ----------------------------------------------
+ -TestScenario (API CMD ACL)                                    Apr.15  Apr.26
+ -TestScenario (PPGT MGRT SLVG)                                 May.07  May.10
+ -TestScenario (STRS)                                           May.13  May.17
+
+Executing Test                                                  May.07  May.24
+                                ----------------------------------------------
+ -TestScenario (API CMD ACL)                                    May.07  May.10
+ -TestScenario (PPGT MGRT SLVG)                                 May.13  May.17
+ -TestScenario (STRS)                                           May.20  May.24
+
+<Abbreviation>
+  API   API testing
+  CMD   command testing
+  ACL   ACL testing
+  PPGT  propagation testing
+  MGRT  migration testing
+  SLVG  sec_salvage_db testing
+  STRS  stress testing

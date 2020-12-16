@@ -1,0 +1,22 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: header.mm,v $
+...\" Revision 1.1.2.2  1994/08/11  20:36:49  jhh
+...\" 	expand copyright
+...\" 	[1994/08/11  19:58:56  jhh]
+...\"
+...\" Revision 1.1.2.1  1994/08/04  21:00:56  hal
+...\" 	Create DCE GDS Admin Gd & Ref from GDS parts of Adm Gd & Cmd Ref; fix log leaders if needed
+...\" 	[1994/08/04  20:08:04  hal]
+...\" 
+...\" 	Creating GDS Admin Gd & Ref from Admin book.extended, Cmd Ref
+...\" 
+...\" $EndLog$
+...\"
+.ds !@ OSF DCE GDS Administration Guide And Reference

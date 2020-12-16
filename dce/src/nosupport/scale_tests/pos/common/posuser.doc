@@ -1,0 +1,1939 @@
+                          Point of Sale (POS)
+                    DCE System Performance Benchmark
+                    ================================
+                           Reference Guide
+
+IBM Corporation                                                 Bob Russell
+PSP System Performance                                        (512)838-0844
+Department 57LS                                                 TL 678-0844
+Internal Zip 9151                               robert_russell@vnet.ibm.com
+11400 Burnet Road                                              ROR @ AUSVM1
+Austin, TX 78758                                           January 22, 1995
+
+
+                          Point of Sale (POS)
+                    DCE System Performance Benchmark
+                    ================================
+                           Reference Guide
+
+- Contents
+
+             I.    Introduction to POS
+                   A. Objectives of POS
+                   B. Origin and Evolution of POS
+             II.   Getting Started
+                   A. POS Databases
+                      1. Flat File Design
+                      2. Price Database
+                      3. Customer Database
+                      4. Catalog Directories and Files
+                      5. History File
+                      6. Port to DB2/2
+                   B. POS Servers
+                      1. Overview
+                      2. Environment Variables
+                      3. Standalone Model
+                      4. Distributed Model
+                      5. DB2/2 Databases
+                   C. POS Clients
+                      1. Overview
+                      2. Parameters and Options
+                      3. Think Time Implementation
+             III.  Data Collection and Analysis
+                   A. Real-time Console
+                      1. Throughput Monitor
+                      2. Remote Control
+                   B. Client Data Collection Files
+                   C. Summary Report
+             IV. Source Code Overview
+                   A. Common Source
+                   B. Client Program
+                   C. Server Program(s)
+                   D. Utility Programs
+             V. Compiling POS
+                   A. AIX
+                   B. OS/2
+             VI. Packaging
+            VII. Support and Copyrights
+==============================================================================
+
+I.    Introduction to POS
+
+      The purpose of this document is to convey enough information for
+      someone to install, compile, setup and run POS, and be able to wade
+      through the source to make changes as necessary.
+
+      A. Objectives of POS
+
+         The objective of the Point of Sale (POS) benchmark is to exercise
+         a subset of high profile functions I've seen in many "real life"
+         customer applications. I've intentionally given extra weight to
+         some of these functions which are typically poor performers, for
+         example, "rpc_ns_binding_import_next".
+
+         Two factors are important to benchmark a system under development:
+
+         1. To place a meaningful workload on the subsystems of interest;
+            CDS, Security and RPC in a manner consistent with the way
+            these subsystems will be used by customers.
+
+         2. To place a representative workload on the remaining operating
+            system and related services which are generally used by
+            applications.
+
+         I think it naive to focus on a set of atomic APIs and ignore
+         the rest of the system when looking at system performance and
+         capacity.
+
+         The reporting metrics, to a great extent, are based on the
+         Transaction Processing Performance Council's (TPC) benchmarks,
+         specifically TPC Benchmark (TM) A and TPC Benchmark (TM) B.
+
+      B. Origin and Evolution of POS
+
+         POS has evolved over the past eight years of system performance
+         analysis and customer consultations.  In the beginning, we were
+         building a Relational Database Manager (RDBMS) for OS/2, and
+         looking for representative applications to evaluate OS/2 DBM.  We
+         began with the 1984 University of Wisconsin - Madison benchmark,
+         which became known as "TP1", and eventually standardized as TPC
+         Benchmarks (TM) A & B.
+
+         The second evolutionary stage was the National Software Testing
+         Laboratories' (NSTL) order entry benchmark which was reported
+         in the Software Digest Ratings Reports.
+
+         About 1990, I worked with a large retail company to prototype
+         a real-time OS/2 DBM order entry system which exhibited many of these
+         high profile characteristics I had already observed. A few months
+         later I was re-missioned to study the Distributed Computing
+         Environment (DCE), and the earlier prototype seemed a good platform
+         from which to evolve.
+
+         After talking with several DCE beta customers to understand their
+         needs and concerns, and combining the Database Manager experiences,
+         I put together the first generation of POS in 1992.
+
+         In the past three+ years, I've had opportunities to meet with dozens
+         of customers and share experiences. The POS workload has provided
+         credible performance information to use for a basis to estimate and
+         quantify the unique requirements of many of these customers.
+
+         Since the conception of POS, I've continued to enhance its
+         functionality and meterics to meet the needs of the DCE
+         and Warp Server+DSS community.
+
+         In 1994, POS was adopted as the IBM internal DCE standard on
+         all platforms (DCE for OS/2, DCE for AIX, MVS/OE, VM, Encina
+         and CICS).  Therefore, looking at the DB2 family of database
+         managers became interesting in this context.
+
+II.   Getting Started
+
+      Building the POS databases on the respective POS application servers
+      is the first step. If you are installing from my AIX TAR tape, the
+      databases will already exist as:
+
+           /u/pos                 POS tree and README files
+                 /data            POS database tree
+                      /price      POS Price Database and Indices
+                      /customer   POS Customer Database and Indices
+                      /cat        1,000 POS Catalog Pages
+                      /summer     1,000  "     "      "
+                      /winter     1,000  "     "      "
+                      /spring     1,000  "     "      "
+                      /autumn     1,000  "     "      "
+
+      The remainder of the /u/pos tree contains the source and executables:
+      (I'll discuss these later in more detail.)
+
+           /u/pos                 POS tree and README files
+                 /aix             Makefile and unique source code
+                 /common          Common source code for server types
+                 /aixdemo         A simple demo of distributed DCE. Caution
+                                  these have the same names as the real
+                                  POS programs.
+                 /client          POS Client executables
+                 /primary_srv     POS Primary server and POS Standalone
+                                  server
+                 /price_srv       POS Secondary Price server executables
+                 /customer_srv    POS Secondary Customer server executables
+
+      The databases need only exist on the POS application server(s), and
+      the path to the files is exported (SET) in an environment variable
+      for each of the directories. Similarly, only the client executables
+      need to exist on a client.
+
+      A. POS Databases
+
+        The size of the POS databases was intentionally designed to be
+        much smaller than is generally used to benchmark the performance
+        of a RDBMS. The aggregate size of the POS databases is about
+        200 MB; big enough to challenge the file system cache, but small
+        enough to avoid an I/O bottleneck.
+
+        The data sizes passing between the client and server are the
+        whole data structures (below); Customer 512 bytes, Price 168 bytes,
+        Catalog 16384 bytes and History (variable) 362-602. These structures
+        are also defined in the /.:/PointOfSale IDL and are used as overlays
+        for the array of bytes defined as IN/OUT in the RPC IDL; in this
+        way, POS is consistent with the "generic RPC" approach many
+        customers are using, while still allowing RPC to deal with the
+        byte reversal between OS/2 and AIX.
+
+         1. Flat File Design
+
+            In the interest of portability, I designed the databases
+            as operating system flat files so there would be no dependency
+            on a specific RDBMS when we move between the OS/2, AIX, SunOS and
+            HP9000 platforms in my lab, and subsequently to OS/400 and MVS.
+
+            The data is stored on disk as binary, and accessed with
+            C library open-lseek-read-close calls. Two databases (Price
+            and Customer) are accessed in part by indices which I explain
+            in more detail below. The performance of lookup of the
+            two indexed databases is slightly better than a real database
+            manager product.
+
+         2. Price Database - 100,000 records x 168 bytes. The Price database
+            is a single data file which is keyed by a three level index
+            to the 'item_no', the index is stored in a separate file.
+
+            I am told by a national retailer there are 2.5 items each
+            sales slip, implemented as a random number of items between 1
+            and 4. Note the array of 4 items in the History structure
+            below (II.A.5).
+
+            Since the Price database is accessed most often (2.5 lookups
+            per Customer Sale) I have stored the top two levels of the
+            index in application memory, the third level is read from
+            the index file (possibly in disk cache). The Price data
+            is always read from file (or disk cache). Data is physically
+            stored in the file on 512 byte boundaries (3 x 168 records plus
+            8 bytes of padding) and read in 512 byte blocks into an
+            application memory structure. The appropriate record is
+            then copied into the RPC structure and returned to the client.
+
+            a. Price Data Structure
+
+              typedef struct _ITEM_ROW
+              {
+                long       item_no       ;
+                long       upc_no        ;
+                char       descr[36]     ;
+                char       dept_no[4]    ;
+                long       qty_on_hand   ;
+                char       inv_unit[8]   ;
+                long       ord_at_qty    ;
+                long       qty_to_ord    ;
+                long       inv_cnt       ;
+                char       inv_date[12]  ;
+                long       qty_on_ord    ;
+                char       lst_ord_dt[12];
+                double     price_1       ;
+                char       eff_dt_1[12]  ;
+                double     price_2       ;
+                char       eff_dt_2[12]  ;
+                double     price_3       ;
+                char       eff_dt_3[12]  ;
+                double     unit_cost     ;
+              } ITEM_ROW;
+
+            b. PRICE.EXE is the program to create the Price database
+               and index. The default (and maximum) size is 100,000
+               records.
+
+               Inputs to PRICE.EXE: Environment variable
+
+                    SET POSSCALE= (NULL) or un-set is 100,000 records
+
+                                  1      will create a miniature 1,000 record
+                                         database. This is handy for developing
+                                         and testing on my desk machine. This
+                                         variable needs to be set to the same
+                                         value on the client to restrict the
+                                         random number generation of item_no.
+
+               Outputs from PRICE.EXE
+
+                   PRICE.DAT      the price database 17,067,008 bytes
+                   inx0.inx       temp file - level 1 of index
+                   inx1.inx       temp file - level 2 of index
+                   inx2.inx       temp file - level 3 of index
+
+                   Then (IMPORTANT) the three temp index files must be
+                   concatenated into one file (PRICE.INX, case sensitive
+                   on AIX). The OS/2 command is:
+
+                   copy inx0.inx /B + inx1.inx /B + inx2.inx /B  PRICE.INX
+
+                   (the /B option forces a binary copy)
+
+                   The resulting PRICE.INX should be 272,384 bytes.
+
+             c. POS runtime environment variable set (exported) on
+                the POS server to point to the PRICE database:
+
+                   OS/2    SET PTQDIR=E:\PRICE
+                   AIX     export PTQDIR=/u/pos/data/price
+
+                On the AIX TAR tape, the server variables are set
+                in shell scripts:
+
+                    /u/pos/primary_srv/runsal           AND
+                    /u/pos/price_srv/runsec
+
+         3. Customer Database 100,000 records x 512 bytes. The Customer
+            database is a single data file which is keyed by a three level
+            index to the 'area_cd' and 'phone_no', the index is stored in
+            a separate file.
+
+            I have stored only the top level of the index in application
+            memory, the second and third level are read from the index file
+            (possibly in disk cache).  The Customer data is always read
+            from file (or disk cache).  The Customer data is read in 512
+            byte blocks (one record) into an application memory structure
+            and copied into the RPC structure and returned to the client.
+
+            a. Customer Data Structure
+
+              typedef struct _CUST_DATA
+              {
+                long       area_code;
+                long       phone_no;
+                char       extn[8];
+                long       acct_id;
+                char       cust_last_name[48];
+                char       cust_first_name[24];
+                char       cust_MI[4];
+                char       ship_addr[72];
+                char       mail_addr[72];
+                char       state[4];
+                char       city[48];
+                long       zip_code;
+                char       cust_type[4];
+                double     disc_pcnt;
+                double     tax_pcnt;
+                char       drv_lic[24];
+                char       drv_lic_state[4];
+                char       date_last_purch[12];
+                char       cust_ref[72];
+                char       cust_filler[84];
+              } CUST_DATA;
+
+            b. CUSTOMER.EXE is the program to create the Customer database
+               and index. The default (and maximum) size is 100,000
+               records.
+
+               Inputs to CUSTOMER.EXE: Environment variable
+
+                    SET POSSCALE= (NULL) or un-set is 100,000 records
+
+                                  1      will create a miniature 1,000 record
+                                         database. This is handy for developing
+                                         and testing on my desk machine. This
+                                         variable needs to be set to the same
+                                         value on the client to restrict the
+                                         random number generation of item_no.
+
+               Outputs from CUSTOMER.EXE
+
+                   CUSTOMER.DAT   the Customer database 51,600,000 bytes
+                   chead.inx      temp file - index header
+                   cinx0.inx      temp file - level 1 of index
+                   cinx1.inx      temp file - level 2 of index
+                   cinx2.inx      temp file - level 3 of index
+
+                   Then (IMPORTANT) the four temp index files must be
+                   concatenated into one file (CUSTOMER.INX, case sensitive
+                   on AIX). The OS/2 command is:
+
+                   copy chead.inx /B + cinx0.inx /B + cinx1.inx /B +
+                                  cinx2.inx /B  CUSTOMER.INX
+
+                   The resulting CUSTOMER.INX should be 1,249,792 bytes.
+
+             c. POS runtime environment variable set (exported) on
+                the POS server to point to the CUSTOMER database:
+
+                   OS/2    SET CMRDIR=E:\CUSTOMER
+                   AIX     export CMRDIR=/u/pos/data/customer
+
+                On the AIX TAR tape, the server variables are set
+                in shell scripts:
+
+                    /u/pos/primary_srv/runsal           AND
+                    /u/pos/customer_srv/runsec
+
+         4. Catalog Directories and Files
+
+            The notion of the catalog directories is that there are
+            5 retail catalogs (GENERAL, SUMMER, AUTUMN, WINTER and SPRING),
+            each has 1,000 pages. Each page is 16,384 bytes and "represents"
+            an image of a page to be displayed on the client. In reality,
+            all 5,000 files are identical binary garbage. On the OS/2
+            and Windows PC/DCE GUI clients, once the RPC call returns, a dummy
+            bit image is actually displayed.
+
+            The premise is like Service Merchandise, Best Products or
+            Gemco where a customer might view a catalog page and with the
+            mouse selects 2.5 items from the catalog.
+
+            The naming is:
+                /u/pos/data/cat/GENERAL.000 to GENERAL.999
+                /u/pos/data/summer/SUMMER.000 to SUMMER.999
+                /u/pos/data/winter/WINTER.000 to WINTER.999
+                /u/pos/data/autumn/AUTUMN.000 to AUTUMN.999
+                /u/pos/data/spring/SPRING.000 to SPRING.999
+
+            To populate the five directories, I use a batch file
+            which recursively copies and renames a single file.
+
+            The runtime environment variable SET POSSCALE=1 on the client
+            restricts the Catalog read to only the "xxxxxx.001" file,
+            again handy for developing and testing on my desk machine.
+
+         5. History File
+
+            The notion of the History file is two fold:
+            1. To make a permanent record of each Customer Sale.
+            2. My intent was to have a separate program read the History
+               file and create an invoice and packing slip, again using the
+               premise of Service Merchandise, Best Products or Gemco where a
+               customer places an order in the store and his order is
+               waiting for him at the exit cash register.
+
+               a. History Data Structure
+
+                 typedef struct _SAVE_DATA
+                 {
+                   struct _TRANS_NO
+                   {
+                     char       dept_no[4]    ;
+                     char       trans_date[9] ;
+                     char       trans_time[9] ;
+                     long       reg_no        ;
+                   } TRANS_NO;
+
+                   struct _TRANS_HEADER
+                   {
+                     long       acct_id       ;
+                     long       line_item_cnt ;
+                     long       item_cnt      ;
+                     char       trans_type[8] ;
+                     char       paymt_type[8] ;
+                     long       employee_no   ;
+                     char       cust_ref[72]  ;
+                     char       padding[152]  ;
+                   } TRANS_HEADER;
+
+                   struct _LINE_ITEM
+                   {
+                     long       item_no       ;
+                     long       qty           ;
+                     double     price_each    ;
+                     double     price_total   ;
+                     char       descr[36]     ;
+                     char       padding[20]   ;
+                   } LINE_ITEM[4];
+                 } SAVE_DATA;
+
+               b. History Transaction
+
+                  During each Customer Sale, the data fields in the
+                  History structure are filled in at the client
+                  terminal. The final step is to send the structure
+                  to the "print" server. In POS today, the History
+                  file is written on the POS server to which the
+                  client is currently bound.
+
+                  Since there are a random number of items (1 - 4) for
+                  each Customer Sale, there will be a variable number
+                  of elements in the LINE_ITEM[4] array of structures,
+                  and the total data size will vary between 382 and 602
+                  bytes per History RPC.
+
+                  History is the only open-write-close transaction, and
+                  the only transaction where more data flows to the
+                  server than returned to the client. A pthread_global_lock
+                  at the server serializes the History write.
+
+         6. Port to DB2/2 1994
+
+            I have completed the implementation of DB2 for OS/2 Version
+            1.2.1 which is process based, the DB2 for OS/2 Version 2.1.x
+            is thread based.
+
+            The process based implementation currently in the POS server
+            source for OS/2 is somewhat interesting.  Since DB2/2 1.2
+            transaction integrity is at the process level, it is
+            necessary to provide a way for RPC call threads to access POS
+            processes which each have an unique active CONNECT TO DATABASE.
+
+            The POS server spawns a fixed number (8) of OS/2 child processes,
+            and each child process connects to the DB2/2 database, the
+            environment variable SET POSDBNAME=posdb on the POS Price
+            and POS Customer servers establishes the appropriate database
+            alias.
+
+            When an RPC call arrives at the server, it remains in the RPC
+            call thread queue until one of the database processes is
+            available, a set of OS/2 semaphores and Boolean array are used to
+            queue and synchronize the processes.  Shared memory is used to
+            pass data between the RPC thread and database process.  The
+            number of RPC call threads is 16; 2 x the number of child
+            processes.  This is an efficient model for SQL transactions which
+            can be completed in a single RPC call to the server.  The
+            performance of this model is about 25% faster than the native
+            DB2/2 Database Application Remote Interface (DARI - Stored
+            Procedure, using NetBIOS)
+
+      B. Servers
+
+         The POS makefile builds two server models:
+
+         1. A stand alone POS RPC Application server, that is, all
+            RPC calls are serviced by the server to which the client is
+            bound. This is: POS_SAL.EXE
+
+            Syntax:  POS_SAL   (no command line parameters)
+
+            The OS/2 DB2/2 version of POS_SAL.EXE is POS2SAL.EXE
+
+              Standalone      |                 Distributed Model
+                Model         |            Primary              Surrogate
+                              |            Server                Servers
+                    Server    |                      /.:/POS_CMR
+                  +---------+ |           +---------+          +----------+
+                  | Catalog | |           | Catalog |    +---->| Customer |
+         /.:/Point|---------| |  /.:/Point|---------|    |     |          |
+          OfSale  | Customer| |   OfSale  |passthru>|<---+     +----------+
+          ------->|---------| |   ------->|---------|
+            to    | Price   | |     to    |passthru>|<---+     +----------+
+          Clients |---------| |   Clients |---------|    |     | Price    |
+                  | History | |           | History |    +---->|          |
+                  +---------+ |           +---------+          +----------+
+                              |                      /.:/POS_PTQ
+
+         2. There is also a distributed model of the POS server, the client
+            binds to a Primary POS server which services the Catalog and
+            History transactions. The Primary POS server invokes a
+            nested RPC call to both a surrogate Price server /.:/POS_PTQ
+            and a surrogate Customer server /.:/POS_CMR. The client's
+            request is passed through the Primary POS server to the
+            nested RPC call to the two surrogate servers.
+
+            The two Surrogate servers must be started before the
+            Primary server. The two surrogates export their interface
+            (rpc_binding_export) to CDS so the Primary server can find
+            them and bind to the surrogates.
+
+            Syntax: POS_SEC n
+                              Where n is:  3 = Price Surrogate Server
+                                           4 = Customer Surrogate Server
+
+            Once the two surrogates have exported their interface and
+            issued an rpc_server_listen, then the Primary server(s)
+            can be started.
+
+            Syntax: POS_PRI   (no runtime parameters)
+
+            The Primary server will do an rpc_binding_import_next
+            and bind to each of the surrogate servers, then
+            export the client RPC interface /.:/PointOfSale to
+            CDS.
+
+         3. POS Server Environment Variables
+
+            SET POSPROTOCOL=ncacn_ip_tcp
+                            OR ncadg_ip_udp, I've only tested these two.
+
+            SET POSDIR=D:\POS
+                            Points to the subdirectory on the Primary
+                            or StandAlone server where the client's
+                            performance data file will be transferred
+                            just before each client exits.
+
+            SET PTQDIR=E:\PRICE        ]
+            SET CMRDIR=F:\CUSTOMER     ]
+            SET POSSAVE=F:\HISTORY     ]  The paths to each of the
+            SET CATDIR=F:\CAT          ]  POS databases. Paths can be
+            SET SUMMER_CAT=F:\SUMMER   ]  set to local or network
+            SET SPRING_CAT=F:\SPRING   ]  paths (LAN, NFS, DFS, etc.)
+            SET AUTUMN_CAT=F:\AUTUMN   ]
+            SET WINTER_CAT=F:\WINTER   ]
+
+            SET SECLVL=1
+                            Server authentication level, 1 means
+                            the server is expecting authenticated
+                            RPC from the clients.
+
+            SET AUTHP=cell_admin  ] Set the authentication for the Primary
+            SET AUTHL=3           ] server client side of the nested RPC
+            SET AUTHN=1           ] calls to the Surrogate server.
+            SET AUTHZ=2           ] These are not necessary in a stand alone
+                                    configuration. See the .H header file
+                                    for the integer value of each of
+                                    these parameters. AUTHL=3 is CALL
+                                    level authentication.
+
+            SET POSDBNAME=dbname
+                            Required only when running the DB2/2 versions
+                            of the servers:
+                                 POS2SEC 3    (Price DB2/2 Surrogate Server)
+                                 POS2SEC 4    (Customer DB2/2 Surrogate Server)
+
+            SET HOSTNAME=myname
+                            This environment variable is generally set
+                            by the TCP/IP installation.
+
+         4. OS/2 DB2/2 Databases
+
+            To create the DB2/2 Price and Customer databases, do the
+            following:
+
+            1. Using DBM Query Manager or command line interface
+               create an empty database <dbname>, and configure
+               appropriately.
+            2. SET POSDBNAME=<dbname>
+            3. SQLBIND SQLCRTB.BND <dbname>
+            4. Execute SQLCRTB.EXE            (creates empty tables)
+            5. SQLBIND PRI_SQL.BND <dbname>   (binds the price table loader)
+            6. Execute PRI_SQL.EXE            (inserts price data)
+            7. SQLBIND CUST_SQL.BND <dbname>  (binds customer table loader)
+            8. Execute CUST_SQL.EXE           (inserts customer data)
+            9. SQLBIND SQLCRIX.BND <dbname>   (binds price index builder)
+           10. Execute SQLCRIX.EXE            (creates price and customer
+                                               indices, runstats and reorg)
+           13. SQLBIND SQLAGENT.BND <dbname> /I=UR  (binds POS runtime program)
+
+      C. POS Clients
+
+         The POS client has a number of options which can be set from
+         either the POS Control program, command line and/or environment
+         variables.
+
+         By the way, the POS_REQ can be stopped on OS/2 by pressing any
+         key and on AIX by hitting Enter.
+
+         Client modes of operation:
+
+         - Normal transaction mix (Customer, Catalog, 2.5 x Price and
+                                   History)
+
+         - Exclusively Customer, Catalog, Price or History.
+
+         - ReBind to POS server before each Customer Sale, or not.
+
+         - Expire client CDS cache before each rpc_ns_binding_import_next
+
+         - Do a DCELOGIN (randomly) every 15 Customer Sales
+
+         - Data Transfer (similar to the DCE RPC Perf test case (char mode))
+              - 1 to 8192 byte transfer to server (1 byte returned)
+              - 100 byte exchange
+              - Random transfer to server (1 - 8192, avg 4196)
+
+         - Kill the server. Any client can issue an RPC to kill and unexport
+           the POS server RPC.
+
+         1. Overview
+
+            - POS_REQ.EXE is the text mode OS/2 client
+              POS_REQ     is the text mode AIX client
+                          (Shell script "runreq" sets the environment
+                           and calls program in AIX - /u/pos/client)
+            - POSPM.EXE   is the OS/2 GUI client
+            - POSDLG.EXE  is the interactive demo client
+            - WINPOS.EXE  is the Windows client for PC/DCE
+            - POSLOGIN.EXE is the POS pseudo DCELOGIN program called
+                          by the POS client.
+
+            a. Bind/Rebind Operation
+
+               Many customers indicate they will be disconnecting and
+               re-binding to the application server frequently rather
+               than binding at 9:00 and disconnecting at 5:00. Since
+               the rpc_ns_binding_import_next is prone to performance
+               problems, this seems a good candidate to test in the
+               course of benchmarking.
+
+               The following set of APIs are optionally called
+               after every Customer Sale:
+
+                                   rpc_binding_free
+                        rpc_ns_binding_import_begin
+                     rpc_ns_mgmt_handle_set_exp_age   (optional)
+                         rpc_ns_binding_import_next
+                         rpc_ns_binding_import_done
+                             rpc_ep_resolve_binding
+                      rpc_binding_to_string_binding
+                       rpc_mgmt_is_server_listening   (1st time only)
+                          rpc_binding_set_auth_info
+                          rpc_binding_inq_auth_info   (1st time only)
+                                    rpc_string_free
+
+            b. Catalog Transaction
+
+               The Catalog RPC sends a Catalog Name and Page Number
+               to the POS server. The server gets the path from the
+               environment. Then, OPEN-READ-CLOSE a 16 KB file
+               and returns it to the client. The text-mode OS/2 and AIX client
+               displays only the page number on the return, the OS/2
+               and Windows GUI clients display a small bit map on return.
+
+               The notion of the catalog directories is that there are 5
+               retail catalogs (GENERAL, SUMMER, AUTUMN, WINTER and SPRING),
+               each has 1,000 pages.  Each page is 16,384 bytes and
+               "represents" an image of a page to be displayed on the
+               client.  In reality, all 5,000 files are identical binary
+               garbage.
+
+            c. Customer Master Record (CMR) Transaction
+
+               The Customer database has 100,000 512 byte records, the lookup
+               is keyed on the customer's area code and phone number. The
+               entire data structure is returned to the client, most of
+               the data is displayed on the user's screen.
+
+               For the Customer and Price database lookup, a single file
+               handle for each is shared by all RPC call threads, and
+               the LSEEK-READ calls are protected temporarily by a
+               pthread_global_lock. A large portion of the data files
+               are expected to be in the disk cache.
+
+            d. Price Table Query Transaction
+
+               The Price Database has 100,000 168 byte records, physically
+               blocked on 512 byte boundaries with 3 records stored
+               in each block.
+
+               The client generates a random item number from 1000000 to
+               10999999. The entire record is returned to the client
+               where the price is determined from three prices based on a
+               pseudo random date-of-sale. The quantity ordered, item number,
+               description, unit price, extended price are displayed. The
+               invoice subtotal, tax, discount and total price are
+               recalculated as each price is returned.
+
+               The average items per sales ticket for a large retailer
+               is 2.5 items, I use a random number between 1 and 4.
+
+               For the Customer and Price database lookup, a single file
+               handle for each is shared by all RPC call threads, and
+               the LSEEK-READ calls are protected temporarily by a
+               pthread_global_lock. A large portion of the data files
+               are expected to be in the disk cache.
+
+            e. History File Transaction
+
+               The final RPC of each Customer Sale sends a detailed
+               transaction record to the History file. The record
+               is appended to an already open file handle.
+
+               The intent of the History file is to:
+               1. Print an invoice and packing slip.
+               2. When the customer picks up the order and pays, to
+                  move the record to permanent storage.
+               This function (1 & 2) are not implemented.
+
+            f. Other Transactions
+
+               i.   Optional DCE_LOGIN
+
+                    An option of the OS/2 and AIX client is to perform
+                    a DCELogin randomly every 15 Customer Sales. The
+                    call is made to system(POSLOGIN.EXE).
+
+                    The pseudo-login program makes all the right
+                    security API calls without changing the session
+                    context. The old DCELOGNE.EXE was used in
+                    DCE 1.0.2. The program looks in the environment
+                    for:
+                        SET HOSTNAME=myname
+                        SET POSPASSWORD=mypassword
+
+                    I routinely populate the Registry with 1,000 accounts
+                    and principals.  The code to generate a random
+                    principal name is still there and just commented out.
+                    The names I use are USER0000 - USER9999.  This assures
+                    better coverage of the registry database.
+
+               ii.  RPC Data Transfer Test
+
+                    This case was added to evaluate authenticated RPC
+                    in a system test environment. It is similar
+                    to the PERF RPC test case. All transfers are
+                    an array of CHAR.
+
+                    The parameters for this case are:
+
+                    - POS transaction type = 3      (see  II.C.2 below)
+                    - Environment variables:
+                        SET POSPACKET=       100  causes a 100 byte exchange
+                                            9999  causes a random size between
+                                                  1 and 8192, averaging 4196
+                                          1-8192  any other number causes
+                                                  a transfer to the server
+                                                  of that size with a 1 byte
+                                                  return.
+                                         default  4196
+
+               iii. Sending Client Performance Data to the Server
+
+                    When each client exits the main loop, it writes
+                    its performance data to disk in the directory
+                    pointed to by SET POSDIR=d:\abcd environment
+                    variable on the client. The data is then read into
+                    an RPC call and copied to the Primary server
+                    in its SET POSDIR=D:\abcde environment variable.
+
+                    This makes data reduction easier having all the files
+                    in one place. See CALCPOS.EXE (III.B). The naming of
+                    the files is OUT1.DAT to OUTn.DAT (inclusively) where
+                    'n' is the requester ID specified on the command line
+                    when POSREQ.EXE in invoked. (see II.C.2)
+
+               iv.  Murder/Suicide Transactions
+
+                    The 'suicide' RPC call from any client causes
+                    the POS server to unexport itself from CDS and the
+                    endpoint mapper, then terminate. This is invoked
+                    by either starting any client with POS transaction
+                    type '9' or from the POS control program.
+
+         2. Client Parameters and Options
+
+            This is a good place to note the lack of bullet-proofing
+            against incorrect input parameters. Out-of-range or
+            inappropriate command line or environment parameters
+            may result in abends, crashes or garbage-out.
+
+            SYNTAX: POS_REQ  ReqID Rate RunTime TransType [Port Address]
+
+                   WHERE:      ReqID is a unique number beginning
+                                     with 1, and sequential for each
+                                     subsequent client. CALCPOS.EXE
+                                     expects sequential file names
+                                     OUT1.DAT, OUT2.DAT,...,OUTn.DAT,
+                                     inclusively.
+
+                                Rate Specifies the desired arrival rate
+                                     per HOUR.  I generally use 3600000
+                                     to achieve zero(0) think time
+                                     between RPC calls, that's 1000 RPCs
+                                     per second.  I've implemented the
+                                     pacing as arrival rate rather than
+                                     arbitrary think time.  The actual
+                                     think time is -10 exponentially
+                                     distributed, and the actual
+                                     response time is deducted before
+                                     the pthread_delay.
+
+                             Runtime The length of the test in whole
+                                     minutes. The actual data collection
+                                     period is calculated from the RunTime
+                                     to discard the beginning and end of
+                                     the run to assure a clean steady state
+                                     capture.
+
+                           TransType 1 - Customer lookup only
+                                     2 - History only
+                                     3 - Data Transfer test case only
+                                     4 - Price lookup only
+                                     5 - Catalog only
+                                     9 - Kill the server
+                                    10 - Normal mixed Customer Sale
+                                         without Re-Binding
+                                    11 - Normal mixed Customer Sale
+                                         with Re-Binding
+                                    12 - Normal mixed Customer Sale
+                                         with Re-Binding
+                                         without displaying results
+
+                               Port (Optional) is a specific End Point
+                                    port number to bind to. This overrides
+                                    the initial binding lookup from CDS
+                                    if port is specified, Address must also
+                                    be specified.
+
+                            Address (Optional) Bind to a specific TCP/IP
+                                    address rather than looking up the
+                                    'tower' address in CDS.
+
+            a. Client Environment Variables
+
+               SET POSDIR=D:\POS
+                              Path for client to write perf data file
+                              on local drive.
+
+               SET AUTHP=cell_admin  ] Authentication level, see .H
+               SET AUTHL=3           ] header file for integer values.
+               SET AUTHN=1           ] AUTHL 2=connect, 3=call, 4=packet,
+               SET AUTHZ=2           ]       5=crc, 6=encrypt
+
+               SET NOPRINT=
+                              Any value will prevent output of data
+                              on the client display
+
+               SET POSPACKET=9999
+                             (used only with TransType 3)
+                                  100 causes a 100 byte exchange
+                                 9999 causes a random size between
+                                      1 and 8192, averaging 4196
+                               1-8192 any other number causes
+                                      a transfer to the server
+                                      of that size with a 1 byte
+                                      return.
+                              default 4196
+
+               SET POSTIMEOUT=0
+                             If an RPC fails, the client will attempt
+                             to reestablish a binding to a server. This
+                             time-out value is used to shorten the
+                             subsequent time-outs as it issues
+                             rpc_is_server_listening calls in its
+                             attempt to recover. Alas, it will retry
+                             indefinitely, you may decide to Ctrl-C
+                             after a while, it should beep when a retry
+                             is initiated.
+
+               SET POSSCALE=
+                             1 =       use miniature database for debugging
+                                       on my desk.
+                             (blank) = use normal database size.
+
+                             (This parm alters the client's random number
+                              range for Price, Customer and Catalog)
+               SET CINDY=
+                             "Cindy" is our memory leak analyst, I've done
+                             a couple things to accommodate her 7 day
+                             tests.
+
+                             if CINDY=1, (or anything but blank), then
+                                          no History transaction (the
+                                          hard file was filling up).
+
+               SET POSLOGIN=1
+                             In the OS/2 and AIX clients, anything but
+                             (blank) will cause a periodic pseudo-DCELOGIN,
+                             see II.C.1.f.i above. This overrides POSCON.EXE,
+                             the control program.
+
+               SET HOSTNAME=myname
+                             I use the TCP/IP HOSTNAME for the DCELOGIN,
+                             need to set up and account and principal for
+                             each hostname in the Registry.
+
+               SET POSPASSWORD=please
+                             The DCE password to be used in the DCELOGIN.
+                             The default is hard-coded as '-dce-'.
+
+         3. Think Time Implementation
+
+            See 'Rate' in II.C.2 above
+
+III.  Data Collection and Analysis
+
+      I've provided two ways to look at performance data from a
+      test. See A & B below.
+
+      A. Real-time Console
+
+         I'm re-writing the console program (POSCNTRL.EXE for OS/2) to
+         be a text mode rather than OS/2 GUI so it is portable between
+         platforms. I'll call it POSCON.EXE.
+
+         The console performs two functions: first is to monitor and
+         display the system throughput during the run, and second,
+         to allow client parameters to be changed during a test run.
+
+         The console program communicates through an RPC call in
+         the POS client IDL interface (/.:/PointOfSale). It talks
+         to the server handling the Customer RPC database.
+
+         1. Throughput Monitor
+
+            Each time a client calls the Customer RPC, a count is
+            incremented. Then when the control program calls the server
+            a timestamp is updated and the throughput is calculated
+            and passed back to the console. Since the Customer RPC is
+            called during each Customer Sale, we can assume the current
+            count is the Customer Sales completed since the beginning
+            of the current period.
+
+            The monitor displays:
+            - The current throughput returned from the Customer server.
+            - An mean over the past 12 sample periods.
+
+            The monitor writes (appends) to a log file the throughput
+            and condition flags in #2 below for each sample it reads.
+            This is handy for plotting curves.
+
+            a. CSPM
+
+               POS throughput is expressed as Customer Sales Per Minute
+               or CSPM.
+
+               Each Customer Sale is made up of 5.5 RPC calls and
+               maybe a rebind to CDS, and perhaps a DCELOGIN every
+               15 Customer Sales. The average data size for POS data
+               flowing during a Customer Sale is 3251 bytes per RPC
+               round trip.
+
+         2. Remote Control Flags and Options
+
+            The console (control program) allows client parameters to
+            be changed during a test. The values of these parameters
+            is passed to the Customer server while the throughput
+            is being sampled in #1 above. The clients pick up the new values
+            when they call the Customer RPC. Signals from POSCON.EXE
+            generally override parameters set on the client.
+
+            a. Local Options Menu (for the control program)
+               - "New Binding"
+                                Do a new binding import and re-bind. Handy
+                                if multiple instances of a POS StandAlone
+                                server are running.
+
+               - "Sample 5 Sec."   ] The default sample period is 5 seconds,
+               - "Sample 10 Sec."  ] but produces a ragged curve if the
+                                     arrival rate is low, thus a 10 second
+                                     option.
+
+               - "Exit"         Exit the control program
+
+            b. Server Options Menu
+               - "Kill Server"
+                                Invokes the 'suicide' RPC call to the
+                                server which obliges by killing itself.
+
+            c. Think Time Options Menu
+               - "Faster" OR "-"
+                                Decrease the Think Time parameter
+                                by 100 milliseconds.
+
+               - "Slower" OR "+"
+                                Increase the Think Time parameter
+                                by 100 milliseconds.
+
+               - "10 second"
+                                Set the Think Time parameter to 10,000
+                                milliseconds.
+
+               - "3 seconds"
+                                Set the Think Time parameter to 3,000
+                                milliseconds.
+
+               - "1 second"
+                                Set the Think Time parameter to 1,000
+                                milliseconds.
+
+               - "Zero sec"
+                                Set the Think Time parameter to 0
+                                milliseconds (the default).
+
+            d. Authentication Options Menu
+               - "2 Connect"      ] Sets the Client's authentication
+               - "3 Call"(default)] level on the next Re-Bind.
+               - "4 Packet"       ]
+               - "5 Integrity"    ] Note: For some reason, switching to
+               - "6 Privacy"      ] and from "6" causes an abend of
+                                    one or more DCE daemons, so I
+                                    had to put in an extra
+                                    rpc_is_server_listening to slow down
+                                    the level="6" path. I'd not trust
+                                    the time on the encryption path.
+
+            c. Client Options Menu (These toggle on/off)
+               - "No ReBind"
+                                 Don't disconnect and re-bind after every
+                                 Customer Sale.
+
+               - "No Print"
+                                 Stop writing to the client's screen.
+
+               - "Refresh CDS"
+                                 Force expiration of the client's local
+                                 CDS cache.
+
+               - "Do DCELogin"
+                                 Do a POSLOGIN every 15 Customer Sales.
+
+               - "Data Collect"
+                                 Start the client data collection, toggle
+                                 it off to end the collection. When
+                                 the control program is running the client's
+                                 don't automatically collect local data.
+                                 A message appears on the client screen
+                                 when this is toggled.
+
+               - "Kill Client"
+                                 Sends a suicide message to all clients.
+
+      B. Client Data Collection Files
+
+         Sample OUT1.DAT file from client #1: (every client creates
+         a data file)
+
+            <12/10/93> <14:10:01>
+            Cash Register Number          1   (ReqID)
+            Transactions in Window     1889   (during data collection)
+            Sales in Window             342   (Customer Sales in window)
+            Avg Elapsed Time          0.236   (For each RPC)
+            Avg Response Time         0.093   (RPC response time)
+            Avg BINDING IMPORT seq    0.582   (Re-Bind time)
+                                              (This time also includes
+                                               the POSLOGIN times, and
+                                               can be factored out using
+                                               the API time below by
+                                               subtracting the POSLOGIN
+                                               time divided by 15)
+            Avg Server Time           0.040   (RPC Time in Server Appl)
+            Maximum Response Time     1.630   (Worst RPC time)
+            Think time parm msec          1   (Parameter)
+            Average Think Time        0.000   (Actual)
+            TPS Rate (Local)          4.238   (RPC per Second)
+            Total Iterations     =     2475   (All RPC in and out of window)
+
+
+            Under  0.1 seconds.        1088   [ Histogram of RPC response times
+            Under  0.2 seconds.         598   [ in window, number completed
+            Under  0.3 seconds.         133   [ in less than n.n seconds.
+            Under  0.4 seconds.          44   [ Data kept for 0.1 to 20.0
+            Under  0.5 seconds.          11   [ seconds in increments of
+            Under  0.6 seconds.           6   [ 0.1 seconds.
+            Under  0.7 seconds.           3
+            Under  0.8 seconds.           2
+            Under  0.9 seconds.           0
+            Under  1.0 seconds.           2
+            Under  1.1 seconds.           0
+            Under  1.2 seconds.           0
+            Under  1.3 seconds.           0
+            Under  1.4 seconds.           0
+            Under  1.5 seconds.           1
+            Under  1.6 seconds.           0
+            Under  1.7 seconds.           1
+            Under  1.8 seconds.           0
+            Under  1.9 seconds.           0
+            Under  2.0 seconds.           0
+            .... several lines deleted....
+            Under 19.9 seconds.           0
+            Under 20.0 seconds.           0
+            Times over 20 sec             0
+
+
+                 Client system(POSLOGIN)        7    3.937
+             rpc_ns_binding_import_begin       66    0.003
+          rpc_ns_mgmt_handle_set_exp_age        1    0.000   Summary of DCE
+              rpc_ns_binding_import_next       66    0.179   API calls
+              rpc_ns_binding_import_done       66    0.000
+                  rpc_ep_resolve_binding       66    0.021
+           rpc_binding_to_string_binding       66    0.000
+            rpc_mgmt_is_server_listening        1    0.000
+               rpc_binding_set_auth_info       66    0.004
+               rpc_binding_inq_auth_info        1    0.000
+                         rpc_string_free       66    0.000
+                        rpc_binding_free       65    0.000
+
+            End of file.                              (This line is important)
+
+      C. CALCPOS.EXE number cruncher
+
+         This program attempts to reduce and aggregate the data from
+         all the clients in a test run.
+
+         SYNTAX:  CALCPOS num_files report_name
+
+               Where:  num_files   is the number of OUTn.DAT files
+                                   numbered inclusively from OUT1.DAT.
+
+                       report_name is the file name to write the
+                                   summary report into.
+
+         CALCPOS.EXE reads the client datafiles in strict sequence
+         beginning with OUT1.DAT, numbering must be inclusive.
+
+         The layout of the client data is line and column specific,
+         twiddling with the format of the file will screw up everything.
+
+         (Sample CALCPOS summary report, not the same run as above)
+
+         Report:
+         *******************************************
+         *      IBM PSP Systems Performance        *
+         *           Department 57LS               *
+         *             Austin, TX                  *
+         *******************************************
+         (Each client's raw numbers are written to the report
+          for reference, only one client in this run)
+
+         <12/09/93> <17:39:10>         0
+          Process #001 Trans    10     Cnt=    238     Sales=     43
+                       Elapsed  44.268 Response  0.074 NS_BIND     0.377
+                       ApplTime  0.040 MAX Resp  0.310 Parm        1
+                       Think     0.000 TPS=      5.375 DailyCnt= 327
+
+         *******************************************
+         Number of Qualifying Transactions         1
+         Number of Input Files Read                1
+                                          Statistics
+                             컴컴컴컴컴컴컴컴컴컴컴�
+
+         Data Collection Window Seconds       44.268  (Avg window size
+
+         *******************************************
+
+         Average RPC Elapsed Time              0.186  (Avg RPC elapsed time
+                                                       Note: Elapsed time
+                                                       is calculated as:
+                                                       AvgWindowSize divided by
+                                                       TransactionsInWindow
+
+         *******************************************
+
+                                                      (Note: the next group
+                                                       of times are measured
+                                                       point to point using
+                                                       'ftime' and are subject
+                                                       to much more error
+                                                       due to clock ticks
+                                                       than Elapsed Time
+                                                       above. So, please don't
+                                                       think I messed up
+                                                       if the times don't
+                                                       line up exactly. But,
+                                                       in this case they do.
+
+         Average actual Think Time (sec)  'a'  0.000  (Think time
+         Average RPC Response Time        'b'  0.074  (RPC Time
+         Average DCE Round-Trip Time      'c'  0.034  (RPC minus Server time
+         Average Server Application Time  'd'  0.040  (Server time
+         Average Client Time per RPC      'e'  0.112  (The client gets charged
+                                                       for the rest of the
+                                                       time
+
+         (In the this group, 'd' is measured and subtracted from 'b' to
+          derive 'c', and 'a+b+e' "should" equal the Elapsed time above.)
+
+         *******************************************
+
+         Average Customer Sale Time            1.029  (including ReBinding
+         Average Binding Sequence Time         0.377 (This time also includes
+                                                      the POSLOGIN times, and
+                                                      can be factored out using
+                                                      the API time below by
+                                                      subtracting the POSLOGIN
+                                                      time divided by 15)
+
+         Longest Response Time                 0.310  (worst RPC time
+
+         Think Time Parameter (sec)            0.001  (This always rounds
+                                                       0.0 up to 0.1 when
+                                                       an arrival rate of
+                                                       3600000/hour is
+                                                       specified, that's
+                                                       1000 RPC per second.
+
+         Total Customer Sales in Window           43
+         Total Transactions in window            238  (RPC count in window)
+         Total Daily Transactions                327  (Both IN&OUT of window
+
+         Transactions per Second    TPS        5.375  (Avg RPC/Sec
+         Transactions per Hour      TPH    19350.000  (Avg RPC/Hour
+
+         *******************************************
+         Customer Sales per Minute CSPM       58.281  (Avg CSPM
+
+          (Throughput above is calculated by the clients and merely
+           added together. The client calculates the 'TPS' number,
+           'TPH' and 'CSPM'2 are derived by CALCPOS.EXE.
+
+         *******************************************
+
+         (A variety of data is captured on the server and client
+          automatically to help document the run. But alas, CALCPOS.EXE
+          collects this info from the environment of the machine
+          it is executed on, which may not be the server of interest.)
+
+         Host Name                 : ror2
+         Protocol Sequence         : ncadg_ip_udp
+         History File Path         : f:\HISTORY
+         Price Database Path       : f:\price
+         Customer Database Path    : f:\customer
+         GENERAL Catalog Path      : f:\CAT
+         SUMMER Catalog Path       : f:\SUMMER
+         AUTUMN Catalog Path       : f:\AUTUMN
+         WINTER Catalog Path       : f:\WINTER
+         SPRING Catalog Path       : f:\SPRING
+
+         *******************************************
+
+                                  Response Histogram
+                             컴컴컴컴컴컴컴컴컴컴컴�
+                                 (Cnt CumCnt  Percent)
+         Under  0.1 seconds....   153    153 ( 64.29)
+         Under  0.2 seconds....    74    227 ( 95.38)
+         Under  0.3 seconds....    10    237 ( 99.58)
+         Under  0.4 seconds....     1    238 (100.00)
+
+         *******************************************
+
+          (Summary of POS transaction types. Note: ID 10, 11 & 12 will
+           all show up as 10)
+
+         Transaction Mix TID  1....     0 (  0.00 percent)
+         Transaction Mix TID  2....     0 (  0.00 percent)
+         Transaction Mix TID  3....     0 (  0.00 percent)
+         Transaction Mix TID  4....     0 (  0.00 percent)
+         Transaction Mix TID  5....     0 (  0.00 percent)
+         Transaction Mix TID  6....     0 (  0.00 percent)
+         Transaction Mix TID  7....     0 (  0.00 percent)
+         Transaction Mix TID  8....     0 (  0.00 percent)
+         Transaction Mix TID  9....     0 (  0.00 percent)
+         Transaction Mix TID 10....   238 (100.00 percent)
+
+         *******************************************
+
+          (Summary of Client and Server APIs)
+          (The Standalone or Primary server writes OUT0.DAT. The first 7
+           are server specific APIs.)
+          (OUT0.DAT must be manually copied to the directory where
+           the client files are located. Multiple OUT0.DAT's can
+           be concatenated.)
+
+                  rpc_server_register_if       1    0.500
+             rpc_server_use_protseq_[ep]       1    0.030
+                 rpc_server_inq_bindings       1    0.000
+                         rpc_ep_register       1    0.220
+           rpc_server_register_auth_info       1    0.560
+          rpc_mgmt_inq_server_princ_name       1    0.000
+                   rpc_ns_binding_export       1   10.690
+                 Client system(POSLOGIN)       7    3.937
+             rpc_ns_binding_import_begin      66    0.003
+          rpc_ns_mgmt_handle_set_exp_age       1    0.000
+              rpc_ns_binding_import_next      66    0.179
+              rpc_ns_binding_import_done      66    0.000
+                  rpc_ep_resolve_binding      66    0.021
+           rpc_binding_to_string_binding      66    0.000
+            rpc_mgmt_is_server_listening       1    0.000
+               rpc_binding_set_auth_info      66    0.004
+               rpc_binding_inq_auth_info       1    0.000
+                         rpc_string_free      66    0.000
+                        rpc_binding_free      65    0.000
+
+         End of file.
+
+IV. POS Source Code
+      A. Common Source
+
+         I've taken pains to have common source code for OS/2 and AIX,
+         no one wants to maintain multiple versions. In 1993-94, Tom Boes,
+         a contract programmer, overhauled my AIX code to make it POSIX
+         compliant, I've tried to continue his noble effort in further
+         converging the source into common source code. I've successfully
+         built the server code on HPUX-DCE9000 with a couple header file
+         name changes.
+
+      B. Client Program
+
+         +- POS_REQ.EXE --------------------------------------------------+
+         | +-- MOM.C -------------------+    +-- POS.C -----------------+ |
+         | | pos.h                      |    | pos.h                    | |
+         | | mom.h                      |    | mom.h                    | |
+         | | pos_idl.h                  |    | pos_idl.h                | |
+         |      /.:/PointOfSale         |    |    /.:/PointOfSale         |
+         | | pos_def.h                  |    | pos_def.h                | |
+         | |     /*************/        |    |    /**************/      | |
+         | | main()                     |    |                          | |
+         | | {                          |    |                          | |
+         | |  call Login()              |    |                          | |
+         | |  call DCE_2()              |    |                          | |
+         | |  loop until...             |    |                          | |
+         | |  {                         |    |                          | |
+         | |   call CustInq()           |--->| CustInq() call rpc_CMR() | |
+         | |   call-Catalog()           |--->| Catalog() call rpc_CAT() | |
+         | |   loop <get_random(4)>     |    |                          | |
+         | |   {                        |    |                          | |
+         | |     call PriceInq()        |--->| PriceInq() call rpc_PTQ()| |
+         | |   }                        |    |                          | |
+         | |   call History()           |--->| History() call rpc_SAV() | |
+         | |   call DCE_4()             |    |                          | |
+         | |   call Login()             |    |                          | |
+         | |  }                         |    |                          | |
+         | |  Write perf data to disk   |    |                          | |
+         | |  call file_tran()          |    |                          | |
+         | | }                          |    |                          | |
+         | | exit                       |    |                          | |
+         | |      /********/            |    |       /********/         | |
+         | |                            |    | DataXfer() call char_op()| |
+         | | perhaps_an_error2()        |    | prtf()                   | |
+         | | howlong()                  |    |                          | |
+         | | paint_screen()             |    |                          | |
+         | | SetCursorPosition()        |    |                          | |
+         | | clear_screen()             |    |                          | |
+         | | Login() system(POSLOGIN.EXE|    |                          | |
+         | | DCE_1()  /*free binding*/  |    |                          | |
+         | | DCE_2()  /*1st binding*/   |    |                          | |
+         | | DCE_3()  /*free binding2*/ |    |                          | |
+         | | DCE_4()  /*re-bind*/       |    |                          | |
+         | | CrashRecovery()            |    |                          | |
+         | |                            |    |                          | |
+         | +----------------------------+    +--------------------------+ |
+         |                                                                |
+         | +-- RANDUM.C ----------------+    +-- EXPRAN.C --------------+ |
+         | |                            |    | math.h                   | |
+         | | InitRan1(seed)             |    |                          | |
+         | | get_random(long int)       |    | exp_ran(long int)        | |
+         | |                            |    |                          | |
+         | +----------------------------+    +--------------------------+ |
+         |                                                                |
+         | +-- POS_IDLC.C---------------+                                 |
+         | | IDL generated stub         |                                 |
+         | | POS_IDL.IDL + POS_DEF.IDL  |                                 |
+         | | /.:/PointOfSale            |                                 |
+         | |     /**************/       |                                 |
+         | |      rpc_CMR()             |                                 |
+         | |      rpc_PTQ()             |                                 |
+         | |      rpc_SAV()             |                                 |
+         | |      rpc_CAT()             |                                 |
+         | |      char_op()             |                                 |
+         | |      file_tran()           |                                 |
+         | | /*     pos_CNTRL()*/       |                                 |
+         | |      suicide()             |                                 |
+         | |                            |                                 |
+         | +----------------------------+                                 |
+         +-- END POS_REQ.EXE----------------------------------------------+
+
+         +- POSLOGIN.EXE -------------------------------------------------+
+         | +- LOGIN.C ------------------+                                 |
+         | |                            |                                 |
+         | | main()                     |                                 |
+         | | {                          |                                 |
+         | |   SEC Login APIs           |                                 |
+         | | }                          |                                 |
+         | | exit                       |                                 |
+         | |                            |                                 |
+         | +----------------------------+                                 |
+         +- END LOGIN.EXE ------------------------------------------------+
+
+         Glossary of Client Sub-Routines
+         (Note, POSLOGIN can be run as a stand-alone program, and
+          will default to environment variables is command line does
+          not specify principal and password.)
+
+         - Login()     Makes a 'system()' call to execute POSLOGIN.EXE.
+                       The hostname and password are passed to POSLOGIN.EXE.
+
+         - DCE_1()     Does a binding to a specific server when the
+                       EndPoint and Address are specified on the
+                       command line. Individual API response times are
+                       recorded.
+
+         - DCE_2()     Does an rpc_ns_binding_import and then binds
+                       to that server. Individual response times are
+                       recorded.
+
+         - DCE_4()     Same as DCE_2() except no individual response
+                       times are measured. This call is used for
+                       re-binding, and includes an rpc_binding_free
+                       as the first API called.
+
+         - DCE_3()     Does a 'rpc_binding_free' and does not record the
+                       individual API response time.
+
+         - Catalog()   Does the RPC call to rpc_CAT()
+
+         - Customer()  Does the RPC call to rpc_CMR()
+
+         - PriceInq()  Does the RPC call to rpc_PTQ()
+
+         - History()   Does the RPC call to rpc_SAV()
+
+         - PriceInq()  Does the RPC call to rpc_PTQ()
+
+         - PriceInq()  Does the RPC call to rpc_PTQ()
+
+         - file_tran() Is an RPC call to transfer the client's performance
+                       data file (OUTn.DAT) to the server.
+
+         - perhaps_an_error2() Is the DCE API error checking routine.
+
+         - howlong()   Calculates the difference in two ftime's passed
+                       to it.
+
+         - paint_screen Initializes the display.
+
+         - SetCursorPosition() Moves the display cursor to the next
+                       position for a printf().
+
+         - prtf()      Is a routine to build a fixed length string
+                       padded by spaces to overwrite a longer
+                       string on the display.
+
+         - clear_screen() Self-explanatory!
+
+         - CrashRecovery If an RPC fails, he does another DCE_4() to
+                       get a fresh binding, and issues a
+                       rpc_is_server_listening() to see if he can
+                       make contact, if the is_listening call fails
+                       then he just keeps trying.
+
+         - DataXfer()  Is the routine used by the data transfer test case
+                       and it calls the RPC routine char_op().
+
+         - suicide()   The RPC call to murder the server.
+
+         - InitRan1()  Seeds the random number generator, seed is from
+                       an array[200] of prime numbers keyed to the
+                       ReqID. Currently using C library 'srand()'.
+
+         - get_random() Uses the C library 'rand()' routine to fabricate
+                       a 32 bit random number.
+
+         - exp_ran()   Returns the -10 exponential distribution of
+                       a random number, used for think time.
+
+      C. Server Program
+
+         +-- POS_SAL.EXE (StandAlone Model,#ifdef POS_STANDALONE) --------+
+         | +-- POS_SRV.C ---------------+    +-- POSUTIL.C -------------+ |
+         | | pos.h                      |    |                          | |
+         | | pos_idl.h                  |    | CreateHistorySem()       | |
+         | | pos_def.h                  |    | WriteHistory()           | |
+         | | #ifndef POS_STANDALONE     |    | CloseHistoryFile()       | |
+         | |  #include "ptq_idl.h"      |    |                          | |
+         | |  #include "cmr_idl.h"      |    |                          | |
+         | | #endif                     |    |                          | |
+         | |                            |    |                          | |
+         | | main()                     |    |                          | |
+         | | {                          |    |                          | |
+         | |  call OpenPriceFiles()     |    +--------------------------+ |
+         | |  call OpenCMRFiles()       |                                 |
+         | |  call CreateHistorySem()   |    +-- PTQSTUB.C -------------+ |
+         | |  #ifdef POS_PRIMARY        |    | pos.h                    | |
+         | |   call GO_GET_BINDING()    |    | pos_def.h                | |
+         | |  #endif                    |    |                          | |
+         | |  call GO_EXPORT_BINDING()  |    |    /***********/         | |
+         | |                            |    |                          | |
+         | |  (GO_EXPORT_BINDING does   |    | ClosePriceFiles()        | |
+         | |   the rpc_server_listen)   |    | OpenPriceFiles()         | |
+         | |                            |    | rpc_PTQ()                | |
+         | | }                          |    | NotFound()               | |
+         | | exit                       |    | KILL_PTQ()               | |
+         | |   /***************/        |    |                          | |
+         | |                            |    +--------------------------+ |
+         | | GO_GET_BINDING()           |                                 |
+         | | GO_EXPORT_BINDING()        |    +-- CMRSTUB.C -------------+ |
+         | |                            |    | pos.h                    | |
+         | | suicide() call hari_kari() |    | pos_def.h                | |
+         | | hari_kari()                |    |    /*************/       | |
+         | | {                          |    |                          | |
+         | |  call ClosePriceFiles()    |    | CloseCMRFiles()          | |
+         | |  call CloseCMRFiles()      |    | OpenCMRFiles()           | |
+         | |  #ifdef POS_PRIMARY        |    | rpc_CMR()                | |
+         | |   call KILL_PTQ()          |    | KILL_CMR()               | |
+         | |   call KILL_CMR()          |    |                          | |
+         | |  #endif                    |    | pos_CNTRL()              | |
+         | |  call CloseHistoryFile()   |    |                          | |
+         | |  UnExport APIs             |    +--------------------------+ |
+         | | }                          |                                 |
+         | |                            |    +-- CATSTUB.C -------------+ |
+         | | char_op()                  |    | pos.h                    | |
+         | | file_tran()                |    | pos_def.h                | |
+         | |                            |    |    /*************/       | |
+         | | perhaps_an_error()         |    |                          | |
+         | | get_uresp()                |    | rpc_CAT()                | |
+         | | CrashRecovery()            |    | rpc_SAV()                | |
+         | |                            |    |                          | |
+         | +----------------------------+    +--------------------------+ |
+         |                                                                |
+         | +-- POS_IDLS.C---------------+    #ifndef POS_STANDALONE       |
+         | | IDL generated stub         |     (The following IDL's        |
+         | | POS_IDL.IDL + POS_DEF.IDL  |      are also linked in         |
+         | | /.:/PointOfSale            |      to do the nested RPC       |
+         | |     /**************/       |      call to the two            |
+         | | call rpc_CMR()             |      surrogate servers)         |
+         | | call rpc_PTQ()             |                                 |
+         | | call rpc_SAV()             |     PTQ_IDL.IDL                 |
+         | | call rpc_CAT()             |            /.:/POS_PTQ          |
+         | | call char_op()             |     CMR_IDL.IDL                 |
+         | | call file_tran()           |            /.:/POS_CMR          |
+         | | call pos_CNTRL()           |    #endif                       |
+         | | call suicide()             |                                 |
+         | |                            |                                 |
+         | +----------------------------+                                 |
+         +-- END POS_SAL.EXE ---------------------------------------------+
+
+
+         Glossary of Server Sub-Routines
+
+         - OpenPriceFiles() Opens a global handle to the Price data file
+                       and index file. Reads the first two levels of
+                       the index into arrays in global application memory.
+
+         - OpenCustomerFiles() Opens a global handle to the Customer data file
+                       and index file. Reads only the first level of
+                       the index into an array in global application memory.
+
+         - CreateHistorySem()
+         - OpenHistorySem() I don't believe this routine is still used, I
+                       think the append to the history file is now being
+                       controlled by a pthread_global_lock rather than
+                       an OS/2 semaphore.
+
+         - GO_GET_BINDING() Used by the Primary POS server to import handles
+                       for the Price (/.:/POS_PTQ) and Customer (/.:/POS_CMR)
+                       surrogate servers, functionally the same as DCE_2()
+                       in the client.
+
+         - GO_EXPORT_BINDING() In the Primary or StandAlone POS server,
+                       exports the client interface (/.:/PointOfSale) to
+                       CDS and to the RPC endpoint mapper. Also issues
+                       the 'rpc_server_listen' call, execution of the
+                       main routine is suspended until the server is
+                       killed by 'rpc_mgmt_stop_server_listening' in
+                       the hari_kari() routine.
+
+         - suicide()   The RPC stub called by a client (or control program)
+                       to tell the server to kill it-self, suicide() calls
+                       hari_kari().
+
+         - hari_kari() Closes open files, unexports the server from CDS,
+                       unregisters itself from the endpoint mapper, calls
+                       rpc_mgmt_stop_server_listening allowing the
+                       main() to exit to terminate the server.
+
+         - ClosePriceFiles()
+         - CloseCustomer_files()
+         - CloseHistoryFile() These calls merely issue a 'close' for the
+                       file handles.
+
+         - char_op()  The server RPC stub for the data transfer test case.
+
+         - file_tran() The RPC server stub to which the clients send
+                      their OUTn.DAT performance data files, file_tran()
+                      writes the file into the path in SET POSDIR=path.
+
+         - perhaps_an_error() The DCE API error handling routine.
+
+         - get_uresp  Samples the keyboard for a user response. Used
+                      in GO_GET_BINDING() for user to accept or reject
+                      a binding for a Price and Customer server, useful
+                      when multiple instances of Price and Customer
+                      have been exported.
+
+         - CrashRecovery If an RPC fails, he does another DCE_4() to
+                       get a fresh binding to a surrogate, and issues a
+                       rpc_is_server_listening() to see if he can
+                       make contact, if the is_listening call fails
+                       then he just keeps trying.
+
+         - rpc_PTQ()  RPC server stub for Price lookup. Scans indices
+                      and Price database for requested item number.
+
+         - rpc_CMR()  RPC server stub for Customer lookup. Scans indices
+                      and Customer database for requested item number.
+
+         - NotFound() Routine to initialize the data structure being
+                      returned to the user in the event the Price or
+                      Customer lookup is unsuccessful.
+
+         - KILL_PTQ()
+         - KILL_CMR() RPC stubs called by a dying Primary POS server
+                      to tell the surrogates they too must commit suicide.
+                      The local hari_kari() routine is called on the
+                      surrogates.
+
+         - pos_CNTRL() The RPC stub called by the Control program
+                      to collect throughput info from the Customer server
+                      and to pass parameter flags to clients.
+
+         - rpc_CAT()  The RPC stub called by the client Catalog transaction.
+                      Does: getenv() to get path to catalog files, open,
+                      read, close of the 16 KB file.
+
+         - rpc_SAV    The RPC stub called by the History transaction. He
+                      appends the structure to the History file using
+                      the already open HistoryFileHandle.
+
+
+      D. Utility Programs
+
+         +-- PRICE.EXE -------------------+
+         | +-- PRI_SQL.SQC -------------+ |
+         | | pos.h                      | |
+         | |                            | |
+         | | main()                     | |
+         | | {                          | |
+         | |  Creates the Price         | |
+         | |  database and index        | |
+         | |  files.                    | |
+         | | }                          | |
+         | +----------------------------+ |
+         +--------------------------------+
+         (PRI_SQL.SQC is copied to PRICE.C before compiling, PRI_SQL.SQC
+          also contains the code for the DB2/2 implementation.)
+
+         +-- CUSTOMER.EXE ----------------+
+         | +-- CUST_SQL.SQC ------------+ |
+         | | pos.h                      | |
+         | |                            | |
+         | | main()                     | |
+         | | {                          | |
+         | |  Creates the Customer      | |
+         | |  database and index        | |
+         | |  files.                    | |
+         | | }                          | |
+         | +----------------------------+ |
+         +--------------------------------+
+         (CUST_SQL.SQC is copied to CUSTOMER.C before compiling, CUST_SQL.SQC
+          also contains the code for the DB2/2 implementation.)
+
+         +-- CALCPOS.EXE -------------------------------------------------+
+         | +-- CALCPOS.C -----------------------------------------------+ |
+         | | /* Client data reduction program */                        | |
+         | | pos.h                                                      | |
+         | |    /*********************************************/         | |
+         | |                                                            | |
+         | | main( NumFiles , OutName )                                 | |
+         | | {                                                          | |
+         | |  fopen(OutName)                                            | |
+         | |  getenv(POSDIR)                                            | |
+         | |                                                            | |
+         | |  loop(NumFiles)                                            | |
+         | |  {                                                         | |
+         | |   fopen(PRODIR\OUTn.DAT)                                   | |
+         | |   fread(date and time)                                     | |
+         | |   fread(POSTranID)                                         | |
+         | |   fread(requesterID)                                       | |
+         | |   fread(TotalRPCCountInWindow)                             | |
+         | |   fread(SaleCount)                                         | |
+         | |   fread(ElapsedTime)                                       | |
+         | |   fread(ResponseTime)                                      | |
+         | |   fread(BindingTime)                                       | |
+         | |   fread(ServerTime)                                        | |
+         | |   fread(MaxResponse)                                       | |
+         | |   fread(ThinkParm)                                         | |
+         | |   fread(ThinkTime)                                         | |
+         | |   fread(TPSRate)                                           | |
+         | |   fread(TotalRPCsInRun)                                    | |
+         | |   fread(PosPacketSizeParm)                                 | |
+         | |   for (i=1; i<202; i++)                                    | |
+         | |   {                                                        | |
+         | |     fread(HistogramArray)                                  | |
+         | |   }                                                        | |
+         | |   while ( ! EndOfFile )                                    | |
+         | |   {                                                        | |
+         | |     fread(DCE API Information)                             | |
+         | |   }                                                        | |
+         | |   fclose()                                                 | |
+         | |  }                                                         | |
+         | |  Do some calculations....                                  | |
+         | |                                                            | |
+         | |  Write OutFile                                             | |
+         | |  fclose(OutFile)                                           | |
+         | | }                                                          | |
+         | |                                                            | |
+         | +------------------------------------------------------------+ |
+         |                                                                |
+         +----------------------------------------------------------------+
+
+         +-- POSCON.EXE --------------------------------------------------+
+         | +-- POSCON.C ------------------------------------------------+ |
+         | | pos_idl.h                                                  | |
+         | |       /**********************************/                 | |
+         | |                                                            | |
+         | |                                                            | |
+         | | main()                                                     | |
+         | | {                                                          | |
+         | |   call DCE_2(/.:/PointOfSale)                              | |
+         | |                                                            | |
+         | |   do until ......                                          | |
+         | |   {                                                        | |
+         | |     call pos_CNTRL                                         | |
+         | |          (                                                 | |
+         | |              bind_h,                                       | |
+         | |              Flags[1],    /* 1=No Rebind           */      | |
+         | |              Flags[2],    /* 1=Control Pgm Active  */      | |
+         | |              Flags[3],    /* 1=No Print            */      | |
+         | |              Flags[4],    /* 1=Force CDS Refresh   */      | |
+         | |              Flags[5],    /* 1=Data Collect ON     */      | |
+         | |              Flags[6],    /*   (not in use)        */      | |
+         | |              Flags[7],    /* 1=Kill Clients        */      | |
+         | |              Flags[8],    /* 1=Do DCELogin         */      | |
+         | |              ThinkTime,                                    | |
+         | |              AuthLvl,                                      | |
+         | |              &CSPM                                         | |
+         | |          );                                                | |
+         | |                                                            | |
+         | |     Display the current and mean throughput                | |
+         | |                                                            | |
+         | |     Append current throughput and Flags[] to the           | |
+         | |            POSCON.LOG file.                                | |
+         | |                                                            | |
+         | |     for (SamplePeriod)                                     | |
+         | |     {                                                      | |
+         | |       pthread_delay(100 msec)                              | |
+         | |                                                            | |
+         | |       Check keyboard for input and update Flags[]          | |
+         | |             as required                                    | |
+         | |     }                                                      | |
+         | |   }                                                        | |
+         | |   call DCE_3() /* free binding */                          | |
+         | | }                                                          | |
+         | | exit                                                       | |
+         | |           /*****************************/                  | |
+         | | perhaps_an_error()                                         | |
+         | | DCE_2()                                                    | |
+         | | DCE_3()                                                    | |
+         | | SetCursorPosition()                                        | |
+         | | PrintBigNumbers()                                          | |
+         | | get_uresp(void)                                            | |
+         | | ShowStatus(void)                                           | |
+         | | ShowMainMenu(void)                                         | |
+         | | ShowLocalMenu(void)                                        | |
+         | | ShowThinkMenu(void)                                        | |
+         | | ShowServerMenu(void)                                       | |
+         | | ShowAuthMenu(void)                                         | |
+         | | ShowClientMenu(void)                                       | |
+         | | PrintF()                                                   | |
+         | | clear_screen()                                             | |
+         | |                                                            | |
+         | +------------------------------------------------------------+ |
+         |                                                                |
+         | +-- POS_IDLC.C---------------+                                 |
+         | | IDL generated stub         |                                 |
+         | | POS_IDL.IDL + POS_DEF.IDL  |                                 |
+         | | /.:/PointOfSale            |                                 |
+         | |     /**************/       |                                 |
+         | |      rpc_CMR()             |                                 |
+         | |      rpc_PTQ()             |                                 |
+         | |      rpc_SAV()             |                                 |
+         | |      rpc_CAT()             |                                 |
+         | |      char_op()             |                                 |
+         | |      file_tran()           |                                 |
+         | |      pos_CNTRL()  <------  |                                 |
+         | |      suicide()             |                                 |
+         | |                            |                                 |
+         | +----------------------------+                                 |
+         +----------------------------------------------------------------+
+
+         Glossary of Control Program Sub-Routines
+
+         - pos_CNTRL() The RPC routine that communicates with the POS
+                       Customer server. Sends flags and parameters to
+                       clients and returns the current throughput
+                       calculated in the Customer Server.
+
+         - PrintBigNumbers()        ]
+         - ShowStatus(void)         ] Routines to display
+         - ShowMainMenu(void)       ] status of system
+         - ShowLocalMenu(void)      ] and menus
+         - ShowThinkMenu(void)      ]
+         - ShowServerMenu(void)     ]
+         - ShowAuthMenu(void)       ]
+         - ShowClientMenu(void)     ]
+
+         - PrintF()     Handles the differences for printf/printw between
+                        AIX and OS/2.
+
+         - See Client Glossary for remaining descriptions.
+
+V. Compiling POS
+
+   I've included the AIX and OS/2 MAKEFILEs on the distribution media.
+   Since the AIX makefile was created by a real programmer, and
+   I created the OS/2 makefile, you'll find some philosophical
+   differences in the way they work.
+
+   There are some important defines in the makefiles which are
+   necessary:
+      - /DAIX_PROD or /DIBMOS2     need one or the other
+      - /DNODBM                    if not compiling for DB2/2 servers
+      - /DDB22                     to build DB2/2 version of servers
+      -  On the servers one of the following:
+        /DPOS_PRIMARY            ] with the common server code
+        /DPOS_SECONDARY          ] all three versions can be built,
+        /DPOS_STANDALONE         ] need to know which to build
+
+      A. AIX - Use "make".
+
+         Uses the standard build environment installed with AIX 3.x, 4,x
+         and DCE/6000.
+
+      B. OS/2 - Use "nmake".
+
+         I'm setup for the OS/2 C-Set/2 Compiler, the OS/2 2.x Toolkit
+         and DCE installed with the Tools and Header Files. There are
+         some differences in .H file names between the HPFS and FAT
+         file systems which may need to be tweaked: e.g.... exc_handling.h
+         on HPFS, and exchandl.h on FAT; due to the 8 char file name
+         limit on FAT.
+
+VI. Packaging
+
+    Initially, the distribution will be on an AIX TAR tape of the
+    entire /u/pos directory tree, this also includes pre-built
+    databases.
+
+    I can also pack up the source code and executables on an
+    OS/2 diskettes). The databases can be built with the executables
+    for either platform.
+
+    In either case, the programs should be re-compiled and linked
+    for the version of the operating system and DCE on your machine.
+    I routinely build these on OS/2 2.0, 2.1 and Warp, IBM DCE for OS/2
+    1.2 and 2.1 (OSF 1.0.2 and 1.1), AIX 3.2 and 4.1, DCE/6000 1.2,
+    1.3 and 2.1 (OSF 1.0.2, 1.0.3 and 1.1). I have also built on
+    HP-UX 9.x and DCE9000 1.0.2.
+
+VII. Support and Copyright
+
+    Support:
+
+      None.
+
+    Copyright: The POS Benchmark source as a sample application, the
+      following applies:
+
+      Copyright (C) International Business Machines Corp., 1993,1994,1995,1996.
+
+    Disclaimer of Warranties:
+
+      The herein referenced POS Benchmark code is sample code created by IBM
+      Corporation.  This sample code is not part of any standard IBM product
+      and is provided to you solely for the purpose of assisting you in the
+      development of your applications.  The code is provided "AS IS",
+      without warranty of any kind.  IBM shall not be liable for any damages
+      arising out of your use of the sample code, even if they have been
+      advised of the possibility of such damages.
+
+   Trademarks:
+
+   References may be made trademarked names in this document, the
+   following list is intended to be complete. Any ommission in this list
+   is unintentional.
+
+ - IBM, PS/2, OS/2, AIX, RISC System/6000, DB2, DB2/2, CICS, MVS, MVS/OE
+   OS/400, VM, C-Set and DB2/6000 are trademarks or are registered
+   trademarks of International Business Machines Corporation.
+
+ - DCE and OSF - Open Software Foundation, Inc.
+ - TPC Benchmark A and TPC Benchmark B - Transaction Processing Performance
+     Council.
+ - HP, HP-UX, HP9000, DCE9000 and Hewlett-Packard -  Hewlett-Packard Company.
+ - NFS, Network File System, SunOS, Solaris and Sun Microsystems  - Sun
+     Microsystems, Inc.
+ - Windows - Microsoft Corporation.
+ - Encina - Transarc Corporation.
+ - PC/DCE - Gradient Technologies, Inc.
+ - Lotus Notes - Lotus Development Corporation.
+ - NSTL - National Software Testing Laboratories.
+ - Software Digest Ratings Report - (c).
+ - TP1 and Dewitt Benchmark - (c) University of Wisconsin, Madison.
+ - Service Merchandise.
+ - Gemco.
+ - Best Products Co., Inc.
+
+End of Document.

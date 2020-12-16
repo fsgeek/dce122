@@ -1,0 +1,4022 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" HISTORY
+...\" $Log: 9_security.gpsml,v $
+...\" Revision 1.1.2.14  1994/10/30  22:47:49  weir
+...\" 	Last updates
+...\" 	[1994/10/30  22:46:51  weir]
+...\"
+...\" Revision 1.1.2.13  1994/10/30  16:25:53  weir
+...\" 	Updates
+...\" 	[1994/10/30  16:24:37  weir]
+...\" 
+...\" Revision 1.1.2.12  1994/10/29  23:26:13  weir
+...\" 	More Updates
+...\" 	[1994/10/29  23:25:02  weir]
+...\" 
+...\" Revision 1.1.2.11  1994/10/28  20:50:34  weir
+...\" 	DCE 1.1 updates
+...\" 	[1994/10/28  20:49:16  weir]
+...\" 
+...\" Revision 1.1.2.10  1994/10/26  20:41:05  weir
+...\" 	DCE 1.1 Updates
+...\" 	[1994/10/26  20:39:48  weir]
+...\" 
+...\" Revision 1.1.2.9  1994/10/14  18:39:06  weir
+...\" 	Minor edit changes
+...\" 	[1994/10/14  18:38:10  weir]
+...\" 
+...\" Revision 1.1.2.8  1994/06/20  21:40:01  weir
+...\" 	Beta Update
+...\" 	[1994/06/20  21:38:57  weir]
+...\" 
+...\" Revision 1.1.2.7  1994/06/20  20:29:01  weir
+...\" 	Beta Update
+...\" 	[1994/06/20  20:27:49  weir]
+...\" 
+...\" Revision 1.1.2.6  1994/06/19  20:54:10  weir
+...\" 	Beta Update
+...\" 	[1994/06/19  20:53:09  weir]
+...\" 
+...\" Revision 1.1.2.5  1994/06/17  13:50:38  weir
+...\" 	Beta Update
+...\" 	[1994/06/17  13:49:15  weir]
+...\" 
+...\" Revision 1.1.2.4  1994/06/12  17:32:14  weir
+...\" 	No change-- for copyright insertion
+...\" 	[1994/06/12  17:30:57  weir]
+...\" 
+...\" Revision 1.1.2.3  1994/06/08  18:47:34  weir
+...\" 	Beta Update
+...\" 	[1994/06/08  18:46:38  weir]
+...\" 
+...\" Revision 1.1.2.2  1994/06/02  21:12:58  weir
+...\" 	Beta Updates
+...\" 	[1994/06/02  21:11:19  weir]
+...\" 
+...\" Revision 1.1.2.1  1994/05/03  19:00:39  weir
+...\" 	Reorganization
+...\" 	[1994/05/03  18:59:23  weir]
+...\" 
+...\" $EndLog$
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 1 "DCE Security Service"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Overview"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "overview" "of DCE Security Service"
+.iX "DCE Security Service" "overview"
+...\" 
+.P
+The DCE Security Service manages the rights and identities of users within
+a given cell. It does so primarily by representing and certifying that identity
+to applications running on separate systems in the environment
+...\" 
+.P
+Some local system functions are also provided in an effort to preserve the
+location transparency of the distributed environment. By supplanting the
+conventional machine login and account management utilities with replacements
+that consult the network user registry, users are free to use any system in
+the environment, provided that the local administrator does not restrict access.
+In this way, systems become sharable resources related to objects in the file
+or name system.
+.P
+The DCE Security Service consists of the following cooperating subcomponents:
+...\" 
+.BL
+.LI
+Registry Service
+.P
+The Registry Service manages user, group, and account information
+and stores administrative policies regarding the characteristics
+of accounts that can access the distributed system.
+The Registry Service is composed of a set of client services to
+add, manipulate, and delete entries in the server's registry database.
+The Kerberos database, containing the secret keys of all registered
+principals, is contained in the registry database.
+You can replicate the registry database within a cell, and any changes
+to the master registry are propagated to the replicas.
+With this single logical registry, a user can log in and authenticate from
+any system in the cell.
+.LI
+Authentication Service
+.P
+The Authentication Service is an encryption-based authentication
+protocol that uses a modification of the Needham-Schroeder
+authentication algorithm.
+.P
+The Authentication Service allows principals defined as accounts in the
+registry to exchange credentials and establish mutually authenticated
+communications.
+The Authentication Service is the network service that supplies the
+simple tickets and session keys necessary for such communications.
+DCE's Authentication Service is analogous to Kerberos' Key
+Distribution Center (KDC).
+.LI
+Access Control List (ACL) facility
+.P
+All objects in DCE can have an ACL.
+The ACL facility consists of a single ACL editor tool (\*Lacl_edit\*O)
+and a set of APIs for ACL manipulation.
+Each DCE component implements its own ACL managers to process and
+interpret the ACL when access to the object is requested.
+.LI
+Privilege Service
+.P
+The Privilege Service is a certification authority that provides a trusted
+mechanism to derive authorization information about principals.
+Authorization information includes a principal's identity expressed as a
+universal unique identifier (UUID) and the principal's group memberships.
+The Privilege Service packages this information into a privilege
+attribute certificate (PAC), which is then sealed in a Kerberos V5
+ticket's authorization data area.
+After the target principal receives and verifies the ticket, the
+unsealed authorization data is trusted and used to make access decisions.
+.P
+The Privilege Service and the ACL facility provide authorization
+services to the cell.
+.LE
+...\" 
+.P
+The servers \(em the registry server, the authentication server, and
+the privilege server \(em are encompassed within one daemon, called
+\*Lsecd\*O.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Considerations and Dependencies"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "DCE Security Service" "dependencies"
+.iX "dependencies" "of DCE Security Service"
+...\" 
+.P
+Note the following:
+...\" 
+.BL
+.LI
+The DCE Security Service utilizes the DCE RPC component for
+communications between clients and servers and the DCE Threads
+component for concurrency.
+These components must be ported and operational before porting the 
+Security Service.
+.LI
+The Kerberos portion of the Security Service requires that the MAVROS
+compiler, the MAVCOD preprocessor, and the \*Llibasn1_r.a\*O
+threads-safe library be ported and working.
+.LE
+...\" 
+...\" 
+...\" .zA "Added Replication Information"
+...\" ----------------------------------------------------------------------
+.H 4 "Security Replication and Interoperability"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The transition to DCE 1.1 does not affect interoperability. DCE 1.1 replicated
+security servers will interoperate with DCE 1.0.3 clients.
+...\" 
+...\" mean having to coordinate the upgrade of all
+...\" clients as well as of all servers. With two minor limitations, all 1.0 and 1.0.1
+...\" clients will work with 1.0.2 servers and all 1.0.2 clients will work with 1.0
+...\" and 1.0.1 servers. Wire interfaces for existing 1.0.1 calls have not changed.
+...\" Replication has introduced new interfaces that it uses, but the old interfaces
+...\" still exist and are operable. For the \*Lsec_admin\*O application, however,
+...\" there are some caveats. The 1.0.2 version of \*Lsec_admin\*O contains many
+...\" new operations that deal with administering replicated servers. These operations
+...\" are not supported by a 1.0.1 \*Lsecd\*O, and will just fail. The 1.0.1
+...\" \*Lsec_admin\*O had only minimal functionality (ability to stop a server), and
+...\" using this old \*Lsec_admin\*O against a 1.0.2 server only makes sense if the
+...\" cell has only one security server running. Otherwise, there will be no way to
+...\" control which \*Lsecd\*O \*Lsec_admin\*O is binding to.
+.P
+Note that with replicated Security, there will be only one update (or master) site
+per cell, and some number of query (or slave) sites. 1.0.3 clients will bind based
+on calls to the name service, which will not differentiate between update and
+query sites. Thus, old clients that make changes to the security database may
+begin to fail because they are bound to read-only server sites.
+...\" 
+...\" .P
+...\" Security replication requires a database format change over 1.0.1. This is to
+...\" accomodate replication information that needs to be stored in the security database.
+...\" However, conversion from 1.0.1 format databases is done on the fly when a DCE 1.0.2
+...\" \*Lsecd\*O is invoked.
+...\" 
+...\" .zZ "Added Replication Information"
+...\" 
+...\" .zA "Added Kerberos V5 Information"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Kerberos V5 and DCE Security"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Some interoperability testing of commercial Kerberos Beta 4 clients with a DCE 1.1
+security server has been successfully performed. DCE - Kerberos interoperability
+work will also be a part of DCE 1.2.
+...\" 
+...\" 
+...\" .P
+...\" MIT has just announced the availability of the Beta 2 release of Kerberos V5. This
+...\" version is expected to be protocol compatible with the DCE 1.0 version of Kerberos.
+...\" MIT has also announced the use of a pre-authentication protocol in this release. This
+...\" facility is not defined in the V5 protocol \(em the latest IETF-draft (draft 5.1 9/1/92)
+...\" includes the hooks for requesting a pre-authentication phase, but explicitly leaves the
+...\" definition of the protocol outside the V5 protocol. The work done by MIT is being
+...\" examined to determine if it is appropriate for inclusion in DCE.
+...\" .P
+...\" However, at this time it is not expected that this configuration is possible. DCE
+...\" implements draft 5 of the Kerberos V5 draft RFC. Until very recently, the only publicly
+...\" available implementation of Kerberos V5 (from MIT) was several drafts behind and would not
+...\" interoperate with DCE. Other commercial Kerberos implementations are all based on
+...\" Kerberos V4 (which does not work with DCE at all).
+...\" .P
+...\" Recently MIT released beta 2 of their implementation of the Kerberos V5 code. This version
+...\" implements the same revision of the protocol that is implemented by DCE. However, this
+...\" version also includes an additional pre-authentication step that is not part of the protocol.
+...\" A cursory examination of the latest MIT code suggests that this mode is always turned on,
+...\" so a \*Lkinit\*O built from the standard MIT code will not work with the DCE KDC. It would
+...\" be simple to fix this, however.
+...\" 
+...\" 
+...\" .zZ "Added Kerberos V5 Information"
+...\" 
+.zA "def,9720,1.1beta,added DES info"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Data Encryption Mechanisms for DCE Security Service"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "DCE Security Service" "data encryption mechanisms"
+...\" 
+.P
+Authentication protocols assume the availability of a data encryption
+mechanism, and one commonly used is the Data Encryption Standard (DES).
+However, the United States State Department restricts the export to
+other countries of source or binary code that implements the DES algorithm,
+as well as other encryption mechanisms that the United States State
+Department characterizes as ``strategic.'' For this reason, source code
+for DCE Security is available in two forms:
+...\" 
+.AL
+.LI
+For DCE licensees in the United States, the source code uses DES.
+.LI
+For DCE licensees outside the United States, the source code provides
+no encryption.
+.LE
+...\" 
+.P
+When DCE is built, the compile-time options \*LUSE_DES\*O and \*LNOENCRYPTION\*O
+specify what type of binaries are to be built. The \*LUSE_DES\*O flag selects
+DES either on (if specified; this would be the ``domestic mode'') or off (the
+``international'' mode), and \*LNOENCRYPTION\*O selects privacy on (if specified)
+or off. The \*LNOENCRYPTION\*O \*L#ifdef\*Os are located in the RPC code because
+applications use rpc_* api's to set authentication, authorization, etc., while
+\*LUSE_DES\*O is checked in the Kerberos security code.
+.P
+Licensees in the United States can generate three kinds of binary code from the
+domestic version of DCE source code:
+...\" 
+.AL
+.LI
+Binaries that use DES encryption for data privacy\(emthese binaries
+can be distributed only inside the United States. This is the default
+for DCE source code. This option is built with \*LUSE_DES\*O turned on.
+.LI
+Binaries that use DES encryption for principal authentication and data
+integrity\(emthese binaries are exportable. This option is built with
+both \*LUSE_DES\*O and \*LNOENCRYPTION\*O turned on.
+.LI
+Binaries that use no encryption mechanism at all are also exportable.
+This option is built with \*LUSE_DES\*O turned off.
+.LE
+...\" 
+.P
+Note that binaries built under option 3 above will not interoperate with
+binaries built under either option 1 or 2. However, binaries built under
+option 1 or 2 will interoperate with each other, provided that applications
+do not use the data privacy level of rpc protection.
+...\" 
+.P
+Any DCE binaries built under option 1 above must be stripped before being
+shipped internationally so that the entry points in the security code which
+provide encryption services (i.e., the DES entry points) are not visible or
+accessible to international customers. This is accomplished differently by
+different DCE providers.
+...\" 
+...\" 
+...\" 
+.P
+DES can be shipped internationally with the following restrictions:
+...\" 
+.BL
+.LI
+DES must be used for authentication only.
+...\" 
+...\" IBM has done just that in our AIX and OS/2 products.
+...\" 
+...\" In AIX, we offer a BASE DCE client product that includes DES for
+...\" authentication only and an optional (free of charge) feature that
+...\" enables privacy for customers that meet the U.S. government regulations
+...\" for DES/privacy as stated in my first paragraph.
+...\" 
+...\" In OS/2, we offer a BASE DCE client product that includes DES for
+...\" authentication and a second BASE DCE client product that includes DES
+...\" for authentication and privacy that is available in the U.S. and Canada
+...\" and available on request internationally given the DES/privacy regulations
+...\" are met by the customer as stated in my first paragraph.
+...\" 
+.LI
+There must be no interface to DES exposed.
+.LI
+Use of DES for privacy (data encryption) is restricted to the US and Canada
+domestically, and limited internationally to financial institutions and U.S.
+subsidiaries that possess DES licenses from the U.S. government.
+.LI
+No products containing DES (even if used only for authentication) can be
+shipped to embargoed countries.
+.LE
+...\" 
+.P
+Before shipping a product containing, you should verify the statements
+given above with your export regulations experts and with the U.S. government.
+Products shipped internationally must be classified appropriately.
+.P
+Due to restrictions similar to those imposed upon the software, the DCE
+documentation does not describe the DES algorithm.
+...\" 
+.nS "note"
+The choice of encryption method affects interoperability.
+.nE
+...\" 
+...\" 
+...\" .zA "Encryption code reorganization"
+...\" 
+.P
+Note that the encryption code was reorganized in DCE 1.0.2. The code
+was separated out at a much lower level\(emessentially at the DES entry
+points. The international (export) version still employs an identity
+function rather than any encryption, but it is now possible to replace
+it with a function of one's choice.
+...\" 
+...\" .zZ "Encryption code reorganization"
+...\" 
+.zZ "def,9720,1.1beta,added DES info"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Security File Locations"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "file locations" "DCE Security Service"
+.iX "DCE Security Service" "file locations"
+...\" 
+.de ZY
+\v'-3p'\\$1\v'3p'\s0
+..
+.P
+The following table lists the locations of libraries and programs built in
+the DCE Security Service.
+Note that
+a subcomponent can consist of multiple source files.
+.P
+All paths given for the location of source files are relative from
+.DS
+    \*Vdce-root-dir\*L/dce/src/security\*O
+.DE
+.P
+unless otherwise noted. The path indicates the directory in which the \*LMakefile\*O
+attempts to build the component.
+.P
+All paths given for the location of installed files are relative from
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/opt/dce1.1\*O
+.DE
+.P
+unless noted by ``N/A.'' The path indicates the directory in which the subcomponent
+is installed.
+...\" 
+...\" 
+...\" 
+.TB "Locations of Security Subcomponent Files"
+.ad l
+.TS H
+expand tab (@) box;
+lB | lB | lB | lBw(1.2i)
+lB | lB | lB | lB
+lB | l | lB | lB.
+DCE Security@@Location of@Location of
+Subcomponent@Function\h'1.6i'@Source Files@Installation
+_
+.TH
+_
+libsec.a@T{
+Routines external to security.
+T}@utils@T{
+/usr/lib \*Oas part of \*Llibdce.a
+T}
+_
+librs.a@T{
+Registry server routines used by \*Lsecd\*O.
+T}@server/rs@N/A\v'-3p'\\1\v'3p'\s0
+_
+librss.a@T{
+Registry server surrogate routines used by \*Lsec_create_db\*O.
+T}@server/rs@N/A\v'-3p'\\1\v'3p'\s0
+_
+librsdb.a@T{
+Routines used by \*Lsecd\*O and \*Lsec_create_db\*O.
+T}@server/rsdb@N/A\v'-3p'\\1\v'3p'\s0
+_
+libkrb5kdc.a@T{
+Routines used by \*Lsecd\*O and \*Lsec_create_db\*O.
+T}@krb5/kdc@N/A\v'-3p'\\1\v'3p'\s0
+_
+libkdb.a@T{
+Routines used by \*Lsecd\*O and \*Lsec_create_db\*O.
+T}@krb5/lib/kdb@N/A\v'-3p'\\1\v'3p'\s0
+_
+libkrb5.a@T{
+Routines used by \*Lsecd\*O and \*Lsec_create_db\*O and
+routines from files generated by the MAVROS compiler.
+T}@krb5/lib/krb5@N/A\v'-3p'\\1\v'3p'\s0
+_
+libsecutil.a@T{
+Routines internal to the security component (command parsing,
+interpreting routines, etc.).
+T}@utils@N/A\v'-3p'\\1\v'3p'\s0
+_
+libauthelper.a@T{
+Routines used in testing KRPC and DFS.
+T}@helper@N/A\v'-3p'\\2\v'3p'\s0
+_
+...\" 
+...\" There was a table break here....
+...\" .TE
+...\"	
+...\"	.TS
+...\"	expand tab (@) box;
+...\"	lB | l | lB | lBw(1.2i).
+...\"	
+secd@T{
+Registry, authentication, and privilege servers.
+T}@server/rs@bin
+_
+sec_create_db@T{
+Registry-creating utility.
+T}@server/bin@bin
+_
+rgy_edit@Registry-editing tool.@client/admin/rgy_edit@bin
+_
+acl_edit@ACL-editing tool.@client/admin/acl_edit@bin
+_
+dce_login@T{
+Sample application.
+Allows users to obtain DCE credentials without modifying
+their local operating system state.
+T}@client/dce_login@bin
+...\" _
+...\" acl_server@T{
+...\" Example ACL manager.
+...\" T}@T{
+...\" client/admin/acl_edit/
+...\" svr_example
+...\" T}@N/A\v'-3p'\\3\v'3p'\s0
+_
+kinit@T{
+Utility to renew a principal's TGT.
+T}@krb5/clients/kinit@bin
+_
+klist@T{
+Utility to display a principal's ID and ticket information.
+T}@krb5/clients/klist@bin
+_
+kdestroy@T{
+Utility to destroy a principal's TGT.
+T}@clients/kdestroy@bin
+_
+passwd_export@T{
+Utility to create local password, group, and organization files.
+T}@client/admin/passwd_export@bin
+_
+passwd_import@T{
+Utility to create registry entries based on
+UNIX password and group files.
+T}@client/admin/passwd_import@bin
+_
+sec_admin@T{
+Security administrative tool.
+T}@server/bin@bin
+...\" _
+...\" sec_clientd@T{
+...\" Security client daemon.
+...\" T}@server/sec_clientd@bin
+.TE
+...\" 
+...\" 
+\*LNotes\*O:
+.P
+.P
+.ZY "1"
+This item is not installed, but is needed to build the DCE Security
+Service.
+.P
+.ZY "2"
+This item is not installed, but is needed to build other component
+executables.
+.P
+.ZY "3"
+This item is not installed; it is an example program only.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Porting"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "DCE Security Service" "porting"
+.iX "porting" "DCE Security Service"
+...\" 
+.P
+DCE Version 1.1 contains DCE Security Service code ported to the
+reference platforms listed in the ``Reference Platforms'' section of Chapter
+1 of this guide.
+If you are porting to a different platform, you need to consider the
+information in the following sections.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "The security.mk File"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+You can set flags for machine-dependent compilation by setting the
+.DS
+    \*V${${TARGET_MACHINE}_CFLAGS}\*O
+.DE
+.P
+variable in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/security.mk\*O
+.DE
+.P
+This file is composed of \*Vstanzas\*O corresponding to different security
+subdirectories. You specify machine-dependent compilation flags in a stanza if
+you need those flags to take effect in the directory described by that
+stanza.
+.P
+Similarly, you can set machine-dependent libraries by using the
+.DS
+    \*V${${TARGET_MACHINE}_LIBS}\*O
+.DE
+.P
+variable in the appropriate stanzas. Other variables that can take
+\*VTARGET_MACHINE\*O options are \*VOFILES\*O and \*VINCFLAGS\*O.
+By specifying flags in \*Lsecurity.mk\*O, you can simplify the individual
+\*LMakefiles\*O.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "The utils Directory"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/utils/\*V${TARGET_MACHINE}\*L/environment.c\*O
+.DE
+.P
+file defines two functions, \*Lsetenv(\|)\*O and \*Lunsetenv(\|)\*O. These BSD 4.4
+functions are not in the POSIX 1003.1 function set and are not part of all
+operating systems. The \*Lenvironment.o\*O object file is included in
+.DS
+    \*V${${TARGET_MACHINE}_OFILES}\*O
+.DE
+.P
+in the \*Lsecurity/utils/\*O stanza of:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/security.mk\*O
+.DE
+.P
+This file is archived into \*Llibsec.a\*O for symbol resolution.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Conditionally-Defined Symbols"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .zA "Conditional symbols added"
+...\" .zA "def,8422,R1.0.3,alphabetized symbol list"
+...\" 
+...\" 
+.P
+The information listed for each conditional is:
+.BL
+.LI
+if it is defined in a file or it is defined as a compilation option to the
+compiler.
+.LI
+a description of what the flag does
+.LI
+The default for the reference platforms. Unless specified otherwise, the
+default applies to both the reference platforms.
+.LE
+...\" 
+...\" 
+...\" 
+.VL .5i
+...\" 
+.LI
+\*Libm032\*O
+.P
+Specified as a compilation option.
+.P
+This is used only by
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/include/fake-stdlib.h\*O
+.DE
+.P
+to declare headers for system calls and certain libc\*O functions.
+.P
+Default: Not defined.
+...\" 
+...\" 
+...\" 
+.LI
+\*Lnullsyscall\*O
+.P
+When this flag is defined, a dummy version of \*Lafs_syscall(\|)\*O is compiled in
+the file:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/client/acl/dfs_dce_acl.c\*O
+.DE
+.P
+By default, this is not used.
+...\" 
+...\" 
+...\" 
+.LI
+\*Luse_syscall\*O
+.P
+Defined in
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/utils/Makefile\*O
+.DE
+.P
+This is derived from \*LNO_DFS\*O and used as a compilation option. When
+\*LNO_DFS\*O is \*Vnot\*O defined, \*Luse_syscall\*O is specified as a a
+compilation flag. When \*Luse_syscall\*O is defined \*Lafs_syscall(\|)\*O is
+called during lookup and replace operations on DFS ACLs; otherwise the file
+system calls \*Lopen(\|)\*O, \*Lread(\|)\*O, \*Lstat(\|)\*O are used to retrieve
+the ACLs from the file.
+.P
+By default, \*LNO_DFS\*O is \*Vnot\*O defined and hence \*Luse_syscall\*O
+is always specified.
+...\" 
+...\" 
+...\" 
+.LI
+\*LBitsize16\*O
+.LI
+\*LBitsize32\*O
+.LI
+\*LBitsize64\*O
+.P
+Specified as a compilation option.
+...\" 
+...\" 
+...\" 
+.LI
+\*LAFS_OSF_ENV\*O
+.P
+Defined in
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/utils/Makefile\*O
+.DE
+.P
+When \*LNO_DFS\*O is not defined, this is passed as a compilation
+option while building \*Ldfs_dce_acl.c\*O on PMAX only.
+...\" 
+...\" 
+...\" 
+.LI
+\*LBACKWARD_COMPAT\*O
+.P
+Specified as a compilation option.
+.P
+This is only used by:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/kdc/kerberos_v4.c\*O
+.DE
+.P
+When defined, a Kerberos Version 4 KDC is built from the source.
+.P
+Default: Not defined. DCE ships only on Version 5 of Kerberos.
+...\" 
+...\" 
+...\" 
+.LI
+\*LBITS16\*O
+.LI
+\*LBITS32\*O
+.P
+Derived from \*LBitsize16\*O,\*LBitsize32\*O,\*LBitsize64\*O. Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/include/krb5/config.h\*O
+.DE
+.P
+The symbols \*LBitsize16\*O,\*LBitsize32\*O,\*LBitsize64\*O are compilation flags
+that indicate the word size (in bits). Depending on which one is specified,
+either \*LBITS16\*O or \*LBITS32\*O is defined and used in the code. If none of
+them is specified then the default is \*LBITS32\*O .
+.P
+Default: None of \*LBitsize16\*O,\*LBitsize32\*O,\*LBitsize64\*O is defined, so
+\*LBITS32\*O is used.
+...\" 
+...\" 
+...\" 
+.LI
+\*LCOMPAT_RPC5\*O
+.P
+Used for backwards compatibility with DCE 1.0 RPC, when Security and
+RPC changes were not made simultaneously.
+...\" 
+...\" 
+...\" 
+.LI
+\*LDCE_DFS_PRESENT\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/utils/Makefile\*O
+.DE
+.P
+This is derived from \*LNO_DFS\*O and used as a compilation option. When
+\*LNO_DFS\*O is \*Vnot\*O defined, \*LDCE_DFS_PRESENT\*O is specified as a
+compilation option which compiles and links the code required for DFS into
+\*Llibdce.a\*O (or \*Llibdce.so\*O).
+.P
+By default, \*LNO_DFS\*O is \*Vnot\*O defined and hence \*LDCE_DFS_PRESENT\*O
+is always specified.
+...\" 
+...\" 
+...\" 
+.LI
+\*LDCE_SEC_POSIX_F_LOCK\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/h/un_io.h\*O
+.DE
+.P
+When defined, \*Lfcntl(\|)\*O as specified in POSIX.1 is used to lock
+files. Otherwise, \*Lflock(\|)\*O is used. All locks are advisory. By
+definition \*Lflock(\|)\*O can only acquire advisory locks. The \*Lsetgid\*O
+bit is not set on any of the files on which locking is done and hence locks
+acquired by \*Lfcntl(\|)\*O are advisory and not mandatory.
+.P
+By default, this is defined only for SNI and HP-UX.
+...\" 
+...\" 
+...\" 
+...\" .LI
+...\" \*LDEBUG_SEC\*O
+...\" .P
+...\" an environment variable that has different integer settings
+...\" regulating the amount of debug output you get from the various security
+...\" entities. I can't find anything else out though.
+...\" 
+...\" 
+.LI
+\*LDES_NEUTER\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/security.mk\*O
+.DE
+.P
+Value is derived from \*LUSE_DES\*O, and hence should not be defined or
+undefined.
+.P
+The code which cannot be exported has for most part been isolated under the
+directory
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/lib/crypto\*O
+.DE
+.P
+which consists of subdirectories \*Linternational\*O (exportable), \*Ldomestic\*O
+(non-exportable) and \*Lcommon\*O.
+.P
+When \*LUSE_DES\*O is defined,
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/lib/crypto/domestic\*O
+.DE
+.P
+is built instead of
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/lib/crypto/international\*O
+.DE
+.P
+This is done in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/lib/krb5/Makefile\*O
+.DE
+.P
+Also, a small amount of code from the
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/lib/crypto/common\*O
+.DE
+.P
+directory is conditionally compiled.
+...\" 
+...\" 
+...\" 
+.LI
+\*LDNSPI_V2\*O
+.P
+Specified as a compilation option.
+.P
+This is used only by:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/server/rs/rs_dns.c\*O
+.DE
+...\" 
+...\" 
+...\" 
+...\" 
+.sp 1
+.LI
+\*LEDQUOT\*O
+.LI
+\*LELOOP\*O
+.LI
+\*LENAMETOOLONG\*O
+.LI
+\*LEWOULDBLOCK\*O
+.P
+The above four symbols are defined in system header files.
+.P
+Kerberos code interprets the error code from a system call
+(function: \*Lkrb5_fcc_interpret(\|)\*O; file:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/lib/ccache/file/fcc_errors.c\*O
+.DE
+.P
+However, the above error codes may or may not be present depending on the
+version of Unix. Hence the code checks to make sure that the error code is
+defined before using it. Here is the reason why the error codes may not be
+defined ( SYS V refers to earlier versions).
+.VL .5i
+.LI
+\*LEDQUOT\*O
+.P
+This error is returned when a user's quota is exhausted. Since ``user's quota''
+is a 4.3 BSD concept, this error will not be defined and returned on a SYS V
+system.
+.LI
+\*LELOOP\*O
+.P
+This error is returned when there are too many levels of symbolic links. Since
+symbolic links do not exist on SYS V this error will not be returned on SYS V.
+This will not be returned on a POSIX.1 compliant system since there are no
+symbolic links in POSIX.1 either.
+.LI
+\*LEWOULDBLOCK\*O
+.P
+This error is returned if a process would block trying to do I/O to a device
+which has been set to non-blocking. This would not be returned on a SYS V. A zero
+would be returned instead. So on SYS V there is no way to distinguish between
+end-of-file and this error in this case. BSD solved this problem by returning
+\*LEWOULDBLOCK\*O).
+.P
+This would be returned on a POSIX.1 compliant system.
+.LI
+\*LENAMETOOLONG\*O
+.P
+This error is not returned on SYSV but only in BSD and POSIX.1 .
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+.LI
+\*LGLOBAL_LIBRARY\*O
+.P
+Specified as a compilation option.
+.P
+When defined it would include \*L<set_sect_pvt.c>\*O in \*Lacct.c\*O,
+\*Lmisc.c\*O, \*Lpgo.c\*O, \*Lpolicy.c\*O, \*Lunix.c\*O
+.P
+Default: Not defined.
+...\" 
+...\" 
+...\" 
+.LI
+\*LGUI\*O
+.P
+Specified as a compilation option.
+.P
+This is used only by \*Lacl_edit\*O. This flag exists so that in future different
+user interfaces to \*Lacl_edit\*O can be built. When the flag is not defined, two
+functions \*Linit_sec_acl_gui(\|)\*O and \*Lrun_sec_acl_gui(\|)\*O in the file
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/client/admin/acl_edit/acl_edit.c\*O
+.DE
+are compiled. If a different user interface is to be provided, the interface
+is responsible for providing the above two functions.
+.P
+By default, not defined.
+...\" 
+...\" 
+...\" 
+.LI
+\*LHAS_STDLIB_H\*O
+.LI
+\*LNO_STDLIB_H\*O
+.P
+Both specified as compilation options.
+.P
+These two symbols determine whether definitions are picked from the system
+header file \*L<stdlib.h>\*O or from \*L<fake-stdlib.h>\*O or if the definitions
+are locally defined. This is done in the file
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/include/krb5/ext-proto.h\*O
+.DE
+.P
+as follows:
+...\" 
+.DS
+    \*Vif \*LHAS_STDLIB_H\*V is defined, then
+        include \*L<stdlib.h>\*V
+    else if \*L__STDC__\*V is defined then
+        if \*LNO_STDLIB_H\*V is set then
+            include \*Lfake-stdlib.h\*V
+    else
+        include \*L<stdlib.h>\*V ;
+    else
+        define externs for \*Lmalloc(\|)\*V, \*Lrealloc(\|)\*V, \*Lcalloc(\|)\*V, \*Lgetenv(\|)\*O
+.DE
+...\" 
+.P
+By default, \*LHAS_STDLIB_H\*O is defined on both reference platforms in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/security.mk\*O
+.DE
+...\" 
+...\" 
+...\" 
+.LI
+\*LIDL_PROTOTYPES\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/sys_idl/idlbase.h\*O
+.DE
+.P
+This is currently used by \*Ldacl_ifr.c\*O, \*Ldaclbind.c\*O, \*Linternal_binding.c\*O,
+\*Lpriv.c\*O and \*Lsecidmap.c\*O.
+.P
+Specifies whether prototypes are used or not.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+.LI
+\*LKERBEROS\*O
+.P
+Specified as a compilation option.
+.P
+Used only by \*Lsu\*O and \*Llogin\*O.
+.P
+When defined, the source is compiled for use in a Kerberos environment.
+.P
+Default: Not defined.
+...\" 
+...\" 
+...\" 
+...\" 
+.LI
+\*LKRB4\*O
+.P
+Specified as a compilation option.
+.P
+When defined, code is compiled which enables the KDC to recognize incoming Kerberos
+V4 packets to be recognized.
+.P
+Default: Not defined. DCE security is based on Kerberos Version 5.
+...\" 
+...\" 
+...\" 
+.LI
+\*LKRB5_PROVIDE_PROTOTYPES\*O
+.LI
+\*LSTDARG_PROTOTYPES\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/include/krb5/base-defs.h\*O
+.DE
+.P
+By default, these two symbols are not defined.
+.P
+Currently used as follows in \*Lbase-defs.h\*O:
+...\" 
+.oS
+    #if defined(__STDC__) || defined(KRB5_PROVIDE_PROTOTYPES)
+    #define PROTOTYPE(x) x
+    #if defined(__STDC__) || defined(STDARG_PROTOTYPES)
+    #define STDARG_P(x) x
+    #else
+    #define STDARG_P(x) (\|)
+    #endif /* defined(__STDC__) || defined(STDARG_PROTOTYPES) */
+    #ifdef NARROW_PROTOTYPES
+    #define DECLARG(type, val) type val
+    #define OLDDECLARG(type, val)
+    #else
+    #define DECLARG(type, val) val
+    #define OLDDECLARG(type, val) type val;
+    #endif /* NARROW_PROTOTYPES */
+    #else
+    #define PROTOTYPE(x) (\|)
+    #define STDARG_P(x) (\|)
+    #define DECLARG(type, val) val
+    #define OLDDECLARG(type, val) type val;
+    #endif /* STDC or PROTOTYPES */
+.oE
+...\" 
+...\" 
+...\" 
+...\" 
+.LI
+\*LKRB5_USE_INET\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/include/krb5/osconf.h\*O
+.DE
+.P
+When defined, this code compiles in the Kerberos code required to support the IP
+address family.
+.P
+Default: Defined.
+...\" 
+...\" 
+...\" 
+.LI
+\*LKRB5_USE_NS\*O
+.P
+Specified as a compilation option.
+.P
+When defined, the Kerberos code required to support the XNS protocol suite is compiled.
+The only code so compiled is the code to get all local addresses in the function
+\*Lkrb5_os_localaddr\*O in the file:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/lib/os/localaddr.c\*O
+.DE
+.P
+Default: Not defined.
+...\" 
+...\" 
+...\" 
+.LI
+\*LNARROW_PROTOTYPES\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/include/krb5/config.h\*O
+.DE
+.P
+By default, \*LNARROW_PROTOTYPES\*O is defined.
+.P
+This conditional is used for two purposes.
+.P
+Firstly, if \*LNARROW_PROTOTYPES\*O is defined, then function prototypes are used in
+function declarations. This style of declaration will be referred to as ``new-style
+declarations''. And function declarations without prototypes will be referred to as
+``old-style declarations''.
+.P
+Secondly, \*LNARROW_PROTOTYPES\*O is also used to temporarily widen some data types
+in certain parts of the code \(em but this is only done if \*LNARROW_PROTOTYPES\*O
+is not defined.
+.P
+The data types which are widened are in the file:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/include/krb5/base-defs.h\*O
+.DE
+...\" 
+.oS
+    typedef krb5_octet     krb5_boolean;
+    typedef krb5_octet     krb5_msgtype;
+    typedef krb5_octet     krb5_kvno;
+
+    typedef krb5_ui_2     krb5_addrtype;
+    typedef krb5_ui_2     krb5_keytype;
+    typedef krb5_ui_2     krb5_enctype;
+    typedef krb5_ui_2     krb5_cksumtype;
+    typedef krb5_ui_2     krb5_authdatatype;
+.oE
+...\" 
+.P
+There are two files:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/include/narrow.h\*O
+.DE
+.P
+and
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/include/widen.h\*O
+.DE
+.P
+which are used to widen datatypes in a section of the code, as shown below:
+...\"
+...\" 
+.oS
+    #include <widen.h>
+
+      .... code ....
+
+    #include <narrow.h>
+.oE
+...\" 
+\*Lwiden.h\*O widens the datatypes as follows:
+...\" 
+.oS
+    #ifndef NARROW_PROTOTYPES
+
+        /* WARNING ! ! !
+           Only include declarations in source files between this
+           file and narrow.h if none of the functions declared therein
+           uses pointers to any of the narrowed types. If you're not
+           careful, you could widen the pointed-to object, which is
+           WRONG.
+         */
+
+        /* only needed if not narrow, i.e. wide */
+
+        #define krb5_boolean    int
+        #define krb5_msgtype    int
+        #define krb5_kvno     int
+
+        /* these are unsigned shorts, but promote to signed ints.  Ick. */
+        #define krb5_addrtype   int
+        #define krb5_keytype    int
+        #define krb5_enctype    int
+        #define krb5_cksumtype  int
+        #define krb5_authdatatype     int
+
+        #endif /* not NARROW_PROTOTYPES */
+.oE
+...\" 
+.P
+and \*Lnarrow.h\*O narrows the prototypes again as follows:
+...\" 
+.oS
+        #ifndef NARROW_PROTOTYPES
+
+        #undef krb5_boolean
+        #undef krb5_msgtype
+        #undef krb5_kvno
+
+        #undef krb5_addrtype
+        #undef krb5_keytype
+        #undef krb5_enctype
+        #undef krb5_cksumtype
+        #undef krb5_authdatatype
+
+        #endif
+.oE
+...\" 
+...\" 
+...\" 
+.LI
+\*LNOIOSTUFF\*O
+.P
+Specified as a compilation option.
+.P
+When defined, the replay cache is per process. When \*Vnot\*O defined, the
+replay cache is stored in the file system.
+.P
+By default, not defined.
+...\" 
+...\" 
+...\" 
+.LI
+\*LNO_DFS\*O
+.P
+Defined in: 
+.DS
+    \*Vdce-root-dir\*L/dce/src/Makeconf\*O
+.DE
+.P
+The \*LNO_DFS\*O is a conditional used in building \*Llibdce.a\*O (or
+\*Llibdce.so\*O) When \*LNO_DFS\*O is defined and \*Llibdce.a\*O (or
+\*Llibdce.so\*O) built, then the resulting \*Llibdce.a\*O (or \*Llibdce.so\*O)
+does not contain DFS functionality and so cannot be used to build or
+configure DFS. On the other hand, the \*Llibdce.a\*O (\*Llibdce.so\*O)
+build is faster. So it is useful in situations where DFS is not going to
+be configured and a \*Llibdce.a\*O with DFS functionality is not required.
+.P
+By default \*LNO_DFS\*O is \*Vnot\*O defined in \*Lsrc/Makeconf\*O.
+...\" 
+...\" 
+...\" 
+.LI
+\*LNO_STDLIB_H\*O
+.P
+See \*LHAS_STDLIB\*O.
+...\" 
+...\" 
+...\" 
+.LI \*LODBM\*O
+.P
+See \*LUSE_DBM_LNAME\*O.
+...\" 
+...\" 
+...\" 
+.LI
+\*LOPEN_MODE_NOT_TRUSTWORTHY\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/lib/os/krbfileio.c\*O
+.DE
+.P
+Defined only if the conditional \*Lapollo\*O is defined.
+...\" 
+...\" 
+...\" 
+.LI
+\*LOSF\*O
+.P
+Defined in:
+.DS
+\*Lsecurity/security.mk\*O
+.DE
+.P
+This is used only in
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/h/un_io.h\*O
+.DE
+to pick up the header file \*L<unistd.h>\*O .
+.P
+Default: defined for the OSF/1.1.1 platform.
+...\" 
+...\" 
+...\" 
+.LI
+\*LOSF_DCE\*O
+.P
+Specified as a compilation option.
+.P
+This is used to integrate Kerberos code into DCE. It indicates code required for
+DCE that will not work when building a plain Kerberos KDC.
+.P
+Must always be defined.
+.P
+By default specified in every Makefile in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/security\*O
+.DE
+.P
+tree.
+...\" 
+...\" 
+...\" 
+.LI
+\*LOSF_DCE_SECURITY\*O
+.P
+Specified as a compilation option.
+.P
+Used by the utilities \*Llogin\*O and \*Lsu\*O. The bsd4.4 versions
+of login\*O and su\*O code were modified to work with OSF DCE security
+component. Since \*Llogin\*O and \*Lsu\*O are supplied as sample programs
+and since vendors are expected to make changes to their native versions of
+\*Lsu\*O and \*Llogin\*O that ship with their OS rather, minimal changes have
+been made to \*Llogin\*O and \*Lsu\*O. The conditional \*LOSF_DCE_SECURITY\*O
+is used to delimit these changes.
+.P
+By default, not used, since \*Llogin\*O and \*Lsu\*O are not being built
+currently at OSF.
+...\" 
+...\" 
+...\" 
+.LI
+\*LPARANOID_ALLOC\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/lib/os/paranoid.c\*O
+.DE
+.P
+When defined, a version of \*Lmalloc(\|)\*O in \*Lparanoid.c\*O is linked
+in. This version of \*Lmalloc(\|)\*O does more extensive checking.
+.P
+Default: The conditional \*LPARANOID_MALLOC\*O is defined. However,
+the file \*Lparanoid.c\*O is not linked in and so is not used.
+...\" 
+...\" 
+...\" 
+.LI
+\*LPOSIX_FILE_LOCKS\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/include/krb5/config.h\*O
+.DE
+.P
+This is the same as \*LDCE_SEC_POSIX_F_LOCK\*O .
+.P
+By default, this is defined only for \*LSNI_SVR4\*O.
+...\" 
+...\" 
+...\" 
+.LI
+\*LPOSIX_TERMIOS\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/include/krb5/config.h\*O
+.DE
+.P
+When defined, POSIX termios calls (\*Ltcgetattr(\|)\*O and \*Ltcsetattr(\|)\*O
+are used) instead of the BSD style \*Lioctl(\|)\*O calls for setting terminal
+parameters. This is currently used by the code only to read a user's password
+(function: \*Lkrb5_read_password(\|)\*O; file name:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/lib/os/read_pwd.c\*O
+.DE
+.P
+By default, this is defined only for \*LSNI_SVR4\*O.
+...\" 
+...\" 
+...\" 
+.LI
+\*LPOSIX_TYPES\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/include/krb5/config.h\*O
+.DE
+.P
+When defined, the POSIX.1 definition for \*Ltime_t\*O is used instead
+of \*Llong\*O.
+.P
+By default, this is only defined for \*LSNI_SVR4\*O.
+...\" 
+...\" 
+...\" 
+.LI
+\*LRCTMPDIR\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/include/krb5/osconf.h\*O
+.DE
+.P
+When defined, \*LRCTMPDIR\*O specifies directory used for the replay cache. If it is not
+defined then \*L/tmp\*O is used. This is determined in the file:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/lib/rcache/rc_io.c\*O
+.DE
+...\" 
+...\" 
+...\" 
+.LI
+\*LSEC_CRYPT_PUBLIC_ENTRY\*O
+.P
+Specified as a compilation option
+.P
+The following comment is taken from the file:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/h/crypt.h\*O
+.DE
+...\" 
+.oS
+    Public entry points exist for the following functions
+    exists only if crypt.c has been compiled with
+    -DSEC_CRYPT_PUBLIC_ENTRY and bound into the application.
+    Public entry points for these en/de-cryption functions
+    MUST NOT APPEAR in the security library. Any client side
+    module that requires access to these routines should NOT
+    define SEC_CRYPT_PUBLIC_ENTRY.
+
+    Both routines take allocator/deallocator function parame-
+    ters. If either or both pointers are NULL, the standard
+    system routines are used.
+.oE
+...\" 
+...\" 
+...\" 
+.LI
+\*LSEMAPHORE\*O
+.P
+Specified as a compilation option.
+.P
+This is used only by the replay cache glue code in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/lib/rcache/rc_base.c\*O
+.DE
+.P
+When defined, the file \*L<semaphore.h>\*O is included and some of the operations are
+bracketed by \*Lup(\|)\*O and \*Ldown(\|)\*O calls which look like P and V operations.
+.P
+Default: Not defined.
+...\" 
+...\" 
+...\" 
+.LI
+\*LSTDARG_PROTOTYPES\*O
+.P
+See \*LKRB5_PROVIDE_PROTOTYPES\*O.
+...\" 
+...\" 
+...\" 
+...\" 
+.LI
+\*LSYSTEM_FIVE\*O
+.P
+Specified as a compilation option.
+.P
+This is used only by
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/include/fake-stdlib.h\*O
+.DE
+.P
+to declare headers for system calls and certain \*Llibc\*O functions.
+.P
+Default: Not defined.
+...\" 
+...\" 
+...\" 
+.LI
+\*LTKT_ROOT\*O
+.P
+Specifies the default directory for storing the credentials.
+...\" 
+.P
+Default: \*L/tmp/tkt\*O (for compatibility with MIT Kerberos). The
+default should \*Vnot\*O be changed. DCE puts its credentials in a
+different directory, and that directory is set at a higher level.
+...\" 
+...\" 
+...\" 
+...\" 
+.LI
+\*LUSE_DBM_LNAME\*O
+.LI
+\*LODBM\*O
+.P
+There are two different implementations of \*Lkrb5_aname_to_localname(\|)\*O (this maps
+the authentication name to \*Llocalname\*O). One implementation uses the \*Ldbm(3)\*O
+interface, and this is the one which is compiled when \*LUSE_DBM_LNAME\*O is defined.
+.P
+When \*LODBM\*O is defined, the header file \*L<dbm.h>\*O is used instead of
+\*L<ndbm.h>\*O.
+.P
+By default, \*LUSE_DBM_LNAME\*O is defined in
+.DS
+    \*Vdce-root-dir\*L/dce/src/krb5/include/krb5/osconf.h\*O
+.DE
+.P
+and \*LODBM\*O is undefined.
+.P
+This functionality is not used by DCE; however, it is included for the sake of
+completeness.
+...\" 
+...\" 
+...\" 
+.LI
+\*LUSE_DES\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/Makeconf\*O
+.DE
+.P
+Used to control whether an international or a domestic version of Security is built.
+.P
+A domestic (or international) version is built when \*LUSE_DES\*O is defined (undefined).
+.P
+By default, \*LUSE_DES\*O is defined.
+...\" 
+...\" 
+...\" 
+.LI
+\*LUSE_GETPW_R\*O
+.P
+Specified as a compilation option.
+.P
+When defined, thread-safe reentrant versions \*Lgetpwnam_r(\|)\*O and \*Lgetpwuid_r(\|)\*O
+are linked in instead of \*Lgetpwnam(\|)\*O and \*Lgetpwuid(\|)\*O .
+.P
+Default: Not defined.
+.P
+Used on HP-UX and HP OSF/1.
+...\" 
+...\" 
+...\" 
+...\" 
+.LI
+\*LWORKING_RCACHE\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/lib/krb/recvauth.c\*O
+.DE
+.P
+This is used only in the function \*Lkrb5_recvauth(\|)\*O in the file:
+.DS
+    \*Vdce-root-dir\*L/dce/src/krb5/lib/krb/recvauth.c\*O
+.DE
+...\" 
+.P
+Default: defined.
+.P
+\*Lkrb5_recvauth(\|)\*O can be used when doing Kerberos over a TCP stream,
+such as in \*Lrlogin\*O or other similar services.
+...\" 
+...\" 
+...\" 
+.LI
+\*L_AIX\*O
+.P
+Specified as a compilation option.
+.P
+Default: Not defined on the AIX reference platform.
+...\" 
+...\" 
+...\" 
+.LI
+\*L_INCLUDE_HPUX_SOURCE\*O
+.P
+Specified as a compilation option.
+.P
+This is used in only one file:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/h/un_time.h\*O
+.DE
+.P
+When defined, the header declaration for \*Lgettimeofday(\|)\*O is not
+picked up.
+.P
+Default: Not defined.
+...\" 
+...\" 
+...\" 
+.LI
+\*L__HIGHC__\*O
+.P
+Specified as a compilation option.
+.P
+This is used only in building \*Lcompile_et\*O.
+.P
+When defined (and ANSI-C is being used), \*L<stdarg.h>\*O is picked up instead
+of \*L<varargs.h>\*O .
+.P
+Default: Not defined.
+.P
+Left over from Athena development environment on BSD4.3 RT/PC. The High C compiler
+defined \*L__STDC__\*O, but it (a) was not standard C, and (b) did not include ANSI
+header files. The ``workaround'' was to treat \*L__HIGHC__\*O as ``not really
+\*L__STDC__\*O''.
+.P
+This can probably be taken out.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .LI
+...\" \*L_BSD_SOURCE\*O
+...\" .P
+...\" Defined in:
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/security/server/sec_clientd/sec_clientd.c\*O
+...\" .DE
+...\" .P
+...\" This is used only in \*Lsec_clientd.c\*O . It is also not referenced
+...\" in any of the system header files on OSF/1.1.1 or exported DCE header
+...\" files.
+...\" .P
+...\" Default: defined.
+...\" 
+...\" 
+...\" 
+...\" .LI
+...\" \*L_K_R_PORT_CHECK_\*O
+...\" .P
+...\" Specified as a compilation option.
+...\" 
+...\" 
+...\" .LI
+...\" \*L__STDC_ZERO_OK__\*O
+...\" .P
+...\" Specified as a compilation option.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" .zZ "def,8422,R1.0.3,alphabetized symbol list"
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Conditionally-Defined Debugging Symbols"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+...\" 
+...\" .zA "def,8422,R1.0.3,alphabetized symbol list"
+...\" 
+.VL .5i
+.LI
+\*LASN1_DEBUG\*O
+.P
+Produces output in the MAVROS compiler.
+...\" 
+...\" 
+...\" 
+.LI
+\*LDB_DEBUGGING\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/server/rsdb/rsdb.c
+.DE
+.P
+This flag conditionally compiles only the function \*Lrsdb_dump_database(\|)\*O
+to dump the entire database. However, since there are no calls to
+\*Lrsdb_dump_database(\|)\*O, specifying this option would have no effect. Also
+it is not clear that the code will compile if this is turned on since there is
+no function prototype for \*Ldump_database_root(\|)\*O, which is called by
+\*Lrsdb_dump_database(\|)\*O.
+...\" 
+...\" 
+...\" 
+.LI
+\*LDEBUG\*O
+.P
+Specified as a compilation option.
+.P
+This is used in several files.
+...\" 
+...\" 
+...\" 
+.LI
+\*LSEC_CACHE_DEBUG\*O
+.P
+Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/client/login/sec_login_cache.c\*O
+    \*Vdce-root-dir\*L/dce/src/security/client/rca/internal_binding.c\*O
+    \*Vdce-root-dir\*L/dce/src/security/client/rca/secidmap.c\*O
+.DE
+.P
+When defined (by a compilation option in the \*LMakefile\*O when
+\*Lsec_login_cache.c\*O is built), the consistency checks for the
+login import cache will be compiled in. The login import cache
+saves memory because every time a login context is imported
+the entry in the cache is shared rather than creating a new
+context.
+...\" 
+...\" 
+.LI
+\*LSEC_DEBUG\*O
+.P
+Specified as a compilation option.
+.P
+Used only by
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/client/key/key_mgmt/seckey_util.c\*O
+.DE
+.P
+which must be built with this option. In addition, the environment variable
+\*LSEC_KEY_MGMT_DEBUG\*O must also be set before debugging output can be
+obtained.
+...\" 
+...\" 
+...\" 
+.LE
+...\" 
+...\" .zZ "def,8422,R1.0.3,alphabetized symbol list"
+...\" 
+.sp 1
+...\" ----------------------------------------------------------------------
+...\" Undocumented Debug Conditionals
+...\" ----------------------------------------------------------------------
+.P
+Each of the following conditionals must be specified as a compilation option.
+Each one is used only in one file, which must be built with the corresponding
+option to get the debugging output.
+.BL
+.LI
+\*LSECD_VMCC_TEST\*O
+.LI
+\*LSEC_ACL_BIND_DEBUG\*O
+.LI
+\*LSEC_DEBUG_ACCT_LOGGING\*O
+.LI
+\*LDEBUG_BTREE\*O
+.LI
+\*LDEBUG_PICKLE\*O
+.LI
+\*LDEBUG_POLICY\*O
+.LI
+\*LSENDAUTH_DEBUG\*O
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Definitions that May be Missing from System Header Files"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following are mode bits in the \*Linode\*O on a UNIX system, and would
+normally be picked up from
+.DS
+    \*L/usr/include/sys/mode.h\*O
+.DE
+...\" 
+.P
+but are defined in
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/h/un_io.h\*O
+.DE
+.P
+just in case they are not already defined:
+...\" 
+.BL
+.LI
+\*LS_IRGRP\*O
+.LI
+\*LS_IROTH\*O
+.LI
+\*LS_IRUSR\*O
+.LI
+\*LS_IRWXG\*O
+.LI
+\*LS_IRWXU\*O
+.LI
+\*LS_IWGRP\*O
+.LI
+\*LS_IWOTH\*O
+.LI
+\*LS_IWUSR\*O
+.LI
+\*LS_IXGRP\*O
+.LI
+\*LS_IXOTH\*O
+.LI
+\*LS_IXUSR\*O
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Unix Utilities: chpass, su, login"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The utilities \*Llogin\*O, \*Lsu\*O and \*Lchpass\*O are considered
+platform specific. These utilities must be ported and/or completed
+for every DCE platform.
+...\" 
+...\" 
+...\" .zZ "Conditional symbols added"
+...\" 
+...\" .zA "def,8422,R1.0.3,document DEBUG_SEC"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Environment Variables for Debug Output"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*LDEBUG_ACL\*O environment variable can be set to an integer value
+from 0 to 4 to obtain increasing levels of debug output about the ACL
+mechanism.
+...\" 
+...\" 
+.P
+The levels of information associated with the possible value settings
+can be roughly characterized as follows:
+...\" 
+.VL .5i
+...\" 
+.LI "0"
+no information
+.LI "1"
+binding information
+.LI "2"
+even more binding information
+.LI "3"
+handle information
+.LI "4"
+object information
+.LE
+...\" 
+.P
+Similarly, the \*LDEBUG_SEC\*O environment variable can be set to values
+from 0 to 6 to enable correspondingly higher levels of debugging output.
+Normally this variable should not be set to a value greater than 3, in
+order to avoid locking primitive output.
+...\" 
+...\" 
+...\" .zZ "def,8422,R1.0.3,document DEBUG_SEC"
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Building and Linking"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "building component code" "DCE Security Service"
+.iX "DCE Security Service" "building component code"
+...\" 
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/src/security\*O
+.DE
+.P
+directory contains the source code for building the DCE Security Service.
+.P
+The
+.DS
+    \*Vdce-root-subdir\*L/dce/src/security/security.mk\*O
+.DE
+.P
+file contains the compiler flags for building the Security Service.
+Machine-specific compiler flags should be set that affect the compilation of
+the whole component or flags for individual subdirectories. Also any machine
+libraries that need to be used to link binaries should be set in this file.
+.P
+The flags for the Security test cases in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/security\*O
+.DE
+.P
+directory are set in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/test.mk\*O
+.DE
+.P
+The DCE Security Service uses the \*Llibdce.a\*O (\*Llibdce.so\*O on
+the DECstation 3100) global library to resolve subroutines from other
+components. The library \*Llibsec.a\*O, which includes the API to the DCE
+Security Service, is built and exported for inclusion in \*Llibdce.a\*O.
+.P
+For a listing of directories in which libraries and executables are
+built, see the table in the ``Security File Locations'' section of this
+chapter.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Other Flags"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+There are numerous flags scattered throughout the source code used to
+control debugging information displayed; there is no global debug
+flag. You can search the source code to find the flags that you may need.
+To do so, \*Lcd\*O to \*Vdce-root-dir/\*Lsrc/security\*O and issue the
+following command:
+.iS
+    find . -type file -print | xargs grep ifdef | grep DEBUG
+.iE
+.P
+You will get output of the different flags controlling debug output as
+well as which files are affected. You can then modify \*Lsecurity.mk\*O or
+the appropriate \*LMakefile\*O to specify any needed flags.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Building Considerations"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Note the following:
+...\" 
+.BL
+.LI
+The routine \*Lkdc_main(\|)\*O is used in building the registry daemon
+(\*Lsecd\*O). The \*Lkdc_main(\|)\*O routine is referenced in:
+.DS
+     \*Vdce-root-dir\*L/dce/src/security/server/rs/rs_main.c\*O
+.DE
+.P
+In
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/kdc/Makefile\*O
+.DE
+.P
+the following statement redefines \*Lmain(\|)\*O to be \*Lkdc_main(\|)\*O when
+compiling \*Lmain.c\*O:
+...\" 
+.oS
+    CFLAGS  = -Dmain=kdc_main -DOSF_DCE ${${TARGET_MACHINE}_CFLAGS}
+.oE
+...\" 
+You cannot explicitly find a \*Lkdc_main(\|)\*O by using \*Lfgrep\*O.
+.LI
+Conventional C tags will not work properly on most security code due to the
+use of \*L#ifdef\*O statements and macros in function declarations.
+These steps were necessary to allow the code to be compiled on both
+ANSI-C and pre-ANSI-C compilers. Be sure to check function and type
+definitions before building.
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Installing the DCE Security Service"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Before you attempt to set up a component for testing, you need to install the
+component code. The component code may look for certain files and executables
+in the
+.DS
+    \*Vdcelocal\*L\*O
+.DE
+.P
+directory tree, where \*Vdcelocal\*O usually stands for
+.DS
+    \*L/opt/dcelocal\*O
+.DE
+.P
+as set up by default by \*Ldce_config\*O during cell configuration. You will
+not be able to start up a component for testing until the
+.DS
+    \*Vdcelocal\*O
+.DE
+.P
+tree is populated with certain files that the component uses.
+.P
+For more information about the \*Ldcelocal\*O tree and its contents, see the
+``Location of Installed DCE Files'' chapter of the \*VOSF DCE
+Administration Guide\(emIntroduction\*O. For information on how to populate
+the \*Vdcelocal\*O tree using \*Ldce_config\*O, see the ``Overview of
+the DCE Configuration Script'' chapter of that guide.
+...\" 
+...\" 
+...\" .zA "def,8221,R1.0.3,added llbd info for HPUX"
+...\" OT 8221:
+...\" .P
+...\" Note that on the HP/UX platform, configuration of the Security server will fail
+...\" if the \*L/etc/ncs/llbd\*O (Local Location Broker) daemon is running, because
+...\" the RPC daemon (\*Lrpcd\*O) will not run on a machine on which the Local Location
+...\" Broker (\*L/etc/ncs/llbd\*O) is already running. If, for whatever reason, you plan
+...\" to be configuring DCE or parts of it on an HP/UX machine \*Vwithout\*O running
+...\" \*Ldce_config\*O, you should edit \*L/etc/nfsncsrc\*O (the NCS startup file) and
+...\" make sure that the \*LSTART_LLBD\*O variable is set to zero:
+...\" 
+...\" .oS
+...\"     START_LLBD=0
+...\" .oE
+...\" 
+...\" .P
+...\" \(emthus preventing \*Lllbd\*O from being started at reboot. Note that \*Ldce_config\*O
+...\" (and \*L/etc/rc.dce\*O) checks for the existence of the \*Lllbd\*O daemon and, if necessary,
+...\" kills it before attempting to start \*Lrpcd\*O.
+...\" 
+...\" 
+...\" .zZ "def,8221,R1.0.3,added llbd info for HPUX"
+...\" 
+...\" .zA "Moved from Chapter 10"
+...\" 
+...\" Following two sections MOVED FROM libdce CHAPTER...
+...\" ----------------------------------------------------------------------
+.H 3 "Password Validation Failure"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+If you receive the message ``Password Validation Failure'' when trying to
+\*Ldce_login\*O from a client machine, this may be due to the clocks on the
+client and Security Server machines not being correctly synchronized with
+each other. If you get this message, then if you are able to \*Ldce_login\*O
+successfully on the Security Server machine, set the system clocks on the two
+machines to the same time (within 3 minutes of each other should be close
+enough), and try again.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Ticket Lifetime and rgy_edit"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+This section describes how to lengthen a Security ticket lifetime, and gives
+some sample output of the \*Lrgy_edit\*O command.
+.P
+Normally after you bring up a cell with \*Ldce_config\*O, the default certificate
+lifetime is 10 hours, which means that you will have to re-login to the Security
+Service after 10 hours have elapsed. This lifetime may be appropriate in a
+working cell, but you will probably want to lengthen it for a cell that you
+are using for development, testing, and debugging.
+.P
+To change the ticket lifetime, do the following:
+...\" 
+.AL
+.LI
+\*Ldce_login cell_admin -dce-\*O
+.LI
+Run the \*Lrgy_edit\*O command and change the default certificate lifetime
+using the \*Lproperties\*O command, as shown (the relevant fields are highlighted
+in bold):
+...\" 
+.oS
+    Current site is: registry server at /.../mac/subsys/dce/sec/master
+    rgy_edit=> properties
+      Properties:
+        Properties for Registry at:               /.../mac
+        Registry is NOT read-only
+        Certificates to this server may be generated at any site.
+        Encrypted passwords are hidden
+        Unix IDs ARE embedded in PGO UUIDs
+        Low UID for principal creation:           100
+        Low UID for group creation:               100
+        Low UID for org creation:                 100
+        Maximum possible UID:                     32767
+        Minimum certificate lifetime              5m
+        Default certificate lifetime              \*L10h\*C
+    Do you wish to make changes [y/n]? (n) y
+    Stamp registry read-only [y/n]? (n)
+    Should encrypted passwords be hidden [y/n]? (y)
+    Lower bound on principal unix id for automatic UID assignment: (100)
+    Lower bound on group     unix id for automatic UID assignment: (100)
+    Lower bound on org       unix id for automatic UID assignment: (100)
+    Maximum allowable unix id: (32767)
+    Minimum certificate lifetime (minutes): (5m)
+    Default certificate lifetime (hours): (10h) \*L10000\*C
+    rgy_edit=> exit
+.oE
+...\" 
+.LE
+...\" 
+...\" 
+...\" .zZ "Moved from Chapter 10"
+...\" 
+...\" .zA "Added information on export dce_login"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Behavior of dce_login in Export Version of DCE"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+As explained in the ``Data Encryption Mechanisms for DCE Security Service''
+section earlier in this chapter, the export version of DCE source code provides
+no encryption. The replacement for the encryption code is an identity function,
+which it is assumed will be replaced by the licensee. If the export version
+is built and used as is, \*Ldce_login\*O, for example, will not be able to
+distinguish whether any given password is associated with a DCE account or
+not. All passwords will yield the same result and \*Ldce_login\*O will
+allow anyone to login.
+...\" 
+...\" .zZ "Added information on export dce_login"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Setup, Testing, and Verification"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following types of DCE Security Service tests are shipped with DCE:
+...\" 
+.BL
+.LI
+Basic functionality tests
+...\" 
+.BL
+.LI
+The \*Lupdate\*O and \*Lquery\*O tests
+.LE
+...\" 
+.LI
+Command tests
+.LI
+API tests
+.LE
+...\" 
+.P
+These tests are described in more detail in the following sections.
+.P
+Before executing the test cases, you must configure the DCE Security Service
+for testing using either the DCE configuration script
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/opt/dce1.1/etc/dce_config\*O
+.DE
+.P
+or the instructions found in the next section of this chapter. You can run the
+tests on the configurations described in that section.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+...\" .zA "dcetest_config information added"
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Installing DCE Security Functional Tests with dcetest_config"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+You can install the functional tests described in the following sections
+by running the menu-driven \*Ldcetest_config\*O script described in Chapter
+13 of this guide. \*Ldcetest_config\*O will install the tests you select at
+the path you specify, and will create a softlink (called \*L/dcetest/dcelocal\*O)
+to that location. The functional tests for a given component will thus be
+installed under a:
+.DS
+    \*L/dcetest/dcelocal/test/\*Vcomponent_name\*L/\*O
+.DE
+...\" 
+.P
+directory, where the \*Ltest/\*Vcomponent_name\*O elements of this path are
+equivalent to the \*Ltest/\*Vcomponent_name\*O elements in the pathnames given in
+the sections below, which refer to the tests' source or build locations.
+.P
+Note that \*Ldcetest_config\*O will prompt you for the location \*Vfrom which\*O
+the tests should be installed (in other words, the final location of the built
+test tree). For the DCE Security functional tests, this path should be the location,
+on your machine, of:
+.DS
+    \*Vdce-root-dir\*L/dce/install\*O
+.DE
+...\" 
+...\" 
+.P
+\(emwhich is the DCE \*Linstall\*O tree (for more information on the structure
+of the DCE tree, see Chapter 12 of this guide).
+.P
+Thus, \*Ldcetest_config\*O will install the Security functional tests at:
+.DS
+    \*L/dcetest/dcelocal/test/security/\*O
+.DE
+...\" 
+.P
+where \*L/dcetest/dcelocal\*O is the link to whatever path you supplied as
+the install destination. 
+.P
+The advantage in using \*Ldcetest_config\*O to install the functional tests
+is that it will install \*Vall\*O that is needed and \*Vonly\*O what is needed
+out of the DCE build, thus avoiding the mistakes that can occur with manual
+installation.
+.P
+Note that you can only \*Vinstall\*O (if you choose) functional tests with
+\*Ldcetest_config\*O; for test configuration and execution you must follow
+the instructions in the sections below.
+.P
+Refer to Chapter 13 of this guide for further information on using
+\*Ldcetest_config\*O.
+...\" 
+...\" 
+...\" .zZ "dcetest_config information added"
+...\" 
+...\" ----------------------------------------------------------------------
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Basic Security Setup"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Before running the test, configure your machine as a DCE client machine,
+or configure your machine as a DCE Security Server machine and run the
+test there. To configure the DCE Security Service for basic testing, do the
+following:
+...\" 
+.AL
+.LI
+Using \*Lmkdir\*O, create the \*L/krb5\*O directory on your machine.
+.LI
+Use the \*Ldce_config\*O script to install the necessary files on your
+machine. You may install the Security Server code, the security client code,
+or both. Note that the \*Ldce_config\*O script places the executables in
+.DS
+    \*Vdcelocal\*L/bin\*O
+.DE
+.P
+and creates symbolic links to \*L/usr/bin\*O. Therefore, you should not need
+to add any paths to your \*L$PATH\*O environment variable to execute the tests.
+.LI
+Create \*Vdcelocal\*L/dce_cf.db\*O.
+.P
+This file is used by the Security Service to find the machine name and
+the name of the cell. This file should be in the following format:
+...\" 
+.oS
+    cellname  /.../\*Vcellname\*C
+    hostname  hosts/\*Vmachine\*O
+.oE
+...\" 
+.P
+where \*Vcellname\*O is the name of your cell and \*Vmachine\*O
+is the IP host name of your machine.
+.LI
+Create the master registry database.
+.P
+The \*Lsec_create_db\*O tool is used to create the initial database.
+This database is populated with the default principals and accounts
+needed to bootstrap the system. The accounts are created with the
+default password "\*L-dce-\*O." An alternative may be specified with
+the \*V-password\*O option to \*Lsec_create_db\*O. This tool creates
+the database in the directory:
+.DS
+    \*Vdcelocal\*L/var/security/rgy_data\*O
+.DE
+.P
+Run \*Lsec_create_db\*O as the privileged user (root) so that the
+database is protected appropriately.
+.P
+The \*Lsec_create_db\*O command must be issued with the \*V-myname\*O
+switch to identify the CDS name of the server entry for this server.
+This name can be anything, but by convention is:
+.DS
+    \*L/.../\*Vcellname\*L/subsys/dce/security/master\*O
+.DE
+...\" 
+.BL
+.LI
+To create the database, enter
+.iS
+    sec_create_db -myname subsys/dce/security/master
+.iE
+.P
+at the command line.
+.LE
+...\" 
+.P
+At that point, \*Lsec_create_db\*O will issue the prompt:
+...\" 
+.oS
+    Enter keyseed for initial database master key:
+.oE
+...\" 
+In response, enter any character string, to a maximum length of 1024
+characters.
+.P
+This string seeds a random key generator, which generates a random
+master key used to encrypt keys in the database. The master key is
+stored in
+.DS
+    \*Vdcelocal\*L/var/security/.mkey\*O
+.DE
+.P
+and can be read and written only by the privileged user (root).
+.P
+A default keytab file, \*L/krb5/v5srvtab\*O, is created to store the
+server keys created at this time
+...\" 
+...\" (for example, the key for the
+...\" security client daemon, \*Lsec_clientd\*O, is stored in this file).
+...\" 
+.P
+The \*Lsec_create_db\*O tool also creates the file
+.DS
+    \*Vdcelocal\*L/etc/security/pe_site\*O
+.DE
+.P
+which contains the name of the machine running the \*Lsecd\*O.
+This file contains one or more lines with the name of the target
+cell and the RPC string binding for a server providing security
+services for that cell. It has the following format:
+.oS
+    /.../\*Vcellname UUID\*C@ncadg_ip_udp:\*VXXX.XX.XXX.XXX\*C[]
+.oE
+.P
+where \*VUUID\*O is the cell's security service object UUID and
+\*VXXX.XX.XXX.XXX\*O is the host machine's IP address.
+.P
+This file provides access to security services in the absence of CDS.
+Therefore, if you are setting up a client machine, be sure to copy
+this file from the Security Server machine.
+...\" 
+.nS "note"
+The \*VBIND_PE_SITE\*O environment variable controls client use of
+NSI. If the environment variable is set to any value other than 0, the
+security code will not bother to make NSI calls. Set and export this
+environment variable if your configuration does not include a running CDS.
+.P
+When running \*Lsec_create_db\*O more than once on a host (for
+example, when installing a new release), you must delete the old
+registry database files and the default keytab file by entering:
+.iS
+    rm -r \*Vdcelocal\*L/var/security/rgy_data
+    rm /krb5/v5srvtab
+.iE
+.P
+at the command line.
+.P
+If you fail to delete the \*Lrgy_data\*O directory, you will see the
+following error message
+...\" 
+.oS
+    Registry: Fatal Error - at line 426 of file rgy_create.c -
+    - 0x171220ab - cannot create database (dce / sec)
+.oE
+...\" 
+.P
+If you fail to delete \*Lv5srvtab\*O, you will see the following error:
+...\" 
+.oS
+    Registry: Error - Error setting local host's key -- try
+    deleting old entry -
+    - 0x17122048 - Specified key already exists in key
+    store (dce / sec)
+.oE
+...\" 
+.nE
+...\" 
+.LI
+Run the servers.
+.P
+The program \*Lsecd\*O is the process that provides the Authentication
+Server, Privilege Server, and Registry Server.
+This program must be run as the privileged user (root) and must be run
+on a machine that contains the database created by \*Lsec_create_db\*O.
+...\" 
+...\" The machine running the \*Lsecd\*O process must also run the
+...\" \*Lrpcd\*O endpoint mapping process.
+...\" 
+In addition, the Authentication Server requires \*Lsyslogd\*O to be
+running on the local server machine.
+.P
+...\" 
+...\" N.B. -debug secd option already added...
+...\" 
+Running the server with the \*L-debug\*O switch causes it to run
+in the foreground. The \*L-verbose\*O switch prints diagnostic and auditing
+information. This mode is recommended for early integration testing.
+It is also recommended that you enable \*Lsyslog\*O and examine the
+log while running the authentication server.
+.P
+To do so, use the following \*Lsyslog.conf\*O information:
+...\" 
+.iS
+    *.mark.info  /usr/spool/adm/syslog
+    *.err        /usr/spool/adm/syslog
+.iE
+...\" 
+...\" 
+.P
+and \*Ltail\*O the
+...\" 
+.DS
+    \*L/usr/spool/adm/syslog\*O
+.DE
+...\" 
+.P
+output file.
+.LI
+Make sure the \*Ldced\*O \*Lsecval\*O service is running.
+...\" 
+...\" 
+...\" .LI
+...\" Run \*Lsec_clientd\*O.
+...\" .P
+...\" After \*Lsecd\*O has initialized, run \*Lsec_clientd\*O as the privileged user
+...\" (root). The \*Lsec_clientd\*O daemon initializes the machine context, keeps
+...\" the machine context refreshed, and creates:
+...\" .DS
+...\"     \*Vdcelocal\*L/var/security/sec_clientd.binding\*O
+...\" .DE
+...\" .P
+...\" The \*Lsec_clientd\*O daemon may be run with the \*L-verbose\*O and
+...\" \*L-debug\*O switches for more information.
+...\" .P
+...\" Expect to see errors related to setting up the machine context in this
+...\" version of \*Lsec_clientd\*O.
+...\" .P
+...\" After \*Lsec_clientd\*O is running, applications such as
+...\" \*Ldce_login\*O and \*Lrgy_edit\*O may be run.
+...\" 
+...\" 
+.LI
+Set up a Security client.
+.P
+Use the \*Ldce_config\*O script to install the Security client
+executables.
+.P
+Assume that a registry has been created and a Security Server started
+on host ``laurel'' which has IP address 15.22.144.215. Assume that the
+cell name is ``/.../com/hp/apollo.''
+.P
+The contents of the
+.DS
+    \*Vdcelocal\*L/dce_cf.db\*O
+.DE
+.P
+file should appear as follows:
+...\" 
+.oS
+    cellname /.../com/hp/apollo
+    hostname hosts/laurel
+.oE
+...\" 
+.P
+The contents of the
+.DS
+    \*Vdcelocal\*L/etc/security/pe_site\*O
+.DE
+.P
+file should appear as follows:
+...\" 
+.oS
+    /.../com/hp/apollo \*VUUID\*C@ncadg_ip_udp:15.22.144.215[]
+.oE
+...\" 
+.P
+To make host ``hardy'' a client, follow these steps:
+...\" 
+.AL
+.LI
+On ``hardy'', create:
+.DS
+    \*Vdcelocal\*L/dce_cf.db\*O
+.DE
+.P
+Its contents should appear as follows:
+...\" 
+.oS
+    cellname /.../com/hp/apollo
+    hostname hosts/hardy
+.oE
+...\" 
+.LI
+On ``hardy'', create:
+.DS
+    \*Vdcelocal\*L/etc/security/pe_site\*O
+.DE
+.P
+Its contents should appear as follows:
+...\" 
+.oS
+    /.../com/hp/apollo \*VUUID\*C@ncadg_ip_udp:15.22.144.215[]
+.oE
+...\" 
+.P
+You may copy this file directly from the Security Server machine.
+.LI
+Return to the host ``laurel''. On ``laurel'', do the following:
+...\" 
+.BL
+.LI
+Run \*Ldce_login\*O to login as a user with privileges to edit the
+registry database. See the following section, ``The dce_login Utility,''
+for more information about \*Ldce_login\*O.
+.LI
+Run \*Lrgy_edit\*O. Add the principal ``hosts/hardy/self'' and an account
+for that principal. Remember the key (password) you specified for ``hardy's''
+account. See the ``DCE Security Service'' part of the \*VOSF DCE Administration
+Guide\(emCore Components\*O for instructions on how to use \*Lrgy_edit\*O.
+.LE
+...\" 
+.LI
+Return to the host ``hardy,'' and perform the following steps.
+...\" 
+.BL
+.LI
+Run \*Lrgy_edit\*O unauthenticated (without using \*Ldce_login\*O).
+Use the \*Lktadd\*O command to add the key for ``hosts/hardy/self.''
+.LI
+Make sure the \*Ldced\*O \*Lsecval\*O service is running on ``hardy''.
+...\" 
+...\" Run \*Lsec_clientd\*O on ``hardy.''
+...\" 
+.LE
+...\" 
+.P
+Now you can run the security tests on either the server machine ``laurel''
+(which is also a client) or on the client machine ``hardy.''
+.LE
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The dce_login Utility"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Ldce_login\*O sample application allows users to obtain DCE credentials
+without modifying their local OS state. This application constructs a credential
+cache that supports authorization service \*Ldce\*O and then execs the user's shell.
+The shell is inherited from the parent process if the \*LSHELL\*O environment
+variable is set. Command usage is:
+.iS
+    dce_login [ \*Vuser_name\*L [ \*Vpassword\*L ] ]
+.iE
+.P
+If the user's password or the user name is not specified on the command line,
+\*Ldce_login\*O will prompt you for the data.
+.P
+You can use \*Ldce_login\*O to login as a registry user with privileges to
+edit the registry database. You will have to have these privileges for most
+of the tests described in this chapter.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Basic Functionality Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+These tests can be used to ensure that the basic functionality of the
+Security Service is working properly.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The update Test"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+You must execute the \*Ldce_login\*O command as a user with privileges to
+modify the registry before running this test. If you configured your machine
+using the \*Ldce_config\*O script, then whatever user the script's \*Lcelladmin\*O
+variable was set to has registry-modifying privileges.
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/commands/rgy/update\*O
+.DE
+.P
+test checks basic update functionality by adding some specified number
+of principals, groups, and organizations to the registry database.
+Only PGO (principal, group, organization) and account objects are
+checked; policy and property updates are not checked.
+...\" 
+...\" 
+...\" .zA "defect,5931,R1.0.2,Added update test options"
+...\" 
+.P
+To run the \*Lupdate\*O test, \*Lcd\*O to its directory and enter (on
+one line):
+.iS
+    update -a | -r [ -p \*Vprincipal\*L -pw \*Vpassword\*L ] \\
+           num_accts site [ person_prefix [ group_prefix [ org_prefix ] ] ] \\
+           [-d | -d\*Vrpc_debug_flags\*O]
+.iE
+...\" 
+...\" 
+...\" 
+...\" 
+.P
+where:
+...\" 
+.VL 1.4i
+.LI "\*L-a\*O"
+Specifies that entries are to be added to the registry.
+.P
+Note that either the \*L-a\*O or the \*L-r\*O flag \*Vmust\*O be
+specified.
+...\" 
+...\" 
+.LI "\*L-r\*O"
+Specifies that entries are to be removed from the registry.
+.P
+Note that either the \*L-r\*O or the \*L-a\*O flag \*Vmust\*O be
+specified.
+...\" 
+...\" 
+.LI "\*L-p \*V<principal>\*O"
+Specifies the principal name to be logged in. \*Vprincipal\*O should be
+a principal with registry-modifying privileges.
+...\" 
+.LI "\*L-pw \*V<password>\*O"
+Specifies the password of the principal.
+.P
+Note that either \*Vboth\*O \*L-p\*O and \*L-pw\*O must be specified
+or \*Vneither\*O should be specified. In the latter case, the test
+will prompt for the name and password of the principal.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+.LI "\*L-d\*O"
+Specifies the minimal level of debug output. This parameter is optional.
+.LI "\*L-d\*O\*Vrpc_debug_flags\*O"
+Allows you to specify the amount of debug output desired. Some useful
+\*Vrpc_debug_flags\*O settings are the following:
+...\" 
+.VL 1.4i
+.LI "0-3.5"
+Maximum error/anomalous condition reporting and mutex checking (note that
+this amount of output is often too verbose for normal use, plus there is
+extra overhead for mutex checking).
+.LI "0-1.10,\ 2-3.4"
+Same reporting as the preceding text, but drops some transmit/receive
+informational messages.
+.LI "0.10"
+Reports all error conditions plus a little more; no mutex checking.
+.LI "0.1"
+Reports error conditions only (same as specifying \*L-d\*O).
+.LE
+.LI "\*Vnum_accts\*O"
+Specifies the number of new accounts to add to the registry database.
+.LI "\*Vcellname\*O"
+Specifies the cell whose registry is to be updated.
+This cellname should include the global prefix ``\*L/.../\*O''.
+.LI \*Vperson_prefix\*O
+Specifies a prefix for all update entries added to the \*Lperson\*O domain.
+The default prefix is \*Lup.da.te._.te.st/per\*O.
+.LI \*Vgroup_prefix\*O
+Specifies a prefix for all update entries added to the \*Lgroup\*O domain.
+The default prefix is \*Lupd_test/grp\*O.
+.LI \*Vorg_prefix\*O
+Specifies a prefix for all update entries added to the \*Lorg\*O domain.
+The default prefix is \*Lupd_test/org\*O.
+.LE
+...\" 
+...\" 
+...\" .zZ "defect,5931,R1.0.2,Added update test options"
+...\" 
+...\" 
+...\" 
+.P
+For example, enter
+.iS
+    update 100 \*Vcellname\*L
+.iE
+where \*L100\*O is the number of new accounts and \*Vcellname\*O is
+the name of the cell. \*Lupdate\*O will then prompt you for your principal
+name and password. Note that if you are not authorized to edit the registry
+(if you have not executed \*Ldce_login\*O to login as a user with those
+privileges), then the test will fail. If the update is successful, the output
+looks like the following:
+...\" 
+.oS
+    Opening registry at site /.../\*Vcellname\*C
+    TIMING: Account add [1.380000]user+sys [20.100334] real time (20 in, 20 out)
+    TIMING: (Per call aggregate) [0.069000]user+sys [1.005017] real time
+    TIMING: (Per call period 20) [0.069000]user+sys [1.005017] real time
+    TIMING: Account add [2.690000]user+sys [39.817963] real time (40 in, 40 out)
+    TIMING: (Per call aggregate) [0.067250]user+sys [0.995449] real time
+    TIMING: (Per call period 20) [0.065500]user+sys [0.985881] real time
+    TIMING: Account add [4.020000]user+sys [60.174643] real time (60 in, 60 out)
+    TIMING: (Per call aggregate) [0.067000]user+sys [1.002911] real time
+    TIMING: (Per call period 20) [0.066500]user+sys [1.017834] real time
+    TIMING: Account add [5.200000]user+sys [80.262026] real time (80 in, 80 out)
+    TIMING: (Per call aggregate) [0.065000]user+sys [1.003275] real time
+    TIMING: (Per call period 20) [0.059000]user+sys [1.004369] real time
+    TIMING: Account add [6.360000]user+sys [100.262032] real time (100 in, 100 out)
+    TIMING: (Per call aggregate) [0.063600]user+sys [1.002620] real time
+    TIMING: (Per call period 20) [0.058000]user+sys [1.000000] real time
+    No errors during update test
+.oE
+...\" 
+.P
+Note that \*Lupdate\*O also provides information about the time needed
+to perform blocks of 20 updates. This information varies among systems.
+.P
+You can use the \*Lrgy_edit\*O tool to view the registry to verify
+that the correct number of principals, groups, organizations, and
+accounts are added. See the ``DCE Security Service'' part of the \*VOSF DCE
+Administration Guide\(emCore Components\*O for instructions on using
+\*Lrgy_edit\*O.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The query Test"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+You must \*Ldce_login\*O before running this test. You do not need to have
+registry-modifying privileges, but you must be authenticated to query the
+registry.
+.P
+The
+.DS
+    \*Vdce-root-dir/\*Linstall/\*Vmachine\*L/dcetest/dce1.1/test/security/commands/rgy/query\*O
+.DE
+.P
+test checks basic query functionality. It searches through the registry
+database, performing every query operation. The data returned for a particular
+object is checked for consistency when it can be returned using different query
+paths. Only PGO and account objects are checked; policy and property queries
+are not made.
+.P
+To run the \*Lquery\*O test, \*Lcd\*O to its directory and enter
+.iS
+    query [-d | -d\*Vrpc_debug_flags\*L] [\*Vcellname\*L]
+.iE
+.P
+where:
+...\" 
+.VL 1.2i
+.LI "\*L-d\*O"
+Specifies the minimal level of debug output. This parameter is optional.
+.LI "\*L-d\*O\*Vrpc_debug_flags\*O"
+Allows you to specify the amount of debug output desired. Some useful
+\*Vrpc_debug_flags\*O settings are the following:
+...\" 
+.VL 1.2i
+.LI "0-3.5"
+Maximum error/anomalous condition reporting and mutex checking (note that
+this amount of output is often too verbose for normal use, plus there is
+extra overhead for mutex checking).
+.LI "0-1.10,\ 2-3.4"
+Same reporting as the preceding text, but drops some transmit/receive
+informational messages.
+.LI "0.10"
+Reports all error conditions plus a little more; no mutex checking.
+.LI "0.1"
+Report error conditions only (same as specifying \*L-d\*O).
+.LE
+...\" 
+.LI "\*Vcellname\*O"
+Specifies the cell whose registry is to be queried. The default (if
+\*Vcellname\*O is not specified) is that the registry of the cell from
+which \*Lquery\*O is being run will be queried.
+.LE
+...\" 
+.P
+For example, entering
+.iS
+    query \*Vcellname\*O
+.iE
+.P
+performs the \*Lquery\*O test for \*Vcellname\*O with no RPC debug output.
+If \*Vcellname\*O's registry has been updated successfully by 100 accounts,
+\*Lquery\*O displays the following:
+...\" 
+.oS
+    Contacting registry at site /.../\*Vcellname\*C
+    Processing People...
+      10   20   30   40   50   60   70   80   90  100
+     110
+    Processing Groups...
+      10   20   30
+    Processing Orgs...
+    No errors during query test
+.oE
+...\" 
+...\" 
+.zA "def,10739,1.1beta,new test information"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "ERA, Delegation, and Extended Login Tests"
+...\" ----------------------------------------------------------------------
+...\" CR 10591
+.P
+The ERA, Delegation, and Extended Login functional tests are new in DCE 1.1.
+They are run under TET.
+.P
+The test sources are located at:
+...\" 
+...\" N.B. these tests are [incorrectly] located in:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/security/tet-tests\*O
+.DE
+...\" 
+...\" ---i.e., they should be in:
+...\"   <dce-root-dir>/dce/src/test/functional/security
+...\" 
+.P
+The following subsections explain how to build, install, and run the tests.
+For more information on TET, see ``Overview of TET Use'' in Chapter 13.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Building and Installing"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+To build and install the tests, do the following:
+...\" 
+...\" 
+.AL
+.LI
+Build TET (if you have not already done so):
+...\" 
+.iS
+    cd \*Vdce-root-dir\*L/dce/src/test/tet
+    build
+.iE
+...\" 
+.LI
+As root, execute the following command, which will create an install area
+in \*L/\*O (the root directory), and install TET there:
+...\" 
+.iS
+    build TOSTAGE=/ install_all
+.iE
+...\" 
+.P
+Note that in order to get the \*LTOSTAGE\*O value specified in the command line
+to take effect, you must comment out the following line in the
+...\" 
+.DS
+    \*Vdce-root-dor\*L/dce/src/test/test.mk\*O
+.DE
+...\" 
+.P
+file:
+...\" 
+.oS
+    TOSTAGE =  ${SOURCEBASE}/../install/${target_machine}/dcetest/dce1.1
+.oE
+...\" 
+.P
+Note also that TET (and the tests) can be installed elsewhere by supplying a
+different value for \*LTOSTAGE\*O in the command line in the example above
+(and, for the tests, in the following examples).
+...\" 
+...\" 
+...\" 
+.LI
+Build the ERA, Delegation, and Extended Login tests:
+...\" 
+.iS
+    cd ../security/tet-tests
+    build
+.iE
+...\" 
+.LI
+As root, execute the following command to install the tests:
+...\" 
+.iS
+    build TOSTAGE=/ install_all
+.iE
+...\" 
+.LI
+As root, do the following:
+...\" 
+.iS
+    ln -s ../../tet/test /test/tet/test
+    mkdir /test/tet/tet_tmp_dir
+    chmod 777 /test/tet/tet_tmp_dir
+    mkdir /test/tet/test/security/results
+.iE
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Running the Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+To run the tests, do the following:
+...\" 
+.AL
+.LI
+Set the following environment variables:
+...\" 
+.iS
+    TET_ROOT=/\*Vyour_path_to_installed_tests\*L/test/tet
+.iE
+...\" 
+.P
+If security replication is being tested, set the following environment
+variables:
+...\" 
+.iS
+    SEC_TEST_REPLICATION=True
+    SEC_REPLICA_SITE_NAME=\*Vreplica_name_of_the_slave_security_server\*O
+.iE
+...\" 
+.P
+For example:
+...\" 
+.iS
+    SEC_REPLICA_SITE_NAME=/.../r_d.com/subsys/dce/sec/rs_server_250_2
+.iE
+...\" 
+.P
+or:
+...\" 
+.iS
+    SEC_REPLICA_SITE_NAME=ncacn_ip_tcp:15.22.144.248
+.iE
+...\" 
+...\" 
+.P
+If security replication is not being tested, set the following environment
+variable:
+...\" 
+.iS
+    SEC_TEST_REPLICATION=False
+.iE
+...\" 
+...\" 
+...\" 
+.LI
+Add the following to your execution path:
+...\" 
+.iS
+    ${TET_ROOT}/bin
+.iE
+...\" 
+.LI
+\*Ldce_login\*O as \*Lcell_admin\*O.
+...\" 
+.LI
+To execute all of the security TET test cases, execute the following
+command:
+...\" 
+.iS
+    tcc -e test/security
+.iE
+...\" 
+.P
+Specific test cases can be executed individually. For example:
+...\" 
+.iS
+    tcc -e test/security sec_rgy_attr-tc
+.iE
+...\" 
+.P
+The following test cases are available:
+...\" 
+.BL
+.LI
+\*Lsec_rgy_attr\*O
+.P
+Tests to verify that the functions within \*Lsec_rgy_attr.c\*O are working
+correctly.
+...\" 
+...\" 
+.LI
+\*Lsec_rgy_attr_sch\*O
+.P
+Tests to verify that the functions within \*Lsec_rgy_attr_sch.c\*O are
+working correctly.
+...\" 
+...\" 
+.LI
+\*Lpwd_expiration\*O
+.P
+Tests to verify that the local \*Lsec_pwd_mgmt_strength_chk_prvcy\*O function
+is functioning correctly.
+.P
+This test case makes the following assumptions:
+...\" 
+.BL
+.LI
+The host machine is a DCE client.
+.LI
+The tester is \*Ldce_login\*O'd as \*Lcell_admin\*O and that the password is
+\*L-dce-\*O.
+.LE
+...\" 
+...\" 
+.LI
+\*Lpwd_strength\*O
+.P
+Tests to verify that the local \*Lsec_pwd_mgmt_strength_chk_prvcy\*O function
+is functioning correctly.
+.P
+This test case makes the following assumptions :
+...\" 
+.BL
+.LI
+Machine is a DCE client
+.LI
+The Password Strength Server is running and exporting the
+\*Lsec_pwd_mgmt_strength_chk_prvcy\*O operation.
+.LI
+The Password Strength Server running is the sample server
+(\*Lpwd_strengthd\*O) provided with DCE 1.1.
+.LI
+The tester is \*Ldce_login\*O'd in as \*Lcell_admin\*O.
+.LI
+The \*LPWD_STRENGTHD_STRING_BINDING\*O TET configuration variable
+has been set correctly.
+.LE
+...\" 
+.LI
+\*Llogin\*O
+.P
+Tests to verify that the local \*Lsec_login\*O functions associated with the
+new EPAC/Delegation work are functioning correctly.
+...\" 
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Verifying the Results"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Following is an example of output from a successful run of all the tests
+on an HP-UX platform. Note that one \*LFAILED\*O message for the
+\*Lsec_pwd_mgmt_strength_chk_prvcy\*O test should be expected.
+...\" 
+...\" 
+.oS
+    # \*Ltcc -e test/security\*C
+    journal file name is: /\*Vpath_to_installed_tests\*L/test/tet/test/security/results/0007e/journal\*C
+    PASSED sec_rgy_attr_update() integer test
+    PASSED sec_rgy_attr_lookup_by_id() integer test.
+    PASSED verification of integer test.
+    PASSED sec_rgy_attr_update() test_void
+    PASSED sec_rgy_attr_lookup_by_id() test_void.
+    PASSED verification of test_void.
+    PASSED sec_rgy_attr_update() test_any
+    PASSED sec_rgy_attr_lookup_by_id() test_any.
+    PASSED verification of test_any.
+    PASSED sec_rgy_attr_update() test_printstring
+    PASSED sec_rgy_attr_lookup_by_id() test_printstring.
+    PASSED verification of test_printstring.
+    PASSED sec_rgy_attr_update() test_printstring_array
+    PASSED sec_rgy_attr_lookup_by_id() test_printstring_array.
+    PASSED verification of test_printstring_array.
+    PASSED sec_rgy_attr_update() test_bytes
+    PASSED sec_rgy_attr_lookup_by_id() test_bytes.
+    PASSED verification of test_bytes.
+    PASSED sec_rgy_attr_update() test_confidential_bytes
+    PASSED sec_rgy_attr_lookup_by_id() test_confidential_bytes.
+    PASSED verification of test_confidential_bytes.
+    PASSED sec_rgy_attr_update() test_i18n_data
+    PASSED sec_rgy_attr_lookup_by_id() test_i18n_data.
+    PASSED verification of test_i18n_data.
+    PASSED sec_rgy_attr_update() test_uuid
+    PASSED sec_rgy_attr_lookup_by_id() test_uuid.
+    PASSED verification of test_uuid.
+    PASSED sec_rgy_attr_update() test_attr_set
+    PASSED sec_rgy_attr_lookup_by_id() test_attr_set.
+    PASSED verification of test_attr_set.
+    PASSED sec_rgy_attr_update() test_binding
+    PASSED sec_rgy_attr_lookup_by_id() test_binding.
+    PASSED verification of test_binding.
+    PASSED sec_rgy_attr_update() test them all
+    PASSED sec_rgy_attr_lookup_by_id() test them all.
+    PASSED verification of test them all.
+    PASSED sec_rgy_attr_lookup_by_id() for 1 attr id.
+    PASSED sec_rgy_attr_lookup_by_id() for 0 attr ids.
+    PASSED sec_rgy_site_open_update()
+    PASSED sec_rgy_attr_sch_create_entry()
+    PASSED sec_rgy_attr_sch_lookup_by_id()
+    PASSED sec_rgy_attr_sch_lookup_by_name()
+    PASSED sec_rgy_attr_sch_cursor_init()
+    PASSED sec_rgy_attr_sch_scan()
+    PASSED sec_rgy_attr_sch_cursor_release()
+    PASSED sec_rgy_attr_sch_update_entry()
+    PASSED sec_rgy_attr_sch_delete_entry()
+    PASSED SEC_LOGIN_DELEG: sec_login_become_initiator()
+    PASSED SEC_LOGIN_DELEG: sec_login_cred_get_initiator()
+    PASSED SEC_LOGIN_DELEG: sec_cred_get_pa_data()
+    PASSED SEC_LOGIN_DELEG: sec_cred_get_delegation_type()
+    PASSED SEC_LOGIN_DELEG: sec_login_cred_init_cursor()
+    PASSED SEC_LOGIN_DELEG: sec_login_cred_get_delegate()
+    PASSED SEC_LOGIN_DELEG: (attrs) sec_login_set_extended_attrs()
+    PASSED SEC_LOGIN_DELEG: (attrs) sec_login_cred_get_initiator()
+    PASSED SEC_LOGIN_DELEG: (attrs) sec_cred_initialize_attr_cursor()
+    PASSED SEC_LOGIN_DELEG: (attrs) sec_cred_get_extended_attrs()
+    Startup for sec_pwd_mgmt_strength_chk_prvcy() tests
+    FAILED: PWD_STRENGTHD_STRING_BINDING not defined in tetexec.cfg
+    Startup for password expiration tests
+    pwd_expiration, test purpose 1, login attempt using expired password
+    PASSED password expiration: login with expired password
+    Cleanup for password expiration tests
+.oE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "GSSAPI Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The GSSAPI test program, the source code for which is located at:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/src/test/security/api/gssapi/test-gssapi.c\*O
+.DE
+...\" 
+.P
+is not compiled as part of an ODE DCE build. It must be compiled manually,
+against an installed DCE environment.
+...\" 
+.P
+To build and run the GSSAPI tests, do the following:
+...\" 
+...\" 
+.AL
+...\" 
+.LI
+Compile \*Ltest-gssapi.c\*O as a normal DCE application.
+...\" 
+.LI
+Create two DCE principal accounts (for example, \*Ltest1\*O and
+\*Ltest2\*O).
+...\" 
+.LI
+Use \*Lrgy_edit\*O's \*Lktadd\*O command to create a keytable (called
+\*Lkeytab\*O in the example below) containing \*Ltest2\*O's key.
+...\" 
+.LI
+Use \*Ldce_login\*O to login as the \*Ltest1\*O principal.
+...\" 
+.LI
+Run the test program as follows:
+...\" 
+.oS
+    % \*Ltest-gssapi\*O\ {\*L-i\*O\ |\*Vtest1_principal\ test2_principal\ keytable\*O}\ [\*L-l\*O]
+.oE
+...\" 
+.LE
+...\" 
+.P
+where:
+...\" 
+.VL .5i
+.LI "\*L-i\*O"
+(``interactive'') requests a menu of individual separately-runnable tests.
+...\" 
+.LI "\*L-l\*O"
+(``long-form'') specifies that additional logging information be sent to
+standard output.
+...\" 
+.LE
+...\" 
+.P
+Once invoked, the above command will:
+...\" 
+.BL
+.LI
+run the specified test(s)
+.LI
+determine whether the GSSAPI is exportable or not (i.e., whether it has been
+compiled to support privacy protection)
+.LI
+print out various progress messages during execution
+.LI
+print out either a final success or failure message
+...\" 
+...\" .LI
+...\" return either EXIT_FAILURE or EXIT_SUCCESS, depending on whether all tests
+...\" were successful or not
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.zZ "def,10739,1.1beta,new test information"
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Commands Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lacl_edit.sh\*O and \*Lrgy_edit.sh\*O shell scripts test DCE
+Security Service commands.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The acl_edit Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Because the tests are not put into an install tree like the source executables,
+these tests can be cumbersome to execute. This section includes explicit
+instructions for executing the \*Lacl_edit\*O tests directly from the
+.DS
+    \*Vdce-root-dir\*L/dce/install\*O
+.DE
+.P
+tree. You may find it easier to copy or link all of the control files, located
+in the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/control\*O
+.DE
+.P
+directory, as well as all shell scripts and test case executables, located in
+the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/moretests\*O
+.DE
+.P
+directory, and the test case driver \*Ltestsh\*O, located in the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/testsh\*O
+.DE
+.P
+directory. You must execute each test case from the directory in which its control
+file resides. The general syntax for tests run by the \*Ltestsh\*O driver is:
+...\" 
+.oS
+    \*Vpath-to-testsh\*O -d\*Voutput-level\*O -I\*Vpath-to-test-execs control-file\*O
+.oE
+...\" 
+If you have copied or linked all of the relevant files into a single directory,
+the command for running a test case reduces to:
+.iS
+    \*Ltestsh -d\*Voutput-level\*O -I. \*Vcontrol-file\*O
+.iE
+.P
+The
+.DS
+  \*Vdce-root-dir\*L/dce/install/\*Vmachine\*Ldcetest/dce1.1/test/security/api/moretests/acl_edit.sh\*O
+.DE
+.P
+shell script runs tests for the \*Lacl_edit\*O command. The \*Lacl_edit\*O tests are
+structured in the same way as the RPC and IDL unit tests except for the fact that there
+is no shell script driver to invoke \*Ltestsh\*O.
+.P
+To run the \*Lacl_edit.sh\*O tests, do the following:
+...\" 
+.AL
+.LI
+Change to the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/moretests\*O
+.DE
+.P
+directory and enter:
+...\" 
+.iS
+    chmod +x *.sh
+.iE
+.P
+to make sure that necessary shell scripts are executable.
+...\" 
+...\" followed by:
+...\" .iS
+...\"   cp \*Vdce-root-dir\*L/dce/obj/\*Vmachine\*L/security/client/admin/acl_edit/svr_example/acl_server\*O
+...\" .iE
+...\" 
+.LI
+\*Ldce_login\*O as a user with privileges to modify the registry.
+.P
+If you configured your machine using the \*Ldce_config\*O script, then
+whatever user the script's \*Lcelladmin\*O variable was set to has
+registry-modifying privileges.
+.LI
+Change to the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/moretests\*O
+.DE
+.P
+directory and enter:
+.iS
+    acl_edit_setup.sh
+.iE
+.P
+This script creates an account for ``flintstone.none.none'' in the registry.
+This account has the password ``yabadabado.'' The script then modifies the
+\*Luser_obj\*O entry on the ACL on this account so that user ``flintstone''
+may modify the ACL.
+.LI
+\*Ldce_login\*O as ``flintstone'':
+.iS
+    dce_login flintstone yabadabado
+.iE
+.P
+Change to the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*Ldcetest/dce1.1/test/security/api/control\*O
+.DE
+.P
+directory and enter:
+.iS
+    ../testsh/testsh  -d [\*Voutput_level\*L] -I../moretests acl_edit.tsh  >  \*Voutput_file
+.iE
+.P
+where:
+...\" 
+.VL 1.4i
+.LI "\*L-d\*O"
+Specifies an output level for all test programs. Using the \*L-d\*O option with no
+\*Voutput_level\*O integer returns a message only when a test fails.
+.LI "\*Voutput_level\*O"
+Specifies an output level for all test programs. The following list shows the valid
+integer values for \*Voutput_level\*O and the output levels they specify:
+...\" 
+.VL 1.0i
+.LI "1"
+Prints message on failure.
+.LI "2"
+Prints message on success.
+.LI "3"
+Prints message on warning.
+.LI "32"
+Prints message on trace.
+.LI "33"
+Prints message on trace with failure.
+.LI "34"
+Prints message on trace with success.
+.LI "63"
+Prints debug messages during test case execution.
+.LE
+...\" 
+.LE
+...\" 
+.LE
+...\" 
+.P
+The log information generated in \*Voutput_file\*O varies with the
+\*Voutput_level\*O specified, but test run and execution results are
+obvious in the log.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The Local Registry Test"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+You must log in as as a user with privileges to modify the registry
+before running the test. If you configured your machine using the dce_config
+script, then whatever user the script's \*Vcelladmin\*O variable was set to has
+registry-modifying privileges. The following examples assume that \*Vcelladmin\*O
+is set to \*Lcell_admin\*O and the password for \*Lcell_admin\*O is \*L-dce-\*O.
+...\" 
+.nS "note"
+This test uses the program \*Lbinlogin\*O, which in turn uses the call 
+\*Vsec_login_valid_and_cert_ident(\|)\*O, which is a privileged operation.
+Hence the need for Step 4 outlined below.
+.nE
+...\" 
+.P
+To run the local registy test do the following:
+...\" 
+.AL
+.LI
+Login as the privileged user (\*Lroot\*O) on the system.
+.LI
+\*Ldce_login cell_admin -dce-\*O
+.LI
+This test uses the \*Lsec_admin\*O command to stop \*Lsecd\*O so the
+location of the \*Lsec_admin\*O command must exist in your \*LPATH\*O
+environment variable.
+.LI
+Change to the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/moretests\*O
+.DE
+...\" 
+.P
+directory, and execute the following commands:
+.iS
+    chmod +x *.sh
+    chmod u+s binlogin
+.iE
+.P
+(Note that you may not have to do the \*Lchmod u+s binlogin\*O if you are
+already logged in as root.)
+...\" 
+.LI
+Change directory to
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/control\*O
+.DE
+.P
+and type the following:
+...\" 
+.iS
+    ../testsh/testsh -d[output_level] -I../moretests local_rgy.tsh
+.iE
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The Locksmith Test"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+There is no automated script for testing locksmith functionality. Instead,
+the tests have to be done manually as described below. Furthermore, the tests
+use the \*Lacl_edit\*O test for which the setup must be done as described in
+Section 7.5.3.1, ``The acl_edit Tests,'' Steps 1, 2, and 3.
+...\" 
+.nS "note"
+This test uses the \*Lsec_admin\*O command to stop \*Lsecd\*O, so the location
+of the \*Lsec_admin\*O command must exist in your \*LPATH\*O environment variable.
+When \*Lsecd\*O is started in the locksmith mode, it runs in the foreground.
+.nE
+...\" 
+.sp 2
+...\" ----------------------------------------------------------------------
+.B "Test 1: Testing the Basic Locksmith Mode"
+...\" ----------------------------------------------------------------------
+...\" 
+.AL
+.LI
+Kill \*Lsecd\*O using the script \*Lkill_secd.sh\*O.
+.LI
+Restart \*Lsecd\*O in locksmith mode as follows:
+...\" 
+.iS
+    secd -locksm locksmith-principal
+.iE
+...\" 
+.LI
+\*Ldce_login\*O as \*Lflintstone\*O
+...\" 
+.iS
+    dce_login flintstone yabadabado
+.iE
+...\" 
+.LI
+Run the \*Lacl_edit\*O test.
+.LE
+...\" 
+.sp 2
+...\" ----------------------------------------------------------------------
+.B "Test 2: Testing the -rem option"
+...\" ----------------------------------------------------------------------
+.P
+This test requires a cell to be configured with at least one client machine
+and one server machine. To test, do the following.
+.P
+On the server:
+...\" 
+.AL
+.LI
+Kill \*Lsecd\*O using the script \*Lkill_secd.sh\*O.
+.LI
+Restart \*Lsecd using the \*L-rem\*O option as follows:
+...\" 
+.iS
+    secd -locksm locksmith-principal -rem
+.iE
+...\" 
+.LE
+...\" 
+.P
+On the client:
+...\" 
+.AL
+.LI
+Verify that principals other than locksmith-principal
+can still \*Ldce_login\*O.
+.LI
+\*Ldce_login\*O as \*Lflintstone\*O
+...\" 
+.iS
+    dce_login flintstone yabadabado
+.iE
+...\" 
+.LI
+Run the \*Lacl_edit\*O test.
+.LE
+...\" 
+.sp 2
+...\" ----------------------------------------------------------------------
+.B "Test 3: Testing without -rem option"
+...\" ----------------------------------------------------------------------
+.P
+This test requires a cell to be configured with at least one client
+machine and one server machine. To test, do the following.
+.P
+On the server:
+...\" 
+.AL
+.LI
+Kill \*Lsecd\*O using the script \*Lkill_secd.sh\*O.
+.LI
+Restart \*Lsecd\*O without the \*L-rem\*O option as follows:
+...\" 
+.iS
+    secd -locksm locksmith-principal
+.iE
+...\" 
+.LE
+...\" 
+.P
+On the client:
+...\" 
+.AL
+.LI
+Verify that the locksmith-principal cannot \*Ldce_login\*O.
+.LI
+Verify that other principals (e.g., \*Lcell_admin\*O) can still \*Ldce_login\*O.
+.LE
+...\" 
+.sp 2
+...\" ----------------------------------------------------------------------
+.B "Test 4: Testing the -lockpw option"
+...\" ----------------------------------------------------------------------
+...\" 
+.AL
+.LI
+Kill \*Lsecd\*O using the script \*Lkill_secd.sh\*O
+.LI
+Restart \*Lsecd\*O with the \*L-lockpw\*O option as follows:
+...\" 
+.iS
+    secd -locksm principal -lockpw
+.iE
+...\" 
+.LI
+Verify that the principal can only \*Ldce_login\*O with the password set
+by the \*L-lockpw\*O option.
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The rgy_edit Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+You must \*Ldce_login\*O as a user with privileges to modify the registry
+before running this test. If you configured your machine using the
+\*Ldce_config\*O script, then whatever user the script's \*Lcelladmin\*O
+variable was set to has registry-modifying privileges. There is no \*L.tsh\*O
+control file for the \*Lrgy_edit\*O tests.
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/moretests/all_rgy_edit.sh\*O
+.DE
+.P
+shell script runs tests for the \*Lrgy_edit\*O command.
+.P
+To run the \*Lrgy_edit\*O tests, do the following:
+...\" 
+.AL
+.LI
+Change directory to the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/moretests\*O
+.DE
+.P
+directory and enter:
+.iS
+    chmod +x *.sh
+.iE
+.P
+to make sure that all of the \*Lrgy_edit\*O test scripts are executable.
+.LI
+In the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/moretests\*O
+.DE
+.P
+directory, enter:
+.iS
+    all_rgy_edit.sh -d[\*Voutput_level\*V] > output_file\*O
+.iE
+.P
+where:
+...\" 
+.VL 1.4i
+.LI "\*L-d\*O"
+Specifies an output level for all test programs. Using the \*L-d\*O option with no
+\*Voutput_level\*O integer returns a message only when a test fails.
+.LI "\*Voutput_level\*O"
+Specifies a specific output level for all test programs. The following list shows
+the valid integer values for \*Voutput_level\*O and the output levels they specify:
+...\" 
+.VL 1.0i
+.LI "1"
+Prints message on failure.
+.LI "2"
+Prints message on success.
+.LI "3"
+Prints message on warning.
+.LI "32"
+Prints message on trace.
+.LI "33"
+Prints message on trace with failure.
+.LI "34"
+Prints message on trace with success.
+.LI "63"
+Prints debug messages during test case execution.
+.LE
+...\" 
+.LE
+...\" 
+.LE
+...\" 
+.P
+The log information generated in \*Voutput_file\*O varies with the \*Voutput_level\*O
+specified, but test run and execution results are obvious in the log.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "API Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The API tests in the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/moretests\*O
+.DE
+.P
+directory are structured similarly to the \*Lacl_edit\*O tests; also similarly,
+there is no shell script driver to invoke \*Ltestsh\*O for these tests. See the
+section describing the \*Lacl_edit\*O tests for information on how the test cases
+using the \*Ltestsh\*O driver are structured and hints on how to make executing
+them easier.
+...\" 
+.nS "note"
+This section gives explicit instructions for executing the API tests directly
+from the
+.DS
+    \*Vdce-root-dir\*L/dce/install\*O
+.DE
+.P
+tree.
+.nE
+...\" 
+.P
+The \*Lsec_acl\*O API test assumes that the principal with registry modifying
+privileges is \*Lcell_admin\*O and that the password is \*L-dce-\*O. If either
+of these is different, then the script \*Lsec_acl.tsh\*O must be modified.
+Currently only subtest case 10 in \*Lsec_acl.tsh\*O needs to be modified.
+...\" 
+.nS "note"
+Some tests use the program \*Lbinlogin\*O, which in turn uses the call 
+\*Vsec_login_valid_and_cert_ident(\|)\*O, which is a privileged operation.
+Hence the need for Step 3 outlined below.
+.nE
+...\" 
+.P
+To run the API tests, do the following:
+...\" 
+.AL
+.LI
+Make sure you are starting with a clean registry. It is not necessary to re-create
+the registry after each individual API suite is run.
+.LI
+Run the \*Ldce_login\*O tool to login as the registry principal ``cell_admin'' or
+the registry privileged user so that the test process (which inherits your credentials)
+has the necessary privileges. To run the \*Lpasswd_import\*O test, you need to define a
+variable \*LCELLADMIN\*O to either ``cell_admin'' or the registry privileged user.
+.LI
+Before running the passwd_import test ensure that:
+...\" 
+.BL
+.LI
+The location of the passwd_import command exists in your \*LPATH\*O environment variable.
+.LI
+The registry is clean.
+.LI
+The variable \*LCELLADMIN\*O is defined to be either \*Lcell_admin\*O or the
+registry privileged user.
+.LE
+...\" 
+.LI
+Change to the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/moretests\*O
+.DE
+.P
+directory, and execute the following commands:
+...\" 
+.oS
+    chmod +x *.sh
+    chmod u+s binlogin
+.oE
+.P
+(Note that you may not have to do the \*Lchmod u+s binlogin\*O if you are
+already logged in as root.)
+...\" 
+.LI
+Change to the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/moretests\*O
+.DE
+.P
+directory, and enter:
+.iS
+    sh rgy_setup.sh
+.iE
+.P
+This script sets up necessary accounts in the registry.
+.LI
+Also in the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/moretests\*O
+.DE
+.P
+directory, enter:
+.iS
+    sh key_mgmt_setup.sh
+.iE
+This script creates keyfiles necessary for the key management API tests.
+.LI
+To actually run the tests, change to the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/security/api/control\*O
+.DE
+.P
+directory and enter:
+.iS
+    ../testsh/testsh  -d [\*Voutput_level\*L]  -I../moretests \\
+       \*Vcontrol_file  >  output_file\*O
+.iE
+.P
+where:
+...\" 
+.VL 1.4i
+.LI "\*L-d\*O"
+Specifies an output level for all test programs. Using the \*L-d\*O option with no
+\*Voutput_level\*O integer returns a message only when a test fails.
+.LI "\*Voutput_level\*O"
+Specifies an output level for all test programs. The following list shows the valid
+integer values for \*Voutput_level\*O and the output levels they specify:
+...\" 
+.VL 1.0i
+.LI "1"
+Prints message on failure.
+.LI "2"
+Prints message on success.
+.LI "3"
+Prints message on warning.
+.LI "32"
+Prints message on trace.
+.LI "33"
+Prints message on trace with failure.
+.LI "34"
+Prints message on trace with success.
+.LI "63"
+Prints debug messages during test case execution.
+.LE
+...\" 
+.LI "\*Vcontrol_file\*O"
+Specifies what control file to use. All files in the
+.DS
+    \*Vdce-root-dir/\*Linstall/\*Vmachine\*L/dcetest/dce1.1/test/security/api/control\*O
+.DE
+.P
+directory which have a \*L.tsh\*O extension are valid control files.
+Refer to the table at the end of this chapter to find which control
+file will test a given API.
+.LE
+.LE
+...\" 
+.P
+The log information generated in \*Voutput_file\*O varies with the
+\*Voutput_level\*O specified, but test run and execution results are
+obvious in the log.
+...\" 
+...\" 
+...\" 
+.zA "def,10739,1.1beta,new test information"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Registry Group Override Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The Registry Group Override tests are found in:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/functional/security/grp_override\*O
+.DE
+...\" 
+There are two tests:
+...\" 
+.BL
+.LI
+\*Lgrp_override.c\*O
+.P
+This test exercises a non-documented functional API that supports group overrides.
+The new, documented, routine \*Lsec_rgy_pgo_get_by_eff_unix_num(\|)\*O is also
+tested here.
+...\" 
+.LI
+\*Lpasswd_export_grp_override.c\*O
+.P
+This test ensures that \*Lpassswd_export\*O correctly conveys overriden registry
+information to \*L/etc/group\*O.
+...\" 
+.LE
+...\" 
+.P
+Note that the DCE 1.1 beta versions of these tests do \*Vnot\*O run under TET,
+although some of the files and some aspects of the tests' directory structure
+may make it appear as if they do.
+...\" 
+...\" See
+...\" 
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/test/functional/grp_override/README\*O
+...\" .DE
+...\" 
+...\" .P
+...\" for instructions on how to run tests.
+...\" 
+.P
+To build the tests under ODE (see Chapters 1 and 12 for more information on
+ODE), change directory to
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/functional/grp_override/ts\*O
+.DE
+...\" 
+.P
+and run \*Lbuild\*O. To run the tests, change directory to the
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/obj/\*Vplatform\*L/test/functional/security/grp_override/ts\*O
+.DE
+...\" 
+.P
+directory, \*Ldce_login\*O as \*Lcell_admin\*O, and execute:
+...\" 
+.iS
+    \*C# \*L./grp_override
+    \*C# \*L./passwd_export_grp_override
+.iE
+...\" 
+.P
+No failure messages should appear in output.
+...\" 
+...\" 
+...\" 
+.zZ "def,10739,1.1beta,new test information"
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Additional API Test Information"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following table shows the available suites of API tests along with
+the control file that will execute all of the tests for each suite:
+...\" 
+.VL 2.0i
+.LI "\*LControl File\*O"
+\*LFunction Tested\*O
+.LI "\*Lall_login.tsh\*O"
+\*Lsec_login\*O
+.LI "\*Lall_pgo.tsh\*O"
+\*Lsec_rgy\*O (PGO management)
+.LI "\*Lall_acct.tsh\*O"
+\*Lsec_rgy\*O (account management)
+.LI "\*Lall_auth_pol.tsh\*O"
+\*Lsec_rgy\*O (auth policy management)
+.LI "\*Lall_policy.tsh\*O"
+\*Lsec_rgy\*O (policy management)
+.LI "\*Lall_props.tsh\*O"
+\*Lsec_rgy\*O (properties management)
+.LI "\*Lall_key_mgmt.tsh\*O"
+\*Lsec_key\*O (key management)
+.LI "\*Lall_misc_test.tsh\*O"
+\*Lsec_rgy\*O (miscellaneous interfaces)
+.LI "\*Lsite_bind.tsh\*O"
+\*Lsec_rgy\*O (site bind)
+.LI "\*Lsite_mgmt.tsh\*O"
+\*Lsec_rgy\*O (site management)
+.LI "\*Lsec_acl.tsh\*O"
+\*Lsec_acl\*O
+.LI "\*Lid_map.tsh\*O"
+\*Lsec_id\*O
+.LI "\*Llocal_rgy.tsh\*O"
+\*Lsec_login\*O (local registry)
+.LI "\*Lpasswd_import.tsh\*O
+\*Lpasswd_import\*O
+.LI "\*Lpasswd_override.tsh\*O"
+\*Lpassword_override\*O
+.LI "\*Lmost_sec.tsh\*O
+Most of the \*L.tsh\*O files besides \*Lacl_edit.tsh,
+rgy_edit.sh, local_rgy.tsh, passwd_import.sh,
+passwd-override.tsh\*O and \*Lunix.tsh\*O.
+.LI "\*Lunix.tsh\*O"
+\*Lunix\*O (UNIX interfaces)
+.LE
+...\" 
+.P
+Additional API test information is available in \*Lsecp.gpsml\*O in the
+.DS
+    \*Vdce-root-dir\*L/doc/testplans/security\*O
+.DE
+.P
+directory.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Use of the ``compile_et'' Program"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following command is used in testing.
+...\" 
+.BL
+.LI
+\*Lcompile_et\*O
+.LE
+.P
+This command is used to create message catalogs from error table files.
+It is part of Kerberos and is used by Security and DFS. Its source directory
+is:
+.DS
+    \*Vdce-root-dir\*L/dce/src/security/krb5/comerr\*O
+.DE
+.P
+Error table files (usually ending with a \*L.et\*O) are input to \*Lcompile_et\*O,
+and a \*L.h\*O and a \*L.msf\*O are output. The \*L.h\*O file is included in source
+code to have macros defined for each error code and the \*L.msf\*O is used as input
+to \*Lgencat\*O to create message catalog files.
+.P
+The following is excerpted from the file \*Lsrc/security/h/sad_err.et\*O:
+...\" 
+.oS
+    This symbolic message source file (SMSF) defines the errors produced by
+    the security admin tools.  The first token on each line is the symbolic
+    name of an error.  The rest of the line is the text that describes that
+    error. An SMSF is like an XPG message source file (MSF) except
+    that symbolic message identifiers are used instead of numbers.
+.oE
+...\" 
+.P
+Example lines from the \*L.et\*O file are as follows
+...\" 
+.oS
+    ec ek_null_handle,    "Unable to allocate handle (Registry Edit Kernel)" 
+    ec ek_bad_format,     "Data string format not valid for the specified
+                           field (Registry Edit Kernel)" 
+    ec ek_required_field, "Kernel operation invoked on incomplete data
+                           set (Registry Edit Kernel)"
+.oE
+...\" 
+.P
+The \*L.h\*O file produced contains lines as follows:
+...\" 
+.oS
+    #define ek_null_handle    (386412545L)
+    #define ek_bad_format     (386412546L)
+    #define ek_required_field (386412547L)
+.oE
+...\" 
+.P
+The \*L.msf\*O file is used as input to \*Lgencat\*O to generate message catalogs.
+Its contents have the following appearance:
+...\" 
+.oS
+    1  Unable to allocate handle (Registry Edit Kernel)
+    2  Data string format not valid for the specified field
+       (Registry Edit Kernel)
+    3  Kernel operation invoked on incomplete data set (Registry
+       Edit Kernel)
+.oE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Test Plans"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Refer to Chapter 1 of the \*VOSF DCE Release Notes\*O for the location of
+the DCE test plans on the DCE distribution tape.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------

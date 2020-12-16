@@ -1,0 +1,669 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: pioctl.2dfs,v $
+...\" Revision 1.1.2.2  1994/06/10  21:08:30  devobj
+...\" 	cr10872 - fixed copyright
+...\" 	[1994/06/10  20:48:32  devobj]
+...\"
+...\" Revision 1.1.2.1  1994/04/05  15:14:51  rom
+...\" 	{enh, 10283, R1.1}
+...\" 	Fix incorrect comment leaders.
+...\" 	[1994/04/05  14:09:30  rom]
+...\" 
+...\" 	{enh, 10283, R1.1}
+...\" 	Moved from dce_books/app_ref/man2dfs/pioctl.2dfs to
+...\" 	supp_docs/redistrib/dfs_app_gdref/man2dfs/pioctl.2dfs.
+...\" 	[1994/04/04  21:47:41  rom]
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc. ALL RIGHTS RESERVED
+...\"Copyright (C) 1989, 1991, 1992, 1993 Transarc Corporation
+...\"The Gulf Tower
+...\"707 Grant Street
+...\"Pittsburgh, PA  15219
+.TH "pioctl" "2dfs" "" "" ""
+...\" .iX "calls"  "in DFS"  "\*Lpioctl(\|)\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.SH "NAME"
+.PP
+\*Lpioctl\*O - Executes a call on a pathname
+.zA "defect, 6649, r1.0.2, pioctl changes"
+.SH "SYNOPSIS"
+.PP
+.sS
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.zA"defect,5992,r1.0.2,fixed include directory"
+\*L#include <dcedfs/ioctl.h>
+.nL
+.zZ"defect,5992,r1.0.2,fixed include directory"
+#include <socket.h>
+.nL
+#include <dcedfs/common_data.h>  \*O /* for afsFid and afsHyper */
+.nL
+\*L#include <dcedfs/aclbase.h>  \*O /* for sec_acl_perm_* flags */
+.nL
+
+\*Lsigned32 pioctl\*L(
+.nL
+	\*Lchar *\*Vpathname\*L,
+.nL
+	\*Lsigned16 \*Vcommand\*L,
+.nL
+	\*Lstruct afs_ioctl *\*Varg\*L,
+.nL
+	\*Lsigned16 \*Vfollow_links\*L)
+.sE
+.br
+.ne 1.5i
+.SH "PARAMETERS"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.SS Input
+.VL 6m
+...\'wH UNDEFINED{tightenlist}
+.LI "\*Vpathname\*O"
+The pathname for any file or directory affected by this call.
+.LI "\*Vcommand\*O"
+The specific \*Lpioctl(\|)\*O call to invoke.
+.LI "\*Vfollow_links\*O"
+Specifies whether to follow symbolic links in paths.
+.LE
+.SS Input/Output
+.VL 6m
+.LI "\*Varg\*O"
+The data to be passed to and from the call.
+.LE
+.br
+.ne 1.5i
+.SH "DESCRIPTION"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.zA "defect, 6441, r1.0.2, pioctl changes"
+.PP
+.zA"defect, 6386, r1.0.2, fixed bogus () notation"
+The \*Lpioctl(\|)\*O system call is very similar
+to the BSD Unix \*Lioctl(\|)\*O system call, with two
+exceptions. First, the relevant file is passed via a pathname (rather than
+a file descriptor) as the first parameter. Second, there is a fourth
+parameter, which determines what file is used if the file specified
+is a symbolic link. If this parameter is 1, the symbolic link is
+followed to its destination and \*Lpioctl(\|)\*O is applied to
+that destination file. If the parameter is 0 (zero),
+\*Lpioctl(\|)\*O is applied to the symbolic link
+itself. Note that this fourth parameter only applies to a symbolic link
+if it is the last component of the pathname; links encountered in intermediate
+components are always followed.
+.PP
+All \*Lpioctl(\|)\*O calls
+take a single input for the third parameter, but sometimes more
+than one piece of information needs to be passed in. This is handled by
+passing in a single chunk of data that is ``dissected'' by \*Lpioctl(\|)\*O.
+For instance, \*LVIOCCKSERV\*O takes a \*Lsigned32\*O followed by a \*Lsockaddr\*O;
+the way to provide this is to provide a pointer to a
+section of memory that contains the \*Lsigned32\*O followed immediately by the
+\*Lsockaddr\*O. The \*Lpioctl(\|)\*O call knows how much of the memory contains
+each object.
+.PP
+For those calls that do not affect a file, supply a pathname of \*LNULL\*O.
+For those calls that do not take an input parameter, use \*LNULL\*O.
+.PP
+All calls either return 0 (zero) to indicate the call
+was successful, or return -1 and set \*Lerrno\*O
+to an error flag.
+.PP
+The data is passed via the \*Lafs_ioctl\*O structure, defined as follows:
+...\'wH UNDEFINED{footnotesize}
+.iS
+struct afs_ioctl {
+	char * in, out;     /* Data to be transferred in, or out */
+	signed16 in_size;   /* Size of in buffer (<= AFSIO_BUFSIZE) */
+	signed16 out_size;  /* Max size of out buffer (<= AFSIO_BUFSIZE) */
+}
+.iE
+.PP
+The rest of this reference page describes the specific \*Lpioctl(\|)\*O calls.
+.PP
+In the following descriptions, \*LPath\*O indicates what the path argument
+(the first argument) to \*Lpioctl(\|)\*O represents, if anything. \*LIn\*O
+is a description of the contents of the input buffer, and \*LOut\*O
+describes the output buffer. \*LAccess\*O describes the access needed to
+make the call to \*Lpioctl(\|)\*O.
+.VL 4m
+.LI "\*LVIOCACCESS\*O - Requests access to a file or directory"
+.iX "\*LVIOCACCESS\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOCACCESS\*O"
+.PP
+\*LPath\*O:	Identifies a file
+.br
+\*LIn\*O:	\*Lsigned32\*O \*Vaccess_bits\*O
+.br
+\*LOut\*O:	None
+.br
+\*LAccess\*O:	ACL-controlled
+.PP
+The input describes the kind of access desired (read, write, and so on).
+It is a \*Lsigned32\*O, and is a mask of the following values:
+.ad l
+.ML
+...\'wH UNDEFINED{tightenlist}
+.LI
+\*Lsec_acl_perm_read\*O
+.LI
+\*Lsec_acl_perm_write\*O
+.LI
+\*Lsec_acl_perm_execute\*O
+.LI
+\*Lsec_acl_perm_owner\*O
+.LI
+\*Lsec_acl_perm_insert\*O
+.LI
+\*Lsec_acl_perm_delete\*O
+.LE
+.ad b
+.PP
+These are DFS ACLs, not
+\ UNIX
+\ protection bits;
+\ UNIX
+\ protection bits do
+not work correctly with DFS. Eight user-defined bits (a through h)
+are also reserved for applications. This call fails if any of the
+accesses requested for the file or directory is denied.
+.LI "\*LVIOC_AFS_DELETE_MT_PT\*O - Removes the mount point"
+.iX "\*LVIOC_AFS_DELETE_MT_PT\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOC_AFS_DELETE_MT_PT\*O"
+.PP
+\*LPath\*O:	Identifies a directory in which the mount point exists
+.br
+\*LIn\*O:	\*Lchar\*O \*VmtPtName\*O[\|]
+.br
+\*LOut\*O:	None
+.br
+\*LAccess\*O:	ACL-controlled
+.PP
+The input is a string giving
+the name of a file (the pathname is that file's directory).
+This call removes the mount point for the input file.
+.LI "\*LVIOC_AFS_STAT_MT_PT\*O - Gets the mount object status"
+.iX "\*LVIOC_AFS_STAT_MT_PT\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOC_AFS_STAT_MT_PT\*O"
+.PP
+\*LPath\*O:	Identifies a directory in which the mount point exists
+.br
+\*LIn\*O:	\*Lchar\*O \*VmtPtName\*O[\|]
+.br
+\*LOut\*O:	\*Lchar\*O \*VmtPtTarget\*O[\|]
+.br
+\*LAccess\*O:	ACL-controlled
+.PP
+This call returns information about the mount object. The output is the type
+of mount point (a character), an optional colon-terminated name of a cell,
+and the name of the fileset to be mounted at this point in the tree (a
+string). If no cell is specified, the fileset is presumed to reside
+in the cell in which the mount point resides. The name can optionally be
+given as the ASCII representation of the fileset's number. The type character
+can be \*L#\*O (number sign),
+\*L%\*O (percent sign), or \*L!\*O (exclamation point), described as follows:
+.ML
+...\'wH UNDEFINED{tightenlist}
+.LI
+A type of \*L#\*O tells the file system to use the latest read-only
+fileset corresponding to the named fileset, if the mount point is
+part of a read-only file system and such a fileset exists. 
+Otherwise, the mount point
+functions as a mount point to the named fileset.
+.LI
+A type of \*L%\*O indicates that the read/write version of the
+named fileset is to be mounted at this point.
+.LI
+A type of \*L!\*O indicates a mount point for the global namespace;
+such mount points are used mainly for diskless support.
+.LE
+.PP
+The mount point string is not \*LNULL\*O-terminated.
+.PP
+The input is a name, as in \*LVIOC_AFS_DELETE_MT_PT\*O.
+.LI "\*LVIOC_AFS_SYSNAME\*O - Sets the \*L@sys\*O string"
+.iX "\*LVIOC_AFS_SYSNAME\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOC_AFS_SYSNAME\*O"
+.PP
+\*LPath\*O:	Ignored
+.br
+\*LIn\*O:	\*Lsigned32\*O \*VsetFlag,\*O \*Lchar\*O \*VnewName\*O[\|]
+.br
+\*LOut\*O:	\*Lsigned32\*O \*VfoundName,\*O \*Lchar\*O \*VoldName\*O[\|]
+.br
+\*LAccess\*O:	Superuser to set
+.PP
+This call sets the string that the \*L@sys\*O variable expands to.
+If \*VsetFlag\*O
+is 0 (zero), a 1 is returned in \*VfoundName\*O and the old
+\*L@sys\*O name is
+returned as \*VoldName\*O. If \*VsetFlag\*O is nonzero, \*VnewName\*O is
+set as the new \*L@sys\*O name and the old name is not returned.
+.LI "\*LVIOC_CLOCK_MGMT\*O \- Reads or sets clock management"
+.iX "\*LVIOC_CLOCK_MGMT\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOC_CLOCK_MGMT\*O"
+.PP
+\*LPath\*O:	Ignored
+.br
+\*LIn\*O:	Data block (see the description)
+.br
+\*LOut\*O:	Data block (see the description)
+.br
+\*LAccess\*O:	Open to read, superuser to set
+.PP
+This \*Lpioctl(\|)\*O call controls the Cache Manager's setting of the
+machine's local clock. It also fetches and stores kernel values that
+describe the clock's accuracy. The Cache Manager has an optional
+feature, typically used only on client-only machines, by which it sets
+the machine's clock based on the time as set on a local file server
+machine. This feature is initialized with \*Ldfsd\*O and is
+controllable with this \*Lpioctl(\|)\*O call.
+.PP
+The data block is formatted the same for reading and setting. Some
+values may be read and written; others may only be read. The entries in
+this data block follow:
+.ML
+...\'wH UNDEFINED{tightenlist}
+.LI
+\*Lsigned32\*O \*Vclock_style\*O \- This currently must be 0 (zero).
+.LI
+\*Lsigned32\*O \*Vread_or_write\*O \- This is 0 (zero)
+to read values, nonzero to set values.
+.LI
+\*Lsigned32\*O \*VCM_clockset\*O \- This may be read and written.
+It is 1 if the Cache Manager sets the local clock based on File Exporter
+calls, and 0 (zero) if not.
+.LI
+\*Lstruct afsTimeval\*O \*VcurrTime\*O \- This may only be read.
+It is the time when the call is made.
+.LI
+\*Lsigned32\*O \*VsynchDistance\*O \- This may be read and written.
+It is the clock accuracy parameter.
+.LI
+\*Lsigned32\*O \*VsynchDispersion\*O \- This may be read and written.
+It is the clock accuracy parameter.
+.LI
+\*Lstruct afsNetAddr\*O \*Vlast_set_addr\*O \- This may only be read.
+It is the address of the Fileset Server from which the time has been set.
+.LI
+\*Lstruct afsTimeval\*O \*Vlast_set_time\*O \- This may only be read.
+It is the time to which the Cache Manager last set the machine's clock.
+.LI
+\*Lsigned32\*O \*Vresidue\*O \- This may only be read.
+It is the number of seconds fast that the Cache Manager's last
+clock-set operation left the clock, because it did not want to back the
+clock up more than a few seconds at once.
+.LE
+.LI "\*LVIOCCKBACK\*O - Flushes the fileset name and ID mappings"
+.iX "\*LVIOCCKBACK\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOCCKBACK\*O"
+.PP
+\*LPath\*O:	Ignored
+.br
+\*LIn\*O:	None
+.br
+\*LOut\*O:	None
+.br
+\*LAccess\*O:	Open
+.PP
+This call flushes the mappings between fileset names and IDs, and between
+the ID of the read/write fileset and its read-only (replicated) copies, if
+any. Normally this flushing is done once an hour. The call has no input
+or output.
+.LI "\*LVIOCCKSERV\*O - Checks for functioning servers"
+.iX "\*LVIOCCKSERV\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOCCKSERV\*O"
+.PP
+\*LPath\*O:	Ignored
+.br
+\*LIn\*O:	\*Lsigned32\*O \*Vflagword,\*O [optional] \*Lchar\*O \*VcellName\*O[\|] (\*LNULL\*O-terminated)
+.br
+\*LOut\*O:	\*Lsigned32\*O \*VreturnCode,\*O \*Lstruct sockaddr\*O \*VserverAddresses\*O[\|]
+.br
+\*LAccess\*O:	Open
+.PP
+This call optionally checks a set of servers for reachability. It
+returns the addresses of the servers that are considered ``down.''
+If there is text following the input \*Vflagword\*O, it is viewed as the
+name of a cell whose servers are to be reported, after the optional
+check. If the name does not correspond to an already known cell, \-1
+is returned as the \*VreturnCode\*O, and no \*VserverAddresses\*O are
+returned. If there is no text after the input \*Vflagword\*O, and bit 2
+(0x2) is set in the input \*Vflagword\*O, the servers corresponding to the
+``local'' cell are considered. Otherwise, all servers known to the
+Cache Manager are considered.
+.PP
+If bit 1 (0x1) is clear in \*Vflagword\*O, the set of servers is
+actually checked (by trying a trivial RPC call). If bit 1 (0x1) is
+set in \*Vflagword\*O, no immediate check is done.
+.PP
+The servers from the indicated set (named cell, local cell, all
+servers) are then scanned, and all servers that are currently marked as
+``down'' have their network addresses passed out as the set of
+\*VserverAddresses\*O[\|]. In this case, 0 (zero) is returned as the value of
+\*VreturnCode\*O.
+.PP
+The last item in the list of \*VserverAddresses\*O[\|]
+has its \*Lsa_family\*O field set to \*LAF_UNSPEC\*O.
+.LI "\*LVIOC_FILE_CELL_NAME\*O - Gets the cell for \*Vpathname\*O"
+.iX "\*LVIOC_FILE_CELL_NAME\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOC_FILE_CELL_NAME\*O"
+.PP
+\*LPath\*O:	Identifies a file
+.br
+\*LIn\*O:	None
+.br
+\*LOut\*O:	\*Lchar\*O \*VcellName\*O[\|]
+.br
+\*LAccess\*O:	ACL-controlled
+.PP
+This call takes no input. Its output is the name of the cell that the
+file (given as the \*Vpathname\*O argument to the \*Lpioctl(\|)\*O call)
+is part of (a string).
+.LI "\*LVIOCFLUSH\*O - Flushes the cache entry"
+.iX "\*LVIOCFLUSH\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOCFLUSH\*O"
+.PP
+\*LPath\*O:	Identifies a file to flush
+.br
+\*LIn\*O:	None
+.br
+\*LOut\*O:	None
+.br
+\*LAccess\*O:	Open
+.PP
+This call flushes the cache entry for the pathname; the next time the pathname
+is accessed, the server is queried. It has no input or output parameters.
+.LI "\*LVIOC_FLUSHVOLUME\*O - Flushes all cached data for a fileset"
+.iX "\*LVIOC_FLUSHVOLUME\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOC_FLUSHVOLUME\*O"
+.PP
+\*LPath\*O:	Identifies a file (really a fileset in which a file is located)
+.br
+\*LIn\*O:	None
+.br
+\*LOut\*O:	None
+.br
+\*LAccess\*O:	Open
+.PP
+This call flushes all cached data for a fileset, but not any of the other
+cached information.
+.LI "\*LVIOCGETCACHEPARMS\*O - Gets the size of the local cache"
+.iX "\*LVIOCGETCACHEPARMS\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOCGETCACHEPARMS\*O"
+.PP
+\*LPath\*O:	Ignored
+.br
+\*LIn\*O:	None
+.br
+\*LOut\*O:	\*Lsigned32\*O \*Vwords\*L[16]\*O
+.br
+\*LAccess\*O:	Open
+.PP
+This call returns status information from the Cache Manager. \*Vwords\*L[0]\*O
+is set to the number of 1024-byte units that the Cache Manager is
+permitted to use. \*Vwords\*L[1]\*O is set to the number of
+1024-byte units that the Cache Manager is currently using. Bit 1 (0x1)
+of \*Vwords\*L[2]\*O is set to 1 if the cache is in memory (the Cache
+Manager is running without a disk cache); otherwise, it is set to 0
+(zero).
+.LI "\*LVIOCGETCELL\*O - Lists the cell configuration"
+.iX "\*LVIOCGETCELL\*O" 
+...\" .iX "\*Lpioctl(\|)\*O call" "\*LVIOCGETCELL\*O" 
+.PP
+\*LPath\*O:	Ignored
+.br
+\*LIn\*O:	\*Lsigned32\*O \*Vindex\*O
+.br
+\*LOut\*O:	\*Lsigned32\*O \*Vcount,\*O \*Lstruct sockaddr\*O \*VserverAddresses\*O[\*Vcount\*O],
+\*Lchar\*O \*VcellName\*O[\|]
+.br
+\*LAccess\*O:	Open 
+.PP
+This call returns information about the \*Vindex\*Oth cell that the Cache
+Manager understands, starting with a value of 0 (zero).
+Call this \*Lpioctl(\|)\*O repeatedly with larger \*Vindex\*O values, until -1
+is returned and \*L[EDOM]\*O is placed in \*Lerrno\*O.
+.PP
+The returned data is a count of Fileset Location Server addresses, the addresses of
+the Fileset Location Servers, and the \*LNULL\*O-terminated text name of the cell.
+.LI "\*LVIOC_GETCELLSTATUS\*O - Gets information about cell status"
+.iX "\*LVIOC_GETCELLSTATUS\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOC_GETCELLSTATUS\*O"
+.PP
+\*LPath\*O:	Ignored
+.br
+\*LIn\*O:	\*Lchar\*O \*VcellName\*O[\|]
+.br
+\*LOut\*O:	\*Lsigned32\*O \*VcellStates\*O
+.br
+\*LAccess\*O:	Open
+.PP
+This cell returns the \*Lstates\*O field in the cell structure for the
+cell whose name is given as an input parameter.  There are no defined
+state bits at present.
+.LI "\*LVIOCGETFID\*O - Gets the file handle for the file or directory"
+.iX "\*LVIOCGETFID\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOCGETFID\*O"
+.PP
+\*LPath\*O:	Identifies a file
+.br
+\*LIn\*O:	None
+.br
+\*LOut\*O:	\*Lstruct afsFid\*O \*VfileFid\*O
+.br
+\*LAccess\*O:	ACL-controlled
+.PP
+This call takes no inputs.
+The output is the file handle associated with the file or directory.
+It contains the cell ID, fileset ID, file slot number, and a
+uniquifier.
+The structure is internal to DFS.
+.LI "\*LVIOCGETVOLSTAT\*O - Gets status information about a fileset"
+.iX "\*LVIOCGETVOLSTAT\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOCGETVOLSTAT\*O"
+.PP
+\*LPath\*O:	Identifies a file (really a fileset in which a file is located)
+.br
+\*LIn\*O:	None
+.br
+\*LOut\*O:	\*Lsigned32\*O \*Vstatus\*O
+.br
+\*LAccess\*O:	Open
+.PP
+The low-order bit, \*LVIOC_DEF_SGIDOK\*O,
+if set, means that executions of the set-group-ID and set-user-ID files
+will set the group and user ID fields for the executed process (the
+\*Lsetgid\*O and \*Lsetuid\*O bits will be honored). If this bit
+is off, neither group nor user IDs
+will be altered in the executing process, and the
+\*Lsetgid\*O and \*Lsetuid\*O bits will be masked away.
+The second bit,
+\*LVIOC_DEF_DEVOK\*O, if set,
+means that special device files will be honored when found in a
+fileset with this bit on.
+.iX "\*LVIOC_DEF_SGIDOK\*O"
+...\" .iX "\*LVIOC_DEF_DEVOK\*O"
+.LI "\*LVIOCLISTSTORES\*O \- Lists files waiting to be written"
+.iX "\*LVIOCLISTSTORES\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOCLISTSTORES\*O"
+.PP
+\*LPath\*O:	Ignored
+.br
+\*LIn\*O:	None
+.br
+\*LOut\*O:	\*Lsigned32\*O \*VfileCount\*O, \*Lsigned32\*O \*VhyperCount\*O, \*Lstruct afsHyper\*O \*VfsIds\*O[\*VhyperCount\*O]
+.br
+\*LAccess\*O:	Open
+.PP
+This call produces information about the files waiting to be written that
+are being blocked by quota problems (see the \*LVIOCRESETSTORES\*O call).
+\*VfileCount\*O is the number of files awaiting store-back.
+\*VhyperCount\*O is the number of fileset IDs, and \*VfsIds\*O are the
+IDs of the filesets for which stores have been queued.
+.LI "\*LVIOCPREFETCH\*O - Prefetches a file"
+.iX "\*LVIOCPREFETCH\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOCPREFETCH\*O"
+.PP
+\*LPath\*O:	Identifies a file to prefetch
+.br
+\*LIn\*O:	None
+.br
+\*LOut\*O:	None
+.br
+\*LAccess\*O:	ACL-controlled
+.PP
+This call prefetches a file into the cache. This allows the programmer some
+control over when the delay caused by fetching a file occurs. (Prefetching,
+for example, could be done while the application is busy with other things,
+improving perceived response time.)
+.LI "\*LVIOCRESETSTORES\*O \- Stops trying file stores"
+.iX "\*LVIOCRESETSTORES\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOCRESETSTORES\*O"
+.PP
+\*LPath\*O:	Ignored
+.br
+\*LIn\*O:	None
+.br
+\*LOut\*O:	None
+.br
+\*LAccess\*O:	Open
+.PP
+If a fileset is over quota when a file write is attempted, the Cache Manager
+keeps trying the write about once a minute. \*LVIOCRESETSTORES\*O tells the
+Cache Manager to give up on all of these delayed write-backs.
+.LI "\*LVIOCSETCACHESIZE\*O - Changes cache size"
+.iX "\*LVIOCSETCACHESIZE\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOCSETCACHESIZE\*O"
+.PP
+\*LPath\*O:	Ignored
+.br
+\*LIn\*O:	\*Lsigned32 int\*O \*VnumUnits\*O
+.br
+\*LOut\*O:	None
+.br
+\*LAccess\*O:	Superuser only, and only if not diskless
+.PP
+The input is a \*Lsigned32 int\*O (4 bytes) indicating the number of 1024-byte units
+to use for the cache. This call sets the cache to that size. There is no
+output.
+.LI "\*LVIOC_SETCELLSTATUS\*O - Sets status information for a cell"
+.iX "\*LVIOC_SETCELLSTATUS\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOC_SETCELLSTATUS\*O"
+.PP
+\*LPath\*O:	Ignored
+.br
+\*LIn\*O:	\*Lsigned32\*O \*VnewStates\*O, \*Lsigned32\*O \*Vspare\*O, \*Lchar\*O \*VcellName\*O[\|]
+.br
+\*LOut\*O:	None
+.br
+\*LAccess\*O:	Superuser
+.PP
+The input is the name of a cell (a string)
+and a \*Lsigned32\*O representing some status bits (as described under
+the \*LVIOC_GETCELLSTATUS\*O call).
+The call sets the cell to have that status.
+.LI "\*LVIOCSETVOLSTAT\*O - Sets status information about a fileset"
+.iX "\*LVIOCSETVOLSTAT\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOCSETVOLSTAT\*O"
+.PP
+\*LPath\*O:	Identifies a file (really a fileset in which a file is located)
+.br
+\*LIn\*O:	\*Lsigned32\*O \*Vstatus\*O
+.br
+\*LOut\*O:	None
+.br
+\*LAccess\*O:	Superuser
+.PP
+The \*Vpathname\*O parameter is the fileset in question. This call sets the
+bits described previously under \*LVIOCGETVOLSTAT\*O.
+.LI "\*LVIOCWHEREIS\*O - Finds addresses of servers containing fileset"
+.iX "\*LVIOCWHEREIS\*O"
+...\" .iX "\*Lpioctl(\|)\*O call"  "\*LVIOCWHEREIS\*O"
+.PP
+\*LPath\*O:	Identifies a file (really a fileset in which a file is located)
+.br
+\*LIn\*O:	None
+.br
+\*LOut\*O:	\*Lsigned32\*O \*VnumSockaddrs,\*O
+.br
+	\*Lstruct sockaddr\*O \*VserverAddresses\*O[\*VnumSockaddrs\*O],
+.br	
+	\*Lchar\*O \*VfilesetName\*O[\|]
+.br
+\*LAccess\*O:	Open
+.PP
+The fileset on which the pathnamed file is located is identified by
+this call. The output buffer is filled with a \*Lsigned32\*O
+representing the number of \*Lsockaddr\*O structures to follow, that number
+of \*Lsockaddr\*O structures on which the fileset is located, and finally
+the \*LNULL\*O-terminated name of the fileset.
+.PP
+This call is used to find all the places where replicated copies of the
+fileset are being kept.
+.LE
+.br
+.ne 1.5i
+.zZ "defect, 6441, r1.0.2, pioctl changes"
+.zZ "defect, 6649, r1.0.2, pioctl changes"
+.SH "ERRORS"
+...\'wH NOT_HANDLED{hspace{.15in}}
+.PP
+The following are possible values for \*Lerrno\*O:
+.VL 10m
+...\'wH UNDEFINED{tightenlist}
+.LI "[\*LEPERM\*O]"
+Calling process doesn't own the specified entry.
+Typically, this error is encountered if the calling process doesn't have
+\*Vroot\*O privileges.
+.LI "[\*LENOTDIR\*O]"
+Specified entry is not a directory.
+.LI "[\*LENOENT\*O]"
+No such file or directory was found.
+.LI "[\*LEACCES\*O]"
+Permission was denied.
+.LI "[\*LEROFS\*O]"
+The entry specifies a read-only file system.
+.LI "[\*LEMFILE\*O]"
+Too many files are open.
+.LI "[\*LENXIO\*O]"
+A nonexistent pathname was specified.
+.LI "[\*LEFAULT\*O]"
+A bad pathname was specified.
+.LI "[\*LELOOP\*O]"
+The pathname involves too many levels of symbolic links.
+.LI "[\*LEINVAL\*O]"
+Bad \*Lpioctl\*O number.
+.LI "[\*LE2BIG\*O]"
+Result too large for buffer.
+.LI "[\*LENODEV\*O]"
+\*LVIOCWHEREIS\*O can't find volume for \*Lfdesc\*O.
+.LI "[\*LEDOM\*O]"
+Parameter to \*LVIOCGETCELL\*O is past known number of cells.
+.LI "[\*LESRCH\*O]"
+\*LVIOC_FILE_CELL_NAME\*O can't find cell for file.
+.LI "[\*LEWOULDBLOCK\*O]"
+\*LVIOCPREFETCH\*O can't get a background thread immediately.
+.LE
+In addition, several calls make server RPCs and return \*Lerrno\*O values
+based on their RPC results.
+.br
+.ne 1.2i
+.SH "RELATED INFORMATION"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.PP
+.ad l
+For more information about the DFS system calls, see the 
+\*Lintro(2dfs) page.
+.zA"defect, 5278, removed ioctl"
+.zZ"defect, 5278, removed ioctl"
+.ad b
+.zZ"defect, 6386, r1.0.2, fixed bogus () notation"

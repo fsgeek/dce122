@@ -1,0 +1,151 @@
+# ======================================================================= #
+#                                                                         #
+# ROR 9-25-92: makefile for POS rpc performance benchmark                 #
+#              (uses nmake)                                               #
+#                                                                         #
+# ======================================================================= #
+
+SALOBJS = pos_sal.o ptq_sal.o pos_idl_sstub.o posutil.o \
+catstub.o cmr_sal.o
+
+PRIOBJS = pos_pri.o ptq_pri.o pos_idl_sstub.o posutil.o \
+catstub.o cmr_pri.o ptq_idl_cstub.o cmr_idl_cstub.o
+
+SECOBJS = pos_sec.o ptq_sec.o pos_idl_sstub.o posutil.o \
+catstub.o cmr_sec.o ptq_idl_sstub.o cmr_idl_sstub.o
+
+CLIOBJS = aix/mom.o aix/pos.o pos_idl_cstub.o randum.o expran.o
+
+STTOBJS = posstart.o pos_idl_cstub.o 
+
+
+MV= /usr/bin/mv
+CP= /usr/bin/cp
+RM= /usr/bin/rm
+
+#CC=/usr/bin/cc_r
+CR=/usr/bin/cc_r
+
+
+
+SALFLAG = -DPOS_STANDALONE
+PRIFLAG = -DPOS_PRIMARY
+SECFLAG = -DPOS_SECONDARY
+
+CFLAGS	= -I. -I/usr/include/dce -g -c  -DAIX_PROD # -DDEBUGIT
+
+LIBS	= -ldce -lpthreads -lbsd -lcur -lm
+
+#NIDL	= /opt/dcelocal/bin/idl -no_cpp -cc_opt -O #-keep c_source 
+NIDL	= /opt/dcelocal/bin/idl -no_cpp -cc_opt -O -keep c_source 
+
+NIDLFLAGS = -I /usr/include/dce  -I . 
+
+# .c.o:
+# 	$(CC) $(CFLAGS) $<
+
+
+#all: pos_req pos_srv price posstart dcemsg calcpos customer tempo
+all:	nidl pos_req pos_srv  posstart 
+
+
+nidl:
+	-$(NIDL) pos_def.idl $(NIDLFLAGS)
+	-$(NIDL) pos_idl.idl $(NIDLFLAGS)
+	-$(NIDL) cmr_idl.idl $(NIDLFLAGS)
+	-$(NIDL) ptq_idl.idl $(NIDLFLAGS)
+
+
+clean:
+	$(RM) *.o
+
+
+
+pos_pri: $(PRIOBJS)
+	$(CC) -o server/pos_pri $(PRIOBJS) $(LIBS)
+
+pos_pri.o:
+	$(CP) pos_srv.c pos_pri.c
+	$(CC) $(CFLAGS) $(PRIFLAG) $<
+
+ptq_pri.o:
+	$(CP) ptqstub.c ptq_pri.c
+	$(CC) $(CFLAGS) $(PRIFLAG) $<
+
+cmr_pri.o:
+	$(CP) cmrstub.c cmr_pri.c
+	$(CC) $(CFLAGS) $(PRIFLAG) $<
+
+
+pos_sal: $(SALOBJS)
+	$(CC) -o server/pos_sal $(SALOBJS) $(LIBS)
+
+pos_sal.o:
+	$(CP) pos_srv.c pos_sal.c
+	$(CC) $(CFLAGS) $(SALFLAG) $<
+
+ptq_sal.o:
+	$(CP) ptqstub.c ptq_sal.c
+	$(CC) $(CFLAGS) $(SALFLAG) $<
+
+cmr_sal.o:
+	$(CP) cmrstub.c cmr_sal.c
+	$(CC) $(CFLAGS) $(SALFLAG) $<
+
+
+pos_sec: $(SECOBJS)
+	$(CC) -o sec/pos_sec $(SECOBJS) $(LIBS)
+
+pos_sec.o:
+	$(CP) pos_srv.c pos_sec.c
+	$(CC) $(CFLAGS) $(SECFLAG) $<
+
+ptq_sec.o:
+	$(CP) ptqstub.c ptq_sec.c
+	$(CC) $(CFLAGS) $(SECFLAG) $<
+
+cmr_sec.o:
+	$(CP) cmrstub.c cmr_sec.c
+	$(CC) $(CFLAGS) $(SECFLAG) $<
+
+
+
+pos_req: $(CLIOBJS)
+	$(CC) -o client/pos_req $(CLIOBJS) $(LIBS)
+
+calcpos: calcpos.o
+	$(CC) -o calcpos calcpos.o $(LIBS)
+
+posstart: $(STTOBJS)
+	$(CC) -o client/posstart $(STTOBJS) $(LIBS)
+
+
+customer: customer.o
+	$(CC) -o customer customer.o $(LIBS)
+
+price: price.o
+	$(CC) -o price price.o $(LIBS)
+
+testit2: testit2.o
+	$(CC) -o testit2 testit2.o $(LIBS)
+
+dcemsg: dcemsg.o
+	$(CC) -o dcemsg dcemsg.o $(LIBS)
+
+workers: workers.o
+	$(CC) -o workers workers.o $(LIBS)
+
+Pworkers: 
+	$(RM) workers.o
+	$(CR) $(CFLAGS) workers.c
+	$(CR) -o Pworkers workers.o $(LIBS)
+
+
+#posstart: posstart.obj
+ #link386 $(LDFLAGS) posstart.obj, posstart, posstart, $(LIBRARIES), pos.def;
+
+
+#calcpos: calcpos.obj
+# link386 $(LDFLAGS) calcpos.obj, calcpos, calcpos, $(LIBRARIES), pos.def;
+
+

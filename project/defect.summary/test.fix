@@ -1,0 +1,1195 @@
+CR Number                     : 13269
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : sec
+Subcomponent Name             : api
+Short Description             : acct rename test, comparison bug
+Reported Date                 : 12/29/95
+Found in Baseline             : 1.2.1
+Found Date                    : 12/29/95
+Severity                      : B
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : test/security/api/moretests/acct_rename.c
+Diff supplied by              : provider
+Diff release                  : 1.2.2
+Sensitivity                   : public
+
+[12/29/95 public]
+
+Bug found when running DCE 1.2.1 functional tests on AIX.
+The account rename and acl_edit command line functional tests fail.
+
+Routine Tested:   acct_rename
+Tested For:       1 All valid data
+
+Trace Message:    sec_rgy_site_open_update status: 0
+Trace Message:    sec_rgy_site_open_update status: 0
+Trace Message:    sec_rgy_pgo_add (person) status: 0
+Trace Message:    sec_rgy_pgo_add (group) status: 0
+Trace Message:    sec_rgy_pgo_add (org) status: 0
+Trace Message:    sec_rgy_pgo_add (key org) status: 0
+Trace Message:    sec_rgy_pgo_add_member (key org) status: 0
+Trace Message:    sec_rgy_pgo_add_member (group) status: 0
+Trace Message:    sec_rgy_pgo_add_member (org) status: 0
+Trace Message:    sec_rgy_acct_add status: 0
+Trace Message:    sec_rgy_acct_lookup (after add) status: 0
+Trace Message:    sec_rgy_acct_rename (test) status: 0
+Trace Message:    sec_rgy_acct_rename (after rename) status: 0
+Failure Message:  sec_rgy_acct_rename failed
+Trace Message:    sec_rgy_acct_delete status: 0
+Trace Message:    sec_rgy_acct_delete status: 0
+Trace Message:    sec_rgy_acct_lookup (after cleanup delete) status: 387063930
+Trace Message:    sec_rgy_pgo_delete_member (cleanup org) status: 0
+Trace Message:    sec_rgy_pgo_delete_member (cleanup group) status: 0
+Trace Message:    sec_rgy_pgo_delete_member (cleanup key org) status: 0
+Trace Message:    sec_rgy_pgo_delete (cleanup key org) status: 0
+Trace Message:    sec_rgy_pgo_delete (cleanup org) status: 0
+Trace Message:    sec_rgy_pgo_delete (cleanup group) status: 0
+Trace Message:    sec_rgy_pgo_delete (cleanup person) status: 0
+Trace Message:    sec_rgy_site_close status: 0
+Trace Message:    sec_rgy_site_close status: 0
+Test Status:      Test FAILED
+Status Returned:  30146561
+Status Text:      test failed
+
+---------------------------------------------------------------
+Routine Tested:    acl_edit command line
+Tested for:        10 -n command line option
+Against Server:    acl_server -e -f /tmp/aclmgr_keytab
+
+Trace Message:     acl_edit /.:/myfilesystem/greg -m user:uucp:rw -l
+ERROR: acl object not found (dce / sec)
+Unable to bind to object /.:/myfilesystem/greg
+Trace Message:     acl_edit -m user:uucp:rw:  expected: mask_obj:-rw----, received: 
+.
+.
+.
+---------------------------------------------------------------
+Routine Tested:    acl_edit command line
+Tested for:        11 -c command line option
+Against Server:    acl_server -e -f /tmp/aclmgr_keytab
+
+Trace Message:     acl_edit /.:/myfilesystem/greg -m user:uucp:rw -l
+ERROR: acl object not found (dce / sec)
+Unable to bind to object /.:/myfilesystem/greg
+Trace Message:     acl_edit -m user:uucp:rw:  expected: mask_obj:-rw----, received: 
+.
+.
+.
+---------------------------------------------------------------
+Routine Tested:    acl_edit command line
+Tested for:        12 -p command line option
+Against Server:    acl_server -e -f /tmp/aclmgr_keytab
+
+Trace Message:     acl_edit /.:/myfilesystem/greg -m user:uucp:rw -l
+ERROR: acl object not found (dce / sec)
+Unable to bind to object /.:/myfilesystem/greg
+Trace Message:     acl_edit -m user:uucp:rw:  expected: mask_obj:-rw----, received: 
+.
+.
+.
+
+Each of the acl_edit tests prints many more errors, each with an empty
+received string.
+
+These tests fail consistantly in this manner.
+
+[12/29/95 public]
+The first failure doesn't look right to me.  All the calls returned an ok
+status, yet the test still thinks it failed?
+
+The acl_edit failures look like they're due to the acl_server not being
+started up before the test was run.  Do you still have the full logfiles?
+Look above where these tests failed and see if it had a problem starting
+acl_server.
+
+[01/02/96 public]
+If the first failure is actually due to the wrong return status then
+maybe this OT should be changed to be open against the tests instead
+of the code?
+
+The suggestion that acl_server was not running was correct.  I moved
+acl_server to a location where it could be found and the acl_edit 
+tests now succeed.
+
+[2/2/96 public]
+As stated above, the acl_edit portion was a missing piece of the test.
+The acct_rename test problem turned out to be a test bug (was doing a
+memcmp of the structures instead of string comparing the elements of
+the structure), so I've reassigned this to 'test' from 'code'.
+
+[7/25/96 public]
+Submitted to 1.2.2, will be part of next drop. Diff:
+
+*** /vob/dce.src.test/src/test/security/api/moretests/acct_rename.c@@/main/7    Wed Apr 10 06:12:41 1996
+--- /vob/dce.src.test/src/test/security/api/moretests/acct_rename.c@@/main/DCE_1.2.2/1  Fri May 24 19:31:34 1996
+***************
+*** 8,13 ****
+--- 8,17 ----
+  /*
+   * HISTORY
+   * $Log:	c013269,v $
+# Revision 1.5  96/07/25  15:50:15  root
+# changed fields: Status  Fixed In Baseline  Affected File(s)  Diff supplied by  Diff release   new/changed/deleted note(s) [psn 7/25/96 public]
+# 
++  * Revision /main/DCE_1.2.2/1  1996/05/24  23:31 UTC  sommerfeld
++  *    Fix OT13269  acct_rename test.
++  *    [1996/02/13  01:28 UTC  psn  /main/DCE_1.2/1]
++  * 
+   * Revision 1.1.11.3  1996/02/17  23:25:06  marty
+   *    Update OSF copyright year
+   *    [1996/02/17  22:43:18  marty]
+***************
+*** 524,532 ****
+           if (tstatus != rpc_s_ok)
+               TSHMessage (ctx, MOFAILURE, "sec_rgy_acct_lookup failed\n");
+             else
+!              if (memcmp ((char *)&ACCT_KEY_LOGIN_NAME,
+!                          (char *)&name_result,
+!                          sizeof (sec_rgy_login_name_t)) != 0 )
+                 {
+                   TSHMessage (ctx, MOFAILURE, "sec_rgy_acct_rename failed\n");
+                   tstatus = TSH_TEST_FAILED;
+--- 528,543 ----
+           if (tstatus != rpc_s_ok)
+               TSHMessage (ctx, MOFAILURE, "sec_rgy_acct_lookup failed\n");
+             else
+!              if ( (strncmp ((char *)&ACCT_KEY_LOGIN_NAME.pname,
+!                          (char *)&name_result.pname,
+!                          sizeof (sec_rgy_name_t)) != 0 )
+!                 || (strncmp ((char *)&ACCT_KEY_LOGIN_NAME.gname,
+!                          (char *)&name_result.gname,
+!                          sizeof (sec_rgy_name_t)) != 0 )
+!                 || (strncmp ((char *)&ACCT_KEY_LOGIN_NAME.oname,
+!                          (char *)&name_result.oname,
+!                          sizeof (sec_rgy_name_t)) != 0 ) )
+! 
+                 {
+                   TSHMessage (ctx, MOFAILURE, "sec_rgy_acct_rename failed\n");
+                   tstatus = TSH_TEST_FAILED;
+
+
+
+CR Number                     : 12723
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : fvt test
+Short Description             : UHYP:dced fvt object_read_2 does not properly cleanup.
+Reported Date                 : 10/25/94
+Found in Baseline             : 1.1b23
+Found Date                    : 10/25/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : object_read.c
+Sensitivity                   : public
+
+[10/25/94 public]
+This FVT does not cleanup properly.  May sometimes cause cascading test 
+failures.
+
+[10/25/94 public]
+Fix submitted to unintegrated.
+
+
+
+CR Number                     : 12718
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : systest
+Subcomponent Name             : admin
+Short Description             : UHYP: path and dir names in cds admin tests need correcting
+Reported Date                 : 10/25/94
+Found in Baseline             : 1.1b23
+Found Date                    : 10/25/94
+Severity                      : C
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : 
+		test/systest/admin/cds/test/backup_ch.ksh
+		test/systest/admin/cds/test/backup_restore_ch.ksh
+		test/systest/admin/cds/test/restore_ch.ksh
+Sensitivity                   : public
+
+[10/25/94 public]
+
+Path to functions for cds checklists, directory name for restore_clearinghouse 
+checklist need to be corrected.
+
+[10/25/94 public]
+
+Submitted fixes.
+
+
+
+CR Number                     : 12650
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dfs
+Subcomponent Name             : 
+Short Description             : UHYP:README file needed for FVT directory
+Reported Date                 : 10/18/94
+Found in Baseline             : 1.1b22
+Found Date                    : 10/18/94
+Severity                      : C
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : src/test/file/README
+Sensitivity                   : public
+
+[10/18/94 public]
+
+The test/file directory contains directories that are not used by
+OSF.  This should be clarified for future project's use and for our
+licensees.  Specifically, there are tests in that tree for user space
+delegation, where that funcitonality is not supported in 1.1.
+
+
+
+CR Number                     : 12616
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : systest
+Subcomponent Name             : dcetest_config
+Short Description             : UHYP:dcetest_config does not
+install tet_setup executable
+Reported Date                 : 10/13/94
+Found in Baseline             : 1.1b21
+Found Date                    : 10/13/94
+Severity                      : B
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1unintegrated
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : test/systest/dcetest_config
+Sensitivity                   : public
+
+[10/19/94 public]
+
+Test update.
+
+[10/18/94 public]
+
+Verify that 1.1unintegrated can be placed in
+fixbybaseline field.
+
+[10/13/94 public]
+
+I think it should.
+
+[10/13/94 public]
+
+I'll take this one.  Rob, I'm not familiar with "tet_setup".
+I looked under src/systest and couldn't find it.
+Where is it located? and Where should it be installed?
+Are you currently copying it over by hand now?
+
+[10/13/94 public]
+Its in ./test/tools & used by the dcecp FVT's.  I run the tests from the
+install area of my sandbox, never use dcetest_config.  This problem was
+reported by BMW.  The install process puts it in
+
+  ./dcetest/dce1.1/test/tet/tools 
+
+for the FVT's.
+
+[10/19/94 public]
+Submitted changes to dcetest_config so that it installs all of the dcecp
+and dced tests (as well as tet_setup with dcecp).
+
+
+
+CR Number                     : 12603
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : systest
+Subcomponent Name             : cds
+Short Description             : UHYP:No README file exists for hcell systests
+Reported Date                 : 10/12/94
+Found in Baseline             : 1.1b21
+Found Date                    : 10/12/94
+Severity                      : C
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : hclrel001/Makefile,hclrel001/README,
+					     hclcfg001/Makefile,hclcfg001/README
+Sensitivity                   : public
+
+[10/12/94 public]
+
+A README file is needed in the systest tree to describe the
+basic use of the hcell tests.
+
+[10/24/94 public]
+
+The necessary files were added to the unintegrated tree 
+last week.
+
+
+
+CR Number                     : 12602
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : systest
+Subcomponent Name             : dced
+Short Description             : UHYP:README file incorrect
+Reported Date                 : 10/12/94
+Found in Baseline             : 1.1b21
+Found Date                    : 10/12/94
+Severity                      : C
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : test/systest/dced/README, Makefile
+Sensitivity                   : public
+
+[10/12/94 public]
+
+The file src/test/systest/dced/README does not correctly describe
+the final operation of the dced REL tests.
+
+[10/20/94 public]
+
+Added a new version of the README to the unintegrated tree, and
+modified the Makefile to install it into the test directory.
+
+
+
+CR Number                     : 12600
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : utils
+Subcomponent Name             : attr
+Short Description             : UHYP:spurious blank in tetexec.cfg file causes failures
+Reported Date                 : 10/12/94
+Found in Baseline             : 1.1b19
+Found Date                    : 10/12/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : test/dce/utils/attr/tetexec.cfg
+Sensitivity                   : public
+
+[10/12/94 public]
+A spurious blank in test/dce/utils/attr/tetexec.cfg  causes failures
+in tests.  Removing the blank allows test to pass.  (This wasted an
+hour of my time 2 weeks ago, and some of Bob Whitehurst's today.)
+Trivial, NO-risk fix.
+
+[1/13/94 public]
+Removed the blanks.
+
+
+
+CR Number                     : 12598
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : aud
+Subcomponent Name             : fvts
+Short Description             : UHYP:Place holder for code coverage fvts
+Reported Date                 : 10/12/94
+Found in Baseline             : 1.1b20
+Found Date                    : 10/12/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : auditd_startup, aud_test_rpc_manager.c, cp_filter, cp_auditd
+Sensitivity                   : public
+
+[10/12/94 public]
+This CR is a placeholder for audit code coverage fvt submission.
+
+[10/27/94]
+Robert completed submissions.
+
+
+
+CR Number                     : 12525
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : 
+Short Description             : UHYP: functional tests for invalid login to use dcep
+Reported Date                 : 10/5/94
+Found in Baseline             : 1.1
+Found Date                    : 10/5/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : src/test/functional/security/client/login/invalid_attempts/inv_test1.sh
+Sensitivity                   : public
+
+[10/5/94 public]
+
+
+change the functional tests for invalid login to use dcep calls to
+setup accounts with ERAs
+
+[10/19/94 public]
+Submitted. Marked "fix".
+
+
+
+CR Number                     : 12496
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 12568
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : api
+Short Description             : UHYP:need functional tests for dced
+utility api
+Reported Date                 : 10/4/94
+Found in Baseline             : 1.1
+Found Date                    : 10/4/94
+Severity                      : C
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : directory ./src/test/functional/admin/dced/ts/util_api
+Sensitivity                   : public
+
+[10/4/94 public]
+The following functions need functional tests
+
+	dce_server_inq_uuids
+	dce_server_inq_attr
+	dce_server_inq_server
+	dce_server_sec_begin
+	dce_server_sec_done
+	dce_server_use_protseq
+	dce_server_register
+	dce_server_unregister
+	dce_server_enable_service
+	dce_server_disable_service
+
+[10/11/94 public]
+
+Any of these tests which haven't made it into the mainline tree are
+slated for unintegrated.
+
+[10/26/94 public]
+
+The tests seem ready and working.  Two of them return failure due to
+lack of support from the API at this moment.  They should pass as
+soon as the APIs are fully functional.  So I'll mark this fix.
+
+
+
+CR Number                     : 12398
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : replication
+Short Description             : UHYP: Missing functional tests for security replication
+Reported Date                 : 9/28/94
+Found in Baseline             : 1.1b19
+Found Date                    : 9/28/94
+Severity                      : B
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : list_at_the_end_of_OT
+Sensitivity                   : public
+
+[9/28/94 public]
+
+Functional tests for security replication are missing which is
+the cause of a big hole in code coverage results.
+
+I plan to submit changes to the TET tests for replication by Friday 9/30.
+The changes for the testsh tests will go into the unintegrated tree.
+
+[10/3/94 public]
+I spoke with Sean about submittiong these tests into dce1.1 integrated tree
+and he can't test/submit these tests by this week. It will make it into
+un-integrated tree. Downgrading the priority to 1.
+
+[ sekhar 10/25/94 public ]
+Fixed. List of files submitted
+
+    test/functional/security/common/ts-common.h   ***** NEW FILE *****
+    test/functional/security/tetexec.cfg
+    test/functional/security/ts/client/rca/sec_rgy_attr/Makefile
+    test/functional/security/ts/client/rca/sec_rgy_attr/sec_rgy_attr.c
+    test/functional/security/ts/client/rca/sec_rgy_attr_sch/Makefile
+    test/functional/security/ts/client/rca/sec_rgy_attr_sch/sec_rgy_attr_sch.c
+    test/security/api/moretests/acct_add_del.c
+    test/security/api/moretests/acct_admin_repl.c
+    test/security/api/moretests/acct_passwd.c
+    test/security/api/moretests/acct_rename.c
+    test/security/api/moretests/acct_repl_all.c
+    test/security/api/moretests/acct_user_repl.c
+    test/security/api/moretests/auth_policy.c
+    test/security/api/moretests/pgo_test_basic.c
+    test/security/api/moretests/policy.c
+    test/security/api/moretests/props.c
+    test/security/api/moretests/sec_rgy_bind.h   ****** NEW FILE ******
+
+
+
+CR Number                     : 12394
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : aud
+Subcomponent Name             : 
+Short Description             : UHYP: audit functional test failures
+Reported Date                 : 9/28/94
+Found in Baseline             : 1.1
+Found Date                    : 9/28/94
+Severity                      : C
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : src/test/security/audit/ts/cp_auditd
+Sensitivity                   : public
+
+[9/28/94 public]
+
+The following test failures were found on BL18:
+
+cp_audit tests
+
+520|0 1 25352 1 2|START: cp_auditd07 started
+520|0 1 25352 1 3|ERROR: cp_auditd07 failed
+220|0 1 1 08:42:08|FAIL
+
+
+api_log_to_daemon
+
+520|0 1 19573 1 6|ERROR: api_log_to_daemon04 failed
+
+[10/17/94 public]
+Quite a few fixes went into both code and tests since baseline 18.
+Please rerun fvt's with baseline 21 or 22, and update this CR (cancel 
+if no failures.)
+
+[9/28/94 public]
+The cp_audit07 test still fails on BL22. The problem is exists in
+the following code for this test:
+
+ if (( $AUDITCP ))
+ then
+   auditcp aud stop
+ else
+   dcecp -c aud stop
+ fi
+
+ sleep 15
+
+The sleep 15 is just not long enough. On an RS6000 with 32M of memory
+and plenty of paging space, it is taking an average of 20 to 25
+seconds before auditd is removeed from the process table. One time
+it took over 90 seconds. May I suggest the following:
+
+  stop auditd
+  set stop_time = current time + delta time (~ 120 seconds)
+  while true
+     if auditd is still running
+     then
+        if current time > stop time
+        then
+            tet_result = FAIL
+            error condition
+            break from while loop
+        endif
+        sleep x (~5 seconds)
+     else
+        tet_result = PASS
+        break from while loop
+     endif
+  end while
+
+[10/18/94 public]
+Thanks for the info.  I submitted a dce-drb with a fix along the lines of your
+suggestion.
+
+[10/19/94 public]
+Since this is going to go into unintegrated, I have marked this UHYP.
+
+[10/19/94 public]
+Fixed.
+
+
+
+CR Number                     : 11834
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dfs
+Subcomponent Name             : systest
+Short Description             : UHYP: dfs.fmul has load but not fileset move
+Reported Date                 : 8/23/94
+Found in Baseline             : 1.1b16
+Found Date                    : 8/23/94
+Severity                      : B
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : fmul.server.c fmul.routines.c fmul.client.c
+Sensitivity                   : public
+
+[8/23/94 public]
+
+The dfs.fmul (fileset move under load) test, which is based on
+the IBM partial file locking test dcedflck, but which uses dce
+rpc rather than the IBM test harness, needs to be submitted to
+the 1.1 dfs system test tree. The test will be submitted in 2
+phases:
+	- initial submit (client and server code, IBM command file)
+	- driver script and fixes to client and/or server code and command file
+
+"Fixes" will include support for advanced fileset features such as
+moving filesets, cloning filesets, etc.
+
+[8/23/94 public]
+dfs.fmul code compiles under both RIOS and HP, however it hasn't been
+executed on RIOS yet.  Also there are some bugs with using on a single
+machine cell.
+
+[9/1/94 public]
+dfs.fmul RPC now working, current problem is the l_lock call using
+fork - this needs to be made threaded.
+
+[9/27/94 public]
+Changed from defect to enhancement.
+
+[10/13/94 public]
+Slated for unintegrated if time permits.
+
+[10/24/94 public]
+The current state of dfs.fmul:
+ * The load code is working, but the fileset move code is not written.
+ * There are still some minor errors.
+     - The fmul_lockf.cf generates some errors (I suspect that the
+       configuration file itself will need to be adjusted.)
+     - The behavior of F_TLOCK seems to be different on RIOS than HP.
+ * Built and tested on RIOS and HP, used onemachine.cf, twomachine.cf,
+   threemachine.cf and fmul_lockf.cf configuration files (listed below).
+ * Currently, this test will lock (with and without blocking), test,
+   and unlock on different machines.
+ * It should eventually use the locking to create a load to test
+   fileset move under load.
+ * Currently, to run:
+     - DCE and DFS must be running on the server and client machines.
+     - Start up the appropriate number of servers (it is not required
+       that they be on different machines).  The only argument for
+       fmul.server is the optional -d for debug.
+     - Run the client test.  Required arguments are:
+          fmul.client -f {configuration file} -s {number of servers}
+          -n {name of file to lock}  -p {path to lock file}
+       There is an optional argument for debugging, -d.
+
+
+
+
+
+The configuration files:
+------------------------ cut here : begin onemachine.cf ----------------------
+#
+# The name of the file to create and lock: (the line must begin with an F)
+#
+F <filename>
+
+#
+# The path to the lock file the parent uses
+#
+P <pathname>
+
+#
+# Client information:  defines how many different clients there are and where
+# 		      they will be executing.
+# where..
+# Delimiter must be a C in the first column of each line.
+# Number (1-n) is an identification number used by the parent to differentiate
+#	clients from one another.
+# Hostname is the name of the machine where the client will execute.
+#
+#Delimiter	Number (1-n)	Hostname	Pathname
+#-----------------------------------------------------------------------------
+C		1		machA		<path-to-file>
+
+#Actor 	Action		Action Args
+#-----------------------------------------------------------------------
+l -----------------------------------------------------------------------------
+l LOCKF - Same range
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	L_LOCK		0	100	a	p
+p	L_LOCK_GRANTED	1
+# the following L_TEST should fail because it is on the same server as the
+# lock.  Locking is per process not per filedes.
+1	L_TEST		0	100	f
+1	L_ULOCK		0	100	
+1	L_TEST		0	100	f
+1	L_TLOCK		0	100	c	p
+p	L_LOCK_GRANTED	1
+# the following L_TEST should fail because it is on the same server as the
+# lock.  Locking is per process not per filedes.
+1	L_TEST		0	100	f
+1	L_ULOCK		0	100	
+1	L_TEST		0	100	f
+p	CLEAR_CHILDREN
+------------------------ cut here : end onemachine.cf ------------------------
+
+
+
+------------------------ cut here : begin twomachine.cf ----------------------
+#
+# The name of the file to create and lock: (the line must begin with an F)
+#
+F <filename>
+
+#
+# The path to the lock file the parent uses
+#
+P <pathname>
+
+#
+# Client information:  defines how many different clients there are and where
+# 		      they will be executing.
+# where..
+# Delimiter must be a C in the first column of each line.
+# Number (1-n) is an identification number used by the parent to differentiate
+#	clients from one another.
+# Hostname is the name of the machine where the client will execute.
+#
+#Delimiter	Number (1-n)	Hostname	Pathname
+#-----------------------------------------------------------------------------
+C		1		machA		<path-to-file>
+
+#Actor 	Action		Action Args
+#-----------------------------------------------------------------------
+l -----------------------------------------------------------------------------
+l LOCKF - Same range
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	L_LOCK		0	100	a	p
+p	L_LOCK_GRANTED	1
+2	L_TEST		0	100	p
+1	L_ULOCK		0	100	
+2	L_TEST		0	100	f
+1	L_TLOCK		0	100	c	p
+p	L_LOCK_GRANTED	1
+2	L_TEST		0	100	p
+1	L_ULOCK		0	100	
+2	L_TEST		0	100	f
+p	CLEAR_CHILDREN
+------------------------ cut here : end twomachine.cf ------------------------
+
+
+
+------------------------ cut here : begin threemachine.cf --------------------
+#
+# The name of the file to create and lock: (the line must begin with an F)
+#
+F <filename>
+
+#
+# The path to the lock file the parent uses
+#
+P <pathname>
+
+#
+# Client information:  defines how many different clients there are and where
+# 		      they will be executing.
+# where..
+# Delimiter must be a C in the first column of each line.
+# Number (1-n) is an identification number used by the parent to differentiate
+#	clients from one another.
+# Hostname is the name of the machine where the client will execute.
+#
+#Delimiter	Number (1-n)	Hostname	Pathname
+#-----------------------------------------------------------------------------
+C		1		machA		<path-to-file>
+
+#Actor 	Action		Action Args
+#-----------------------------------------------------------------------
+l -----------------------------------------------------------------------------
+l LOCKF - Same range
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	L_LOCK		0	100	a	p
+p	L_LOCK_GRANTED	1
+2	L_TEST		0	100	p
+1	L_ULOCK		0	100	
+2	L_TEST		0	100	f
+1	L_TLOCK		0	100	c	p
+p	L_LOCK_GRANTED	1
+2	L_TEST		0	100	p
+1	L_ULOCK		0	100	
+2	L_TEST		0	100	f
+p	CLEAR_CHILDREN
+# blocking tests
+p CLEAR_LOCKFILE
+1	L_LOCK		0	100	a	p
+p	L_LOCK_GRANTED	1
+2	L_TEST		0	100	p
+3	L_LOCK		0	100	a	b
+1	L_ULOCK		0	100	
+2	L_TEST		0	100	p
+p	L_LOCK_GRANTED	3
+3	L_ULOCK		0	100	
+2	L_TEST		0	100	f
+p	CLEAR_CHILDREN
+------------------------ cut here : end threemachine.cf ----------------------
+
+
+
+------------------------ cut here : begin fmul_lockf.cf ----------------------
+#
+#	@OSF_COPYRIGHT@
+#
+# HISTORY
+# $Log:	c011834,v $
+# Revision 1.9  94/10/27  11:12:33  root
+# changed fields: Short Description  
+# 
+# Revision 1.8  94/10/25  14:39:17  root
+# changed fields: Fixed In Baseline  
+# 
+# Revision 1.7  94/10/25  12:49:33  root
+# changed fields: Status  Fixed In Baseline  Affected File(s)   new/changed/deleted note(s) [rdl 10/25/94 public]
+# 
+# Revision 1.6  94/10/24  13:53:11  root
+# changed fields: Short Description   new/changed/deleted note(s) [rdl 10/24/94 public]
+# 
+# Revision 1.1.2.2  1993/01/26  19:08:16  pellis
+# 	Moved to ./src/nosupport/test/systest
+# 	[1993/01/26  00:03:17  pellis]
+#
+# $EndLog$
+#
+#
+# This is the config file used to test DFS ability to honor lockf() lock
+# requests.
+#
+
+F lockfile
+P /.../ascii/fs/lck
+
+C	1	asciihead	/.../ascii/fs/lck
+C	2	asciihead	/.../ascii/fs/lck
+C	3	asciihead	/.../ascii/fs/lck
+C	4	asciihead	/.../ascii/fs/lck
+
+l -----------------------------------------------------------------------------
+l LOCKF - Unlocking holes in a locked range
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	L_LOCK		0	1000	a	p
+2	L_LOCK		10	291	b	b
+3	L_LOCK		301	300	c	b
+4	L_LOCK		601	390	d	b
+1	L_ULOCK		301	300
+p	L_LOCK_GRANTED	3
+1	L_TEST		350	1		f
+1	L_ULOCK		0	10
+1	L_ULOCK		991	10
+3	L_TEST		5	1		p
+3	L_TEST		995	2		p
+1	L_ULOCK		11	289
+3	L_TEST		200	20		p
+1	L_ULOCK		10	1
+3	L_TEST		10	20		p
+1	L_ULOCK		300	1
+p	L_LOCK_GRANTED	2
+1	L_TEST		300	-100		f
+1	L_ULOCK		800	-100
+2	L_TEST		710	50		p
+1	L_ULOCK		801	0
+2	L_TEST		850	0		p
+1	L_ULOCK		1000	-800
+p	L_LOCK_GRANTED	4
+1	L_TEST		650	100		f
+1	L_LOCK		0	1000	e	b
+2	L_ULOCK		0	0	
+2 	L_TEST		0	200		p
+3	L_ULOCK		0	0
+3	L_TEST		0	500		p
+4	L_ULOCK		0	0
+p	L_LOCK_GRANTED	1
+4	L_TEST		0	0		f
+1	L_ULOCK		0	0
+4	L_TEST		0	0		p
+p	CLEAR_CHILDREN
+l -----------------------------------------------------------------------------
+l LOCKF - Same range
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	L_LOCK		0	100	a	p
+2	L_LOCK		0	100	b	b
+3	L_TLOCK		0	100	c	f
+1	L_ULOCK		0	100	
+p	L_LOCK_GRANTED	2
+2	L_ULOCK		0	100
+3	L_TEST		0	0		p
+p	CLEAR_CHILDREN
+l -----------------------------------------------------------------------------
+l LOCKF - Overlap at the beginning
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	L_LOCK		50	100	a	p
+2	L_LOCK		0	100	b	b
+3	L_TLOCK		0	100	c	f
+1	L_ULOCK		50	100	
+p	L_LOCK_GRANTED	2
+2	L_ULOCK		0	100
+3	L_TEST		0	0		p
+p	CLEAR_CHILDREN
+l -----------------------------------------------------------------------------
+l LOCKF - Overlap at the end
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	L_LOCK		0	100	a	p
+2	L_LOCK		50	100	b	b
+3	L_TLOCK		50	100	c	f
+1	L_ULOCK		0	100	
+p	L_LOCK_GRANTED	2
+2	L_ULOCK		50	100
+3	L_TEST		0	0		p
+p	CLEAR_CHILDREN
+l -----------------------------------------------------------------------------
+l LOCKF - Contained within
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	L_LOCK		0	100	a	p
+2	L_LOCK		25	50	b	b
+3	L_TLOCK		25	50	c	f
+1	L_ULOCK		0	100	
+p	L_LOCK_GRANTED	2
+2	L_ULOCK		25	50
+3	L_TEST		0	0		p
+p	CLEAR_CHILDREN
+l -----------------------------------------------------------------------------
+l LOCKF - Surrounding
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	L_LOCK		25	50	a	p
+2	L_LOCK		0	100	b	b
+3	L_TLOCK		0	100	c	f
+1	L_ULOCK		25	50	
+p	L_LOCK_GRANTED	2
+2	L_ULOCK		0	1000
+3	L_TEST		0	0		p
+p	CLEAR_CHILDREN
+l -----------------------------------------------------------------------------
+l LOCKF - Overlapping EOF
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	WRITE_RANGE	0	100	a	p
+1	L_LOCK		25	100	a	p
+2	L_LOCK		25	100	b	b
+3	L_TLOCK		25	100	c	f
+1	L_ULOCK		25	100	
+p	L_LOCK_GRANTED	2
+2	L_ULOCK		25	100
+3	L_TEST		0	0		p
+p	CLEAR_CHILDREN
+l -----------------------------------------------------------------------------
+l LOCKF - Beyond EOF
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	WRITE_RANGE	0	100	a	p
+1	L_LOCK		125	100	a	p
+2	L_LOCK		125	100	b	b
+3	L_TLOCK		125	100	c	f
+1	L_ULOCK		125	100	
+p	L_LOCK_GRANTED	2
+2	L_ULOCK		125	100
+3	L_TEST		0	0		p
+p	CLEAR_CHILDREN
+l -----------------------------------------------------------------------------
+l LOCKF - Before
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	L_LOCK		50	100	a	p
+2	L_LOCK		0	40	b	p
+3	L_TLOCK		0	40	c	f
+1	L_ULOCK		50	100	
+2	L_ULOCK		0	40
+3	L_TEST		0	0		p
+p	CLEAR_CHILDREN
+l -----------------------------------------------------------------------------
+l LOCKF - Before and adjacent
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	L_LOCK		50	100	a	p
+2	L_LOCK		0	50	b	p
+3	L_TLOCK		0	50	c	f
+1	L_ULOCK		50	100	
+2	L_ULOCK		0	50
+3	L_TEST		0	0		p
+p	CLEAR_CHILDREN
+l -----------------------------------------------------------------------------
+l LOCKF - After and adjacent
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	L_LOCK		0	50	a	p
+2	L_LOCK		50	50	b	p
+3	L_TLOCK		50	50	c	f
+1	L_ULOCK		0	50	
+2	L_ULOCK		50	50
+3	L_TEST		0	0		p
+p	CLEAR_CHILDREN
+l -----------------------------------------------------------------------------
+l LOCKF - After
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	L_LOCK		0	50	a	p
+2	L_LOCK		60	50	b	p
+3	L_TLOCK		60	50	c	f
+1	L_ULOCK		0	50	
+2	L_ULOCK		60	50
+3	L_TEST		0	0		p
+p	CLEAR_CHILDREN
+l -----------------------------------------------------------------------------
+l LOCKF - Beyond EOF with size of 0
+l -----------------------------------------------------------------------------
+p	CLEAR_LOCKFILE
+1	L_LOCK		0	50	a	p
+2	L_LOCK		100	0	b	p
+3	L_LOCK		200	50	c	b
+1	L_TLOCK		300	40	d	f
+2	L_ULOCK		100	0	
+p	L_LOCK_GRANTED	3
+3	L_ULOCK		200	50
+1	L_ULOCK		0	50	
+1	L_TEST		0	0		p
+p	CLEAR_CHILDREN
+------------------------ cut here : end fmul_lockf.cf ------------------------
+
+[10/25/94 public]
+Changed to fix.
+
+
+
+CR Number                     : 11533
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : sec
+Subcomponent Name             : pwd_gen
+Short Description             : UHYP: Setup script referencing
+unknown executable (/opt/odss/bin/attr_update)
+Reported Date                 : 8/2/94
+Found in Baseline             : 1.1b13
+Found Date                    : 8/2/94
+Severity                      : B
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : src/test/functional/security/ts/client/pwd_mgmt/Makefile, src/test/functional/security/ts/client/pwd_mgmt/pwd_gen/setup.ksh
+Sensitivity                   : public
+
+[8/2/94 public]
+
+setup.ksh referencing unknown exceutable.  Probably an HP specific tool?
+
+[8/3/94 public]
+
+You are absolutely correct. It is calling an HP tool to attach ERAs to
+principals.
+
+I will change the code to use dcecp instead.
+
+[10/19/94 public]
+Submitted. Marked "fix".
+
+
+

@@ -1,0 +1,215 @@
+CR Number                     : 13668
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : aud
+Subcomponent Name             : audit/libaudit/evt_filter.c
+Short Description             : DIFF: Audit Filtering is broken for
+all platforms
+Reported Date                 : 11/14/96
+Found in Baseline             : 1.2.1
+Found Date                    : 11/14/96
+Severity                      : B
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : evt_filter.c
+Diff supplied by              : provider
+Diff release                  : 1.2.2
+Sensitivity                   : public
+
+[11/14/96 public]
+
+A support customer reported the following problem.
+I have verified by code inspection, that this problem
+exists in the 1.1-maint, 1.2.1 and 1.2.2 code base.
+
+=================================================
+technology area is DCE.1.1
+Technology component is DCE Security
+Severity level Critical
+client hardware : 
+client software : OSF 1.2.1
+server hardware : 
+server software : 
+compiler : 
+On Line Description :  Audit filtering broken for all platforms
+Full Description : 
+ Matching of multiple event classes to a guide list is
+ broken. In src/security/audit/libaudit/evt_filter.c:
+ aud_esl_match_ecs() the value of guide_ecs is always 
+ null for all but the first event class being compared.
+How to recreate the problem : 
+Problem solution :  Move the assignment 
+   ecs_ptr = guide_ecs;
+
+ into the for loop
+
+[01/07/97 public]
+Would you please append a section of how to create the problem??? 
+This segment of code have been there since the first release. I
+would like to understand the problem well before making the change.
+
+[01/08/97 public]
+
+Here is the customer's answer:
+
+> If you look at the code carefully you will see the problem. Let me explain.
+> The  evt_filter.c:aud_esl_match_ecs() code is attempting to do a many-many
+> match of 
+> list of event classes to list of audit esl guides. The original code
+> compares the
+> guide list against the first event class only. This is a bug.
+
+> I believe I had problem generating audit trail using a simple test I wrote.
+> This test has some win32 isms but can be easily modified for other
+> platforms...
+
+> I attach the test to this message.
+
+> /nb
+
+
+/*
+ * @GRADIENT_COPYRIGHT@
+ */
+/*
+ * 
+ * $Source: /project/ot/dce/d01/d36/RCS/c013668,v $
+ * 
+ * HISTORY
+ * $Log:	c013668,v $
+# Revision 1.4  97/01/09  15:54:44  root
+# changed fields: Short Description  Affected File(s)  Diff supplied by  Diff release  Responsible Engr.  Resp. Engrs Company   new/changed/deleted note(s) [axg 11/14/96 public] [trant 01/09/97 public] [axg 11/14/96 public]
+# 
+# Revision 1.3  97/01/08  21:07:52  root
+# changed fields:  new/changed/deleted note(s) [axg 01/08/97 public]
+# 
+ * Revision 1.21.1.1  96/09/23 21:57:42  kevin
+ * Propagated 1.1 Source
+ * Revision 1.10.1.2  96/09/21 20:29:12  bhandaru
+ * fix bug in filtering and log alarms to evtlog
+ * Revision 1.10.1.1  96/09/21 19:17:10  bhandaru
+ * Create 1.10.1 branch
+ * Revision 1.10  96/09/21 19:17:10  bhandaru
+ * Create 1.10 version 
+ * Revision 1.0  96/09/21 19:17:09  bhandaru
+ * *** empty log message ***
+ */
+
+/* This module is a simple test of event filtering. Should run this
+ * after starting audit and setting up default filters. You can
+ * look at the audit trail in <dcelocal>/var/security/audtest_trail
+ * using dcecp. Must be logged in as cell_admin before running - nb
+ */
+
+#ifdef WIN32
+#include <windows.h>
+#include <winbase.h>
+#endif
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <signal.h>
+#include <tet_api.h>
+#include <dce/sec_login.h>
+#include <dce/dce_error.h>
+#include <dce/audit.h>
+#include <dce/dce_error.h>
+#include <time.h>
+
+#define CHKST(st) if ((st) != 0) { \
+    int einqst; \
+    char buf[1024]; \
+    dce_error_inq_text(st, buf, &einqst); \
+    fprintf(stderr, "Bad status at line %d: (status 0x%08x) : %s \n", __LINE__, (st), buf); \
+    return (-1) ; \
+} 
+
+int main ( int argc, char **argv )
+{
+dce_aud_trail_t st_aud_trail;
+dce_aud_rec_t   st_aud_rec = NULL;
+dce_aud_ev_info_t evi;
+error_status_t st;
+char *trail_path;
+unsigned32 cond, options;
+int success;
+char *audonenv = "DCEAUDITOFF=" ;
+char *audfilteronenv = "DCEAUDITFILTERON=1" ;
+
+    rpc_server_use_all_protseqs(10, &st);
+    CHKST(st);
+
+    success = ((argc > 1) && (strcmp(argv[1], "success") == 0));
+    if ( success ) {
+	cond = aud_c_esl_cond_success ;	
+    } else cond = aud_c_esl_cond_failure;
+    options = 0 ; /* aud_c_evt_always_log */ ;
+
+     /* Turn on auditing */
+     _putenv(audonenv);
+
+     /* Turn on audit filtering */
+    _putenv(audfilteronenv);
+#define ST_AUDIT_TRAIL_PATH "/opt/dcelocal/var/security/audtest_trail"
+    trail_path =  DCEPathCreate(ST_AUDIT_TRAIL_PATH);
+
+
+    /* Open trail for sec events - see security h/sec_aud_events.h */
+#define ST_AUD_FIRST_EVT_NUMBER 0x0100
+#define ST_AUD_NUM_OF_EVTS 58
+    dce_aud_open(aud_c_trl_open_write, trail_path , 
+        ST_AUD_FIRST_EVT_NUMBER, ST_AUD_NUM_OF_EVTS, &st_aud_trail, &st);
+    CHKST(st);
+
+    DCEPathFree(trail_path);
+
+#define PGO_ADD  0x0114
+    dce_aud_start_with_name(PGO_ADD, (unsigned_char_t *) "cell_admin", NULL,
+                     options, aud_c_esl_cond_unknown, &st_aud_rec, &st);
+    CHKST(st);
+    if (st_aud_rec) {
+	evi.format = aud_c_evt_info_long_int;
+	evi.data.long_int = sec_rgy_domain_person;
+	dce_aud_put_ev_info(st_aud_rec, evi, &st);
+        CHKST(st);
+
+	evi.format = aud_c_evt_info_char_string;
+	evi.data.char_string = "cell_admin";
+	dce_aud_put_ev_info(st_aud_rec, evi, &st);
+        CHKST(st);
+    }
+
+    dce_aud_commit(st_aud_trail, st_aud_rec, 
+	aud_c_evt_commit_sync_no_wait, 1, cond , &st);
+    CHKST(st);
+    
+    dce_aud_close(st_aud_trail, &st);
+    CHKST(st);
+
+    return 0;
+}
+
+
+--=====================_852754694==_
+Content-Type: text/plain; charset="us-ascii"
+
+[01/09/97 public]
+Thank for the test case. 
+
+Here is the diff: 
+
+101,102d100
+<     ecs_ptr = guide_ecs;
+< 
+103a102
+>         ecs_ptr = guide_ecs;
+
+
+

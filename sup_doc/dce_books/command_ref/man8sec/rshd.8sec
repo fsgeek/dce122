@@ -1,0 +1,181 @@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+...\" ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+...\" src directory for the full copyright text. 
+...\" 
+...\" HISTORY
+...\" $Log: rshd.8sec,v $
+...\" Revision 1.1.2.2  1996/12/17  20:49:18  damon
+...\" 	Expanded OSF C O P Y R I G H T   N O T I C E
+...\" 	[1996/12/17  20:46:37  damon]
+...\"
+...\" Revision 1.1.2.1  1996/09/13  16:18:24  millett
+...\" 	{enh,13626,R1.2.2}
+...\" 	 Adding for krb5 interoperability
+...\" 	[1996/09/13  16:18:01  millett]
+...\" 
+...\" $EndLog$
+...\" 
+...\" 
+...\" Copyright (c) 1983, 1990, 1993
+...\"     The Regents of the University of California.  All rights reserved.
+...\"
+...\" Redistribution and use in source and binary forms, with or without
+...\" modification, are permitted provided that the following conditions
+...\" are met:
+...\" 1. Redistributions of source code must retain the above copyright
+...\"    notice, this list of conditions and the following disclaimer.
+...\" 2. Redistributions in binary form must reproduce the above copyright
+...\"    notice, this list of conditions and the following disclaimer in the
+...\"    documentation and/or other materials provided with the distribution.
+...\" 3. All advertising materials mentioning features or use of this software
+...\"    must display the following acknowledgement:
+...\"     This product includes software developed by the University of
+...\"     California, Berkeley and its contributors.
+...\" 4. Neither the name of the University nor the names of its contributors
+...\"    may be used to endorse or promote products derived from this software
+...\"    without specific prior written permission.
+...\"
+...\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+...\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+...\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+...\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+...\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+...\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+...\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+...\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+...\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+...\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+...\" SUCH DAMAGE.
+...\"
+...\" (C)Copyright 1995, 1996 by the Massachusetts Institute of Technology.
+...\"
+...\"
+...\" Permission to use, copy, modify, and distribute this software and
+...\" its documentation for any purpose and without fee is hereby
+...\" granted, provided that the above copyright notice appear in all
+...\" copies and that both that copyright notice and this permission
+...\" notice appear in supporting documentation, and that the name of
+...\" M.I.T. not be used in advertising or publicity pertaining to
+...\" distribution of the software without specific, written prior
+...\" permission.  M.I.T. makes no representations about the suitability
+...\" of this software for any purpose.  It is provided "as is" without
+...\" express or implied warranty.
+...\"
+.TH rshd "8sec" "" "" ""
+.iX "\*Lrshd\*O command"
+.iX "Security Service commands" "\*Lrshd\*O"
+.SH "NAME" 
+.PP
+\*Lrshd\*O \- Kerberized remote shell server
+.zA "enh,13626,R1.2.2,new for krb5 interop"
+.SH "SYNOPSIS" 
+.PP
+.sS
+\*Lrshd [-aknxL]\*O
+.sE
+.SH  "OPTIONS"
+.VL 1i
+.LI "\*L-a\*O"
+Verify the identify of the remote host.  This option 
+cannot be used with the \*L-k\*O option.
+.PP
+.LI "\*L-k\*O"
+Allow Kerberos V5 authentication based on the private 
+authorization list maintained in the \*L.k5login\*O file.  
+If this authentication method is used by the client 
+and the authorization check is passed, the user is allowed to log in.
+.LI "\*L-n\*O"	       
+Disable keep-alive messages.
+.LI "\*L-x\*O"	       
+Require the client to encrypt the connection.  
+This option is subject to export control.
+.LI "\*L-L\*O"
+All successful accesses are logged to \*Lsyslogd(8)\*O 
+as \*Lauth.info\*O messages.
+.LE
+.SH "DESCRIPTION"
+The \*Lrshd\*O server is the server for the \*Lrcmd(3)\*O routine 
+and, consequently, for the \*Lrsh(8sec)\*O program.  
+The \*Lrshd\*O server provides remote execution facilities 
+with authentication based on either privileged port numbers from trusted hosts 
+or on the Kerberos authentication system. 
+\*Lrshd\*O is configured by command-line arguments passed by \*Linetd(8).
+.PP
+The \*Lrshd\*O server is invoked by \*Linetd(8c)\*O 
+when \*Linetd(8c)\*O receives a connection 
+on the port indicated in \*L/etc/inetd.conf\*O.  
+A typical \*L/etc/inetd.conf\*O configuration line for 
+\*Lrshd\*O might be as follows:
+.oS
+kshell stream tcp  nowait root /opt/dcelocal/etc/rshd rshd -k
+.oE
+To prevent non-secure access, comment out the entry for \*Lshell\*O in \*L/etc/inetd.conf\*O to 
+deny non-Kerberos access.  If non-Kerberos access is requested, the following 
+error message is displayed:
+.oS
+rcmd: connect \*Vhostname\*C : Connection refused
+.oE
+When \*Lrshd\*O  receives a service request, it initiates 
+the following protocol:
+.AL
+.LI
+Check authentication.
+.LI
+Check authorization via the access-control file \*L.k5login\*O 
+the user's home directory.
+.LI
+Return a null byte on the initial socket and pass the command 
+line to the normal login shell of the user.  This shell 
+inherits the network connections established by \*Lrshd\*O.
+.LE
+.PP
+If the \*Lrsh\*O client requests ticket forwarding, 
+\*Lrsh\*O invokes \*Lk5dcelogin(8sec)\*O to promote the forwarded Kerberos 
+credentials to DCE credentials.  \*Lk5dcelogin\*O then 
+invokes the specified command. 
+.PP
+Transport-level keepalive messages are enabled unless the \*L-n\*O option is 
+specified.  The use of keepalive messages allows sessions to be timed out 
+if the client crashes or becomes unreachable.
+.SH "DIAGNOSTICS"
+All diagnostic messages are returned on the connection associated with 
+standard error after which any network connections are closed.  An 
+error is indicated by a leading byte with a value of 1 (0 is returned
+on successful completion of all the steps before the command execution.)
+.PP
+.VL 
+.LI "\*LLocuser too long.\*O"
+The name of the user on the client's machine is longer than 16 characters.
+.LI "\*LRuser too long.\*O"
+The name of the user on the remote machine is longer than 16 characters.
+.LI "\*LCommand too long.\*O"
+The command line passed exceeds the size of the argument list 
+(as configured into the system).
+.LI "\*LLogin incorrect.\*O"
+No password file entry for the user name existed.
+.LI "\*LRemote directory.\*O"
+The \*Lchdir\*O command to the home directory failed.
+.LI "\*LPermission denied.\*O"
+The authentication procedure described above failed.
+.LI "\*LCan't make pipe.\*O"
+The pipe needed for \*Lstderr\*O wasn't created.
+.LI "\*LCan't fork; try again.\*O"
+A fork by the server failed.
+.LI "\*Vshellname\*L: ...\*O
+The user's login shell could not be started.  
+This message is returned on the connection associated 
+with \*Lstderr\*O and is not preceded by a flag byte.
+.LI "\*LAuthentication failed: \*Verror_message\*O
+An error occurred during Kerberos authentication.  
+\*Verror_message\*O is a Kerberos-specific error message.
+.LE
+.SH "RELATED INFORMATION"
+.PP
+.ad l
+\*Lrshd(8sec)\*O, 
+\*Lrsh(8sec)\*O, 
+\*Lrcmd(3X)\*O, 
+\*Lk5dcelogin(8sec)\*O.
+.ad b
+.zZ "enh,13626,R1.2.2,new for krb5 interop"

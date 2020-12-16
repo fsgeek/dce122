@@ -1,0 +1,127 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: FTSERVER_ListAggregates.3dfs,v $
+...\" Revision 1.1.2.3  1994/08/30  00:24:40  jeff
+...\" 	{defect, 11947, R1.1}
+...\" 	Correct/clarify some DFS APIs.
+...\" 	[1994/08/30  00:24:01  jeff]
+...\"
+...\" Revision 1.1.2.2  1994/06/10  21:12:36  devobj
+...\" 	cr10872 - fixed copyright
+...\" 	[1994/06/10  20:52:11  devobj]
+...\" 
+...\" Revision 1.1.2.1  1994/04/05  15:17:33  rom
+...\" 	{enh, 10283, R1.1}
+...\" 	Moved from dce_books/app_ref/man3dfs/FTSERVER_ListAggregates.3dfs to
+...\" 	supp_docs/redistrib/dfs_app_gdref/man3dfs/FTSERVER_ListAggregates.3dfs.
+...\" 	[1994/04/04  22:05:56  rom]
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc. ALL RIGHTS RESERVED
+.TH "FTSERVER_ListAggregates" "3dfs" "" "" ""
+...\" .iX "functions"  "in DFS"  "\*LFTSERVER_ListAggregates(\|)\*O"
+...\" .iX "\*LFTSERVER_ListAggregates(\|)\*O"
+.iX "aggregate"  "listing (DFS)"
+.iX "listing file server aggregates (DFS)"
+.iX "listing aggregates (DFS)"
+.SH "NAME"
+.PP
+\*LFTSERVER_ListAggregates\*O - Identifies all valid aggregates on a server
+.SH "SYNOPSIS"
+.PP
+.sS
+\*Lerror_status_t FTSERVER_ListAggregates(
+.nL
+\*Lhandle_t \*VRpcBinding\*L,
+.nL
+\*Lftserver_iterator *\*VinCookie\*L,
+.nL
+\*Lftserver_iterator *\*VoutCookie\*L,
+.nL
+\*Lftserver_aggrEntries *\*VaggrList\*L)
+.sE
+.br
+.ne 1.5i
+.SH "PARAMETERS"
+.SS Input
+.VL 6m
+.LI "\*VRpcBinding\*O"
+The RPC handle.
+.LI "\*VinCookie\*O"
+The position at which to start: an index into the aggregate list.
+.LE
+.SS Output
+.VL 6m
+.LI "\*VoutCookie\*O"
+The next position at which to start: an index into the aggregate list.
+.LI "\*VaggrList\*O"
+Descriptions of all the aggregates on the server.
+.LE
+.br
+.ne 1.5i
+.SH "DESCRIPTION"
+.iX "\*Lftserver_aggrList\*O structures (DFS)"
+.PP
+\*LFTSERVER_ListAggregates(\|)\*O returns, in \*VaggrList\*O, the name, ID,
+and type of the next valid aggregate on the called server. The input and output
+iterators, \*VinCookie\*O and \*VoutCookie\*O, are used to break up large
+arrays of data that do not fit in \*VaggrList\*O. For each call to
+\*LFTSERVER_ListAggregates(\|)\*O, \*VinCookie\*O indicates the point in the
+array at which the routine began to read data, and \*VoutCookie\*O
+indicates the point in the array to which the routine read data. Together,
+the two iterators identify the range of data that was read from the array
+during a given call.
+.PP
+On each call to the routine, step through the array by using \*VoutCookie\*O
+as the value of \*VinCookie\*O. Repeat \*LFTSERVER_ListAggregates(\|)\*O until
+you have read all data from the array (until the \*Lindex\*O field in
+\*VoutCookie\*O is the same as the \*Lindex\*O field in \*VinCookie\*O or
+until the return error code is \*LVOL_ERR_EOF\*O).
+.PP
+The following example demonstrates the use of \*LFTSERVER_ListAggregates(\|):
+.iS
+{
+    ftserver_iterator		inCookie;
+    ftserver_iterator		outCookie;
+    struct ftserver_aggrEntries	aggrList;
+
+    aggrList.ftserver_aggrList_len = 0;
+    memset(&inCookie, 0, sizeof inCookie); /* \*OSet \*VinCookie\*O to zero.\*L */
+    while (FTSERVER_ListAggregates(handle, &inCookie, &outCookie, &aggrList)
+	== 0 && outCookie.index != inCookie.index)
+    {
+	/* \*OUse the contents of the array here.\*L */
+	inCookie = outCookie;
+    }
+}
+.oE
+.PP
+The \*Lftserver_aggrEntries\*O structure is defined as follows:
+.iS
+struct ftserver_aggrEntries{
+\&   unsigned32 ftserver_aggrList_len;
+\&   struct ftserver_aggrList ftserver_aggrEntries_val[FTSERVER_MAXAGGR];
+}
+.iE
+.PP
+The \*Lftserver_aggrList\*O structure is defined as follows:
+.iS
+struct ftserver_aggrList{
+\&       unsigned char name[32];      /* aggregate name */
+\&       unsigned char dvname[32];    /* device name */
+\&       unsigned32 Id;   /* aggregate Id */
+\&       unsigned32 type; /* aggregate type */
+\&       unsigned32 spare1;
+\&       unsigned32 spare2;
+\&       unsigned32 spare3;
+\&       unsigned32 spare4;
+};\*O
+.fi
+.rE

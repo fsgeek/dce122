@@ -1,0 +1,154 @@
+...\"
+...\"  @OSF_COPYRIGHT@
+...\"  COPYRIGHT NOTICE
+...\"  Copyright (c) 1990, 1991, 1992, 1993 Open Software Foundation, Inc.
+...\"  ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE in the
+...\"  src directory for the full copyright text.
+...\"
+...\"
+...\" HISTORY
+...\" $Log: rpc_ss_get_thread_handle.3rpc,v $
+...\" Revision 1.1.8.1  1996/11/18  20:00:05  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  19:35:51  wardr]
+...\"
+...\" Revision 1.1.6.6  1995/06/07  20:12:29  buckler
+...\" 	1.1 edits  Prentice Hall reformat
+...\" 	[1995/06/07  20:07:57  buckler]
+...\" 
+...\" Revision 1.1.6.4  1993/01/27  16:57:02  cjd
+...\" 	Embedded copyright notice
+...\" 	[1993/01/26  18:36:03  cjd]
+...\" 
+...\" Revision 1.1.6.3  1993/01/26  19:06:50  cjd
+...\" 	Embedded copyright notice
+...\" 	[1993/01/26  18:36:03  cjd]
+...\" 
+...\" Revision 1.1.6.2  1992/10/01  20:58:49  weir
+...\" 	Removed change bars; moved into 1.0.2doc tree
+...\" 	[1992/10/01  20:17:12  weir]
+...\" 
+...\" 	For P/H, now and forever!
+...\" 	[1992/09/16  14:55:20  oaf]
+...\" 
+...\" Revision 1.1.4.3  1992/09/16  18:32:49  oaf
+...\" 	*** empty log message ***
+...\" 
+...\" Revision 1.1.4.2  1992/08/14  17:57:57  oaf
+...\" 	2nd edits, PURPOSE fix, .ad l on related functions (& restore)
+...\" 	[1992/08/14  17:03:57  oaf]
+...\" 
+...\" Revision 1.1.2.2  1992/05/19  15:52:50  buckler
+...\" 	Editorial review
+...\" 	[1992/05/19  15:45:35  buckler]
+...\" 
+...\" Revision 1.1  1992/01/29  15:38:51  damon
+...\" 	Initial revision
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc.  ALL RIGHTS RESERVED
+...\"   HISTORY COMMENTS:
+...\"
+...\"   DATE:                            COMMENT:
+...\"
+...\"	Fri Nov 8, 1991                 Initial file submission to HP
+...\"                                   for final integration at IBM.
+...\"                                   
+...\"
+...\" ********************************************************************
+...\"                                                                    *
+...\" HP/DIGITAL CONFIDENTIAL
+...\" Copyright (c) 1991 Hewlett-Packard Co. and Digital Equipment Corp.
+...\" All rights reserved.
+...\"                                                                    *
+...\" ********************************************************************
+...\" .wH "<routine_section>"
+.TH rpc_ss_get_thread_handle 3rpc
+.iX "memory" "management"
+.iX "server threads" "memory management"
+...\" .iX "memory" "\*Lrpc_ss_get_thread_handle(\|)\*O"
+...\" .iX "\*Lrpc_ss_get_thread_handle(\|)\*O"
+.iX "threads" "memory management"
+.SH "Name"
+\*Lrpc_ss_get_thread_handle\*O - Gets a thread handle for the manager code
+before it spawns additional threads, or for the client code when it becomes
+a server
+.PP
+Used by server or possibly by client applications
+.SH "Synopsis"
+.sS
+\*L#include <dce/rpc.h>\*L
+.sp .4v
+\*Lrpc_ss_thread_handle_t  rpc_ss_get_thread_handle(void)\*L;
+.sE
+.nL
+.ne 1.5i
+.SH "Description"
+The \*Lrpc_ss_get_thread_handle(\|)\*O routine is used by
+a server manager thread when it spawns additional threads.
+To spawn additional threads that are able to perform memory management,
+the server manager code calls \*Lrpc_ss_get_thread_handle(\|)\*O
+and passes the thread handle to each spawned thread.
+Each spawned thread that uses \*Lrpc_ss_allocate(\|)\*O and
+\*Lrpc_ss_free(\|)\*O for memory management must first call
+\*Lrpc_ss_set_thread_handle(\|)\*O, using the handle
+obtained by the original manager thread.
+.PP
+The \*Lrpc_ss_get_thread_handle(\|)\*O routine can also be used when a
+program changes from being a client to being a server.
+The program gets a handle on its environment as a client by calling
+\*Lrpc_ss_get_thread_handle(\|)\*O.
+When the program reverts to being a client it re\-establishes the client
+environment by calling \*Lrpc_ss_set_thread_handle(\|)\*O,
+supplying the previously obtained handle as a parameter.
+.nL
+.ne 1.5i
+.SH "Return Values"
+A thread handle.
+.nL
+.ne 1.5i 
+.SH "Examples" 
+This function determines the thread handle, creates a thread,
+and passes the thread handle to the thread so it can share the
+memory management environment of the calling thread.
+.oS
+#include <pthread.h>
+#include <idlbase.h>
+
+pthread_t Launch_thread(
+    int (*routine_to_launch)(
+       pthread_addr_t th
+       )
+    )
+{
+    rpc_ss_thread_handle_t th = rpc_ss_get_thread_handle(\|);
+    pthread_t t;
+
+    /*
+     * Create the thread and pass to it the thread handle
+     * so it can use rpc_ss_set_thread_handle.
+     */
+    pthread_create (&t, pthread_attr_default,
+        (pthread_startroutine_t)routine_to_launch,
+        (pthread_addr_t)th);
+
+    return t;
+}
+.oE
+.nL
+.ne 1.5i
+.SH "Errors"
+.PP
+A representative list of errors that might be returned is not shown
+here.  Refer to the \*(Tg for complete descriptions of all error
+messages.
+.ne 1.5i
+.SH "Related Information"
+.ad l
+Functions:
+\*Lrpc_ss_allocate(3rpc)\*O,
+\*Lrpc_ss_free(3rpc)\*O,
+\*Lrpc_ss_set_thread_handle(3rpc)\*O.
+.ad b

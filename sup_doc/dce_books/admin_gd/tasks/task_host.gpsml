@@ -1,0 +1,389 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: task_host.gpsml,v $
+...\" Revision 1.1.4.1  1996/09/19  14:10:56  sherman
+...\" 	{def,13575,R1.2.2}
+...\" 	Miscellaneous dcecp fixes
+...\" 	[1996/09/19  14:10:23  sherman]
+...\"
+...\" Revision 1.1.2.5  1995/05/25  19:11:54  rcb
+...\" 	PRENTICE HALL reformat: *really* last change
+...\" 	[1995/05/25  14:28:23  rcb]
+...\" 
+...\" 	1.1 edits: minor addition
+...\" 	[1995/05/01  20:00:05  rcb]
+...\" 
+...\" 	PRENTICE HALL reformat -- index entries, odds and ends
+...\" 	[1995/03/27  19:48:53  rcb]
+...\" 
+...\" 	prevented hyphenation of option names
+...\" 	[1995/03/09  14:59:41  rcb]
+...\" 
+...\" 	fixes to header capitalization
+...\" 	[1995/03/08  16:21:53  rcb]
+...\" 
+...\" 	minor editorial fix: init cap on "For" in headers
+...\" 	[1995/03/06  17:04:14  rcb]
+...\" 
+...\" 	PRENTICE HALL reformat
+...\" 	[1995/03/02  16:27:44  rcb]
+...\" 
+...\" 	incoroporated 1.1 edits
+...\" 	[1995/03/02  15:59:17  rcb]
+...\" 
+...\" Revision 1.1.2.4  1994/10/28  14:38:57  wardr
+...\" 	{edit R1.1}
+...\" 	added index hits
+...\" 	[1994/10/28  14:38:28  wardr]
+...\" 
+...\" Revision 1.1.2.3  1994/10/18  20:36:14  wardr
+...\" 	{edit R1.1}
+...\" 	Final fixes for the GA release
+...\" 	[1994/10/18  20:35:53  wardr]
+...\" 
+...\" Revision 1.1.2.2  1994/10/07  18:00:04  wardr
+...\" 	{enh, CR10014, R1.1}
+...\" 	Prepare for final draft review
+...\" 	[1994/10/07  17:58:33  wardr]
+...\" 
+...\" Revision 1.1.2.1  1994/08/05  19:01:41  wardr
+...\" 	{enh, CR10014 R1.1}initial drafts of task scripts
+...\" 	[1994/08/05  19:01:16  wardr]
+...\" 
+...\" $EndLog$
+.H 1 "Managing DCE Hosts" 
+.P
+.iX "task objects" "\*Lhost\*O"
+.iX "hosts" "managing with the \*Lhost\*O task object"
+Larger DCE cells can contain many host computers, with some running
+both DCE servers and application servers while others act only as
+client systems.  Still other hosts might run application servers
+but also act as clients to their resident users.  Such flexibility in
+DCE host configurations can make it difficult to control or track
+what's running or available on each host in a cell.  The \*Lhost\*O
+task object represents DCE and application processes associated with
+hosts, letting administrators more easily manage DCE server and
+application processes on machines.
+.P
+You can use the \*Lhost\*O task object to show information about
+processes on local and remote hosts in a cell, and start and stop DCE
+processes on hosts throughout a cell.  You can also configure local
+DCE hosts in a cell and remove (unconfigure) remote DCE hosts from a
+cell.  Online help for this object is available using the \*Lhost
+help\*O and \*Lhost operations\*O commands in \*Ldcecp\*O.
+.P
+All of the \*Lhost\*O object operations performed on a remote host
+except \*Lhost catalog\*O require \*Ldced\*O to be running on the
+remote host.
+.H 2 "Listing the DCE Hosts in a Cell"
+...\" catalog
+.P
+.iX "hosts" "listing in a cell"
+You can determine the number and names of DCE hosts configured in your
+DCE cell by using the \*Lhost catalog\*O operation.  This operation might
+be useful for determining whether a specific host has already been
+configured into your cell.  The host does not have to be running for
+this operation to work because the \*Lhost catalog\*O operation actually
+performs a \*Ldirectory list /.:/hosts\*O operation and
+doesn't interact with the host.  This method relies on the convention
+that hosts register their names in the \*L/.:/hosts\*O directory.  If
+your hosts register in some other directory, you need to modify the
+\*Lhost catalog\*O operation in the \*Lhost\*O task object. 
+You can read more about the purpose and use of CDS directories in Chapter
+18.
+.P
+The \*Lhost catalog\*O operation resembles the \*Lcell show\*O
+operation except that it doesn't separately list DCE servers.  The
+following example operation lists all DCE hosts that have been
+configured in the cell:
+.oS
+dcecp> \*Lhost catalog\*C
+/.../my_cell.goodco.com/hosts/bigbox 
+/.../my_cell.goodco.com/hosts/drifter 
+/.../my_cell.goodco.com/hosts/duh
+/.../my_cell.goodco.com/hosts/heater 
+/.../my_cell.goodco.com/hosts/pc1 
+/.../my_cell.goodco.com/hosts/pc2 
+/.../my_cell.goodco.com/hosts/pc3 
+/.../my_cell.goodco.com/hosts/peewee 
+/.../my_cell.goodco.com/hosts/xoltar
+/.../my_cell.goodco.com/hosts/xray 
+/.../my_cell.goodco.com/hosts/zoof
+\*Cdcecp>\*O
+.oE
+.P
+.ne 15
+You can omit the cell name by using the \%\*L-simplename\*O option as in
+the following example:
+.oS
+dcecp> \*Lhost catalog -simplename\*C
+hosts/bigbox 
+hosts/drifter 
+hosts/duh
+hosts/heater 
+hosts/pc1 
+hosts/pc2 
+hosts/pc3 
+hosts/peewee 
+hosts/xoltar
+hosts/xray 
+hosts/zoof
+\*Cdcecp>\*O
+.oE
+.H 2 "Showing All Servers Configured for a DCE Host"
+...\" show
+.P
+.iX "hosts" "showing servers configured on"
+In larger cells, in which DCE servers and application servers reside on
+multiple hosts, you'll likely want to see what servers are configured
+to run on particular hosts from time to time.  The DCE control
+program's \*Lhost show\*O operation reads a DCE host's server
+configuration and execution information and returns a list of configured
+servers on that host.  The list contains each server's simple name and
+indicates whether it is running.  The list also indicates whether a
+security server is a master or replica and whether a DTS entity is a
+clerk or server.
+.P
+This operation relies on the \*Lserver\*O object (and consequently on
+the DCE host daemon) to show information about configured servers.
+You can read more about controlling server operation in Chapter 10.
+.P
+The following example shows the servers configured to run on DCE host
+\*Lxoltar\*O:
+.oS
+dcecp> \*Lhost show /.:/hosts/xoltar\*C
+video_clip running
+dts-entity running clerk
+.oE
+\*Cdcecp>\*O
+.H 2 "Testing Whether a DCE Host is Running"
+.P
+.iX "hosts" "testing availability of"
+Because DCE communications often involve several steps before clients
+communicate with their servers, communication failures can be
+difficult to diagnose.  For instance, a server may not be running on a
+host or the DCE services may not be currently running, even though the
+host has been configured into the cell.  You can use a \*Lserver
+ping\*O operation to test whether a server process is running but, if
+this fails, you might need a way to see if the DCE host is even
+accessible through the network.  The DCE control program's \*Lhost
+ping\*O operation tests whether a host's DCE services are accessible
+on the network, returning a \*L1\*O if it is and a \*L0\*O if it isn't
+accessible.
+.P
+The \*Lhost ping\*O operation tests for the presence of the remote
+host's DCE daemon (\*Ldced\*O). You can read more about the purpose
+and use of \*Ldced\*O in Chapter 9.
+.P
+The following example tests whether \*Ldced\*O on host
+\*Lduh\*O is accessible on the network:
+.oS
+dcecp> \*Lhost ping /.:/hosts/duh\*C
+1
+\*Cdcecp>\*O
+.oE
+.H 2 "Starting Configured DCE Processes on a Host"
+...\" start
+.P
+.iX "hosts" "starting processes on"
+.iX "starting" "DCE host processes"
+Each host's DCE daemon (\*Ldced\*O) can maintain configuration
+information for servers set to run on that particular host.  This
+information is established using an application's installation script
+or by using the \*Lserver\*O object directly.  While the \*Lserver\*O
+object provides its own \*Lstart\*O operation that can start
+individual servers on a host, you must explicitly name each server.
+The \*Lhost start\*O operation lets you start all configured DCE
+servers and clients and all configured application servers on a host
+with a single command.
+.P
+To operate on a remote host, its DCE daemon must be running.  Remote
+\*Lhost start\*O operations also require at least one CDS server and
+one security server to be running in the cell.  The \*Lhost start\*O
+operation operates on DCE servers and clients and on application
+servers that are configured by using the \*Lserver\*O object.
+.P
+.ne 3
+Application servers must be configured with the \*Lstarton\*O
+attribute set to \*Lboot\*O or \*Lexplicit\*O.  You can read more
+about configuring application servers in Chapter 10.
+.P
+The following example starts all configured servers on host
+\*Lbigbox\*O:
+.oS
+dcecp> \*Lhost start /.:/hosts/bigbox\*C
+\*Cdcecp>\*O
+.oE
+.H 2 "Stopping DCE Processes Running on a Host"
+.P
+.iX "hosts" "stopping processes on"
+.iX "stopping" "DCE host processes"
+Like the \*Lhost start\*O operation discussed in the previous section,
+the \*Lhost stop\*O operation is more encompassing than a \*Lserver
+stop\*O operation.  It lets you stop all DCE processes on a host with a
+single command rather than issue a separate \*Lserver stop\*O
+operation for each server.  This operation stops application servers,
+then DCE processes and finally, when stopping DCE processes on the
+local machine, stops \*Ldced\*O.  You can read more about controlling
+servers in Chapter 10.
+.P
+To operate on a remote host, its DCE daemon must be running.  Remote
+\*Lhost stop\*O operations also require at least one CDS server and
+one security server to be running in the cell.  The \*Lhost stop\*O
+operation operates on DCE servers and clients and on application
+servers that have been configured by using the \*Lserver\*O object.  
+.P
+The following example stops all DCE processes and application servers
+on host \*Lbigbox\*O:
+.oS
+dcecp> \*Lhost stop /.:/hosts/bigbox\*C
+\*Cdcecp>\*O
+.oE
+.H 2 "Configuring a DCE Host in a Cell"
+.P
+.iX "hosts" "configuring"
+Once DCE Version 1.1 software has been installed on a host, you can
+configure the local host as a DCE client machine by using a
+\*Lhost configure\*O operation.  You must have root or system
+administrator privileges on the local host to execute a \*Lhost
+configure\*O operation.
+.P
+You can read more about requirements for DCE server and client systems
+in the \*(Ai.
+.P
+Note that you cannot configure DCE servers such as a DCE Security
+Service registry or a CDS server by using a \*Lhost configure\*O
+operation.  Instead, use the DCE Installation and Configuration
+program to configure DCE servers in your cell.
+.P
+Before configuring a DCE client system, be sure the DCE
+software has been installed on the host.  For information about
+installing DCE, refer to your DCE installation instructions or the
+\*(Ai.
+.P
+To configure a DCE client system, perform the following steps:
+.AL
+.LI
+Log into a privileged account (\*Lroot\*O or system administrator) on
+the host to be configured.
+.LI
+Start the DCE control program and perform a \*Lhost configure
+-client\*O operation.  Include an argument specifying the cell-relative
+name of the local host being configured.  The operation adds this name
+to CDS.  Use required options to specify the host names where the master
+security server and a CDS server are running.  Other required options
+are \*L-administrator\*O, which specifies the principal name of the
+person configuring the host (usually the cell administrator), and
+\*L-password\*O followed by the administrator's password.
+.P
+The following example shows configuring host \*Lptarmigan\*O as a DCE
+client system.  The cell's security server is on host \*Leagle\*O and
+the CDS server is on host \*Lowl\*O.  The administrator's principal
+name is \*Lcell_admin\*O and the administrator's password is
+\*L\-dce-\*O.
+.oS
+dcecp> \*Lhost configure /.:/hosts/ptarmigan -client -secmaster eagle \\
+                  -cds owl -administrator cell_admin -password -dce-
+\*Cdcecp>\*O
+.oE
+.LE
+...\" NOT IMPLEMENTED FOR DCE 1.1:
+...\" 	.H 3 "Configuring a DCE Server"
+...\" 	.P
+...\" 	You can use a \*Lhost configure -server\*O operation to configure DTS
+...\" 	servers, additional CDS servers, and Security Service secondary
+...\" 	replicas wherever you need them in your cell.  You cannot configure
+...\" 	the initial CDS server or the master Security Service replica with
+...\" 	this operation.  Instead, use the DCE Installation and Configuration
+...\" 	program to configure these initial servers.
+...\" 	.P
+...\" 	\*LIf not already a client this operation does that (How?), then
+...\" 	proceeds.\*O
+...\" 	.P
+...\" 	To configure a DCE server system:
+...\" 	.AL
+...\" 	.LI
+...\" 	Log in to a privileged account (root or system administrator) on the
+...\" 	host to be configured. 
+...\" 	.LI
+...\" 	Perform a \*Lhost configure -server\*O operation, using options
+...\" 	(\*L-security\*O, \*L-cds\*O, or \*L-dts\*O) to specify the servers to
+...\" 	be configured.  For a DTS server you also need to specify whether it is
+...\" 	a local or global server and, optionally, whether the courierrole is
+...\" 	\*Lbackup\*O, \*Lcourier\*O, or \*Lnoncourier\*O.  You can read more
+...\" 	about DTS servers in the \*(Ac, in the chapter entitled "\*VManaging
+...\" 	the DCE Distributed Time Service\*O".
+...\" 	.P
+...\" 	The following example operation configures a local host to be a
+...\" 	security server and a DTS backup server that is not a courier. 
+...\" 	.oS
+..." 	dcecp> \*Lhost configure /.:/hosts/ptarmigan -server -security \\\*C
+..." 	> \*L-dts global -courierrole noncourier \\\*C
+..." 	dcecp> 
+..." 	.oE
+..." 	.LE
+.H 2 "Removing a DCE Host from a Cell"
+...\" unconfigure
+.P
+.iX "hosts" "removing from a cell"
+Occasionally, you might want to remove a DCE host from a cell.  For
+instance, your organization is replacing some older systems that are
+being sold to another organization. 
+.P
+.ne 9
+Removing or unconfiguring a DCE host is more than just erasing DCE
+information from the host's disk because CDS and the DCE Security Service
+both maintain host-specific information that needs to be removed as
+well.  The \*Lhost unconfigure\*O operation deletes all objects,
+directories, and links from the \*L/.:/hosts/\*Vhostname\*O CDS
+directory including the directory itself.  It also deletes all
+principal names beginning with \*Lhosts/\*Vhostname\*L/\*O which, in
+turn, removes all accounts with the same name.  Finally, it removes all
+local configuration files and stops all running DCE processes ending
+with the DCE daemon (\*Ldced\*O).  
+.P
+The \*Lhost unconfigure\*O operation operates only on remote hosts.
+You cannot perform this operation on a local host because it removes
+the DCE Security Service registry information needed to complete the
+operation.  Also note that you need cell administrator privileges to
+perform a \*Lhost unconfigure\*O operation.
+.P
+To remove a remote DCE host from a cell, use a \*Lhost unconfigure\*O
+operation providing the host name of the host to be unconfigured.  The
+following example removes host \*Lcalypso\*O from the cell:
+.oS
+dcecp> \*Lhost unconfigure /.:/hosts/calypso\*C
+\*Cdcecp>\*O
+.oE
+.P
+.zA "def,13575,R1.2.2,Deleted info about removing multiple hosts"
+.P
+If you have cell administrator privileges in a foreign cell, you can
+remove a remote DCE host from that cell by supplying a global DCE
+name of the host to be unconfigured.  The following example removes
+host \*Lgobo\*O from foreign cell \*L/.../their_cell.goodco.com\*O:
+.oS
+dcecp> \*Lhost unconfigure /.../their_cell.goodco.com/hosts/gobo\*C
+\*Cdcecp>\*O
+.oE
+.zZ "def,13575,R1.2.2,Deleted info about removing multiple hosts"
+.H 2 "Modifying or Extending the Host Object"
+.P
+.iX "hosts" "extending the \*Lhost\*O task object"
+.iX "\*Lhost\*O object" "extending"
+.iX "extending" "the \*Lhost\*O task object" 
+The \*Lhost\*O task object is implemented as a script so that
+administrators can modify or extend it on a per-site basis.  For
+example, administrators might want to add GDS and DFS information to
+the object.  You could also add calls to specialized commands to start
+or stop application servers.  For instance a \*Lprinter stop\*O
+operation could be useful.
+.P
+Part 1 of this guide discusses ways to create new \*Ldcecp\*O objects
+or modify existing objects written with the \*Ldcecp\*O language.

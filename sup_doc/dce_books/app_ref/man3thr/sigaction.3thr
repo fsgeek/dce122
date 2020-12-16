@@ -1,0 +1,179 @@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+...\" ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+...\" src directory for the full copyright text. 
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: sigaction.3thr,v $
+...\" Revision 1.1.4.2  1996/12/17  20:49:02  damon
+...\" 	Expanded OSF C O P Y R I G H T   N O T I C E
+...\" 	[1996/12/17  20:46:25  damon]
+...\"
+...\" Revision 1.1.4.1  1996/11/19  20:26:09  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads
+...\" 	[1996/11/19  20:24:22  wardr]
+...\" 
+...\" Revision 1.1.2.3  1995/06/21  13:23:14  buckler
+...\" 	More 1.1 edits.
+...\" 	[1995/06/20  18:09:08  buckler]
+...\" 
+...\" Revision 1.1.2.2  1995/06/09  16:22:40  buckler
+...\" 	1.1 edits and Prentice Hall reformat
+...\" 	[1995/06/09  16:18:09  buckler]
+...\" 
+...\" Revision 1.1.2.1  1994/09/30  21:28:48  weir
+...\" 	New reference pages
+...\" 	[1994/09/30  21:28:21  weir]
+...\" 
+...\" $EndLog$
+...\" 
+...\" 
+...\" 
+...\" 
+...\"*********************************************************************
+...\"
+...\" The information in this document is subject to change without
+...\" notice and should not be construed as a commitment by Open	
+...\" Software Foundation.
+...\"
+...\" ********************************************************************
+.TH sigaction 3thr
+...\" .iX "\*Lsigaction(\|)\*O"
+.iX "signal" "examine and change synchronous"
+.SH "Name"
+\*Lsigaction\*O - Examines and changes synchronous signal actions (POSIX software signal facilities)
+.SH "Synopsis"
+.sS
+#\*Linclude <signal.h>
+.sp .4v
+\*Lstruct sigaction {
+.nL
+        void (\*V*sa_handler\*L) (\|);
+.nL
+        sigset_t \*Vsa_mask\*L;
+.nL
+        int \*Vsa_flags\*L;
+.nL
+};\*O
+.PP
+\*Lint sigaction(\*Vsig, act, oact\*L)
+.nL
+int \*Vsig\*L;
+.nL
+const struct sigaction\*V *act\*L;
+.nL
+struct sigaction\*V *oact\*L;\*O
+.sE
+.nL
+.ne 1.5i
+.SH "Parameters"
+.VL
+.LI "\*Vsig\*O"
+Synchronous signal to examine or change.
+.LI "\*Vact\*O"
+Points to a \*Lsigaction\*O structure that describes the action to be taken upon
+receipt of the signal indicated by the value of the \*Vact\*O parameter.
+.LI "\*Voact\*O"
+Points to a \*Lsigaction\*O structure in which the signal action data in effect at 
+the time of the \*Lsigaction(\|)\*O function call is returned.
+.LE
+.nL
+.ne 1.5i
+.SH "Description"
+.PP
+The \*Lsigaction\*O POSIX service allows for per-thread handlers to be installed for 
+catching synchronous signals.
+It is called in a multithreaded process to establish thread specific actions
+for such signals.
+This call is the POSIX equivalent of the \*Lsigaction(\|)\*O system call with the 
+following exceptions or modifications:
+.ad l
+.ML
+.LI
+The \*Lsigaction(\|)\*O routine only modifies behavior for individual threads.
+.LI
+The \*Lsigaction(\|)\*O routine only works for synchronous signals.  Attempting to set a signal
+action for an asynchronous signal is an error.
+This is true even in a single-threaded process.
+.PP
+.ne 8
+Any multithreaded application using DCE Threads will need to use the \*Lsigwait(\|)\*O function
+for dealing with asynchronous signals.
+The \*Lsigwait(\|)\*O function can be used to synchronously wait for delivery of
+asynchronously generated signals.
+...\".LI
+...\"A process can suppress the generation of the \*LSIGCHLD\*O signal when a child stops by
+...\"setting the \*LSA_NOCLDSTOP\*O bit in \*Vsa_flags\*O.
+.LI
+The \*LSA_RESTART\*O flag is always set by the underlying system
+in POSIX mode so that interrupted system calls will
+fail with return value of -1 and the \*LEINTR\*O error in \*Verrno\*O instead of
+getting restarted.
+.PP
+The system's \*LSA_RESTART\*O flag has the opposite meaning of the 
+\*LSA_\%RESTART\*O flag in the \*Vsa_flags\*O field and is always set 
+in the underlying system call
+resulting from \*Lsigaction(\|)\*O regardless of whether 
+\*LSA_\%RESTART\*O was indicated in \*Vsa_flags\*O.
+.LI
+The signal mask is manipulated using the POSIX \(sc 3.3.3
+\*Lsigsetops(\|)\*O functions.
+They are
+\*Lsigemptyset(\|)\*O,
+\*Lsigfillset(\|)\*O,
+\*Lsigaddset(\|)\*O,
+\*Lsigdelset(\|)\*O,
+and \*Lsigismember(\|)\*O.
+.LE
+.ad b
+.PP
+The \*Lsigaction(\|)\*O function can be used to inquire about the current
+handling of a given signal by specifying a null pointer for \*Vact\*O, since
+the action is unchanged unless this parameter is not a null pointer.
+In order for the signal action in effect at the time of the \*Lsigaction(\|)\*O
+call to be returned, the \*Voact\*O parameter must not be a null pointer.
+.nL
+.ne 1.5i
+.SH "Return Values"
+.PP
+Possible return values are as follows:
+.PP
+.TS
+center tab(%);
+l | l | l
+n | l | lw(2.5i).
+\*LReturn%Error%Description\*O
+_
+0%%Successful completion.
+\-1%[\*LEFAULT\*O]%T{
+Either \*Vact\*O or \*Voact\*O points to memory which is not a valid part 
+of the process address space.
+T}
+%%A new signal handler is not installed.
+\-1%[\*LEINVAL\*O]%T{
+The value specified by \*Vsig\*O is invalid.
+A new signal handler is not installed.
+T}
+\-1%[\*LEINVAL\*O]%T{
+An attempt is made to ignore or supply a handler for 
+\*LSIGKILL\*O or \*LSIGSTOP\*O.
+A new signal handler is not installed.
+T}
+.TE
+.nL
+.ne 1.2i
+.SH "Related Information"
+.PP
+.ad l
+Functions:
+\*Lsetjmp(3)\*O,
+\*Lsiginterrupt(3)\*O,
+\*Lsigpending(3thr)\*O,
+\*Lsigprocmask(3thr)\*O,
+\*Lsigsetops(3)\*O,
+\*Lsigsuspend(3)\*O,
+\*Lsigvec(2)\*O,
+\*Ltty(4)\*O.
+.ad b

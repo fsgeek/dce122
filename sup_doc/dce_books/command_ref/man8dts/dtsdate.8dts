@@ -1,0 +1,167 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: dtsdate.8dts,v $
+...\" Revision 1.1.2.6  1995/12/18  17:24:40  rcb
+...\" 	PH1.1: final fixes
+...\" 	[1995/12/18  13:41:26  rcb]
+...\"
+...\" Revision 1.1.2.5  1995/10/18  13:52:02  rcb
+...\" 	PH1.1: editorial improvement and Prentice-Hall publish formatting
+...\" 	[1995/10/13  16:48:45  rcb]
+...\" 
+...\" Revision 1.1.2.4  1995/09/22  18:38:59  rcb
+...\" 	preliminary editing (including outstanding 1.1 edits) for 1.1PH, 1.2
+...\" 	[1995/09/22  18:29:04  rcb]
+...\" 
+...\" Revision 1.1.2.3  1994/10/21  20:28:57  hal
+...\" 	corrections associated with putting dtsdate back into man8dts
+...\" 	[1994/10/21  20:27:33  hal]
+...\" 
+...\" Revision 1.1.2.4  1994/10/06  20:41:51  rrizzo
+...\" 	expand copyright
+...\" 	[1994/10/06  20:08:19  rrizzo]
+...\" 
+...\" Revision 1.1.2.3  1994/09/30  19:00:55  neilson
+...\" 	CR 11127 - Add engineering changes.
+...\" 	[1994/09/30  19:00:24  neilson]
+...\" 
+...\" Revision 1.1.2.2  1994/09/16  15:51:52  neilson
+...\" 	CR 11855 - Examples said dtstime where dtsdate was needed.
+...\" 	[1994/09/16  15:51:24  neilson]
+...\" 
+...\" Revision 1.1.2.1  1994/08/19  15:47:36  neilson
+...\" 	CR 11127 - new command
+...\" 	[1994/08/19  15:47:06  neilson]
+...\" 
+...\" $EndLog$
+.TH dtsdate 8dts
+.iX "\*Ldtsdate\*O command"
+.SH "NAME"
+.PP
+\*Ldtsdate\*O - Sets a local clock from a remote DTS daemon server host
+.SH "SYNOPSIS"
+.PP
+.sS
+\*Ldtsdate\*O [\*L-q\*O] [\*L-s\*O] [\*L-u\*O] \*Vremote_host\*O [\*Vnsecs\*O]
+.sE
+.SH "OPTIONS"
+.PP
+.VL
+.LI "\*L-q\*O"
+Queries the difference in time between the local host and the remote
+host, but does not change the local clock.  The returned result (2 if
+the time would have been reset, 1 if there was an error, and 0
+otherwise) can be used by a script to determine what action to take.
+.LI "\*L-s\*O"
+Causes \*Ldtsdate\*O to work silently, without showing the time.
+.LI "\*L-u\*O"
+Shows the time in Universal Time Coordinated (UTC) format,
+rather than in the current time zone.
+.LE
+.SH "ARGUMENTS"
+.PP
+.VL
+.LI \*Vremote_host\*O
+The name or the IP address of a remote host that has a \*Ldtsd\*O server.
+.LI \*Vnsecs\*O
+An integer giving the number of seconds by which the remote and local
+host times can differ, without the local host's clock being reset.  If
+\*Vnsecs\*O is 0, or if it is not specified, it is treated as if it
+were extremely large, and no resetting occurs.
+.LE
+.SH "DESCRIPTION"
+.PP
+The \*Ldtsdate\*O command sets the local clock of a system to be the
+same as the host \*Vremote_host\*O, running a \*Ldtsd\*O server.  The
+purpose of \*Ldtsdate\*O is to ensure that clock skew is minimized at
+initial cell configuration or at host instantiation, because it is
+difficult to start DCE and its components if the skew is too great.
+.PP
+Clocks among all DCE components must be within five minutes of each
+other, to prevent failure of the Cell Directory Service (CDS)
+and of security.  Some DCE components
+have even more stringent requirements.  For instance, a Distributed File
+Service (DFS) file
+server cannot start if its local host differs from other DFS hosts by
+more than ten seconds.
+.PP
+.ne 5
+The \*Ldtsdate\*O command can be used for adjusting a clock backwards,
+before DCE is running on a host.  Adjusting a clock backwards while
+DCE is running can cause many difficulties, because security and file
+system software generally require system time to increase monotonically. 
+.SH "NOTES"
+.PP
+The remote host must be running as a Distributed Time Service
+(DTS) server.  This means that the
+\*Ldtsd\*O on that system must have registered the DTS management
+interface, because \*Ldtsdate\*O uses the management call to get the
+current time from that host.
+.PP
+For \*Ldtsdate\*O to be able to set the clock, it must run as a
+privileged user (\*Lroot\*O).
+.SH "EXIT VALUES"
+.PP
+If the \*L-q\*O argument is given, \*Ldtsdate\*O returns 2 if the
+remote time and local time differ by more than \*Vnsecs\*O, 1 if there
+was an error, and 0 otherwise.
+.PP
+If the \*L-q\*O argument is not given, \*Ldtsdate\*O returns 1 if
+there was an error, and 0 otherwise.
+.SH "EXAMPLES"
+.PP
+.AL
+.LI
+To run \*Ldtsdate\*O with only the host argument, enter the following
+command:
+.iS
+dtsdate remotehost 
+.iE
+As a result, \*Ldtsdate\*O prints out the time on \*Lremotehost\*O. 
+.LI
+In the following example, \*Ldtsdate\*O indicates that 
+local host's and remote host's times differ by more than 10 seconds, without
+showing the time:
+.iS
+dtsdate -s -q remotehost 10\*C
+1
+.iE
+.LI
+In the following example, 
+\*Ldtsdate\*O resets the clock if it differs from the remote clock by
+more than 10 seconds.  It does this work silently due to the
+\%\*L-s\*O option.
+.iS
+dtsdate -s remotehost 10 
+.iE
+.nL
+.ne 14
+.LI
+The following example shows a shell script that uses the return value
+of \*Ldtsdate\*O:
+.oS
+dtsdate -s -q remhost 10
+result = $?
+if [ $result -eq 0 ] ; then
+    echo "Time is within tolerence."
+elif [ $result -eq 1 ] ; then
+    echo "Could not contact remote host." >&2
+else                              # result = 2
+  if dtsdate remhost 10; then     # it failed!
+      echo "Could not set the clock." >&2
+  fi
+fi
+.oE
+.LE
+.SH "RELATED INFORMATION"
+.PP
+.ad l
+Commands:
+\*Ldtsd(8dts)\*O.
+.ad b

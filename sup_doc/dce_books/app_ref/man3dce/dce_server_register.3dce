@@ -1,0 +1,192 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: dce_server_register.3dce,v $
+...\" Revision 1.1.4.1  1996/11/18  17:00:20  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  16:56:51  wardr]
+...\"
+...\" Revision 1.1.2.6  1995/06/21  13:19:42  buckler
+...\" 	More 1.1 edits.
+...\" 	[1995/06/19  15:19:12  buckler]
+...\" 
+...\" Revision 1.1.2.5  1995/05/31  17:05:43  buckler
+...\" 	1.1 edits.
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/05/30  22:51:53  buckler]
+...\" 
+...\" Revision 1.1.2.4  1994/10/19  19:49:47  jshirley
+...\" 	Update for final.
+...\" 	[1994/10/19  19:48:55  jshirley]
+...\" 
+...\" Revision 1.1.2.3  1994/06/13  17:02:04  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  16:46:37  devobj]
+...\" 
+...\" Revision 1.1.2.2  1994/06/01  19:13:12  jshirley
+...\" 	{def,CR9830,R1.1}
+...\" 	Incorporated first draft comments.
+...\" 	[1994/06/01  19:12:29  jshirley]
+...\" 
+...\" Revision 1.1.2.1  1994/05/03  20:38:01  jshirley
+...\" 	Created for book
+...\" 	[1994/05/03  20:37:08  jshirley]
+...\" 
+...\" $EndLog$
+.TH dce_server_register 3dce 
+...\" .iX "\*Ldce_server_register(\|)\*O"
+.SH "Name"
+\*Ldce_server_register\*O - 
+Registers a server with DCE
+.SH "Synopsis"
+.sS
+\*L#include <dce/dced.h>
+.sp .4v
+\*Lvoid dce_server_register(
+.nL
+\*Lunsigned32 \*Vflags\*L,
+.nL
+\*Lserver_t *\*Vserver\*L,
+.nL
+\*Ldce_server_register_data_t *\*Vdata\*L,
+.nL
+\*Ldce_server_handle_t *\*Vserver_handle\*L,
+.nL
+\*Lerror_status_t *\*Vstatus\*L);
+.sE
+.nL
+.ne 1.5i
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vflags\*O"
+Specifies options for server registration.  Combinations of the
+following values may be used:
+.VL
+.LI "\*Ldce_server_c_no_protseqs\*O"
+.LI "\*Ldce_server_c_no_endpoints\*O"
+.LI "\*Ldce_server_c_ns_export\*O"
+.LE
+.LI "\*Vserver\*O"
+Specifies the server data, commonly obtained from \*Ldced\*O by
+calling \*Ldce_server_inq_server(\|)\*O. 
+The \*Lserver_t\*O structure is described in \*Lsec_intro(3sec)\*O.
+.LI "\*Vdata\*O"
+Specifies the array of data structures that contain the additional
+information required for the server to service requests for specific
+remote procedures.
+Each structure of the array includes the following:
+.ad l
+.ML
+.LI 
+An interface handle (\*Lifhandle\*O) of type \*Lrpc_if_handle_t\*O
+.LI
+An entry point vector (\*Lepv\*O) of type \*Lrpc_mgr_epv_t\*O
+.LI
+A number (\*Lnum_types\*O) of type \*Lunsigned32\*O representing the
+number in the following array
+.LI
+An array of server types (\*Ltypes\*O) of type \*Ldce_server_type_t\*O
+.LE
+.ad b
+.PP
+.ne 4
+The \*Ldce_server_type_t\*O structure contains a UUID (\*Ltype\*O) of type
+\*Luuid_t\*O representing the object type, 
+and a manager entry point vector (\*Lepv\*O) of type
+\*Lrpc_mgr_epv_t\*O representing the set of procedures implemented for
+the object type.
+.LE
+.SS "Output"
+.VL
+.LI  "\*Vserver_handle\*O"
+Returns a server handle, which is a pointer to an opaque data
+structure containing information about the server.
+.LI "\*Vstatus\*O"
+Returns the status code from this routine.  This status code
+indicates whether the routine completed successfully or, if not, why not.
+.LE
+.nL
+.ne 1.5i
+.SH "Description"
+By default, the \*Ldce_server_register(\|)\*O routine 
+registers a DCE server by establishing a server's binding information
+for all valid protocol sequences, 
+registering all the servers services with the RPC runtime, 
+and entering the server's endpoints in \*Ldced\*O's endpoint mapper service.
+.PP
+Prior to calling the \*Ldce_server_register(\|)\*O routine, the server
+obtains the server configuration data from \*Ldced\*O by calling
+\*Ldce_server_inq_server(\|)\*O.
+The server must also set up an array of registration data, where the
+size of the array represents all the server's services that are
+currently registered in the server configuration data of \*Ldced\*O
+(\*Lserver->services.count\*O).
+If the memory for the array is dynamically allocated, it must not be
+freed until after the corresponding \*Ldce_server_unregister(\|)\*O
+routine is called.
+.PP
+You can modify the behavior of \*Ldce_server_register(\|)\*O 
+Depending on the values of the \*Vflags\*O parameter.
+If the flag has the value \*Ldce_server_c_ns_export\*O, 
+the the binding information is also exported to the namespace.  
+The namespace entry is determined for each service by the
+\*Lserver->services.list[i].entryname\*O parameter.  
+If this parameter has no value, 
+the default value for the entire server is used (\*Lserver->entryname\*O).
+If the flag has the value \*Ldce_server_c_no_endpoints\*O,
+the binding information is not registered with the endpoint map.
+Your application can use \*Lrpc_ep_register(\|)\*O to register
+specific binding information.
+If the flag has the value \*Ldce_server_c_no_protseqs\*O,
+specific protocol sequences are used rather than all valid protocol
+sequences.  Use of this flag requires that the server first call
+\*Ldce_server_use_protseq(\|)\*O at least once for a valid protocol sequence.
+...\".nL
+...\".ne 1.5i
+...\".SH "EXAMPLES"
+...\".PP
+...\"<<To be described>>
+...\".oS
+...\" .
+...\" .
+...\" .
+...\"dce_server_register(...);
+...\"rpc_ns_binding_export(...);
+...\"rpc_server_listen(...);
+...\" .
+...\" .
+...\" .
+...\".oE
+...\".PP
+.nL
+.ne 1.5i
+.SH "Errors"
+.PP
+The following describes a partial list of errors that might be returned.
+Refer to the \*(Tg for complete descriptions of all error
+messages.
+.VL
+.LI "\*Lerror_status_ok\*O"
+.LI "\*Lrpc_s_no_memory\*O"
+.LE
+.nL
+.ne 1.5i
+.SH "Related Information"
+.ad l
+Functions: 
+\*Ldce_server_inq_server(3dce)\*O,
+\*Ldce_server_sec_begin(3dce)\*O,
+\*Ldce_server_unregister(3dce)\*O, 
+\*Ldced_intro(3dce)\*O, 
+\*Lrpc_server_listen(3rpc)\*O.
+.ad b
+.PP
+Books:
+\*(Dg.

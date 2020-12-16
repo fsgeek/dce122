@@ -1,0 +1,658 @@
+% @OSF_COPYRIGHT@
+% 
+% 
+% HISTORY
+% $Log: docbook.lcl,v $
+% Revision 1.1.2.1  1996/09/30  19:50:07  weir
+% 	Initial submission
+% 	[1996/09/30  19:49:33  weir]
+%
+% $EndLog$
+%------------------------------------------------------------------
+
+% change table rule default
+\def\TableRuleWt{9}
+\TableRuleWtAmt=0.5pt
+
+%------------------------------------------------------------------
+
+%for debugging purposes
+\overfullrule=1in
+
+%------------------------------------------------------------------
+% to remove leader dots from indexing 3/25/96
+%------------------------------------------------------------------
+\def\indexentryleaders{,\hskip 6pt\relax}
+
+%--------------------------------------------------------
+
+% change to French spacing (no extra space after a period)
+\frenchspacing
+
+%------------------------------------------------------------------
+
+%========================================================
+%  The following section represents patches to 5.0.2 formatting,
+%  which are incorporated into the 6.0 and later releases.
+%  The \ifx statement below causes this section not to be read
+%  in these later releases.
+
+\def\CsA{5.0.2}\ifx\formatversion\CsA \resulttrue \fi
+\def\CsA{5.0.2+}\ifx\formatversion\CsA \resulttrue \fi
+\ifresult % skip to \fi if \formatversion is not "5.0.2" or "5.0.2+"
+
+% number of appends before buffer is flushed
+\chardef\st@applimit=100
+
+%-------------------------------------------------------
+% Following is a bug-fix patch for Bug 17990 from gpg
+%-------------------------------------------------------
+\input nindex.lcl
+
+%------------------------------------------------------
+% To get rid of unneeded changebar messages 9/06/96
+%------------------------------------------------------
+
+\checkfmtversion{5.0.2}{RevPointError}
+
+
+% -----------------------------------------------------------------
+% Date:		Thu Aug 24 15:49:21 1995
+% Filename:	chgmark.tex
+% File Version:	24.1
+% Needs update:	yes
+% Last Mod:	Thu Aug 31 12:27:46 1995
+
+
+% Fixes revision bar on empty element problem (13177,13150)
+
+
+\def\do@cm{%
+  \ifcm@start@
+    \global\cm@start@false
+    %  If there are any start requests, do everything next frag, otherwise
+    %  do everything (just end requests) immediately.
+    \ea\cm@test@for@start\the\cm@starttoks\do@cm@start@\cm@test@for@start
+    \ifresult
+      \ea\nextfrag\ea{\the\cm@starttoks}%
+      \global\cm@starttoks=\nulltoks
+    \else
+      \global\cm@starttoks=\ea\nulltoks\the\cm@starttoks
+    \fi
+  \fi
+}
+
+\def\cm@test@for@start #1\do@cm@start@#2\cm@test@for@start{%
+  \if\@empty{#2}%
+    \resultfalse
+  \else
+    \resulttrue
+  \fi
+}
+
+
+% -----------------------------------------------------------------
+% Date:		Thu Aug 24 15:49:21 1995
+% Macro:	
+% Filename:	chgmark.tex
+% File Version:	24.1
+% Needs update:	yes
+% Last Mod:	Thu Aug 31 12:27:52 1995
+
+% Fixes revision bar followed by a forced page break.
+
+
+\def\placechgmark #1#2#3{%
+  %
+  \ifvmode
+    \ifvoid\vmbox
+      \bgroup
+	\CountD=\lastpenalty
+	\specialpoint{#2}{\cm@defoffset}{}%
+	{#3}\relax			% add the non-discardables
+	\doprebrk
+	\doanchor
+	\ifnum\CountD>\z@
+	  \penalty\CountD
+	\fi
+      \egroup
+    \else
+      % 
+      % If necessary contribute the specialpoint to \box\vmbox instead
+      % of directly to the galley.  There may be other contributions in
+      % vmbox already (e.g., a page eject).  Order must be preserved.
+      % 
+      \global\setbox\vmbox=\vbox
+      \bgroup
+	\needmigrationfalse
+	\unvbox\vmbox
+	\CountD=\lastpenalty
+	\specialpoint{#2}{\cm@defoffset}{}%
+	{#3}\relax			% add the non-discardables
+	\doprebrk
+	\doanchor
+	\ifnum\CountD>\z@
+	  \penalty\CountD
+	\fi
+      \egroup
+    \fi
+    %D%\stdout@{point \number#2 \space (#1 in vmode)}
+  \else
+    % 
+    % Compute the baselineskip relative offset. (negative if #1 is "S")
+    % 
+    \DimenA=\if#1S-\cm@upfactor\else\cm@downfactor\fi\baselineskip
+    %
+    % place the special in a vertical list.
+    \setbox\z@=\vbox
+    \bgroup
+      \kern \DimenA
+      \specialpoint{#2}{\cm@defoffset}{}%
+      \kern-\DimenA
+    \egroup
+    %
+    \ifhmode
+      % In horiz mode, place start revbar pt near top of line's
+      % height.  Do not affect break points and spacing. 
+      % 
+      \ifdim\lastskip=\z@ \edef\next{\spacefactor=\the\spacefactor}%
+      \else \edef\next{\unkern\penalty\@M\hskip\z@skip}\fi
+      % 
+      \penalty\@M		% allow hyphenation of last word but no break
+      \box\z@			% place box with raised/lowered special
+      {#3}\relax		% add the non-discardables before resuming
+      \kern\z@			% allow a break if followed by glue.
+      \next
+      %D%\stdout@{point \number#2 \space (#1 in hmode)}
+    \else
+      % In math mode just place the special.  Spacing will be affected.
+      % 
+      \box\z@
+      {#3}\relax		% add the non-discardables
+      %D%\stdout@{point \number#2 \space (#1 in mmode)}
+    \fi
+  \fi
+}
+
+%  Perform most mark-placing before the page break not after.
+%  Normally this is done by the next "frag"; it's only an issue when
+%  the cross-reference, etc., is the last thing in the last paragraph
+%  before a forced page break.  This patch only addresses processing-
+%  instruction forced page breaks, not the FOSI-based forced page breaks
+%  of textbrk startcol/startpg.
+
+\checkfmtversion{5.0.2}{PageBreakRef2}
+
+\def\NewColumn{%
+  \bgroup
+    % execute most (but not all) of \doprefrag
+    \let\sp@mark@and@data=\sp@mark@and@data@save
+    \let\tb@domark=\tb@domark@save
+    \global\ea\prefragtoks\ea\nulltoks\the\prefragtoks
+    \doprebrk
+  \egroup
+  \frag@common
+  \ifhmode
+    \do@ut@h                    % drop horizontal usetext before colbrk
+    \ifdim\lastskip=\z@
+      \DimenA=\z@
+    \else
+      \DimenA=\lastskip
+      \unskip
+    \fi
+    % a strut to cover for reasonable depth
+    \vrule height\z@ width\z@ depth\maxdepth
+    \ifdim\DimenA=\z@\else
+      \hskip\DimenA
+    \fi
+    \vadjust                    % do colbrk without interrupting paragraph
+  \fi
+  \bgroup
+    \doprebrk
+    \doanchor
+    \endgraf                    % needed if in hmode
+    \do@ut@v                    % needed if in vmode
+    \kern -\maxdepth
+    % a non-discardable so we always honor _newcolumn, even if they
+    % occur in succession or at the top of a page.
+    \hrule height\z@ depth\maxdepth width\z@
+    \kern \maxdepth
+    \do@startcol@mark           % marks
+    \penalty-\@colbrk
+  \egroup
+}
+
+\def\NewPage{%
+  \bgroup
+    % execute most (but not all) of \doprefrag
+    \let\sp@mark@and@data=\sp@mark@and@data@save
+    \let\tb@domark=\tb@domark@save
+    \global\ea\prefragtoks\ea\nulltoks\the\prefragtoks
+    \doprebrk
+  \egroup
+  \frag@common
+  \ifhmode
+    \do@ut@h
+    \vadjust
+  \fi
+  \bgroup
+    \doprebrk
+    \doanchor
+    \endgraf
+    \do@ut@v
+    \vfill\eject
+  \egroup
+}
+
+\def\eic@pagebreakandspan@ #1{%
+  \if\pagenotempty
+    %D%\stdout{eic (\gi): pagebreakandspan using frag type \number#1.}
+    \begingroup
+      \savevspace\vsp
+      \savevspace\vspkeep
+      % execute most (but not all) of \doprefrag
+      \let\sp@mark@and@data=\sp@mark@and@data@save
+      \let\tb@domark=\tb@domark@save
+      \fragtype=1 \frag         % puts out queued usetexts, algroups, ...
+      \endgraf                  % force the eject immediately
+      \tb@setsl			% pretend that startln=1 still
+    \endgroup
+  \else
+    \ifeic@aligned
+      \ag@prepalgroup
+    \fi
+  \fi
+}
+
+\def\sp@mark@and@data@save{\nextfrag{\sp@mark@and@data}}%
+\def\tb@domark@save{\nextfrag{\tb@domark}}%
+
+% Fragtype=1 is only used in the end of a suppressed eic or when
+% the page break is forced (eic@pagebreakandspan@).  So it is
+% relatively safe to make the changes proposed here.
+
+\def\frag@i{%
+  \fragtype=\z@			% clear the flag
+  \use@tb			% break the page and flush
+  \do@in@qu			% quadding; 	must follow fonts
+  \do@le			% leading;  	must follow fonts
+  \do@ut@h			% do any remaining usetext
+    \global\ea\prefragtoks\ea\nulltoks\the\prefragtoks
+    \doprebrk
+    \global\ea\nextfragtoks\ea\nulltoks\the\nextfragtoks
+    \doanchor
+  \putvmatter			% end para, put penalty, vspace, ...
+  \donextfrag			% place marks, etc in hmode
+}
+
+% -----------------------------------------------------------------
+
+% Fixes 13303: change bars incorrectly format in gutter with different chgmkplc
+
+\ifx\origmakespan\undefined \let\origmakespan=\makespan \fi
+\def\makespan{\columns=\span@columns\origmakespan}
+
+
+
+% -----------------------------------------------------------------
+% Date:		Fri Aug 25 12:44:36 1995
+% Macro:	\chgmarkstart
+% Filename:	chgmark.tex
+% File Version:	24.1
+% Needs update:	yes
+% Last Mod:	Fri Aug 25 12:44:56 1995
+
+%   processing instruction level
+
+
+%   \chgmarkstart #1#2
+%   \chgmarkend   #1#2
+%   #1:		csname: chgmark class (from \cmid)
+%   #2:		tokens: other chgmark characteristics (\cmof, \cmba, \cmli)
+%   
+% These macros are called to convey chgmark requests to the frag
+% level.  They keep track of the level of nesting and they also assign
+% unique point numbers, which will later be used in the specials
+% dropped both in the flowtext and in the output routine.  The
+% chgmarkend macro will detect poor nesting errors and report on them. 
+% 
+\def\chgmarkstart #1#2{%
+  % get appropriate data
+  % make a new point for the start
+  % make a new point for the end
+  % stack the start and end points into Adat
+  % bump the nest level by one
+  % signal to next frag
+  %   set a flag that chgmarkstart action is needed
+  %   stack action request separately on \cm@starttoks
+  %
+  \ea\cm@getdata#1\relax
+  \begingroup
+    %
+    \cm@newpoint\CountA
+    \cm@newpoint\CountB
+    %
+    \edef\next{{\the\CountA}{\the\CountB}{#2}}%
+    \ea\push\ea\next\ea\onto\the\fv@Adat{}%
+    %
+    \CountC=\the\fv@Bdat
+    \advance\CountC\@ne
+    \global\ea\chardef\the\fv@Bdat\CountC
+    %
+    \global\cm@start@true
+    \edef\next{{%
+      \the\cm@starttoks
+      \nx\do@cm@start@\nx#1%
+      {\the\fv@name}{\the\CountC}{\the\CountA}{\the\CountB}{#2}%
+    }}%
+    \global\cm@starttoks=\next
+  \endgroup
+}
+
+\def\chgmarkend #1#2{%
+  % get data
+  % if nest level > 0
+  %   get start and end points from the stack
+  %   signal to next frag
+  %     set a flag that chgmarkend action is needed
+  %     stack action request separately on \cm@endtoks
+  %   decr the nest level by one
+  % else
+  %   error "poorly nested chgmark 'id'"
+  % endif
+  % 
+  \ea\cm@getdata#1\relax
+  %
+  \ifnum\the\fv@Bdat>\z@
+    \begingroup
+      % 
+      % Pop {A}{B}{#2} off of the stack csname in \fv@Adat.
+      % 
+      \ea\pop\ea\next\ea\from\the\fv@Adat
+      %
+      \CountC=\the\fv@Bdat
+      %
+      \global\cm@start@true
+      \edef\next{{%
+	\the\cm@starttoks
+	\nx\do@cm@end@\nx#1%
+	{\the\fv@name}{\the\CountC}\next
+      }}%
+      \global\cm@starttoks=\next
+      % 
+      \advance\CountC\m@ne
+      \global\ea\chardef\the\fv@Bdat\CountC
+      % 
+    \endgroup
+  \else
+    \cm@nesting@error
+  \fi
+}
+
+
+
+
+% -----------------------------------------------------------------
+% Date:		Wed Aug 30 12:39:23 1995
+% Macro:	\do@cm@start@
+% Filename:	chgmark.tex
+% File Version:	24.1
+% Needs update:	yes
+% Last Mod:	Wed Aug 30 12:39:25 1995
+
+\def\do@cm@start@ #1#2#3#4#5#6{%
+  % drop exec mark connect with migration
+  % drop point special (with positioning)
+  %
+  \ToksA={#6}%
+  \edef\next{{\nx\cm@output@start{#2}{#4}{#5}{#3}{\the\ToksA}}}%
+  \ifdoingpagedesc
+    \next
+  \else
+    \ea\execmark\ea\cm@exec\next
+  \fi
+  \placechgmark S{#4}{}%
+}
+
+\def\do@cm@end@   #1#2#3#4#5#6{%
+  % drop exec mark point with migration
+  % drop point special (with positioning)
+  % 
+  \ToksA={#6}%
+  \edef\next{{\nx\cm@output@end{#2}{#4}{#5}{#3}{\the\ToksA}}}%
+  \ifdoingpagedesc
+    \next
+  \else
+    \global\an@need@ptrue
+    \ea\execmark\ea\cm@exec\next
+  \fi
+  \placechgmark E{#5}{}%
+}
+
+% -----------------------------------------------------------------
+% Date:		Fri Sep  1 14:30:17 1995
+% Macro:	\makepagebody
+% Filename:	shippage.tex
+% File Version:	24.1
+% Needs update:	yes
+% Last Mod:	Fri Sep  1 14:30:38 1995
+
+%   \makepagebody
+%   
+\def\makepagebody{%
+  % 
+  % The page body is made up of a vboxstack in \sectionstackbox.
+  % Each entry represents a rough section.  For example:
+  %   
+  %   .\hbox(0.0+0.0)x0.0
+  %   .\Mark5{\span@id =2\relax }
+  %   .\vbox(1163.15999+0.0)x205.96994 []
+  %   .\penalty -10000
+  % 
+  % The remaining vbox is itself a vboxstack whose entries represent
+  % column text and column floats (saved as marks).
+  % 
+  %   
+  \begingroup
+    % 
+    % Loop over all spanned sections that this page can hold. 
+    % (Perhaps not all the spanned sections on the queue.)
+    % 
+    \splittopskip=\z@
+    \cursec=\z@
+    \firstsectiononpagetrue % needed if nobal calls \split@columns@with@floats
+    \savevmatter
+    \clearvmatter
+    %
+    \loop
+      % Get the next section.
+      % 
+      \gettopvbox\sectionstackbox\colstackbox
+      \span@id=\m@ne
+      %D%\stdout{shippage (\gi): Splitfirstmark\Spanmark:}
+      %D%\ea\ToksA\ea{\Splitfirstmark\Spanmark}
+      %D%\stdout{\the\ToksA}
+      % sets \span@id, \col@makeupht, and \span@gutter, \span@leading
+      % \span@columns, \span@space, and \span@space@keep \sk@span@struc.
+      \Splitfirstmark\Spanmark
+      % 
+      %D%\stdout{span@id=\the\span@id}
+      % 
+    \ifnum\span@id=\m@ne
+    \else
+      % 
+      \makespannedsection
+      \firstsectiononpagefalse % need if nobal calls \split@columns@with@floats
+      % 
+    \repeat
+    % 
+    \iffirstsectiononpage
+      % if no page contents whatever, don't do pagewide repeating floats
+      %D%\stdout{no page contents whatever, setting ignoreatpgbrktrue}
+      \global\ignoreatpgbrktrue
+    \else
+      \global\ignoreatpgbrkfalse
+      % It is possible to have read ahead many pages worth of flowing text,
+      % and for the \aftergroup setting of output@cycle to fail.
+      % If we see a \Spanmark, assume we're making progress.
+      %D%\stdout{setting output@cycle to zero in makepagebody}
+      \global\output@cycle=\z@
+    \fi
+    % 
+  \endgroup
+}
+
+
+%----  start of UsetextMigration patch
+\checkfmtversion{5.0.2}{UsetextMigration}
+
+% 
+% -----------------------------------------------------------------
+% Date:		Tue Mar 12, 1996
+% Filename:	usetext.tex
+% File Version:	24.1
+% Needs update:	yes
+% Last Mod:	Tue Mar 12 11:11:51 1996
+
+\def\start@uthbox{%
+  \ut@doingfrag@false
+  \ifx\next\STAG
+  \else\ifx\next\relax
+  \else
+    \ut@doingfrag@true
+  \fi\fi
+  \ifut@doingfrag@ \ut@do@frag \fi
+  \ifboxingusetext
+    \if\ut@exists@p\else 
+      \global\ut@parindent=\parindent 
+      \global\advance\ut@parindent\leftskip
+    \fi
+    \global\setbox\uthbox=\hbox
+    \bgroup
+      \unhbox\uthbox		
+      \ut@restore@sf@inner
+      \let\:=\relax
+      \aftergroup\ut@afterbox
+      % 
+      % Migrate into \utadjust since a subsequent kernto can trap
+      % marks, vadjusts, etc.
+      % 
+      \needmigrationtrue
+      \adjustinto\utadjust
+      \donextfrag		% from everypar
+  \else
+    \bgroup
+  \fi
+  \ifx\next\frag
+    \ea\eatone
+  \fi
+}
+
+\Newbox\utkerntobox		% (G) material adjusted out of uthbox
+
+\def\maybeutadjust #1{%
+  \begingroup
+    \setbox\BoxA=\vbox{#1}%
+    \if\ut@exists@p 
+      \needmigrationfalse	% material is adjusted by other means
+      \DimenA=\wd\uthbox
+      \global\setbox\uthbox=\hbox{%
+	\unhbox\uthbox 
+	\vadjust{\unvcopy\BoxA}%
+      }%
+      \wd\uthbox=\DimenA
+      % 
+      % Duplicate the adjust in the utkerntobox
+      \global\setbox\utkerntobox=\vbox{%
+	\unvbox\utkerntobox
+	\unvbox\BoxA
+      }%
+    \else
+      % 
+      % Duplicate the adjust in the utkerntobox
+      \ifboxingusetext
+	\needmigrationfalse	% material is adjusted by other means
+	\outeradjust{%
+	  \unvcopy\BoxA		% first copy 
+	}%
+	\global\setbox\utkerntobox=\vbox{%
+	  \unvbox\utkerntobox
+	  \unvbox\BoxA		% second copy 
+	}%
+      \else
+	\outeradjust{\unvbox\BoxA}%
+      \fi
+    \fi
+  \endgroup
+}
+
+\def\@kernto #1{%
+  \ifdim\wd\uthbox<#1\relax	% if usetext wd is less than kernto request
+    \global\setbox\uthbox=\hbox %   within usetext hbox
+    \bgroup
+      \hbox to#1{%		%     make an hbox to<request> 
+        \unhbox\uthbox		%     remove extra layer of box and left justify
+	\hfil			%     using hfil allowing charfill to override
+      }%
+      \ifvoid\utkerntobox\else
+	\outeradjust{\unvcopy\utkerntobox}%   drop adjustments
+      \fi
+      \kern1sp			%   add 1sp to avoid 0pt usetext hboxes
+      \global\ut@sf=\@mi        %   suppress next space
+    \egroup
+  \else				% else
+    \global\setbox\uthbox=\hbox	%   within usetext hbox
+    \bgroup
+      \box\uthbox		%   make an hbox to<natural> 
+      \kern1sp			%   add 1sp to avoid 0pt usetext hboxes
+    \egroup
+  \fi
+}
+   
+% Clear out the utkerntobox at the start of every paragraph
+
+\def\do@ut@v{%
+  \if\neednewline
+    \ifvoid\utkerntobox 
+    \else
+      \global\setbox\utkerntobox=\box\voidb@x
+    \fi
+    \do@ut@h@par{}%
+  \fi
+}
+
+\def\saveusetextmatter{%
+  \savebox\uthbox
+  \global\setbox\uthbox=\box\voidb@x
+  \savebox\utadjust
+  \global\setbox\utadjust=\box\voidb@x
+  \savebox\utkerntobox
+  \global\setbox\utkerntobox=\box\voidb@x
+  \savedimen\ut@parindent
+  \global\ut@parindent=\z@
+  \savecount\ut@sf
+  \global\ut@sf=\z@
+}
+
+
+% 
+% -----------------------------------------------------------------
+% Date:		Tue Mar 12, 1996
+% Filename:	anchor.tex
+% File Version:	24.1
+% Needs update:	yes
+% Last Mod:	Tue Mar 12 11:10:06 1996
+
+\def\an@doprebrk{% Drop the prebrk mark and prepare for next call.
+  \maybeutadjust{\an@doanchor@dbg\Mark\Prebrkmark{\the\anchornum}}%
+}
+
+\def\an@doanchor{% Drop the anchor mark and prepare for next call.
+  \an@fix@csnames
+  \maybeutadjust{\an@doanchor@dbg\Mark\Anchormark{\the\anchornum}}%
+  \an@advancenum
+}
+
+%----  end of UsetextMigration patch
+
+\fi % end of conditionalization on 5.0.2 version

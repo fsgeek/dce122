@@ -1,0 +1,176 @@
+# Copyright 1992,1993 Open Software Foundation, Inc.,
+# Cambridge, Massachusetts
+# All rights reserved.
+#
+# @OSF_FREE_COPYRIGHT@
+#
+#
+# HISTORY
+# $Log: README,v $
+# Revision 1.1.2.6  1994/06/24  15:47:44  fred
+# 	free copyright
+# 	[1994/06/24  15:28:10  fred]
+#
+# Revision 1.1.2.5  1994/06/23  18:40:52  fred
+# 	free copyright
+# 	[1994/06/22  19:42:02  fred]
+# 
+# Revision 1.1.2.4  1993/04/09  21:30:21  bowe
+# 	Add copyright statement.
+# 	[1993/04/09  21:28:10  bowe]
+# 
+# Revision 1.1.2.3  1992/08/07  14:31:58  bowe
+# 	Added -suffix discussion.
+# 	[1992/08/07  13:22:06  bowe]
+# 
+# $EndLog$
+$Header: /u1/rcs/dte/installref/README,v 1.1.2.6 1994/06/24 15:47:44 fred Exp $
+
+Contents
+
+    install-ref.sh	This install procedure for installing refpages.
+
+    *.dirlist		Files that contain a list of directories where the
+			files to be installed reside.  The name of this
+			file typically is the osf offering.  Directories
+			are listed one per line and are relative to a
+			common root of the offering's doc tree.
+
+    *.links		Files that contain a list of man files to "link"
+			together (for multiple refpages in the same file,
+			such as grep/egrep/fgrep).  Files to "link" are
+			listed one per line and 2 columns, the first col
+			is the existing file, the second the link to create.
+
+
+This program, install-ref, installs OSF reference page files (for the
+man command).
+
+Processing
+
+    Certain processing must be done for the man command to be able to deal
+    with the files.  Amongst these are:
+
+    + Process through "tbl", since most versions of the man command do not
+	do this automatically.
+    + Process through "eqn", for same reason (OSF reference pages do not
+	have equations, so the default is to not process with eqn).
+    + Expand certain troff strings used (for references to OSF books).
+    + Remove conditional code (#ifdef's), optionally processing for B1 or
+	C2 security levels (OSF/1 books).
+    + Remove boxes from tables, since most versions of nroff do not allow
+	reverse vertical movement.
+    + Optionally insert of copy of the SML macros into each man file, or
+	a reference to them (via ".so" troff directives).  SML macros are
+	required for the output to appear properly.
+
+Requirements
+
+    These programs must be in your search path:
+	rmifdef, rmboxes, tbl, eqn
+
+    Additional files required:
+	<offering>.dirlist - list of directories (relative to doc root) where
+			     files to be installed reside
+	<offering>.links   - list of "links" to make in directories (each line
+			     is of the form "man1/vi.1 man1/view.1") [ if
+			     desired ] May be an empty file.
+
+    Information required:
+	Path to root of doc source tree.
+	Path to SML macros directory
+	Path to man installation (target) directory.
+
+    Also needed:
+	Write permission to man page destination.
+
+
+Command line flags and options
+
+    Here is a summary of the most common flags to install-ref (from
+    "install-ref -help":
+
+      -doc DIR      root of documentation tree
+      -offering OFF use config files for offering OFF (osf1, dce, motif, dme)
+      -sml DIR      directory where SML macros live [default $DTE_LIBDIR]
+      -man DIR      path of destination man heirarchy [default /usr/share/man]
+      -smart        smart mode - try to find defaults for args not specified
+      -so           insert ".so" for SML macros into installed man files
+      -insert       insert copy of SML macro files in each man file
+      -solink       use .so for duplicates in multple-command man file [default]
+      -hardlink     use hard links for duplicates in multple-command man file
+      -tbl CMD      name of tbl command, or "none" for none [default "tbl"]
+      -eqn CMD      name of eqn command, or "none" for none [default "none"]
+      -B1           filter for B1 level security (osf1)
+      -C2           filter for C2 level security (osf1)
+      -hacktables   Hack certain tables to fit in 80 column display (Motif only)
+      -duptables    Hack certain tables to fit in 80 column display in nroff
+                    but use all 5 columns in troff (Motif only)
+      -expand       Expand certain filenames if not on a system with 14-char
+                    filename limit (Motif, generally)
+      -suffix       Simplify suffixes to single digits.  E.g. abc.1X -> abc.1
+      -v            verbose mode - shows progress of procedure
+      -V            more verbose mode - shows more details of progress
+
+    You can also set environment variables to control some behavior.  Below
+    is a list of variables that can be set to determine what programs to run
+    or what directories or other information to specify.
+    To not run a command, set the value to "none".
+
+	Variable	Default
+	RMIFDEF		rmifdef
+	TBL		tbl
+	EQN		none
+	RMBOXES		rmboxes
+	MKWHATIS	/usr/lbin/mkwhatis or /usr/lib/makewhatis
+	CATMAN		/usr/sbin/catman or /usr/etc/catman
+
+	DOCROOT		None.  Can be used in place of "-doc" arg.
+	MANDIR		None.  Can be used in place of "-man" arg.
+
+Where to put the SML macros?
+
+    OSF reference pages require SML macros.  There are several
+    possibilities.  One is to insert a copy of the macros in each man file. 
+    This takes more space, but the man file will work anywhere, even if the
+    SML macro directory is moved or deleted.  If the ".so" approach is
+    taken, the SML macro directory must be available from wherever you run
+    the man command from.  This is not possible at all site configurations.
+
+
+Running install-ref
+
+    If you run install-ref with no arguments, it will ask you for all
+    necessary information.  If you specify some argument, it should only ask
+    for what it needs.  If you specify "-smart", it will take its best guess
+    at many things, trying to not ask any questions.  It is more convenient
+    to specify as much on the command line as possible, using "smart" mode.
+
+    The following command will install the DCE man files into
+    /usr/local/man.  The source files reside in subdirectories under
+    /top-of-dce-doc-src; the file dce.dirlist is consulted for the list of
+    subdirectories.  The SML macro files are looked for in
+    /installed-dte/libdata/macros.
+
+	install-ref -offering dce -doc /top-of-dce-doc-src -insert \
+		-sml /installed-dte/libdata/macros -man /usr/local/man -smart
+
+
+A Note for Motif Reference Pages
+
+    There are a few specialized options for certain tables in Motif reference
+    pages.  The basic issue is that some 5-column Motif tables are too wide
+    for 80-character wide terminal windows when viewed with the man command.
+    The option "-hacktables" will adjust these tables so that each row of 5
+    cells is broken into 2 rows of 3 and 2 cells.  It's not perfect, but they
+    are viewable.  The option "-duptables" will do this when formatted with
+    nroff, but will use all 5 columns when formatted with troff ("man -t"
+    on many systems).
+
+    Motif is the only offering that takes into consideration systems with
+    14-character filename limits.  All files shipped have names that are 14
+    or fewer characters.  However, many of the names of Motif commands
+    and interfaces (library calls) are longer.  The "-expand" option will
+    make install-ref expand the filenames to the full name.  (This full name
+    is gleaned from the .TH line of the source file.
+

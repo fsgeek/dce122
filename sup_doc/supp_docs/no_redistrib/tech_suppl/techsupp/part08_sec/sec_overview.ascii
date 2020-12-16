@@ -1,0 +1,790 @@
+
+
+
+                      OSF DCE Security Services
+                               Overview
+
+
+                            Joseph N. Pato
+
+                Cooperative Object Computing Operation
+                         Hewlett-Packard Co.
+
+            file: overview.ms version: (reserved) 10/19/90
+
+     1_.  S_c_o_p_e_ o_f_ T_h_i_s_ D_o_c_u_m_e_n_t_
+
+     This document provides an overview of the security services
+     present in the OSF DCE 1.0 environment.  The material in
+     this overview is collected from the various security specif-
+     ication made availble to the OSF and from design notes and
+     discussions that have been distributed to the osf dce-tech
+     mailing list.
+
+     2_.  I_n_t_r_o_d_u_c_t_i_o_n_ t_o_ D_C_E_ S_e_c_u_r_i_t_y_
+
+     The goal of the OSF DCE is to provide a transparent distri-
+     buted computing environment in which users and applications
+     can access the same set of resources from any connected com-
+     ponent.  While the DCE removes the obstacle of physical or
+     logical distance from accessing an object, it does not
+     intend to remove the ability of an object's owner to deter-
+     mine who is authorized to access that object.  The DCE secu-
+     rity services provide an authorization system that provides
+     a mechanism for determining access rights to objects and an
+     authentication system that provides trustworthy identifica-
+     tion of the individuals involved in network operations.
+
+     The DCE security services consist of a variety of cooperat-
+     ing services. The user registration service manages user,
+     group and account information and provides login services to
+     individual machines.  The authentication service allows
+     principals defined as accounts in the user registration ser-
+     vice to exchange credentials and establish mutually authen-
+     ticated communications.  Authorization services are provided
+     by the combination of a privilege server that constructs
+     privilege attribute certificates that capture privileges
+     currently available and selected by a principal and an
+     access control list facility.
+
+     2_.1_.  R_e_f_e_r_e_n_c_e_s_
+
+     o+ Distributed Environment Authorization Services Functional
+       Specification, HP S_e_p_t_e_m_b_e_r_ 2_9_ 1_9_8_9_
+
+     o+ DEcorum Access Control Lists (ACLs), HP Version 7 O_c_t_o_b_e_r_
+       1_2_ 1_9_9_0_
+
+
+
+
+                                       1               OSF DCE Confidential
+
+
+
+
+
+
+
+
+     o+ DEcorum Authorization Services Privilege Server, HP Ver-
+       sion 4 M_a_r_c_h_ 2_2_ 1_9_9_0_
+
+     o+ A Mechanism Independt API for Authentication with NCS, HP
+       Version 3 J_u_l_y_ 3_0_ 1_9_9_0_
+
+     o+ The Kerberos Network Authentication Service, MIT Project
+       Athena Draft 3 O_c_t_o_b_e_r_ 8_ 1_9_9_0_
+
+     2_.2_.  G_e_n_e_r_a_l_ U_s_a_g_e_ a_n_d_ E_n_v_i_r_o_n_m_e_n_t_
+
+     The DCE provides a set of federated distributed computing
+     environments.  When viewed from the perspective of the nam-
+     ing or file system, these environments are referred to as
+     c_e_l_l_s_.  A cell is characterized by the following properties:
+
+     o+ High Connectivity - The computer systems in a cell have a
+       greater degree of connectivity with each other than with
+       systems not in the cell.
+
+     o+ Unified Naming Environment - a cell defines a single nam-
+       ing environment. Operations which must operate between two
+       cells or between a cell and some other environment (e.g.,
+       Domain Name System/BIND, X.500) may provide slightly dif-
+       ferent semantics around services, security and schema
+       enforcement.
+
+     From the security perspective a r_e_a_l_m_ defines an analogous
+     administrative unit to the cell.  A realm is characterized
+     by the following properties:
+
+     o+ Shared Trust - each principal in a realm shares a secret
+       with the realm's authentication service.  It is this
+       shared secret and the common trust in the realm's authen-
+       tication service that allows two principals to authenti-
+       cate to each other without previously sharing a secret.
+
+     o+ Common Administration - A single replicated service pro-
+       vides the repository for user's principal and account
+       information.
+
+     o+ Simplified Principal Naming - The realm name for the local
+       realm may be omitted from a principal name.
+
+     While the concepts of cell and realm are independent they
+     share many management problems and strategies.  In the DCE
+     we equivalence the two concepts so that when the term cell
+     is used it will also imply a single realm to which that cell
+     belongs and when the term realm is used it will imply a sin-
+     gle cell associated with that realm.  To be consistent with
+     other DCE components, the term cell is used in preference to
+     realm except for when a distinction is to be made between
+     the security and other DCE components or when discussing
+     Kerberos (from which the term realm arises).
+
+
+
+                                       2               OSF DCE Confidential
+
+
+
+
+
+
+
+
+     2_.3_.  M_a_n_a_g_i_n_g_ a_ C_o_m_m_u_n_i_t_y_ o_f_ U_s_e_r_s_
+
+     The central role of the security services is to manage the
+     community of users within a given realm.  In the DCE this
+     problem is primarily in the representation of identity and
+     the certification of that identity to applications running
+     on independent systems in the environment.  Some local sys-
+     tem functions are also provided in the effort to preserve
+     the location transparency of the distributed environment.
+     By supplanting the conventional machine login and account
+     management utilities with replacements that consult the net-
+     work user registry, users are free to use any system in the
+     environment provided that the local administrator has not
+     restricted access. In this way systems become shareable
+     resources akin to objects in the file or name system.
+
+     2_.3_.1_.  R_e_p_r_e_s_e_n_t_i_n_g_ I_d_e_n_t_i_t_y_
+
+     In the DCE a principal's identity is composed of two parts,
+     an identifier for the principal and an identifier for that
+     principal's realm.   This two part identification allows the
+     identity to be used both inside the principal's realm and at
+     any other realm.
+
+     Identifiers are in turn composed of two components, a U_U_I_D_
+     (Universal Unique Identifier) and a printstring name.  The
+     UUID provides the definitive representation of a principal's
+     identity.  The prinstring name is available to assist brows-
+     ing tools and for use by human users when specifying a par-
+     ticular principal.
+
+     Principal identities are strucutred in this way to allow the
+     printstring name to change without having serious impact on
+     the DCE.  Names are not static - society encourages name
+     changing during certain rituals so the computing environment
+     should be prepared to gracefully handle these changes.  In
+     the DCE principal identifiers are scattered throughout the
+     global environment. Identifiers appear on access control
+     lists (ACLs) which are both pervasive through and persistent
+     in the system.  Not only do these identifiers appear on too
+     many objects to be feasible to scavange, they appear on
+     objects that exist only on archival media.  These issues
+     lead us to the model that uses unchanging UUIDs as the
+     definitive representation of a principals identity.
+
+     2_.3_.2_.  A_u_t_h_e_n_t_i_c_a_t_i_o_n_
+
+     The authentication system allows two principal's to estab-
+     lish each other's identity
+
+
+     2_.3_.3_.  A_u_t_h_o_r_i_z_a_t_i_o_n_
+
+
+
+
+
+                                       3               OSF DCE Confidential
+
+
+
+
+
+
+
+
+     2_.3_.4_.  A_c_c_e_s_s_ C_o_n_t_r_o_l_
+
+     2_.3_.5_.  A_c_c_o_u_n_t_ M_a_n_a_g_e_m_e_n_t_
+
+     2_.3_.6_.  A_c_c_e_s_s_ t_o_ L_o_c_a_l_ M_a_c_h_i_n_e_s_
+
+     2_.4_.  U_n_a_u_t_h_e_n_t_i_c_a_t_e_d_ A_c_c_e_s_s_
+
+     In the general model of the DCE as an open network of sys-
+     tems integrated into a public global network, unauthenti-
+     cated access to resources seems to be an anathema.  Experi-
+     ence with systems comparable to the DCE at universities such
+     as CMU have shown that the use of even weak authentication
+     yields a flammable environment.  The combination of publicly
+     specified protocols and physical access to networks proved
+     to be a temptation to great for undergraduate hackers to
+     ignore.
+
+     There are, however, certain environments where the added
+     efficiency of removing cryptographic integrity checks are
+     worth the extra physical security that must be instituted.
+     These environments typically are not connected to the global
+     network - and if they are they do not support DCE services
+     to systems outside their physical control.  In addition to
+     physical security, these environments place a great deal of
+     explicit trust in the people who have access to the systems.
+     The use of discretionary access control in an unauthenti-
+     cated system has to be viewed as a convenience feature for a
+     community that is following strict etiquette or which is
+     only interested in the prevention of accidents.  The operat-
+     ing assumption has to be that anyone and everyone can choose
+     to access any object in the system in any mode.
+
+     While it is not the recommended mode of operation, the DCE
+     security services do provide the mechanism for unauthenti-
+     cated access in the system.  The access control facility
+     allows an object's acl to contain an entry which expresses
+     that unauthenticated identities will be accepted and that
+     determines the maximum access rights to be afforded to
+     accesses made on the behalf of asserted rather than authen-
+     ticated identities.  The authenticated RPC facility has the
+     complementary feature which allows identities to be asserted
+     rather than transmitted via cryptographic authentication
+     protocols.  Other DCE services such as the naming and file
+     systems can be configured to take advantage of these
+     features.
+
+     2_.5_.  I_n_t_e_r_a_c_t_i_o_n_ B_e_t_w_e_e_n_ R_e_a_l_m_s_
+
+     Within a cell the privilege server and the authentication
+     server are trusted services that certify a principal's iden-
+     tity and privileges.  Applications trust that these services
+     are properly secured, and believe the certificates generated
+     by these services because the cerificates are sealed in part
+
+
+
+                                       4               OSF DCE Confidential
+
+
+
+
+
+
+
+
+     under a key that is private to the application's principal.
+     When authenticating principals from a foreign realm more
+     mechanism is needed.
+
+     2_.5_.1_.  C_r_o_s_s_ C_e_l_l_ A_u_t_h_e_n_t_i_c_a_t_i_o_n_
+
+     Cross-Cell authentication is relies on two features, the
+     ability to place principals from foreign realms on access
+     control lists and the ability to construct a PAC sealed in a
+     ticket for a service in a foreign realm.
+
+     ACLs contain a list of entries that identify principals and
+     their associated rights to an object.  Identification for a
+     principal consists of two components, the principals's iden-
+     tifier, a UUID, and an identifier for the principal's cer-
+     tification authority (realm) (a hierarchical name).
+
+     Reference monitors grant access to objects by comparing an
+     identity sealed in a PAC with the identities in ACLs.  The
+     PAC represents the initiator's identity and group privileges
+     with identity pairs that identify the principal/group and
+     authority - analogous to the way these identities are
+     represented in ACLs.
+
+     2_.5_.2_.  C_r_o_s_s_-C_e_l_l_ T_r_u_s_t_
+
+     When allowing principals from foreign realms on an ACL, an
+     application is forced to trust services other than just the
+     local realm's authentication and privilege server.
+     Minimally the application must also trust the authentication
+     and privilege server from the initiating realm to certify
+     the initiator's identity.  In addition the cells' authoriza-
+     tion services must be able authenticate each other so that
+     applications can rely on the foreign certificates.
+
+     Trust in the local realm is dependent on a key shared
+     between the authentication service and the principal.  A
+     foreign realm does not possess this secret, instead it
+     shares a different secret with the local realm.  This
+     secret, the inter-realm key, is used to allow principals
+     from the foreign realm to obtain tickets to the local realm.
+     Trust is established between realms that either share
+     inter-realm keys or between which exists a sequence of
+     realms that share inter-realm keys.  In the DCE transitive
+     trust is limited to those realms which directly share
+     inter-realm keys and to inter-realm sequences that form a
+     well defined hierarchy.
+
+     2_.6_.  I_n_t_e_g_r_a_t_i_o_n_ W_i_t_h_ O_t_h_e_r_ D_C_E_ C_o_m_p_o_n_e_n_t_s_
+
+     2_.6_.1_.  N_a_m_e_ S_y_s_t_e_m_
+
+
+
+
+
+
+                                       5               OSF DCE Confidential
+
+
+
+
+
+
+
+
+     2_.6_.2_.  F_i_l_e_ S_y_s_t_e_m_
+
+     2_.7_.  M_o_r_e_ A_b_o_u_t_ S_e_c_u_r_i_t_y_
+
+     2_.7_.1_.  U_s_e_ o_f_ t_h_e_ S_y_s_t_e_m_
+
+     2_.7_.2_.  F_u_t_u_r_e_ F_e_a_t_u_r_e_s_
+
+     2_.8_.  K_e_y_ P_e_r_s_p_e_c_t_i_v_e_s_
+
+     2_.8_.1_.  U_s_e_r_s_
+
+     2_.8_.2_.  A_d_m_i_n_i_s_t_r_a_t_o_r_s_
+
+     2_.8_.3_.  P_r_o_g_r_a_m_m_e_r_s_
+
+     3_.  S_p_e_c_i_f_i_c_ C_o_m_p_o_n_e_n_t_s_
+
+     3_.1_.  A_u_t_h_e_n_t_i_c_a_t_i_o_n_
+
+     3_.2_.  A_u_t_h_o_r_i_z_a_t_i_o_n_
+
+     3_.3_.  U_s_e_r_ R_e_g_i_s_t_r_y_
+
+     3_.4_.  A_c_c_e_s_s_ C_o_n_t_r_o_l_
+
+     3_.5_.  M_a_c_h_i_n_e_ A_c_c_e_s_s_
+
+     3_.6_.  A_u_t_h_e_n_t_i_c_a_t_e_d_ R_P_C_
+
+     3_.7_.  U_n_a_u_t_h_e_n_t_i_c_a_t_e_d_ A_c_c_e_s_s_
+
+     3_.8_.  I_n_t_e_r_-C_e_l_l_ A_c_c_e_s_s_
+
+     3_.8_.1_.  T_r_a_n_s_i_t_i_v_e_ T_r_u_s_t_
+
+     Allowing realms to establish authenticated communications by
+     sharing a key is comparable to the mechanism used to allow
+     principals to establish authenticated communications.  And,
+     as is the case with principals, it is too cumbersome for
+     each realm to have a shared secret with every other realm
+     with which it may need to interact.
+
+     The authentication service provides the solution to the
+     scaling problem for authenticated communication between
+     principals in a cell, but no comparable service can resolve
+     the problem for realms.  If such a service existed, it would
+     be difficult to imagine realm administrators from indepen-
+     dent organizations agreeing to a common repository for the
+     key distribution service.  Even in public key based systems
+     it is hard to imagine realm administrators agreeing to an
+     external agent controlling the key for the global certifica-
+     tion authority.
+
+
+
+
+                                       6               OSF DCE Confidential
+
+
+
+
+
+
+
+
+     Transitive trust allows the use of a chain of point-to-point
+     authentication steps using shared keys between each link.
+     This avoids both the space complexity of managing keys for
+     every realm a given realm may communicate with and the unac-
+     ceptable creation of a global authority.  Unrestricted tran-
+     sitive trust, however, is as dangerous as a global author-
+     ity.  Subverting a single realm will allow an intruder to
+     masquerade as any other realm - the intruder need only con-
+     struct a dummy realm for the intended victim and then use a
+     transitive trust path that passes through the compromised
+     realm.
+
+     3_.8_.2_.  H_i_e_r_a_r_c_h_i_c_a_l_ T_r_a_n_s_i_t_i_v_e_ T_r_u_s_t_
+
+     Imposing a hierarchical structure on the transitivity of
+     trust allows potential damage to be contained.  The follow-
+     ing diagram depicts a portion of the naming tree.  The nodes
+     .../com/hp, .../com/dec, and .../com/apple are cell roots
+     that correspond to the root realms for the corresponding
+     companies. Subordinate to these nodes are other cell roots
+     (realms) that correspond to organizational structures of
+     each company.
+                                         com
+                                          |
+                 --------------------------------------------------------
+                       |                       |                      |
+                      hp                      dec                  apple
+                       |                       |                      |
+              ----------------          --------------            --------
+              |    |        |           |      |     |            |      |
+             hpl  ma      boise        lkg    src   crl          mac    II
+                   |                    |
+                 apollo                rpc
+
+     The goal is to allow realms to act as intermediaries for
+     other realms while preventing this extension of trust from
+     subverting the entire global environment.  Compromising a
+     realm should not result in compromise to realms that are
+     unrelated to the realm.  Damage should be restricted to
+     objects subordinate to that realm and possibly to objects in
+     other realms that are open to access by principals in the
+     subverted realm or its subordinates.  For example,
+     Compromising the apollo realm should not result of comprom-
+     ise to any data in the apple realm except possibly for data
+     that is available to principals in the apollo realm and for
+     data stored in the apollo realm.  A small number of rules
+     governing the transitivity of trust provide these features.
+
+         1) A Peer Realm is trusted to certify principals from
+         that realm.
+
+         2) Realms are trusted to certify descendent realms.
+
+         3) Ancestor realms are trusted to certify any realm they
+
+
+
+                                       7               OSF DCE Confidential
+
+
+
+
+
+
+
+
+         trust.
+
+     These rules allow us to construct an environment as depicted
+     in the following figure.
+                                         com
+                                          |
+                 --------------------------------------------------------
+                       |                       |                      |
+                      hp - - - - - - - - - - -dec                  apple
+                       ^                       ^                      ^
+              ----------------          --------------            --------
+              ^    ^        ^           ^      ^     ^            ^      ^
+             hpl  ma      boise        lkg    src   crl          mac    II
+                   ^                    ^
+                 apollo                rpc
+
+     This figure depicts ancestral/descendant relationships with
+     the token "^" and peer trust relationships with a dashed
+     line "- -".  In this figure any principal in any realm at HP
+     can trust other principals at HP and at DEC;  any principal
+     at DEC can trust principals from DEC and HP;  principals at
+     apple can only trust other principals at apple.  Trust
+     between principals at DEC and HP exists if the HP and DEC
+     realms were involved in the certification process.  Subver-
+     sion of the HP realm allows an attacker to impersonate any
+     legitimate HP principal to any realm inside HP or DEC except
+     for the principal's actual realm.  It also allows the
+     attacker to impersonate any principal from any other realm
+     (e.g., an apple realm) to realms inside HP.  This attack,
+     however, does not allow the attacker to impersonate another
+     realm (e.g., apple) to DEC.
+
+     The following diagram shows a different trust model between
+     the companies. Instead of a high degree of trust at the
+     upper level of the organization, there is a more limited
+     degree of trust established.  The com/hp/ma/apollo realm
+     shares keys with the com/dec/lkg and the com/apple/mac
+     realms.  In this scenario principals at apollo can interact
+     with principals at lkg, lkg/rpc and mac.  Principals at lkg
+     and lkg/rpc, however, cannot interact with principals at
+     mac.
+                                         com
+                                          |
+                 --------------------------------------------------------
+                       |                       |                      |
+                      hp                      dec                  apple
+                       ^                       ^                      ^
+              ----------------          --------------            --------
+              ^    ^        ^           ^      ^     ^            ^      ^
+             hpl  ma      boise    / - lkg    src   crl          mac    II
+                   ^              /     ^                        /
+                 apollo - - - - -      rpc                      /
+                                                              /
+                     - - - - - - - - - - - - - - - - - - - - -
+
+
+
+                                       8               OSF DCE Confidential
+
+
+
+
+
+
+
+
+     Subversion of the apollo realm creates havoc inside the
+     apollo realm and allows the intruder to impersonate apollo
+     principals to lkg, lkg/rpc and mac.  This attack however
+     does not allow principals at lkg or lkg/rpc to interact with
+     princpals at mac.  This is because neither lkg nor mac are
+     descendents of apollo - they are simply peer realms.
+
+     Subversion of the lkg realm will allow the attacker to
+     impersonate any realm and principal combination to its des-
+     cendent lkg/rpc, but it will only allow attacks on objects
+     protected for lkg and lkg/rpc principals in the apollo
+     realm.
+
+     4_.  I_n_t_e_g_r_a_t_i_o_n_ W_i_t_h_ O_t_h_e_r_ D_C_E_ C_o_m_p_o_n_e_n_t_s_
+
+     4_.1_.  S_e_c_u_r_i_t_y_ C_o_m_p_o_n_e_n_t_s_ R_e_l_y_ o_n_ O_t_h_e_r_ D_C_E_ S_e_r_v
+_i_c_e_s_
+
+     4_.1_.1_.  N_a_m_e_ S_e_r_v_i_c_e_
+
+     4_.1_.2_.  T_i_m_e_ S_e_r_v_i_c_e_
+
+     4_.2_.  O_t_h_e_r_ D_C_E_ C_o_m_p_o_n_e_n_t_s_ R_e_l_y_ o_n_ S_e_c_u_r_i_t_y_
+
+     4_.2_.1_.  N_a_m_i_n_g_
+
+     4_.2_.2_.  F_i_l_e_ S_y_s_t_e_m_
+
+     4_.2_.3_.  T_i_m_e_ S_e_r_v_i_c_e_
+
+     4_.3_.  B_r_e_a_k_i_n_g_ t_h_e_ R_e_c_u_r_s_i_o_n_
+
+     5_.  C_o_n_f_i_g_u_r_a_t_i_o_n_ M_a_n_a_g_e_m_e_n_t_
+
+     5_.1_.  M_u_l_t_i_-T_e_c_h_n_o_l_o_g_y_ P_r_o_b_l_e_m_
+
+     5_.2_.  I_m_p_a_c_t_ o_f_ R_u_n_n_i_n_g_ i_n_ a_n_ U_n_a_u_t_h_e_n_t_i_c_a_t_e_d_ E_n
+_v_i_r_o_n_m_e_n_t_
+
+     5_.3_.  I_s_s_u_e_s_ C_o_n_c_e_r_n_i_n_g_ D_i_s_k_l_e_s_s_ S_u_p_p_o_r_t_
+
+     6_.  G_l_o_s_s_a_r_y_
+
+     6_.1_.  a_c_c_e_s_s_ c_o_n_t_r_o_l_ l_i_s_t_ (A_C_L_)
+
+     Data associated with an object that specifies all users with
+     access rights to the object and the rights they have to the
+     object.
+
+     6_.2_.  a_c_c_e_s_s_ c_o_n_t_r_o_l_ l_i_s_t_ e_n_t_r_y_
+
+     Data in an access control list that specifies access rights
+     for a particular user or set of users.
+
+
+
+
+
+
+                                       9               OSF DCE Confidential
+
+
+
+
+
+
+
+
+     6_.3_.  a_c_c_e_s_s_ r_i_g_h_t_
+
+     A mode of access to an object.
+
+     6_.4_.  a_c_c_o_u_n_t_
+
+     Data in the registry that allows a user to log in.  An
+     account is indistinguishable from a principal identifier and
+     is the registry object that represents a princpal.
+
+     6_.5_.  a_l_i_a_s_
+
+     A substitute name for an person, group or organization.
+
+     6_.6_.  a_u_t_h_e_n_t_i_c_a_t_i_o_n_
+
+     Verification of the identity of a principal.
+
+     6_.7_.  a_u_t_h_o_r_i_z_a_t_i_o_n_
+
+     Verification of a principal's right to perform an operation.
+
+     6_.8_.  c_r_e_d_e_n_t_i_a_l_s_
+
+     A ticket plus the secret session key necessary to use that
+     ticket in an authenticated exchange.
+
+     6_.9_.  e_n_c_r_y_p_t_i_o_n_ k_e_y_
+
+     A value used to encrypt data so that only possessors of the
+     encryption key can decipher it.
+
+     6_.1_0_.  g_r_o_u_p_
+
+     Data that associates a named set of users who can be granted
+     common access rights.
+
+     6_.1_1_.  K_e_r_b_e_r_o_s_
+
+     The name of the authentication protocol used by the DCE
+     security service (in classical mythology, Kerberos is the
+     three-headed dog that guarded the entrance to the
+     underworld). Kerberos was developed at the Massachusetts
+     Institute of Technology.
+
+     6_.1_2_.  k_e_y_ d_i_s_t_r_i_b_u_t_i_o_n_ c_e_n_t_e_r_ (K_D_C_)
+
+     The network  service that supplies tickets and temporary
+     session keys. The KDC services both initial ticket and
+     ticket-granting  ticket  requests.   The initial  ticket
+     portion  is   sometimes referred to as the Authentication
+     Server (or   service).    The   ticket-granting ticket por-
+     tion is sometimes referred  to as  the  ticket-granting
+     server (or service).
+
+
+
+                                       10              OSF DCE Confidential
+
+
+
+
+
+
+
+
+     6_.1_3_.  o_r_g_a_n_i_z_a_t_i_o_n_
+
+     Data that associates a named set of users who can be granted
+     common access rights that are usually  associated with
+     administrative policy. Also, the third field of a subject
+     identifier.
+
+     6_.1_4_.  p_a_s_s_w_o_r_d_
+
+     A private string entered by a user for a particular account
+     and read by the security service to authenticate that
+     account during login. In addition to user-specific pass-
+     words, a user may also be required to enter a group-specific
+     password for the purposes of authenticating membership in a
+     group.
+
+     6_.1_5_.  p_e_r_s_o_n_
+
+     The name assigned to a DCE user.  The user registry contains
+     person object to which accounts may be associated.
+
+     6_.1_6_.  p_r_i_m_a_r_y_ n_a_m_e_
+
+     The string name of an object to which any aliases for that
+     object refer. The DCE refers to objects by their primary
+     names, although DCE users may refer to them by their
+     aliases.
+
+     6_.1_7_.  p_r_i_n_c_i_p_a_l_
+
+     A participant in authenticated network communications. A
+     principal may be a user or a process not associated with any
+     particular user.  A principal gains access to the system via
+     an account and is indistinguishable from that account.
+
+     6_.1_8_.  p_r_i_v_i_l_e_g_e_ a_t_t_r_i_b_u_t_e_
+
+     Data used to modify or augment access rights that are
+     derived from the identity and group memberships of a princi-
+     pal.
+
+     6_.1_9_.  p_r_i_v_i_l_e_g_e_ a_t_t_r_i_b_u_t_e_ c_e_r_t_i_f_i_c_a_t_e_ (P_A_C_)
+
+     Privilege attribute data that sealed in a ticket provided by
+     the privege server.
+
+     6_.2_0_.  r_e_a_l_m_
+
+     A set of principals for which the authentication service
+     holds a key. Each instance of the authentication service
+     defines a separate realm. A realm is a domain of authentica-
+     tion in much the same way that a cell is a domain of naming.
+
+
+
+
+
+                                       11              OSF DCE Confidential
+
+
+
+
+
+
+
+
+     6_.2_1_.  r_e_g_i_s_t_r_y_
+
+     A database of information about persons, groups, organiza-
+     tions, and accounts.
+
+     6_.2_2_.  r_e_p_l_i_c_a_
+
+     (We may provide a registry-specific definition for this
+     term.)
+
+     6_.2_3_.  r_e_p_l_i_c_a_ l_i_s_t_
+
+     (We may provide a registry-specific definition for this
+     term.)
+
+     6_.2_4_.  r_i_g_h_t_
+
+     Same as "access right"
+
+     6_.2_5_.  s_e_c_r_e_t_ k_e_y_
+
+     An encryption key shared by a  principal and  the  KDC,
+     distributed  outside the bounds of the system, with a long
+     lifetime.   In  the  case  of a human user's principal, the
+     secret  key  is  derived from a password.
+
+     6_.2_6_.  s_e_a_l_
+
+     To encrypt a record containing  several fields  in  such  a
+     way that the fields cannot be modified without either
+     knowledge  of the encryption key or leaving evidence of
+     tampering.
+
+     6_.2_7_.  s_e_s_s_i_o_n_ k_e_y_
+
+     An encryption key provided to two principals for the purpose
+     of encrypting communications between them; its lifetime  is
+     limited to the duration of a single  communications session.
+
+     6_.2_8_.  t_i_c_k_e_t_
+
+     An application-transparent mechanism that transmits the
+     identity of an initiating principal to its target. A simple
+     ticket  contains  the principal's identity,  a  session
+     key,  a timestamp,  and  other  information, sealed using
+     the target's  secret  key. A privilege ticket contains the
+     same information as a simple ticket, and also includes a
+     privilege attribute certificate.  A ticket-granting ticket
+     is ticket to the ticket-granting service; a service ticket
+     is a ticket for a specified service other than the ticket-
+     granting service.
+
+
+
+
+
+
+                                       12              OSF DCE Confidential
+

@@ -1,0 +1,1566 @@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+...\" ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+...\" src directory for the full copyright text. 
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: certification.gpsml,v $
+...\" Revision 1.1.2.3  1996/12/20  14:03:21  weir
+...\" 	Last comments
+...\" 	[1996/12/20  14:02:48  weir]
+...\"
+...\" Revision 1.1.2.2  1996/12/17  19:54:32  damon
+...\" 	Expanded OSF C O P Y R I G H T   N O T I C E
+...\" 	[1996/12/17  19:53:37  damon]
+...\" 
+...\" Revision 1.1.2.1  1996/10/16  19:40:05  weir
+...\" 	Initial submission
+...\" 	[1996/10/16  19:39:38  weir]
+...\" 
+...\" $EndLog$
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 1 "The DCE Certification Service"
+...\" ----------------------------------------------------------------------
+.zA "R1.2.2, new chapter"
+...\" 
+.P
+The DCE certification service provides for the secure retrieval
+of public keys, stored (through the DCE directory service) under
+the names of the principals with which the keys are associated.
+It is a name-to-public key translation service intended to be used
+both by DCE components and DCE applications. The keys are stored in
+data structures called ``certificates''.
+...\" 
+.P
+Rules that define which entities are trusted to create certificates
+for which principals are embodied in policy modules, which have
+the job of retrieving, upon request, the public keys from the certificates
+(and verifying the certificates themselves when doing so).
+...\" 
+.P
+DCE certification is a ``secondary'' facility, in that the service it
+provides is useful only in the context of some other application
+activity. Essentially, it does nothing but return public keys when
+presented with principal names (provided that the public keys have
+been properly stored under the names in the first place). It is then
+up to the application to do something useful with the keys.
+...\" 
+.P
+This chapter is not intended to provide detailed guidance on how DCE
+applications should use public keys, although some discussion of
+public key usage is included. It is mainly concerned with explaining
+how DCE applications can use the certification service to store and
+retrieve the keys.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Who Needs to Use the Certification API?"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The DCE certification service is intended to form one part of an implementation of a
+public key based authentication (and data protection) service in DCE. Thus the
+first-level users of the certification API will be various components of DCE itself;
+for example, RPC. However, the certification service can also be (and is intended to be)
+used by distributed applications that wish to use public keys for their own authentication
+or data protection purposes. The high-level public key retrieval routines
+are designed for this kind of use.
+.P
+The low-level certification routines, on the other hand, are intended for
+applications that wish to implement and add new policies and/or cryptographic
+modules. For example, adding a new policy will involve the following development
+task(s):
+...\" 
+...\" 
+.ML
+.LI
+Implementing and registering a policy module (see below)
+.P
+For example, a mail application that wished to institute
+its own model for authenticating users by public key
+would need to have its own policy module.
+...\" 
+.LI
+(Optional) Implementing and registering a cryptographic
+module (see below)
+.P
+Cryptographic modules implement the various signature algorithms
+required to allow policy modules to verify retrieved certificates.
+Policy modules are generally concerned only with signature verification,
+and (due to licensing constraints) signature generation functions are not
+supplied with the cryptographic modules provided with the DCE reference
+implementation. Applications that wish to use the public keys returned by
+the DCE certification facility will typically augment the supplied
+verification functions with signature generation routines.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.P
+Other possible users of the DCE certification API might be developers who wish to
+implement their own signature algorithms (cryptographic modules). (Signature
+algorithms are specified in a field in the certificate; they are selected at the
+time a certificate is created.) Only developers who wish to add to the available
+signature algorithms, or who wish to add signature generation capability to a
+supplied algorithm, will need to implement new cryptographic modules.
+...\" 
+.P
+The low-level certification API is not
+intended to be accessed directly by run-of-the-mill DCE applications.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Overview of DCE Certification"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+In the discussion that follows, note that the term ``principal'' does not necessarily
+mean or imply ``DCE principal''. In a general sense, a principal is any name that can
+be authenticated\(emthat is, any name that has one or more associated key(s). A DCE
+principal (one that is registered in the DCE registry) has DES key(s) maintained within
+the registry, while a public key (PK) principal has one or more public keys (generally
+stored within certificates). The only situation in which a PK principal has to be a DCE
+principal is where an application is using the ``registry retrieval'' policy (see
+``Direct secd Lookup: DCE Registry Lookup Policy Model'' below), since this policy
+retrieves the principal's public keys from a its registry entry.
+...\" 
+.P
+The DCE certification service provides for the secure storage and
+retrieval (by principal name) of public keys. The keys are stored
+in the DCE directory service, under the principal names with which
+they are to be associated.
+...\" 
+.P
+Principals' public keys are thus easily accessible through the
+namespace. However, in order to be regarded as valid (certified),
+the public key information must be properly ``signed'' by the
+certifying authority (CA) authorized to deposit public key
+information for the principal in question. The public key, with
+the signature of the CA that issued it, is stored (together with
+various other data) in a format defined by the ISO 9594-8/X.509
+standard and called a ``certificate''. Just who the authorized
+certifying authority for a given certificate is is defined by the
+trust policy model applicable to the subject in whose name the
+certificate is issued.
+...\" 
+.P
+The CA's signature is in the form of a checksum on the public key
+encrypted with the CA's own private key, and verifiable by decrypting
+with the CA's public key. The certificates are thus secure from
+tampering by any entity but the authorized (according to the
+defined policy model) CA, which alone possesses the private key
+required to sign the data. 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Use of Public Keys"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The DCE certification service stores and retrieves ``public'' keys.
+The important characteristic of such keys is that they exist and
+operate as pairs. Messages encrypted under one of the keys can
+be decrypted by means of the other (and vice versa); but messages
+cannot be encrypted and decrypted by means of the same key.
+...\" 
+...\" 
+...\" 
+.br
+.DS
+.PS
+scale = 100
+"\fR\s10B\s0\fP"  at 432, 208
+"\fR\s10Key\s0\fP"  at 424, 224
+"\fR\s10A\s0\fP"  at 144, 208
+"\fR\s10Key\s0\fP"  at 136, 224
+"\fR\s10text\s0\fP"  at 528, 112
+"\fR\s10decrypted\s0\fP"  at 528, 128
+"\fR\s10text\s0\fP"  at 280, 112
+"\fR\s10encrypted\s0\fP"  at 280, 128
+"\fR\s10text\s0\fP"  at 40, 112
+"\fR\s10clear\s0\fP"  at 40, 128
+line   from 432, 40 \
+	to 456, 40 \
+	to 456, 32 \
+	to 432, 32 \
+	to 432, 24 \
+	to 464, 24 \
+	to 464, 16 \
+	to 432, 16 \
+	to 432, 8 \
+	to 472, 8 \
+	to 472, 0 \
+	to 416, 0 
+line ->  from 440, 112 \
+	to 480, 112 
+box  wid 80 ht 80 at 528, 112
+box  wid 56 ht 56 at 140, 212
+box  wid 80 ht 80 at 40, 112
+line   from 144, 40 \
+	to 168, 40 \
+	to 168, 32 \
+	to 144, 32 \
+	to 144, 24 \
+	to 168, 24 \
+	to 168, 16 \
+	to 144, 16 \
+	to 144, 8 \
+	to 168, 8 \
+	to 168, 0 \
+	to 128, 0 
+line   from 144, 184 \
+	to 144, 40 
+line   from 128, 184 \
+	to 128, 0 
+box  wid 56 ht 56 at 140, 212
+box  wid 40 ht 40 at 140, 212
+line   from 200, 72 \
+	to 240, 152 \
+	to 360, 152 \
+	to 320, 72 \
+	to 200, 72 
+line ->  from 88, 112 \
+	to 120, 112 
+box  wid 40 ht 40 at 428, 212
+box  wid 56 ht 56 at 428, 212
+line   from 416, 184 \
+	to 416, 0 
+line   from 432, 184 \
+	to 432, 40 
+box  wid 56 ht 56 at 428, 212
+line ->  from 152, 112 \
+	to 208, 112 
+line ->  from 352, 112 \
+	to 408, 112 
+.PE
+.DE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .DS
+...\" \*C\s-2
+...\"             _______                        _______
+...\"             ||   ||                        ||   ||
+...\"             || A ||                        || B ||
+...\"             ||___||                        ||___||
+...\" ---------     | |         -------------      | |       -------------
+...\" |       |     | |        /           /       | |       |           |
+...\" | Clear |---->| |------>/ Encrypted /------->| |------>| Decrypted |
+...\" | Text  |     | |      /    Text   /         | |       |   Text    |
+...\" |       |     | |     /           /          | |       |           |
+...\" ---------     | |    -------------           | |       -------------
+...\"               | ===                          | ===
+...\"               | ===                          | ===
+...\"               | ===                          | ===
+...\" \*O\s+2
+...\" .DE
+.FG "How Public Keys Work: Part 1"
+...\" 
+.nP
+...\" 
+...\" 
+.br
+.DS
+.PS
+scale = 100
+"\fR\s10text\s0\fP"  at 528, 104
+"\fR\s10encrypted\s0\fP"  at 528, 120
+"\fR\s10still-\s0\fP"  at 528, 136
+"\fR\s10A\s0\fP"  at 432, 208
+line   from 432, 40 \
+	to 456, 40 \
+	to 456, 32 \
+	to 432, 32 \
+	to 432, 24 \
+	to 456, 24 \
+	to 456, 16 \
+	to 432, 16 \
+	to 432, 8 \
+	to 456, 8 \
+	to 456, 0 \
+	to 416, 0 
+"\fR\s10Key\s0\fP"  at 424, 224
+"\fR\s10A\s0\fP"  at 144, 208
+"\fR\s10Key\s0\fP"  at 136, 224
+"\fR\s10text\s0\fP"  at 280, 112
+"\fR\s10encrypted\s0\fP"  at 280, 128
+"\fR\s10text\s0\fP"  at 40, 112
+"\fR\s10clear\s0\fP"  at 40, 128
+line ->  from 440, 112 \
+	to 480, 112 
+box  wid 80 ht 80 at 528, 112
+box  wid 56 ht 56 at 140, 212
+box  wid 80 ht 80 at 40, 112
+line   from 144, 40 \
+	to 168, 40 \
+	to 168, 32 \
+	to 144, 32 \
+	to 144, 24 \
+	to 168, 24 \
+	to 168, 16 \
+	to 144, 16 \
+	to 144, 8 \
+	to 168, 8 \
+	to 168, 0 \
+	to 128, 0 
+line   from 144, 184 \
+	to 144, 40 
+line   from 128, 184 \
+	to 128, 0 
+box  wid 56 ht 56 at 140, 212
+box  wid 40 ht 40 at 140, 212
+line   from 200, 72 \
+	to 240, 152 \
+	to 360, 152 \
+	to 320, 72 \
+	to 200, 72 
+line ->  from 88, 112 \
+	to 120, 112 
+box  wid 40 ht 40 at 428, 212
+box  wid 56 ht 56 at 428, 212
+line   from 416, 184 \
+	to 416, 0 
+line   from 432, 184 \
+	to 432, 40 
+box  wid 56 ht 56 at 428, 212
+line ->  from 152, 112 \
+	to 208, 112 
+line ->  from 352, 112 \
+	to 408, 112 
+.PE
+.DE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .DS
+...\" \*C\s-2
+...\"             _______                        _______
+...\"             ||   ||                        ||   ||
+...\"             || A ||                        || A ||
+...\"             ||___||                        ||___||
+...\" ---------     | |         -------------      | |         -------------
+...\" |       |     | |        /           /       | |        /           /
+...\" | Clear |---->| |------>/ Encrypted /------->| |------>/  Still-   /
+...\" | Text  |     | |      /    Text   /         | |      / Encrypted /
+...\" |       |     | |     /           /          | |     /    Text   /
+...\" ---------     | |    -------------           | |    -------------
+...\"               | ===                          | ===
+...\"               | ===                          | ===
+...\"               | ===                          | ===
+...\" \*O\s+2
+...\" .DE
+.FG "How Public Keys Work: Part 2"
+...\" 
+...\" 
+.P
+This asymmetric behavior of the public key-pair makes it ideal
+for network authentication purposes. One of the keys can be freely
+publicized in the network, and the other kept secret with, say,
+a server principal who desires to use it to authenticate itself.
+The server does this, whenever it is contacted by a prospective
+client, by simply encrypting a message under its secret key and
+sending it back to the client. The client then attempts to decrypt
+the message using the public key it knows belongs to the principal
+it wishes to contact. If it can decrypt the message, it regards
+the server as having authenticated itself. The same procedure
+can be used to authenticate the client (using a different key-pair).
+...\" 
+.P
+An important detail in the above scenario is that the prospective
+client ``knows'' that the public key it uses to decrypt the server's
+message really is that server's public key. The other (unmentioned)
+detail is that the client has to get the public key from somewhere.
+The secure distribution of the public keys is the job of the DCE
+certification service.
+...\" 
+.P
+It is not desirable to have all the public keys indiscriminately
+accessible to everybody, because then no one will have a reliable
+criterion for believing whose key is whose. The public keys must
+be deposited in such a way that users can always be sure that a given
+public key really ``belongs'' to the principal it is supposed to belong
+to; otherwise entities will be able to impersonate each other simply
+by switching public keys in the database they are retrieved from.
+Thus there needs to be some way to make sure that only authorized
+entities have access to principals' public keys.
+...\" 
+.P
+The certification service ``certifies'' public keys by storing them
+with ``signatures'' generated by the distributors of the keys.
+The authenticating signatures on certificates are themselves
+implemented by public/private key pairs. A signature is simply the
+data of which the certificate consists, encrypted under the issuer's
+private key. A potential user of the certificate must possess the
+certificate issuer's public key. The issuer's public key can then
+be passed (along with the certificate contents, including the signature)
+to a library routine that will check whether the signature can be
+successfully decrypted to produce the information in the rest of the
+certificate. If the signature thus tested is found to be authentic,
+the user of the certificate can be certain that it was issued by the
+entity whose public key it checked against the certificate signature
+\(em namely, the principal that is supposed to have issued the certificate.
+The public key signature thus ensures the authenticity of data that
+can be distributed (and thus easily accessed) via the namespace.
+...\" 
+.P
+A principal's public key can also be used by entities to protect
+data being sent to the principal. Data encrypted under the public
+key can be decrypted only by the possessor of the private key.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Contents of Certificates"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The primary information that any certificate contains is the public
+key that is to be associated with some principal name. ``Issuance'' of
+a certificate means that the certificate is deposited into the name
+service, and attached (as a directory attribute) to the principal
+name it is to be associated with. Certificates are issued by
+certifying authorities (CAs); the CA's signature on the certificate
+is what certifies the public key information that the certificate
+contains.
+...\" 
+...\" 
+.P
+A certificate contains the following information:
+...\" 
+...\" 
+.VL 1.5i
+.LI "\*Vsubject\ name\*O"
+The name of the principal for whom the certificate
+was issued. This is the name under which the
+certificate contents will be read by users.
+...\" 
+.LI "\*Vissuer\ name\*O"
+The principal name of the issuer of the certificate,
+a CA (certifying authority) authorized to issue
+certificates for the subject.
+...\" 
+.LI "\*Vversion\ number\*O"
+Identifies the X.509 format version of the
+certificate.
+...\" 
+.LI "\*Vserial\ number\*O"
+The certificate serial number, used to identify
+certificates in certificate revocation lists (CRLs).
+...\" 
+.LI "\*Vstart\ time\*O"
+The time from which the certificate's contents are
+considered to be valid.
+...\" 
+.LI "\*Vend\ time\*O"
+The time until which the certificate's contents are
+valid.
+...\" 
+.LI "\*Vsignature\ algorithm\*O"
+An OID (object identifier) that identifies the
+algorithm used to encrypt the certificate signature.
+...\" 
+.LI "\*Vparameters\*O"
+Any parameters necessary to pass to the signature
+verification algorithm.
+...\" 
+.LI "\*Vsignature\*O"
+A checksum of the certificate data, encrypted under
+the certificate issuer's private key, successful
+verification of which, by means of the issuer's
+public key, constitutes authentication of the
+certificate.
+...\" 
+.LI "\*Vsubject\ key\*O"
+The public key that is to be associated with the
+subject of the certificate (named by ``subject name'').
+...\" 
+.LI "\*Vsubject\ UUID\*O"
+(Optional) A UUID that identifies the certificate subject.
+...\" 
+.LI "\*Vissuer\ UUID\*O"
+(Optional) A UUID that identifies the issuer of the certificate.
+...\" 
+.LE
+...\" 
+...\" 
+.P
+The most important ingredients of a certificate are: the principal
+name which it is stored under; the public key which it contains;
+and the signature of the CA that issued it. These can be illustrated
+as shown in the following diagram:
+...\" 
+...\" 
+.br
+.DS
+.PS
+scale = 80
+"\fR\s10Public Key of X\s0\fP"  at 66, 66
+"\fR\s10Signer = Certifying Authority n\s0\fP"  at 106, 44
+box  wid 204 ht 96 at 102, 48
+"\fR\s10X\s0\fP"  at 20, 110
+box  wid 40 ht 24 at 20, 108
+.PE
+.DE
+...\" 
+...\" 
+...\" 
+...\" .DS
+...\" \*C\s-2
+...\"                 -------
+...\"                 |  X  |
+...\"                 ------------------
+...\"                 | Pub Key of X   |
+...\"                 |                |
+...\"                 | Signer = CAn   |
+...\"                 ------------------
+...\" \*O\s+2
+...\" .DE
+.FG "The Essential Parts of a Certificate"
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Component Parts of the DCE Certification API"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The DCE certification API is organized into four groups of routines:
+...\" 
+...\" 
+.ML
+.LI
+Routines for implementing and registering cryptographic modules
+.P
+Cryptographic modules embody the signature algorithms
+that are used to sign and verify certificates. Certificates
+are signed by certifying authorities (which are usually
+invoked by system administrators or some other specially
+privileged authority to create certificates), and are
+retrieved (and verified) by policy modules (which are called
+by various applications seeking principals' public keys).
+...\" 
+.LI
+Low-level certificate access and manipulation routines
+.P
+These routines represent the primitive certificate
+access operations which are used in the implementation
+of policy modules.
+...\" 
+.LI
+Routines for implementing and registering policy modules
+.P
+Policy modules embody the rules and mechanisms for
+finding the public keys that are associated with some
+specific set of principals.
+...\" 
+.LI
+High-level routines for use by applications that wish to
+access the certification service
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.P
+The following diagram shows how these four groups of functionality
+are related to each other and to their two main groups of user:
+namely, system administrators and DCE applications.
+...\" 
+...\" 
+...\" 
+.br
+.DS
+.PS
+scale = 100
+line <->  from 162, 164 \
+	to 232, 164 
+line   from 316, 142 \
+	to 316, 96 
+line   from 316, 240 \
+	to 316, 184 
+line   from 316, 328 \
+	to 316, 280 
+line   from 82, 240 \
+	to 82, 184 
+line   from 82, 328 \
+	to 82, 280 
+line   from 82, 424 \
+	to 82, 368 
+"\fR\s10implementation\s0\fP"  at 312, 30
+"\fR\s10signature algorithm\s0\fP"  at 314, 48
+"\fR\s10Certifying Authority's\s0\fP"  at 316, 64
+"\fR\s10Crypto Module\s0\fP"  at 314, 164
+"\fR\s10Certifying Authority\s0\fP"  at 314, 260
+"\fR\s10System administrator\s0\fP"  at 316, 348
+"\fR\s10Low-level API\s0\fP"  at 86, 164
+"\fR\s10Policy Module\s0\fP"  at 88, 260
+"\fR\s10Certification API\s0\fP"  at 82, 348
+"\fR\s10DCE application\s0\fP"  at 84, 444
+box  wid 160 ht 96 at 314, 48
+box  wid 162 ht 40 at 83, 444
+box  wid 162 ht 40 at 83, 260
+box  wid 162 ht 40 at 81, 164
+box  wid 162 ht 40 at 313, 164
+box  wid 162 ht 40 at 83, 348
+box  wid 162 ht 40 at 315, 348
+box  wid 162 ht 40 at 315, 260
+.PE
+.DE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .DS
+...\" \*C\s-2
+...\"         -------------------
+...\"         | DCE application |
+...\"         -------------------
+...\"                    |
+...\"                    |
+...\" 		   |
+...\"         ===================             -------------------
+...\"         | High-Level API  |             |  System Admin   |
+...\"         ===================             -------------------
+...\"                    |                             |
+...\"                    |                             |
+...\"                    |                             |
+...\"         ===================             -------------------
+...\"         |  Policy Module  |             |       CA        |
+...\"         ===================             -------------------
+...\"                    |                             |
+...\"                    |                             |
+...\"                    |                             |
+...\"         ===================             ===================
+...\"         |  Low-Level API  |<----------->|  Crypto Module  |
+...\"         ===================             ===================
+...\"                                                  |
+...\"                                                  |
+...\"                                                  |
+...\"                                         -------------------
+...\"                                         |      CA's       |
+...\"                                         | signature algo- |
+...\"                                         |  rithm imple-   |
+...\"                                         |    mentation    |
+...\"                                         -------------------
+...\" \*O\s+2
+...\" .DE
+.FG "Certification API Organization"
+...\" 
+.P
+Note that certifying authorities merely create the certificates and
+deposit them in a place from which they can be retrieved (the
+namespace); they play no part in the retrieval process itself. In
+fact, this could be said to be the main reason for certificates
+in the first place: they allow a facility such as the directory
+service to be used as the distribution point for public keys (that is,
+they allow an application to not have to arrange for getting its
+keys to prospective clients by some private mechanism), and at the
+same time they assure users that the key information that they
+contain has not been tampered with.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "High Level Certification API"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following certification API routines are intended for general DCE application
+use:
+...\" 
+...\" 
+...\" 
+.ML
+.LI
+\*Lpkc_get_registered_policies(3sec)\*O
+...\" 
+.LI
+\*Lpkc_init_trustlist(3sec)\*O
+...\" 
+.LI
+\*Lpkc_append_to_trustlist(3sec)\*O
+...\" 
+.LI
+\*Lpkc_init_trustbase(3sec)\*O
+...\" 
+.LI
+\*Lpkc_retrieve_keyinfo(3sec)\*O
+...\" 
+.LI
+\*Lpkc_get_key_count(3sec)\*O
+...\" 
+.LI
+\*Lpkc_get_key_data(3sec)\*O
+...\" 
+.LI
+\*Lpkc_get_key_trust_info(3sec)\*O
+...\" 
+.LI
+\*Lpkc_get_key_certifier_count(3sec)\*O
+...\" 
+.LI
+\*Lpkc_get_key_certifier_info(3sec)\*O
+...\" 
+.LI
+\*Lpkc_free_trustlist(3sec)\*O
+...\" 
+.LI
+\*Lpkc_free_trustbase(3sec)\*O
+...\" 
+.LI
+\*Lpkc_free_keyinfo(3sec)\*O
+...\" 
+.LI
+\*Lpkc_free(3sec)\*O
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.P
+Key retrieval consists basically of two operations:
+...\" 
+...\" 
+.AL
+.LI
+Generating an ``initial trust base''\(ema starting point for future
+certification paths, consisting of a list of principals and their keys.
+An application would normally generate its initial trust base on startup.
+...\" 
+.LI
+Using the trust base to retrieve key(s) for a specified principal.
+...\" 
+.LE
+...\" 
+...\" 
+.P
+In outline, a typical pattern for an application's use of the high-level
+API might proceed according to the following series of calls:
+...\" 
+...\" 
+.AL
+.LI
+\*Lpkc_get_registered_policies(3sec)\*O
+.P
+Called once for the lifetime of the application. It returns a set of OIDs,
+which point to all currently installed policies.
+...\" 
+.LI
+\*Lpkc_init_trustlist(3sec)\*O
+.P
+The caller creates an empty ``trust list'' to hold the set of
+certificates it initially trusts.
+...\" 
+.LI
+\*Lpkc_append_to_trustlist(3sec)\*O
+.P
+Called one or more times, to add certificates or keys
+which the caller trusts to its list of trusted keys.
+.P
+Steps 2 and 3 together build up the initial trust list.
+...\" 
+.LI
+\*Lpkc_init_trustbase(3sec)\*O
+.P
+Computes a trust base, given the initial trust list.
+The caller uses one of the OIDs returned in Step 1, together with the
+list of trust items constructed in Steps 2 and 3, to access a policy
+and initialize a ``trust base'' containing all the certificates
+initially trusted under the specified policy, given the initial list of
+trusted keys.
+...\" 
+.LI
+\*Lpkc_retrieve_keylist(3sec)\*O
+.P
+Called one or more times, for each individual's public key that needs
+to be looked up.
+...\" 
+.LI
+\*Lpkc_free_trustlist(3sec)\*O
+.P
+Frees storage allocated for the trust list.
+...\" 
+.LI
+\*Lpkc_free_trustbase(3sec)\*O
+.P
+Frees storage allocated for the trust base.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Policy Models"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+A policy model (or trust policy model) is simply some scheme or
+set of rules that dictates which certifying authorities are
+authorized to issue certificates for which principals. In other
+words, the policy model will prescribe whose signature is to be
+regarded as a valid certifier for any given principal's certificates.
+The policy module which embodies these rules will use them in
+verifying the certificates it reads from the namespace.
+...\" 
+.P
+Since the certificates themselves are stored and accessed through
+the DCE directory service (either GDS or CDS), one obvious policy
+model will be to organize the certifying authorities' reponsibilities
+according to the same hierarchies. However, models that employ
+other certifying hierarchies, or no hierarchy at all, are also
+possible.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Certification Paths"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The mechanism that the certification service uses to embody more
+complex models is certification paths. A certification path is
+implemented by a sequence of certificates. Rather than immediately
+accessing a given principal's certificate to determine its public
+key, the user must access the beginning of a chain of certificates
+in order to get to the final certificate that contains the desired
+principal's public key. The intervening certificates consist of a
+series of public keys of CAs, each certified by the next CA in the
+chain.
+...\" 
+.P
+The following diagram shows how a certificate chain might be
+used to find the public key of a principal, \*VX\*O:
+...\" 
+.br
+.DS
+.PS
+scale = 80
+line  dotted from 176, 32 \
+	to 256, 74 
+line  dotted from 24, 144 \
+	to 24, 88 
+line  dotted from 24, 280 \
+	to 24, 230 
+"\fR\s10Signer = Certifying Authority 3\s0\fP"  at 350, 20
+"\fR\s10X\s0\fP"  at 280, 76
+box  wid 48 ht 24 at 280, 76
+"\fR\s10Public Key of X\s0\fP"  at 308, 44
+box  wid 176 ht 64 at 344, 32
+"\fR\s10Signer = Certifying Authority 1\s0\fP"  at 92, 164
+"\fR\s10Public Key of CA2\s0\fP"  at 60, 186
+"\fR\s10CA2\s0\fP"  at 24, 220
+box  wid 176 ht 64 at 88, 176
+box  wid 48 ht 24 at 24, 220
+"\fR\s10Signer = Certifying Authority 0\s0\fP"  at 92, 300
+"\fR\s10Public Key of CA1\s0\fP"  at 60, 324
+"\fR\s10CA1\s0\fP"  at 26, 356
+box  wid 176 ht 64 at 88, 312
+box  wid 48 ht 24 at 24, 356
+"\fR\s10Signer = Certifying Authority 2\s0\fP"  at 92, 20
+"\fR\s10Public Key of CA3\s0\fP"  at 60, 42
+"\fR\s10CA3\s0\fP"  at 24, 76
+box  wid 176 ht 64 at 88, 32
+box  wid 48 ht 24 at 24, 76
+.PE
+.DE
+...\" 
+...\" 
+...\" 
+...\" .DS
+...\" \*C\s-2
+...\"   -------               -------                 -------
+...\"   | CA1 |               | CA2 |                 | CA3 |
+...\"   ------------------    ------------------      ------------------
+...\"   | Pub Key of CA1 |    | Pub Key of CA2 |      | Pub Key of CA3 |
+...\"   |                |....|                |......|                |
+...\"   | Signer = CA0   |    | Signer = CA1   |      | Signer = CA2   |
+...\"   ------------------    ------------------      ------------------
+...\"                                                    .
+...\"                                                    .
+...\"                                                 -------			
+...\"                                                 |  X  |
+...\"                                                 ------------------
+...\"                                                 | Pub Key of X   |
+...\"                                                 |                |
+...\"                                                 | Signer = CA3   |
+...\"                                                 ------------------
+...\" \*O\s+2
+...\" .DE
+.FG "A Certificate Chain"
+...\" 
+...\" 
+...\" 
+.P
+In a policy model that uses certification paths, a given principal's
+public key is found by beginning with a certificate signed by a CA
+that is trusted by the entity requesting the public key (in the above
+diagram, the trusted CA is CA0). This certificate contains the
+public key of the next CA in the path, namely CA1. The policy module
+reads this certificate, learns the key of the next CA, CA2, and so
+on, until the certificate for X, the original target, is found.
+...\" 
+.P
+The idea of certificate chains is to propagate authenticity via
+certifying authorities while not propagating the authorities'
+responsibility, thus reducing the effects of the compromise of
+single authorities, wherever they may exist in the hierarchy of
+authorities.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Implementing and Registering a Cryptographic Module"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The routines in an application's cryptographic module make up the lowest level of
+functionality in the certification mechanism. Each module consists of a set of (at
+most) five routines, the most important of which are its \*Lsign(\|)\*O
+and \*Lverify(\|)\*O routines. (Note, however, that the \*Lsign(\|)\*O
+routine is not mandatory.)
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Contents of a Cryptographic Module"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Cryptographic modules are registered in the form of \*Lpkc_signature_algorithm_t\*O
+structures, which contain the entry points for the following developer-supplied routines:
+...\" 
+...\" 
+...\" 
+.VL 1i
+.LI "\*Lopen(\|)\*O"
+Opens the module
+...\" 
+.LI "\*Lclose(\|)\*O"
+Closes the module
+...\" 
+.LI "\*Lverify(\|)\*O"
+Verifies a certificate signature
+...\" 
+.LI "\*Lsign(\|)\*O"
+Affixes a signature to a certificate
+...\" 
+.P
+\*Lverify(\|)\*O and \*Lsign(\|)\*O are the routines that will actually call
+the encryption/decryption functions appropriate to the algorithm.
+...\" 
+.LI "\*Lname(\|)\*O"
+Returns the algorithm name, a character string that can be used in
+auditing or diagnostic messages.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.P
+The \*Lpkc_signature_algorithm_t\*O structure also contains the following
+data fields:
+...\" 
+...\" 
+...\" 
+.ML
+.LI
+a version number
+.P
+Note that the version field of a cryptographic module is not the same thing
+as the version number of a certificate. A crypto module's version number is
+the version of the certification API that it is designed for (which in particular
+specifies the format of the \*Lpkc_signature_algorithm_t\*O structure
+used to register the crypto module).
+...\" 
+.LI
+an object identifier (OID) identifying the signature algorithm
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Accessing a Registered Cryptographic Module"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Signature algorithms are identified by object identifiers (the character
+string returned by \*Lname(\|)\*O is intended for use in diagnostic or
+auditing messages). Certificates contain a field which identifies by OID
+the algorithm used to sign that certificate.
+...\" 
+.P
+Policy implementors are recommended to access cryptographic modules mainly
+through the following routines, which perform all locking necessary to make the
+calls thread safe, and also transparently handle any context information that a
+given cryptographic implementation may need.
+...\" 
+.ML
+.LI
+\*Lpkc_crypto_get_registered_algorithms(3sec)\*O
+.P
+Call this routine to get an OID set describing the currently registered
+algorithm implementations.
+...\" 
+.LI
+\*Lpkc_crypto_sign(3sec)\*O
+.P
+Call this routine to get data signed.
+...\" 
+.LI
+\*Lpkc_crypto_verify_signature(3sec)\*O
+.P
+Call this routine to verify signed data.
+...\" 
+.LI
+\*Lpkc_crypto_generate_keypair(3sec)\*O
+.P
+Call this routine to generate a pair of public/private keys.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.P
+Information about a cryptographic module may be obtained by calling
+\*Lpkc_crypto_lookup_algorithm(3sec)\*O.
+...\" 
+.P
+Data can also be signed and verified by looking up the desired algorithm (with
+\*Lpkc_crypto_lookup_algorithm(3sec)\*O) and then explicitly calling
+the module's \*L(sign)(\|)\*O or \*Lverify(\|)\*O routine,
+although in this case the calling application must take care to avoid
+multi-threading issues, and is also responsible for opening the crypto module
+prior to use, and closing it afterwards.
+.P
+A list of the OIDs of all currently registered cryptographic modules can be
+obtained by calling \*Lpkc_crypto_get_registered_algorithms(\|)\*O.
+You can then access information about a specific module by calling the
+\*Lpkc_crypto_lookup_algorithm(\|)\*O routine. To sign data with a
+private key or to verify signed data with a public key,
+either \*Lpkc_crypto_verify_signature(\|)\*O or
+\*Lpkc_crypto_sign(\|)\*O can be called.
+.P
+In the low-level certificate interrogation API, the \*Lverify(\|)\*O
+routine is automatically called by the
+\*Lpkc_crypto_verify_signature(3sec)\*O routine.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Signature Algorithms Provided by DCE Certification"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The signature algorithms provided with DCE 1.2.2 are \*Lmd2WithRSA\*O and
+\*Lmd5WithRSA\*O.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Registering a Cryptographic Module"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Perform the following steps to register a cryptographic module:
+...\" 
+...\" 
+...\" 
+.AL
+...\" 
+.LI
+Implement the \*Lname(\|)\*O and \*Lverify(\|)\*O functions.
+These two routines must be implemented.
+...\" 
+.LI
+If your module needs to perform any initialization or finalization tasks,
+implement \*Lopen(\|)\*O and/or \*Lclose(\|)\*O
+routines for them. (These two routines are optional.)
+...\" 
+.LI
+Implement \*Lsign(\|)\*O and \*Lgenerate_keypair(\|)\*O
+functions if necessary. (These two routines are optional.)
+...\" 
+.LI
+Create a \*Lpkc_signature_algorithm_t\*O structure containing the
+entrypoints of the routines implemented in Steps 1 to 3 (use \*LNULL\*O
+for the entrypoint of any unimplemented routines), and use this structure to register
+the algorithm implementation.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Implementing and Registering a Policy Module"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+A certification trust model simply prescribes which certifying
+authorities (CAs) can legitimately issue (create and sign)
+certificates for which principals. A trust model is implemented
+by a policy module. The ultimate purpose of the certification
+service is to return public keys, and it is the job of the routines
+in a policy module to do this. Looked at from this point of view,
+policy modules are mainly distinguished from each other by the two
+following things:
+...\" 
+...\" 
+...\" 
+.ML
+.LI
+Which principals a policy module is willing to return keys
+for.
+...\" 
+.LI
+Which CAs a module is willing to trust the signatures of
+on the certificates from which it retrieves keys.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.P
+A principal's certificates will be retrieved from a directory
+service entry (exactly what entry depends on the policy used),
+and the policy module
+will only look for certain signatures known to it on the certificates
+it retrieves. However, direct retrieval via the subject's directory
+entry name is only one trust model. There can be many others. For
+example, see the discussion of certification paths above.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Policy Modules Provided with DCE Certification"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Several certification policy modules are provided by DCE. These
+policies are described in the following sections.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Direct secd Lookup: DCE Registry Lookup Policy Model"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The registry lookup policy module simply looks up principals' public keys in the DCE
+registry, and returns them. These keys are not held in certificates, but are stored
+as extended registry attributes.
+...\" 
+.P
+If a caller of the high-level certificate retreival API has DCE credentials, then
+the registry retrieval policy will authenticate the registry as part of the retrieval
+operation. If no credentials are available, no authentication is possible. In this case,
+keys will still be returned, but the certificate API will indicate to the caller that
+the keys are untrusted.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "DCE Hierarchical Trust Policy"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The DCE hierarchical trust policy supplied with DCE 1.2.2 supports hierarchical
+cells/DASS style trust paths. A trust path between principals A and B consists
+of zero or more up links, followed by zero or one cross link, followed by zero or
+more down links. The DCE hierarchical trust policy extension uses the DCE namespace
+certificate store extension (NCSE) for certificate retrieval.
+...\" 
+.P
+Each cell is assumed to operate as a certification authority (CA) for top level
+principals registered within that cell. Thus, the CA for the cell \*Lover_cell\*O
+is assumed to create a certificate for, say, the principal \*Lfelix\*O within
+\*Lover_cell\*O, where the certificate signatory is ``over_cell'' and the
+certificate target is ``over_cell/felix''. If a cell employs structured names
+for principals, each level is considered to act as a CA for its subordinate. For
+example, if cell ``over_cell'' contains a principal \*Ladmin/JohnSmith\*O, then
+\*Lover_cell/admin/JohnSmith\*O is certified by two certificates, the first signed
+by \*Lover_cell\*O and certifying \*Lover_cell/admin\*O, and the second signed by
+\*Lover_cell/admin\*O and certifying \*Lover_cell/admin/JohnSmith\*O.
+...\" 
+.P
+To avoid requiring that the cell's root CDS directory be used for storing
+certificates for the cell's principals, the DCE NCSE provided in DCE 1.2.2
+allows any directory (in CDS or GDS) to be given an attribute (with OID
+\*L1.3.24.9.15\*O) that names a subdirectory (of the directory to
+which the attribute is given) within which certificates are to be stored. The
+value of this attribute is a string which will be appended to the name of the
+directory to give the name of a new directory within which certificates will be
+stored.
+...\" 
+.P
+For example, if the root directory in the cell \*Lover_cell\*O is the
+directory to which this ``certificate directory'' attribute is attached,
+and the attribute contains the value \*Lprincipals\*O, the DCE NCSE will
+attempt to retrieve the certificate for \*Lover_cell/P\*O from the CDS
+directory \*Lover_cell/principals/P\*O. If the ``certificate directory''
+attribute is missing or empty, the cell root directory will be searched
+for principal certificates. (Note that the insertion of the ``certificate
+directory'' attribute value applies only to locating certificates within
+the directory service; the above certificate would contain the name \*Lover_cell/P\*O
+as its actual subject.)
+...\" 
+.P
+At most one ``certificate directory'' attribute is considered when looking for
+certificates for a given name, according to the following algorithm:
+...\" 
+.ML
+.LI
+Starting with the name for which certificates are desired, RDNs are removed from
+the right of the name until either a directory is found that contains the ``certificate
+directory'' attribute, or the namespace root is reached.
+.LE
+...\" 
+...\" 
+...\" 
+.P
+In general, CDS administrators should define the ``certificate directory''
+attribute within each CDS root directory, rather than storing certificates
+within the root directory.  As well as reducing clutter in the cell root
+directory, doing this has efficiency benefits (terminating the search for the
+certificate directory at each CDS root), and also prevents the definition of
+this attribute at a higher level within the DCE global namespace from
+influencing the placement of certificates within a cell's namespace.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "PEM-like Policy"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+No explicit PEM-like policy is provided with DCE 1.2.2; however, the DCE hierarchical
+policy may be used in a PEM-like fashion by specifying root CA keys as the initial
+trust list, rather than keys belonging to the caller's immediate CA.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "The Low Level Certificate Manipulation API"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The certificate manipulation API is a C++ interface. C++ must be used to
+retrieve the certificates into trust lists and manilupulate them there.
+...\" 
+.P
+The contents of the 
+...\" 
+...\" 
+.DS
+    \*L/usr/include/dce/asn.h\*O
+.DE
+...\" 
+.P
+and
+...\" 
+.DS
+    \*L/usr/include/dce/x509.h\*O
+.DE
+...\" 
+...\" 
+.P
+header files define some of the basic types used by the low-level certificate
+manipulation routines, including the actual structure of certificates. Following
+is a list of the low-level certificate routines defined in the
+...\" 
+.DS
+    \*L/usr/include/dce/pkc_certs.h\*O
+.DE
+...\" 
+.P
+file:
+...\" 
+...\" 
+...\" 
+.ML
+.LI
+\*Lpkc_add_trusted_key(3sec)\*O
+.LI
+\*Lpkc_lookup_keys_in_trustlist(3sec)\*O
+.LI
+\*Lpkc_lookup_key_in_trustlist(3sec)\*O
+.LI
+\*Lpkc_lookup_element_in_trustlist(3sec)\*O
+.LI
+\*Lpkc_check_cert_against_trustlist(3sec)\*O
+.LI
+\*Lpkc_revoke_certificate(3sec)\*O
+.LI
+\*Lpkc_revoke_certificates(3sec)\*O
+.LI
+\*Lpkc_delete_trustlist(3sec)\*O
+.LI
+\*Lpkc_copy_trustlist(3sec)\*O
+.LI
+\*Lpkc_display_trustlist(3sec)\*O
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Policy Module Implementation"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Implementation of a policy module consists essentially of writing
+\*Lestablish_trustbase(\|)\*O, \*Ldelete_trustbase(\|)\*O,
+\*Lretrieve_keyinfo(\|)\*O and \*Ldelete_keyinfo(\|)\*O
+routines, and associated interrogation routines. The module will find certificates
+for principal names according to the rules set out for that module, verify their
+signatures, and return the public keys found in them to the original callers.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Certificate Revocation Lists (CRLs)"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Certificate revocation lists are lists of certificates whose contents are no
+longer to be believed. Use of CRLs is policy-specific. \*Lpkc_certs\*O provides
+objects for parsing and manipulating CRLs, and for using them to invalidate
+portions of a trust list.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Accessing a Registered Policy Module"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Policy modules are registered in the form of \*Lpkc_policy_t\*O structures,
+which contain the entry points for the following developer-written routines:
+...\" 
+...\" 
+.VL 2i
+.LI "\*Lopen(\|)\*O"
+opens the module
+...\" 
+.LI "\*Lclose(\|)\*O"
+closes the module
+...\" 
+.LI "\*Lretrieve_keyinfo(\|)\*O"
+returns the public key for a specified principal name
+...\" 
+.LI "\*Lname(\|)\*O"
+Returns the name of the policy.
+...\" 
+.LI "\*Lestablish_trustbase(\|)\*O"
+Creates a trust base.
+...\" 
+.LI "\*Ldelete_trustbase(\|)\*O"
+Deletes a trust base.
+...\" 
+.LI "\*Ldelete_keyinfo(\|)\*O"
+Deletes a \*Lkeyinfo\*O handle.
+...\" 
+.LI "\*Lget_key_count(\|)\*O"
+Returns the number of keys a \*Lkeyinfo\*O handle
+contains.
+...\" 
+.LI "\*Lget_key_data(\|)\*O"
+Retrieves an individual key.
+...\" 
+.LI "\*Lget_key_trust(\|)\*O"
+Returns the type of trust established for a specific key.
+...\" 
+.LI "\*Lget_key_certifier_count(\|)\*O"
+Returns the number of certifiers in the trust path that certified a key.
+...\" 
+.LI "\*Lget_key_certifier_info(\|)\*O"
+Returns information about a specific certifier of a key.
+...\" 
+.LE
+...\" 
+.P
+The \*Lpkc_policy_t\*O structure also contains the following data fields:
+...\" 
+...\" 
+.ML
+.LI
+a certificate version number
+...\" 
+.LI
+an object identifier (OID) identifying the policy module
+...\" 
+.LE
+...\" 
+...\" 
+.P
+Policy modules, similarly to signature algorithms (cryptographic
+modules), are identified by object identifiers (the character string returned
+by \*Lname(\|)\*O is intended for use in diagnostic or auditing messages).
+...\" 
+.P
+Also similarly to cryptographic modules, there are two ways in which
+cryptographic modules can be accessed: either by a single call to which the
+identifying OID is passed (this is the recommended method); or by calling
+\*Lpkc_plcy_lookup_policy(3sec)\*O and then (for example)
+the module's \*L(*retrieve_key)(\|)\*O routine to obtain the
+public key (a list of the OIDs of all currently registered policy modules can be
+obtained by calling \*Lpkc_plcy_get_registered_policies(\|)\*O).
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Registering a Policy Module"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+You must implement the following routines in any policy module:
+...\" 
+...\" 
+...\" 
+.VL 2i
+...\" 
+.LI "\*Lname(\|)\*O"
+Returns the name of the policy.
+...\" 
+.LI "\*Lestablish_trustbase(\|)\*O"
+Creates a trust base, which is a policy-specific data structure
+based on the initial set of trusted keys.
+...\" 
+.LI "\*Lretrieve_keyinfo(\|)\*O"
+Given a trust base, returns a handle to keys for a specific principal.
+...\" 
+.LI "\*Ldelete_trustbase(\|)\*O"
+Deletes a trust base.
+...\" 
+.LI "\*Ldelete_keyinfo(\|)\*O"
+Deletes a \*Lkeyinfo\*O handle.
+...\" 
+.LI "\*Lget_key_count(\|)\*O"
+Given a \*Lkeyinfo\*O handle, returns the number of keys it
+contains.
+...\" 
+.LI "\*Lget_key_data(\|)\*O"
+Retrieves an individual key from a \*Lkeyinfo\*O handle
+...\" 
+.LI "\*Lget_key_trust(\|)\*O"
+Returns the type of trust established for a specific key, and
+the purpose(s) for which that trust applies.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.P
+The following policy routines are optional:
+...\" 
+...\" 
+...\" 
+.VL 2i
+...\" 
+.LI "\*Lopen(\|)\*O"
+.LI "\*Lclose(\|)\*O"
+These routines perform any initialization and/or finalization tasks required
+by the module.
+...\" 
+.LI "\*Lget_key_certifier_count(\|)\*O"
+This routine is required only for policies that return
+\*LCERTIFIED_TRUST\*O keys; it returns the number of
+certifiers in the trust path that certified a key.
+...\" 
+.LI "\*Lget_key_certifier_info(\|)\*O"
+This routine is required if the module implements
+\*Lget_key_certifier_count(\|)\*O. It returns information about
+a specific certifier with the certification path of a specific key.
+Certifier 0 is the immediate certifier of the key; certifier 1 is the CA that
+certified certifier 0, and so on.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.P
+Once you have implemented all necessary routines for you module, you must
+create a \*Lpkc_policy_t\*O structure containing their entrypoints.
+Unimplemented routines' entrypoints should be specified as \*LNULL\*O.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Registering the module"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The module is registered by calling the registration function and passing it
+a \*Lpkc_policy_t\*O structure, which contains the entry points for the module
+routines described above:
+...\" 
+...\" 
+.DS
+    \*Lpkc_plcy_register_policy(\|)\*O
+.DE
+...\" 
+.zZ "R1.2.2, new chapter"
+...\" 
+...\" ----------------------------------------------------------------------
+...\" ----------------------------------------------------------------------
+...\" ----------------------------------------------------------------------

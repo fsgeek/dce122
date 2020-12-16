@@ -1,0 +1,2562 @@
+%!PS-Adobe-
+%%DocumentFonts: (atend)
+%%Endcomments
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	PS macros
+%%%%%%%%%%%%%%%%%%%%%%%%%
+/bdf {bind def} bind def
+/xdf {exch def} bdf
+/ldd {load def} bdf
+/msg { print (\n) print flush} bdf
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	global constants and variables
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%	Version
+%
+/PS_MAJOR	4 def	%Nov 3, 1987
+/PS_MINOR	0 def	%Nov 3, 1987
+/PS_SUB	0 def	%Nov 3, 1987
+
+%
+%	Drawing modes
+%
+/PL_SET 	0 def		%ink black
+/PL_CLEAR	1 def		%ink white
+/PL_XOR		2 def		%ink by xor'ing source onto page - can PS do it?
+/PL_REPLACE	3 def		%ink by replacing, e.g. overlayed bitmaps
+
+%
+%	 Default global PS state 
+%
+/drawmode	PL_SET def	%default is ink black
+/docutmark	false def	%should cropping marks be printed
+/invertmatrix [1 0 0 -1 0 0] def
+
+%
+%	Font limits
+%
+/MAXFONT 1024 def
+/MAXFONT1 MAXFONT 1 sub def
+/MAXCHARS 128 def	%per font
+/MAXCHARS1 MAXCHARS 1 sub def
+/VMHEADROOM 1000 def
+/BOGUSWIDTH -1 def
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	Memory Defs
+%%%%%%%%%%%%%%%%%%%%%%%%%
+/mesg 64 string def
+/charname 12 string def
+/istr 3 string def
+/ILEncoding 256 array def	% New global Encoding vector.
+/ILSymBEnc 256 array def	% SymbolB Encoding vector.
+/trashheap 1024 string def
+/emsg1 256 string def
+/emsg2 256 string def
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	Job Utilities
+%%%%%%%%%%%%%%%%%%%%%%%%%
+/inch {72 mul} bdf
+
+%/headerpage {
+%  %assumes standard PS state
+%  /y 11 def
+%  /nl {/y y .33 sub def 1 inch y inch moveto } bdf
+%  /#copies 1 def
+%  /Helvetica-Bold /ILhelvb ILEncoding ReEncode
+%  /ILhelvb findfont 18 scalefont setfont
+%  nl nl nl
+%  /nhlines hline length def
+%  nhlines 25 gt 
+%    {
+%      /lim nhlines 26 sub def 
+%      hline lim ((        ...)) put
+%    }
+%    { 
+%      /lim 0 def
+%    }
+%  ifelse
+%  nhlines 1 sub -1  lim { 
+%   hline exch get show nl
+%  } for
+%  /Helvetica findfont 8 scalefont setfont
+%  1 inch 1 inch moveto 
+%  (pl2ps )show PS_SUB PS_MINOR PS_MAJOR vershow
+%  emsg1 0 get 0 ne { 1 inch .75 inch moveto emsg1 show } if
+%  emsg2 0 get 0 ne { 1 inch .5 inch moveto emsg2 show } if
+%} bdf
+
+%/logme {
+%  (\tInterleaf::pl2ps ) print
+%  PS_SUB PS_MINOR PS_MAJOR verprint
+%  /nllines lline length def
+%  nllines 5 gt 
+%    {
+%      /lim nllines 5 sub def 
+%    }
+%    { 
+%      /lim 0 def
+%    }
+%  ifelse
+%  nllines 1 sub -1  lim { 
+%    (\tInterleaf::) print lline exch get print (\n) print
+%  } for
+%  flush 
+%} bdf
+
+%/verprint {
+%  10 mesg cvrs print (.) print 
+%  10 mesg cvrs print (.) print 
+%  10 mesg cvrs print (\n) print
+%} bdf
+%/vershow {
+%  10 mesg cvrs show (.) show 
+%  10 mesg cvrs show (.) show
+%  10 mesg cvrs show 
+%} bdf
+    
+%/versioncheck {
+%  /PL_MAJOR xdf
+%  /PL_MINOR xdf
+%  /PL_SUB xdf
+%  /doheader userdict /lline known def
+%  PL_MAJOR PS_MAJOR ne 
+%  PL_MINOR PS_MINOR ne or
+%  PL_SUB PS_SUB ne or {
+%    doheader {logme } if
+%    (\tInterleaf:: FATAL ERROR: pspro.ps and pl2ps versions do not agree.) msg
+%    (\tInterleaf:: pspro.ps version: \t) print
+%    PS_SUB PS_MINOR PS_MAJOR verprint
+%    (\tInterleaf:: pl2ps version: \t) print
+%    PL_SUB PL_MINOR PL_MAJOR verprint
+%    flush 
+%    doheader {headerpage } if
+%    ( FATAL ERROR. pspro version ) show
+%    PS_SUB PS_MINOR PS_MAJOR vershow
+%    ( does not agree with pl2ps version ) show 
+%    PL_SUB PL_MINOR PL_MAJOR vershow
+%    showpage
+%    quit 
+%  } if
+%} bdf
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	Graphics
+%%%%%%%%%%%%%%%%%%%%%%%%%
+/sw /setlinewidth ldd
+/m { /vpos xdf /hpos xdf } bdf %record pl current point, in rsu
+/v { /vpos xdf } bdf
+/h { /hpos xdf } bdf
+/pm /moveto ldd
+/as /lineto ldd % add segment 
+/av /moveto ldd % add vertex 
+%
+% startangle endangle xradius yradius rotation xcenter ycenter el
+%
+/el {
+  matrix currentmatrix 8 1 roll % save the CTM
+  translate rotate scale
+  0 0 1 5 -2 roll arc
+  setmatrix 			% restore CTM
+} bdf
+
+%
+% startangle endangle clockwise xrad yrad rotation xcenter ycenter addconic
+%
+/addconic {
+  matrix currentmatrix 9 1 roll	% save the CTM
+  translate rotate scale
+  0 0 1 6 -3 roll 1 eq {arc} {arcn} ifelse
+  setmatrix			% restore CTM
+} bdf
+
+%
+%	Draw current path
+%
+/dp40 {
+  1 setlinejoin 		% round line ends  
+  1 setlinecap 			% round line ends
+  setgray
+  stroke  
+} bdf 
+
+/dp {
+  gsave
+  1 setlinejoin                 % round line ends
+  1 setlinecap                  % round line ends
+  drawmode PL_CLEAR eq {1} {0} ifelse setgray %only support two modes
+  stroke
+  grestore
+} bdf
+
+%
+%	Pen pattern routines
+%
+/ALIGN_NONE 0 def
+/ALIGN_OPEN 1 def
+/ALIGN_CLOSE 2 def
+/PENPATWIDTHADJ [0 0 4 8 12 16 20] def	% WARNING these values are derived 
+					% by scaling widthadj[], defined
+					% in /usr/xops/lib/crt/scr/pens.c,
+					% by the same factor (.4) that the
+					% pen patterns were scaled when
+					% sent to printerleaf.
+/MINSCALE .1 def			% Do not scale pen pattern below 10%
+					% of original size.
+% 
+% Calulates length of current path. Ala cookbook.
+%
+/pathlength { 0 begin
+    flattenpath				% changes all curveto's to lineto's
+    /dist 0 def
+
+    { /yfirst xdf /xfirst xdf
+      /ymoveto yfirst def /xmoveto xfirst def}
+    { /ynext xdf /xnext xdf
+      /dist dist ynext yfirst sub dup mul
+	xnext xfirst sub dup mul add sqrt add def
+      /yfirst ynext def /xfirst xnext def}
+    {}
+
+    { /ynext ymoveto def /xnext xmoveto def
+      /dist dist ynext yfirst sub dup mul
+	xnext xfirst sub dup mul add sqrt add def
+      /yfirst ynext def /xfirst xnext def}
+    pathforall
+    dist
+    end
+} bdf
+/pathlength load 0 7 dict put
+
+/setpenpat { 0 begin		% define penpattern dictionary
+    /style xdf			% alignment style 
+    /width xdf
+    /pattern xdf
+
+    % 
+    % Adjust pattern for various pen widths.
+    %
+    /scaleup DPIx 300 div def		% Seybold hack!!!!
+    /indx width 1 add scaleup div 4 div cvi def	% Change width into an index
+    indx 1 gt indx 7 lt and {
+	/adj PENPATWIDTHADJ indx get def% Get ajustment for specified pen width
+	/adj adj scaleup mul def	% from predefined array PENPATWIDTHADJ
+					% and scale up to the resolution.
+	/indx 0 def
+	pattern {
+	    /iszero indx 2 mod def	% Add ajustment for pen width
+	    iszero 0 ne			% to just "off" phases of pattern.
+		{adj add /val xdf}
+		{/val xdf}
+	    ifelse
+	    pattern indx val put
+	    /indx indx 1 add def
+	} forall
+    } if
+
+    %
+    % Align pattern to pathlength.
+    %
+    /offset 0 def
+    /patternlen 0 def
+    /pathlen pathlength def		% Computes path length.
+    pattern				% Compute total len of repeating pattern
+	{patternlen add /patternlen xdf
+	} forall
+
+    style ALIGN_NONE eq {
+    } if
+    style ALIGN_CLOSE eq {		% from /usr/xops/lib/crt/scr/pens.c
+	/n pathlen patternlen div cvi def
+	/extralen pathlen cvi patternlen cvi mod def
+	/halfpatlen patternlen 2 div def
+	extralen halfpatlen gt {/n n 1 add def} if
+	n 0 eq {/n 1 def} if
+	/scale1 pathlen n patternlen mul div def
+	scale1 MINSCALE gt {
+	    /indx 0 def
+	    pattern {
+		scale1 mul /val xdf
+		val 0 eq {/val 1 def} if
+		pattern indx val cvi put
+		/indx indx 1 add def
+	    } forall
+	} if
+	/offset pattern 0 get 2 div round def
+    } if
+    style ALIGN_OPEN eq {		% from /usr/xops/lib/crt/scr/pens.c
+	/firstdash pattern 0 get def
+	/dashpct firstdash patternlen div def
+	/n pathlen patternlen div dashpct sub cvi def
+	/scale1 pathlen n dashpct add patternlen mul div def
+	/scale2 pathlen n dashpct add 1 add patternlen mul div def
+	/x scale2 1 sub abs def
+	/y scale1 1 sub abs def
+	x y lt {/scale1 scale2 def} if
+	scale1 MINSCALE gt {
+	    /indx 0 def
+	    pattern {
+		scale1 mul /val xdf
+		val 0 eq {/val 1 def} if
+		pattern indx val cvi put
+		/indx indx 1 add def
+	    } forall
+	    /offset 0 def
+	} if 
+    } if
+
+    pattern offset setdash
+    end
+} bdf
+/setpenpat load 0 50 dict put
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	Text handling
+%%%%%%%%%%%%%%%%%%%%%%%%%
+/s { 
+  /msp xdf
+  /stEnd xdf
+  /nsp xdf
+  /fstr xdf
+
+  hpos vpos moveto
+  msp -1 ne
+    {stEnd hpos sub fstr stringwidth pop sub nsp div 0 msp fstr widthshow}
+    {fstr show}
+  ifelse
+  /hpos stEnd def	%adjust idea of current point
+} bdf
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	Images
+%%%%%%%%%%%%%%%%%%%%%%%%%
+/ilr {
+  binary_mode
+    {
+     readstring
+     }
+    {
+     readhexstring
+    } ifelse
+} bdf
+
+/PL_bitmap { 0 begin
+  gsave
+  /vpix xdf
+  /hpix xdf
+
+  /nbytes hpix 15 add 16 idiv 2 mul def
+  /picstr nbytes string def
+  hpos vpos translate
+  nbytes 8 mul vpix false [1 0 0 1 0 0 ] 
+  {currentfile picstr 0 nbytes getinterval ilr pop}
+    imagemask
+  grestore
+  end
+} bdf
+/PL_bitmap load 0 4 dict put
+
+/PL_contone { 0 begin
+   gsave
+  /nbits xdf
+  /vpix xdf
+  /hpix xdf
+
+  /nbytes hpix nbits mul 15 add 16 idiv 2 mul def
+  /picstr nbytes string def
+  hpos vpos translate
+  hpix vpix nbits [1 0 0 1 0 0] 
+  {currentfile picstr 0 nbytes getinterval ilr pop }
+    image
+  grestore
+  end
+} bdf
+/PL_contone load 0 5 dict put
+
+/PL_image { 0 begin
+  gsave
+  /ho xdf	% upper left corner of image.
+  /vo xdf	%
+  /hh xdf	% Transformed upper right corner relative
+  /vh xdf	% to upper left corner.
+  /hv xdf	% Transformed lower left corner relative
+  /vv xdf	% to upper left corner.
+  /nbits xdf	% depth
+  /vpix xdf	% height
+  /hpix xdf	% width
+  /scfrq xdf	% screen frequency
+  /scang xdf	% screen angle
+  /mapsz xdf	% PL_MAP data size
+  /map xdf	% PL_MAP data
+
+  mapsz 0 ne
+  {
+    /mapsz mapsz 1 sub def
+    {map exch mapsz mul round cvi get} settransfer
+  } if 
+  scfrq 0 ne scang 0 ne and {
+    scfrq scang currentscreen 3 1 roll pop pop setscreen
+  } if
+  %
+  % allocate the largest amount of memory avail for reading image data...
+  %
+  /availmem vmstatus exch sub exch pop def
+  /datasize hpix nbits mul 7 add 8 idiv vpix mul def 
+  availmem 65535 gt {
+    /availmem 65535 def 
+  } if
+  datasize availmem lt
+  {
+    /picstr datasize string def
+  } {
+    /picstr hpix nbits mul 7 add 8 idiv string def 
+  } ifelse
+  ho vo translate
+  [hh vh hv vv 0 0] concat
+  nbits 1 eq mapsz 0 eq and{
+    hpix vpix false [hpix 0 0 vpix 0 0]
+    {currentfile picstr ilr pop }
+      imagemask
+  } {
+    hpix vpix nbits [hpix 0 0 vpix 0 0]
+    {currentfile picstr ilr pop }
+      image
+  } ifelse
+  grestore
+  end
+} bdf
+/PL_image load 0 16 dict put
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	FONT GOODIES
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%	ReEncodeSubset -map character set a'la Interleaf
+%	
+%	snarfed from PS manual, example 22
+%	At the moment, it seems like all overlays will start at char 0,
+%		but we might as well be general
+/reencodesubdict 12 dict def
+/ReEncode {
+%
+%	Copy basefontdict into newfont except for the FID entry.
+%	First create a new font dictionary the size of basefontdict
+%	plus 2 for a FID entry which definefont will provide.
+%
+  reencodesubdict begin
+  /newencoding xdf
+  /newfontname xdf
+  /basefontname xdf
+	
+  /basefontdict basefontname findfont def
+  /newfont basefontdict maxlength 2 add dict def
+  basefontdict { 		% Copy basefontdict to newfont 
+    exch dup /FID ne {		% except for the FID entry.
+      exch newfont 3 1 roll put	% Copy entry into newfont.
+    } {
+      pop pop			% Remove entry from stack if equal FID.
+    } ifelse
+  } forall
+  newfont /FontName newfontname put
+  newencoding -1 ne {
+    newfont /Encoding newencoding put
+  } if
+  newfontname newfont definefont pop
+  end
+} bdf
+
+%
+%	Now make a global Encoding vector
+%
+/insertcharnum { 0 begin	% Put /char# into entry i
+  /encoding xdf			% of new encoding vector as
+  /i xdf			% character names.
+
+  (char) charname copy pop
+  i istr cvs pop
+  charname 4 istr  putinterval
+  encoding i charname cvn  put
+  end
+} bdf
+/insertcharnum load 0 2 dict put
+
+ILEncoding 0
+[
+/Aacute /Acircumflex /Adieresis /Agrave /Aring /Atilde /Ccedilla /Eacute
+/Ecircumflex /Edieresis /Egrave /Iacute /Icircumflex /Idieresis /Igrave /Ntilde
+/Oacute /Ocircumflex /Odieresis /Ograve /Otilde /Scaron /Uacute /Ucircumflex
+/Udieresis /Ugrave /Ydieresis /Zcaron /char28 /char29 /char30 /char31
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /hyphen /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /quotedblleft
+/aacute /acircumflex /adieresis /agrave /aring /atilde /ccedilla /eacute
+/ecircumflex /edieresis /egrave /iacute /icircumflex /idieresis /igrave /ntilde
+/oacute /ocircumflex /odieresis /ograve /otilde /scaron /uacute /ucircumflex
+/udieresis /ugrave /ydieresis /zcaron /char156 /char157 /char158 /char159
+/char160 /exclamdown /cent /sterling /fraction /yen /florin /section
+/currency /quotesingle /quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl
+/char176 /endash /dagger /daggerdbl /periodcentered /char181 /paragraph /bullet
+/quotesinglbase /quotedblbase /quotedblright /guillemotright /ellipsis /perthousand /char190 /questiondown
+/char192 /grave /acute /circumflex /tilde /macron /breve /dotaccent
+/dieresis /char201 /ring /cedilla /char204 /hungarumlaut /ogonek /caron
+/emdash /char209 /char210 /char211 /char212 /char213 /char214 /char215
+/char216 /char217 /char218 /char219 /char220 /char221 /char222 /char223
+/char224 /AE /char226 /ordfeminine /char228 /char229 /char230 /char231
+/Lslash /Oslash /OE /ordmasculine /char236 /char237 /char238 /char239
+/char240 /ae /char242 /char243 /char244 /dotlessi /char246 /char247
+/lslash /oslash /oe /germandbls /char252 /char253 /char254 /char255
+] putinterval
+%
+%	Create a dictionary entry in "fontmap" indexed by
+%	PL fontnames with PS names and sizes as entries
+%	a call is of the form:    /timsps10 /ILtims 10 map
+%
+/map {
+  2 dict begin
+  /pssize xdf
+  /psname xdf
+  fontmap exch currentdict put	% install it, PL_name is the index
+  end
+} bdf
+
+%
+%	FONTWARE FRACTIONAL POINTSIZE HACK
+%	This is a dictionary with one entry -- the current pointsize.
+%	setcurrsize sets this size during each declaration of a down-
+%	loaded font. It is subsequently referenced in the BuildChar
+%	routines of Fontware outlines hacked for fractional pointsizes.
+%
+/currsize 1 dict def
+/setcurrsize { currsize begin /val xdf end } bdf
+
+%
+%	Symbol_B character encoding vector. Encodes IL char num to PS
+%	symbol names.
+%
+ILSymBEnc 32
+[
+/space /logicalor /arrowright /arrowdblleft /arrowdblup 
+/arrowdblright /lozenge /arrowhorizex /angleleft /registersans
+/Upsilon1 /plusminus /second /angle /greaterequal
+/radical /ellipsis /Ifraktur /spade /lessequal
+/minute /degree /fraction /florin /infinity
+/approxequal /integral /propersuperset /parenrightbt /arrowup
+/bracketrighttp /aleph /arrowdblboth /bracerightbt /integralbt
+/notsubset /bracketleftbt /trademarksans /bracelefttp /braceleftmid
+/braceleftbt /bracketlefttp /braceex /apple /angleright
+/parenrightex /parenrighttp /arrowdown /divide /element
+/summation /bracketleftex /parenlefttp /parenleftbt /dotmath
+/copyrightsans /integralex /parenleftex /integraltp /registerserif 
+/intersection /trademarkserif /arrowdbldown /gradient /logicalnot
+/reflexsubset /equivalence /propersubset /partialdiff /arrowboth
+/circlemultiply /heart /bracketrightex /bracerightmid /emptyset
+/bracketrightbt /Rfraktur /proportional /reflexsuperset /carriagereturn
+/notequal /notelement /diamond /club /bracerighttp
+/arrowleft /weierstrass /bullet /circleplus /multiply
+/arrowvertex /copyrightserif /union /product /logicaland
+] putinterval
+0 1 32 {ILSymBEnc insertcharnum } for
+127 1 255 {ILSymBEnc insertcharnum } for
+
+/declareFont { 0 begin
+    /PLnum xdf
+    /PLname xdf 
+
+    { % if useNativeFont
+    	PSfontobj PLnum
+           fontmap PLname get dup 
+	    /psname get findfont 
+	    invertmatrix makefont exch
+	%	FONTWARE FRACTIONAL POINTSIZE HACK
+	%   ORIGINAL CODE:
+	%   /pssize get DPIx 72 div mul scalefont 
+	%   HACK CODE:
+	    /pssize get dup setcurrsize DPIx 72 div mul scalefont
+	put
+    } { % else NonNativeFont
+	PSfontobj PLnum % into the Plnum'th object make a dictionary:
+	10 dict dup begin
+	    /FontType 3 def
+	    % scale 300 dpi downloaded fonts to target resolution (1270/300).
+	    /FontMatrix [DPIx 300 div 0 0 DPIy 300 div 0 0] def
+	    /FontBBox [0 0 0 0] def	%updated by LoadGlyph
+	    /Encoding ILEncoding def
+	    /BuildChar { 0 begin
+		/char xdf
+		/fontdict xdf
+		/charname fontdict /Encoding get char get def
+		/charinfo fontdict /CharData get charname get def
+		/wx charinfo 0 get def
+		charinfo 0 get BOGUSWIDTH eq 
+		{puterrchar} 
+		{ /charbbox charinfo 1 4 getinterval def
+		  wx 0 charbbox aload pop setcachedevice	
+		  charinfo 5 get charinfo 6 get true
+		  fontdict /imagemaskmatrix get
+		    dup 5 charinfo 8 get put
+		    dup 4 charinfo 7 get  put
+		  charinfo 9  get
+		  imagemask
+		}ifelse
+	    end %BuildChar dict
+	    }def %BuildChar
+	    /BuildChar load 0 7 dict put
+	    /imagemaskmatrix [1 0 0 1 0 0] def %scale factors irrelevant
+	    /CharData MAXCHARS dict def	% CharData is built by LoadGlyph.
+	end %font dictionary defn
+	PLname exch definefont  put
+
+	%load a bogus space character in case no one does
+	PSfontobj PLnum get /CharData get 
+		/space [16 0 0 1 1 16 1 0 0 [<00>] cvx ] put
+    } ifelse % useNativeFonts
+    end
+} def
+/declareFont load 0 3 dict put
+
+/numLoadEmptyGlyph { 0 begin
+	% by number, load font data for char with width but no bits
+	/charno xdf
+	/fontno xdf
+	/w xdf
+	w fontno PSfontobj fontno get /Encoding get charno get
+	LoadEmptyGlyph
+	end
+} bdf
+/numLoadEmptyGlyph load 0 3 dict put
+
+/LoadEmptyGlyph { 0 begin
+	% by name, load font data for char with width but no bits
+	
+	/charname xdf
+	/fontno xdf
+	/w xdf
+	PSfontobj fontno get  /CharData get
+	    charname [w 0 0 1 1 w 1 0 0 [<00>] cvx ] put
+	end
+} bdf
+/LoadEmptyGlyph load 0 3 dict put
+
+/puterrchar {
+	PSfontobj errfontno  get dup 
+	/BuildChar get  errcharno exch exec 
+	(\tInterleaf::out of VM loading bitmap (?). Try breaking up document\n) 
+		dup print flush
+	emsg1 copy pop
+} bdf
+
+/timeToQuit {
+%	initialstate restore
+	(\tInterleaf::completely out of memory. \n\tTry breaking up the document \n) 
+		dup print flush
+	emsg2 copy pop
+%	headerpage showpage
+	stop
+} bdf
+
+/LoadGlyph { 0 begin
+	% load a glyph into the CharData entry of PSFontobj[fontno]
+	% the entry is in the position implied by charno
+	% and with the metrics height, width, lsb
+
+	/charno xdf
+	/fontno xdf
+	/height xdf
+	/vadj xdf
+	/width xdf
+	/hsize xdf
+	/lsb xdf
+
+	/noVMHEADROOM vmstatus exch sub exch pop dup
+		VMHEADROOM 2 idiv lt {timeToQuit} if
+		VMHEADROOM lt 
+		{true } {false} ifelse def
+	/nbytes hsize 15 add 16 idiv 2 mul height mul def	
+	noVMHEADROOM not  {/glyph nbytes string def } if
+	currentfile noVMHEADROOM 
+		{trashheap 0 nbytes getinterval } {glyph} ifelse 
+		readhexstring pop pop
+	
+	   %actually, we pass bitmap rounded to 16 bits wide:
+	/hsize hsize 15 add 16 idiv 16 mul def
+	
+	/thefont PSfontobj fontno get	def %the font dict
+		% if we are loading glyphs, PSfontobj is an array of
+		% dictionaries each of which already has the form
+		% of Program 21, PS T&C
+	/charname thefont /Encoding get charno get def %access by name !
+
+	%now make the parameters for the CharData
+	% 1 unit = 1 pixel
+	
+		
+	/tx lsb  neg def
+	/ty vadj neg def
+	/lly  height vadj add def	%lower left of bbox
+	/llx  lsb def
+	/urx hsize lsb add def %upper right
+	/ury vadj def
+	thefont /CharData get charname 
+	    noVMHEADROOM
+	    { [BOGUSWIDTH] }
+	    {[width llx lly urx ury hsize height tx ty [glyph] cvx ]} ifelse
+	put
+	end
+} bdf
+/LoadGlyph load 0 20 dict put
+
+/sf { PSfontobj exch get setfont } bdf
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	FILL PATTERNS
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%	Fill patterns by clipping a rectangle filled with characters
+%
+%	IL patterns are presently on 32x32 tiles, even if there is a subtile
+%	which would define the whole pattern. However, we attempt generality
+%	here grayArray determines whether to use grayscale for some patterns
+%	even if not using native patterns
+%
+/patternstring	1 string def
+/grayArray [	%indexed by position in IL pattern font, -1 means not grayscale 
+		% others are fraction of  WHITE
+	-1	-1	-1	-1	-1	-1	-1	-1
+	-1	-1	-1	-1	-1	1	.92	.8	
+	.65	0	.5	.35	.2	] def
+/patgrayArray [ %when using grayscale as complete simulation
+	0	.12	.22	.32	.42	.52	.62	.72
+	.82	.92	.17	.27	.37	1	.92	.8	
+	.65	0	.5	.35	.2	] def
+
+%
+%	THE APPLICATION CALLS:
+%
+/fillpatset40 {			% fillpatset for 4.0
+    /patchar xdf
+    /pfindex xdf
+    /patIsGray false def	% tining is done by color lib
+} bdf
+
+/fillpatset {			% fnum patchar fillpatset
+    /patchar xdf		% selects pattern ch in font fnum
+    /pfindex xdf
+    patgraylevel dup 0 ge {	% The extra call to patgraylevel
+	/patIsGray true def	% is needed because PS computes
+	/patgray xdf		% both operands of an "and" operator
+    } {				% even if the first is false.
+	pop /patIsGray false def
+    } ifelse
+} bdf
+
+/fp {
+    /useNativePattern xdf
+
+    gsave
+    pfindex 0 eq patchar 0 eq and {		% special case 
+	/patIsGray true def
+	/patgray 0 def
+    } if
+
+    patIsGray {
+	/oldgray currentgray def
+	patgray setgray
+	eofill
+	oldgray setgray
+    } {
+	useNativePattern {			% native non gray fill patterns
+	    patchar 0 showpattern
+	} {
+	    currentfont 
+	    PSfontobj pfindex get setfont
+	    pfill
+	    dup null ne {setfont} {pop} ifelse
+	} ifelse
+    } ifelse
+    grestore
+} bdf
+
+%
+%	Private implementation procedures
+%
+
+%	Before invoking pfill, you must have set the pattern
+%	font as the current font.
+%	pfill will cause a newpath, just as do fill and stroke.
+%
+/pfill {
+  gsave 1 setgray eofill grestore % must fill on white
+  setupfactors setupregion blastchars
+  newpath
+} bdf
+
+/setupfactors {
+  0 setgray
+  [] 0 setdash
+  patternstring 0 patchar put
+  patternstring stringwidth pop /paty exch def /patx paty def
+} bdf
+
+/setupregion {
+  eoclip	
+  pathbbox
+    /ry exch floor  def
+    /rx exch floor  def
+    /ly exch ceiling cvi
+      dup 0 lt{paty sub}if cvi		%We need (lx,ly) modulo (patx,paty)
+      dup paty ceiling cvi mod  sub  def	%in device space coords.
+    /lx exch ceiling cvi
+      dup 0 lt{patx sub}if cvi
+      dup patx ceiling cvi mod  sub  def
+
+    /ry ry paty add def		%we are painting downwards as positive
+    /ly ly paty sub def
+
+  newpath
+} bdf
+
+/blastchars {
+  /#chars  rx lx sub patx div ceiling cvi  def
+  ly paty ry  {
+    lx exch moveto
+    #chars{ patternstring show} repeat
+  }for
+} bdf
+
+/patgraylevel {
+  patchar grayArray length ge {
+    -1
+  } {
+    grayArray patchar get
+  } ifelse
+} bdf
+
+% 
+%	Non gray Native fill pattern. Right out of the PS cook book page 192.
+%
+/setuserscreendict 22 dict def
+setuserscreendict begin
+ /tempctm matrix def
+ /temprot matrix def
+ /tempscale matrix def
+
+ /concatprocs
+  {/proc2 exch cvlit def
+   /proc1 exch cvlit def
+   /newproc proc1 length proc2 length add
+    array def
+   newproc 0 proc1 putinterval
+   newproc proc1 length proc2 putinterval
+   newproc cvx
+  } bdf
+
+  /resmatrix matrix def
+  /findresolution
+   {72 0 resmatrix defaultmatrix dtransform
+    /yres xdf /xres xdf
+    xres dup mul yres dup mul add sqrt
+   } bdf
+end
+
+/setuserscreen
+{setuserscreendict begin
+   /spotfunction xdf
+   /screenangle xdf
+   /cellsize xdf
+
+   /m tempctm currentmatrix def
+   /rm screenangle temprot rotate def
+   /sm cellsize dup tempscale scale def
+
+   sm rm m m concatmatrix m concatmatrix pop
+   1 0 m dtransform /y1 xdf /x1 xdf
+   /veclength x1 dup mul y1 dup mul add sqrt def
+   /veclength veclength DPIx 72 div mul def
+   /frequency findresolution veclength div def
+   /newscreenangle y1 x1 atan def
+   m 2 get m 1 get mul m 0 get m 3 get mul sub 0 gt
+   {{neg}
+    /spotfunction load concatprocs
+    /spotfunction xdf
+   } if
+
+   frequency newscreenangle /spotfunction load setscreen
+  end % setuserscreendict begin
+} bdf
+
+/setpatterndict 32 dict def
+setpatterndict begin
+ /bitison
+ {/ybit xdf /xbit xdf
+  /bytevalue bstring ybit bwidth mul xbit 8 idiv add get def
+  /mask 1 7 xbit 8 mod sub bitshift def
+  bytevalue mask and 0 ne
+ } bdf
+end % setpatterndict begin
+
+/bitpatternspotfunction
+{setpatterndict begin
+  /y xdf /x xdf
+  /xindex x 1 add 2 div bpside mul cvi def
+  /yindex y 1 add 2 div bpside mul cvi def
+  xindex yindex bitison
+  {/onbits onbits 1 add def 1 }
+  {/offbits offbits 1 add def 0 }
+  ifelse
+  end % setpatterndict begin
+} bdf
+ 
+/setpattern
+ {setpatterndict begin
+  /cellsz xdf
+  /angle  xdf
+  /bwidth xdf
+  /bpside xdf
+  /bstring xdf
+
+  /onbits 0 def /offbits 0 def
+  cellsz angle /bitpatternspotfunction load setuserscreen
+  {} settransfer
+  offbits offbits onbits add div setgray
+  end % setpatterndict begin
+ } bdf
+   
+/showpattern
+{/ang xdf
+ /patnum xdf
+
+ patternarray patnum get 32 4 ang 72 300 32 div div setpattern
+ gsave eofill grestore
+} bdf
+
+/patternarray [
+<>
+<
+00000000 60c00030 60c00030 00000000 00000000 060c0003 060c0003 00000000
+00000000 3060c000 3060c000 00000000 00000000 03060c00 03060c00 00000000
+00000000 003060c0 003060c0 00000000 00000000 0003060c 0003060c 00000000
+00000000 c0003060 c0003060 00000000 00000000 0c000306 0c000306 00000000
+>
+<
+00000000 0c000306 0c000306 00000000 00000000 c0003060 c0003060 00000000
+00000000 0003060c 0003060c 00000000 00000000 003060c0 003060c0 00000000
+00000000 03060c00 03060c00 00000000 00000000 3060c000 3060c000 00000000
+00000000 060c0003 060c0003 00000000 00000000 60c00030 60c00030 00000000
+>
+<
+00030c00 00030c00 00000000 00000000 000030c0 000030c0 00000000 00000000
+0000030c 0000030c 00000000 00000000 c0000030 c0000030 00000000 00000000
+0c000003 0c000003 00000000 00000000 30c00000 30c00000 00000000 00000000
+030c0000 030c0000 00000000 00000000 0030c000 0030c000 00000000 00000000
+>
+<
+0030c000 0030c000 00000000 00000000 030c0000 030c0000 00000000 00000000
+30c00000 30c00000 00000000 00000000 0c000003 0c000003 00000000 00000000
+c0000030 c0000030 00000000 00000000 0000030c 0000030c 00000000 00000000
+000030c0 000030c0 00000000 00000000 00030c00 00030c00 00000000 00000000
+>
+<
+00000000 00000707 00000707 00000707 00000000 00007070 00007070 00007070
+00000000 00000707 00000707 00000707 00000000 00007070 00007070 00007070
+00000000 00000707 00000707 00000707 00000000 00007070 00007070 00007070
+00000000 00000707 00000707 00000707 00000000 00007070 00007070 00007070
+>
+<
+00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+00000000 0e0e0e0e 0e0e0e0e 0e0e0e0e 00000000 e0e0e0e0 e0e0e0e0 e0e0e0e0
+00000000 0e0e0e0e 0e0e0e0e 0e0e0e0e 00000000 e0e0e0e0 e0e0e0e0 e0e0e0e0
+>
+<
+cccc0ccc cccc0ccc 00000000 00000000 cccc0ccc cccc0ccc 00000000 00000000
+cccc0ccc cccc0ccc 00000000 00000000 00000000 00000000 00000000 00000000
+0ccccccc 0ccccccc 00000000 00000000 0ccccccc 0ccccccc 00000000 00000000
+0ccccccc 0ccccccc 00000000 00000000 00000000 00000000 00000000 00000000
+>
+<
+88880888 88880888 00000000 00000000 88880888 88880888 00000000 00000000
+88880888 88880888 00000000 00000000 00000000 00000000 00000000 00000000
+08888888 08888888 00000000 00000000 08888888 08888888 00000000 00000000
+08888888 08888888 00000000 00000000 00000000 00000000 00000000 00000000
+>
+<
+00000308 00000308 00040308 00040398 000c01d0 007e01f8 01cb80fc 0309803e
+0618802f 06108027 06108063 07100843 03b01843 03e01046 01f018c6 00781c9c
+007c07f0 005e0080 004e0180 00c60100 10860100 30860000 208c0000 318c0000
+39380002 0fe00002 01000006 0300003f c20000e5 c2000184 40000304 4000030c
+>
+<
+00007618 00003c70 00003fe0 00000f80 00000800 00040800 00041800 000c1000
+00081000 007e0000 01db0000 03138000 06138000 06310000 0c200000 0c200010
+18600010 18400030 18400020 18c001f8 1880076c 1c810c4e 1d86184e 0f1c18c4
+0ff83080 03e03080 02006180 02006100 06006100 04006300 04006200 00007204
+>
+<
+00000180 00000180 00000000 00000000 00000198 00000198 00000000 00000000
+00000198 00000198 00000000 00000000 00000198 00000198 00000000 00000000
+00000198 00000198 00000000 00000000 19999998 19999998 00000000 00000000
+01999998 01999998 00000000 00000000 00000000 00000000 00000000 00000000
+>
+<
+00000400 00000000 00000100 00000180 00000000 00000000 00000190 00000198
+00000000 00000000 00000198 00000198 00000000 00000000 00000998 00000998
+00000000 00000000 00001998 00019990 40000000 00000000 19999980 09999980
+00000000 00000000 01999800 00999000 00000000 00000000 00000000 00000000
+>
+] def
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	Page
+%%%%%%%%%%%%%%%%%%%%%%%%%
+/bop  {/pagestate save def  } bdf
+/eop  {docutmark {cutmark} if showpage pagestate restore } bdf %prints N copies
+
+%
+% 	Define clipping path
+%
+/clp {initclip newpath av as as as closepath clip } bdf
+
+%
+%	Cutting marks for typsetter paper
+%
+/cutmark { 0 begin
+  /pw DPIx 40 div def		% pen width
+  /pw2 pw 2 div def
+  /lnx DPIx 4 div def
+  /lny DPIy 4 div def
+
+  initclip
+  pw sw
+  /lnx4 lnx 4 div def
+  [lnx lnx4 sub lnx4 2 mul] 0 setdash
+  newpath
+  pw2 neg pw2 neg translate
+  lnx neg 0 av lnx 0 as
+  0 lny neg av 0 lny as
+  PSpagewidth pw add 0 translate
+  lnx neg 0 av lnx 0 as
+  0 lny neg av 0 lny as
+  0 PSpagelength pw add translate
+  lnx neg 0 av lnx 0 as
+  0 lny neg av 0 lny as
+  PSpagewidth pw add neg 0 translate
+  lnx neg 0 av lnx 0 as
+  0 lny neg av 0 lny as
+  0.0 dp
+  end
+} bdf
+/cutmark load 0 5 dict put
+%(pspro.ps version 4.0.0 download complete.\n) print flush
+%%EndProlog
+%!
+%	InterLeaf to Postscript fontname mapping
+%
+/fontmap 8 dict def
+	/Ops6 /ILtims 6 map
+	/Ops7 /ILtims 7 map
+	/Ops8 /ILtims 8 map
+	/timsps10 /ILtims 10 map
+	/timsps10b /ILtimsb 10 map
+	/timsps14b /ILtimsb 14 map
+	/timsps18b /ILtimsb 18 map
+	/timsps24b /ILtimsb 24 map
+%
+%	Create and ReEncode the following fonts.
+%
+/Times-Roman /ILtims ILEncoding ReEncode
+/Times-Bold /ILtimsb ILEncoding ReEncode
+%!
+% >> pl2ps version 4.0.0
+%0 0 4 versioncheck
+%/hline 3 array def
+%hline 2 (Document: rpcfig.doc ) put
+%hline 1 (Last saved on: Sat Aug 14 16:41:03 1992 ) put
+%hline 0 (Printed on: Sat Aug 14 16:41:39 1992 ) put
+%/lline 3 array def
+%lline 2 (Document: rpcfig.doc ) put
+%lline 1 (Last saved on: Sat Aug 14 16:41:03 1992 ) put
+%lline 0 (Printed on: Sat Aug 14 16:41:39 1992 ) put
+%logme
+%letter
+/initialstate save def
+/PSpagelength 10795 def
+/PSpagewidth 13970 def
+/DPIx 1270 def /DPIy 1270 def
+72 DPIx div 72 DPIy div neg scale
+%Set page orientation
+90 rotate
+13970 neg 10795 neg translate
+/PSfontobj 37 array def
+/binary_mode false def
+bop
+0 10795 13970 10795 13970 0 0 0 clp
+true /timsps10 5 declareFont
+5 sf
+/drawmode PL_SET def
+8315.0 558.0 m
+4190.0 h
+64.0 h
+8315.0 11340.0 m
+4014.0 h
+0 setgray
+<b1203120b1> 2 4366 32 s
+64.0 h
+true /timsps18b 6 declareFont
+6 sf
+0.0 10542.0 m
+true /timsps14b 7 declareFont
+7 sf
+6693.0 489.0 m
+0 setgray
+<7270635f635f617574686e5f6c6576656c5f706b745f707269766163792029> 1 10167 32 s
+5 sf
+2626.0 65.0 m
+0 setgray
+<20> 1 2670 32 s
+0.0 0.0 m
+33.0 sw
+newpath
+3352 3115 av
+9573 3115 as
+9573 3115 as
+9573 3877 as
+3352 3877 as
+closepath
+[] 0 setdash
+dp
+true /timsps10b 8 declareFont
+8 sf
+10166.0 3623.0 m
+0 setgray
+<7061636b6574> 0 10665 -1 s
+10166.0 3792.0 m
+0 setgray
+<686561646572> 0 10684 -1 s
+7286.0 3708.0 m
+0 setgray
+<6c656e> 0 7511 -1 s
+/drawmode PL_CLEAR def
+0.0 0.0 m
+16.0 sw
+newpath
+6523 7721 av
+9798 7721 as
+dp
+/drawmode PL_SET def
+33.0 sw
+newpath
+8000 5995 av
+8000 6334 as
+dp
+7068.0 6249.0 m
+0 setgray
+<6c6576656c> 0 7410 -1 s
+8339.0 h
+0 setgray
+<63757272656e745f6b6579> 0 9258 -1 s
+0.0 0.0 m
+newpath
+6523 5995 av
+9573 5995 as
+9573 5995 as
+9573 6334 as
+6523 6334 as
+closepath
+dp
+16.0 sw
+newpath
+3473 7975 av
+9658 7975 as
+9658 7975 as
+9658 8314 as
+3473 8314 as
+closepath
+dp
+4659.0 8229.0 m
+0 setgray
+<2873657175656e6365206e756d6265722c20706b745f636b73756d2920656e637279707465642077697468204b6579> 5 8533 32 s
+6269.0 8960.0 m
+0 setgray
+<637263b13332206f6620706b742068647220616e64207061636b657420626f64792028706c61696e7465787429> 7 9690 32 s
+3473.0 8822.0 m
+0 setgray
+<73657175656e6365206e6f2e206f6620746865> 3 4891 32 s
+3473.0 8992.0 m
+0 setgray
+<63616c6c2028696e636c7564696e6720646972656374696f6e2062697429> 3 5573 32 s
+0.0 0.0 m
+newpath
+6862 8822 av
+6386 8340 as
+dp
+true /Ops6 9 declareFont
+0 0 fillpatset
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+6770 8780 av
+6862 8822 as
+6862 8822 as
+6819 8730 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+6862 8822 av
+closepath
+16.0 sw
+newpath
+4829 8568 av
+5142 8262 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+4872 8476 av
+4829 8568 as
+4829 8568 as
+4921 8525 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+4829 8568 av
+closepath
+3643.0 8229.0 m
+0 setgray
+<38206279746573> 1 4166 32 s
+6 sf
+254.0 489.0 m
+0 setgray
+<7270635f6b72625f7072655f73656e6420616e64207270635f6b72625f64675f656e6372797074> 2 6243 32 s
+8 sf
+5761.0 5741.0 m
+0 setgray
+<6c6173742038206279746573> 2 6592 32 s
+0.0 0.0 m
+16.0 sw
+newpath
+9827 3199 av
+9912 3284 as
+dp
+newpath
+9912 3454 av
+9996 3538 as
+dp
+newpath
+9912 3623 av
+9996 3538 as
+dp
+newpath
+9827 3877 av
+9912 3792 as
+dp
+newpath
+9912 3284 av
+9912 3454 as
+dp
+newpath
+9912 3623 av
+9912 3792 as
+dp
+newpath
+-89.8305 270.1695 
+169 169 0.0000 
+12029 5741 el
+dp
+true /timsps24b 10 declareFont
+10 sf
+11945.0 5826.0 m
+0 setgray
+<2b> 0 12186 -1 s
+0.0 0.0 m
+33.0 sw
+newpath
+12024 6249 av
+12030 5910 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+11990 6154 av
+12024 6249 as
+12024 6249 as
+12059 6154 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+12024 6249 av
+closepath
+33.0 sw
+newpath
+10844 3538 av
+12030 3538 as
+dp
+9 15 fillpatset
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+3389 7181 av
+9573 7181 as
+9573 7181 as
+9573 7520 as
+3389 7520 as
+closepath
+true fp
+dp
+newpath
+12024 7944 av
+12030 7096 as
+dp
+0 0 fillpatset
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+11990 7848 av
+12024 7944 as
+12024 7944 as
+12059 7848 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+12024 7944 av
+closepath
+16.0 sw
+newpath
+-90.1690 269.8310 
+169 169 0.0000 
+12024 8197 el
+dp
+11940.0 8282.0 m
+0 setgray
+<2b> 0 12181 -1 s
+0.0 0.0 m
+33.0 sw
+newpath
+12030 8875 av
+12035 8452 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+11995 8780 av
+12030 8875 as
+12030 8875 as
+12064 8780 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+12030 8875 av
+closepath
+33.0 sw
+newpath
+1965 9299 av
+11437 9299 as
+dp
+newpath
+2880 7351 av
+1965 7351 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+2785 7386 av
+2880 7351 as
+2880 7351 as
+2784 7317 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+2880 7351 av
+closepath
+8 sf
+4659.0 7435.0 m
+0 setgray
+<2873657175656e6365206e756d6265722c20706b745f636b73756d2920656e637279707465642077697468204b6579> 5 8533 32 s
+3558.0 h
+0 setgray
+<38206279746573> 1 4081 32 s
+10928.0 5656.0 m
+0 setgray
+<495631> 0 11211 -1 s
+12199.0 7774.0 m
+0 setgray
+<495632> 0 12482 -1 s
+0.0 0.0 m
+9 15 fillpatset
+/drawmode PL_REPLACE def
+newpath
+33.0 sw
+/drawmode PL_SET def
+3352 4385 av
+9573 4385 as
+9573 4385 as
+9573 5910 as
+3352 5910 as
+closepath
+true fp
+dp
+4914.0 4894.0 m
+0 setgray
+<656e63727970746564206279207270635f6b72625f64675f656e6372797074> 2 7496 32 s
+0.0 0.0 m
+newpath
+1186 3030 av
+2626 3030 as
+2626 3030 as
+2626 3877 as
+1186 3877 as
+closepath
+dp
+16.0 sw
+newpath
+1186 3284 av
+2626 3284 as
+dp
+newpath
+1186 3623 av
+2626 3623 as
+dp
+newpath
+-90.0000 270.0000 
+169 169 0.0000 
+1779 2182 el
+dp
+10 sf
+1694.0 2268.0 m
+0 setgray
+<2b> 0 1935 -1 s
+0.0 0.0 m
+33.0 sw
+newpath
+1774 2945 av
+1779 2437 as
+dp
+0 0 fillpatset
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+1739 2850 av
+1774 2945 as
+1774 2945 as
+1809 2850 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+1774 2945 av
+closepath
+33.0 sw
+newpath
+2880 4962 av
+1779 4962 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+2785 4997 av
+2880 4962 as
+2880 4962 as
+2784 4928 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+2880 4962 av
+closepath
+33.0 sw
+newpath
+1774 3877 av
+1779 4962 as
+dp
+16.0 sw
+newpath
+3436 1082 av
+9658 1082 as
+9658 1082 as
+9658 2606 as
+3436 2606 as
+closepath
+dp
+8 sf
+5385.0 1929.0 m
+0 setgray
+<7061636b657420626f64792028706c61696e7465787429> 2 7128 32 s
+0.0 0.0 m
+33.0 sw
+newpath
+1779 1929 av
+1784 1336 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+1744 1833 av
+1779 1929 as
+1779 1929 as
+1814 1833 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+1779 1929 av
+closepath
+33.0 sw
+newpath
+2033 2183 av
+2880 2183 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+2128 2147 av
+2033 2183 as
+2033 2183 as
+2129 2217 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+2033 2183 av
+closepath
+16.0 sw
+newpath
+932 912 av
+2541 912 as
+2541 912 as
+2541 1336 as
+932 1336 as
+closepath
+dp
+424.0 1166.0 m
+0 setgray
+<49566f> 0 707 -1 s
+1017.0 1251.0 m
+0 setgray
+<3030302e2e2e2e2e2e2e2e2e2e2e30303030> 0 2117 -1 s
+0.0 0.0 m
+newpath
+3361 6587 av
+3526 6588 as
+dp
+newpath
+3690 6587 av
+3855 6588 as
+dp
+newpath
+4019 6587 av
+4184 6588 as
+dp
+newpath
+4348 6587 av
+4513 6588 as
+dp
+newpath
+4677 6587 av
+4842 6588 as
+dp
+newpath
+5006 6587 av
+5171 6588 as
+dp
+newpath
+5335 6587 av
+5500 6588 as
+dp
+newpath
+5665 6587 av
+5829 6588 as
+dp
+newpath
+5994 6587 av
+6158 6588 as
+dp
+newpath
+6323 6587 av
+6487 6588 as
+dp
+newpath
+6652 6587 av
+6816 6588 as
+dp
+newpath
+6981 6587 av
+7145 6588 as
+dp
+newpath
+7310 6587 av
+7475 6588 as
+dp
+newpath
+7639 6587 av
+7804 6588 as
+dp
+newpath
+7968 6587 av
+8133 6588 as
+dp
+newpath
+8297 6587 av
+8462 6588 as
+dp
+newpath
+8626 6587 av
+8791 6588 as
+dp
+newpath
+8955 6587 av
+9120 6588 as
+dp
+newpath
+9234 6587 av
+9399 6588 as
+dp
+5591.0 5826.0 m
+0 setgray
+<6c6173742038206279746573> 2 6422 32 s
+7 sf
+5591.0 2945.0 m
+0 setgray
+<43616c6c205061636b6574> 1 6805 32 s
+0.0 0.0 m
+33.0 sw
+newpath
+1186 3488 av
+847 3488 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+1091 3523 av
+1186 3488 as
+1186 3488 as
+1090 3454 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+1186 3488 av
+closepath
+339.0 3538.0 m
+0 setgray
+<4b6579> 0 764 -1 s
+10420.0 6758.0 m
+0 setgray
+<4b6579> 0 10845 -1 s
+0.0 0.0 m
+16.0 sw
+newpath
+9149 5910 av
+9155 5148 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+9115 5815 av
+9149 5910 as
+9149 5910 as
+9184 5815 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+9149 5910 av
+closepath
+16.0 sw
+newpath
+9149 4385 av
+9155 5148 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+9186 4480 av
+9149 4386 as
+9149 4386 as
+9117 4482 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+9149 4386 av
+closepath
+8 sf
+4236.0 3623.0 m
+0 setgray
+<667261676e756d> 0 4892 -1 s
+0.0 0.0 m
+33.0 sw
+newpath
+11860 5781 av
+9742 5781 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+11765 5817 av
+11860 5781 as
+11860 5781 as
+11764 5747 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+11860 5781 av
+closepath
+33.0 sw
+newpath
+12877 9299 av
+13216 9299 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+12972 9263 av
+12877 9299 as
+12877 9299 as
+12973 9333 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+12877 9299 av
+closepath
+7 sf
+13300.0 9384.0 m
+0 setgray
+<4b6579> 0 13725 -1 s
+0.0 0.0 m
+16.0 sw
+newpath
+9827 7944 av
+9912 7996 as
+dp
+newpath
+9912 8102 av
+9996 8155 as
+dp
+newpath
+9912 8208 av
+9996 8155 as
+dp
+newpath
+9827 8367 av
+9912 8314 as
+dp
+newpath
+9912 7996 av
+9912 8102 as
+dp
+newpath
+9912 8208 av
+9912 8314 as
+dp
+33.0 sw
+newpath
+11855 8198 av
+10081 8203 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+11760 8233 av
+11855 8198 as
+11855 8198 as
+11759 8164 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+11855 8198 av
+closepath
+33.0 sw
+newpath
+1965 7351 av
+1965 9299 as
+dp
+16.0 sw
+newpath
+3134 3962 av
+3050 4070 as
+dp
+newpath
+3050 4828 av
+2965 4936 as
+dp
+newpath
+3050 5044 av
+2965 4936 as
+dp
+newpath
+3134 5910 av
+3050 5802 as
+dp
+newpath
+3050 4070 av
+3050 4828 as
+dp
+newpath
+3050 5044 av
+3050 5802 as
+dp
+8 sf
+4405.0 8229.0 m
+0 setgray
+<b13e> 0 4593 -1 s
+4236.0 7435.0 m
+0 setgray
+<b13e> 0 4424 -1 s
+0.0 0.0 m
+newpath
+9573 5609 av
+9658 5652 as
+dp
+newpath
+9658 5738 av
+9742 5781 as
+dp
+newpath
+9658 5824 av
+9742 5781 as
+dp
+newpath
+9573 5953 av
+9658 5910 as
+dp
+newpath
+9658 5652 av
+9658 5738 as
+dp
+newpath
+9658 5824 av
+9658 5910 as
+dp
+newpath
+3219 7149 av
+3134 7202 as
+dp
+newpath
+3134 7308 av
+3050 7361 as
+dp
+newpath
+3134 7414 av
+3050 7361 as
+dp
+newpath
+3219 7573 av
+3134 7520 as
+dp
+newpath
+3134 7202 av
+3134 7308 as
+dp
+newpath
+3134 7414 av
+3134 7520 as
+dp
+newpath
+9827 4454 av
+9912 4539 as
+dp
+newpath
+9912 5132 av
+9996 5217 as
+dp
+newpath
+9912 5302 av
+9996 5217 as
+dp
+newpath
+9827 5979 av
+9912 5910 as
+dp
+newpath
+9912 4539 av
+9912 5132 as
+dp
+newpath
+9912 5302 av
+9912 5895 as
+dp
+7 sf
+6523.0 489.0 m
+0 setgray
+<28> 0 6605 -1 s
+8 sf
+1271.0 3538.0 m
+0 setgray
+<44455320454e4352595054> 1 2507 32 s
+0.0 0.0 m
+newpath
+1017 1929 av
+2711 1929 as
+2711 1929 as
+2711 3962 as
+1017 3962 as
+closepath
+dp
+newpath
+11352 4979 av
+13046 4979 as
+13046 4979 as
+13046 7181 as
+11352 7181 as
+closepath
+dp
+33.0 sw
+newpath
+11437 6249 av
+12877 6249 as
+12877 6249 as
+12877 7096 as
+11437 7096 as
+closepath
+dp
+16.0 sw
+newpath
+11437 6503 av
+12877 6503 as
+dp
+newpath
+11437 6842 av
+12877 6842 as
+dp
+11521.0 6758.0 m
+0 setgray
+<44455320454e4352595054> 1 12757 32 s
+0.0 0.0 m
+33.0 sw
+newpath
+12024 5572 av
+12030 3538 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+11990 5476 av
+12024 5572 as
+12024 5572 as
+12059 5476 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+12024 5572 av
+closepath
+33.0 sw
+newpath
+11437 6673 av
+11098 6673 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+11341 6709 av
+11437 6673 as
+11437 6673 as
+11341 6639 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+11437 6673 av
+closepath
+16.0 sw
+newpath
+11352 7944 av
+13046 7944 as
+13046 7944 as
+13046 9807 as
+11352 9807 as
+closepath
+dp
+33.0 sw
+newpath
+11437 8875 av
+12877 8875 as
+12877 8875 as
+12877 9723 as
+11437 9723 as
+closepath
+dp
+16.0 sw
+newpath
+11437 9130 av
+12877 9130 as
+dp
+newpath
+11437 9468 av
+12877 9468 as
+dp
+11521.0 9384.0 m
+0 setgray
+<44455320454e4352595054> 1 12757 32 s
+0.0 0.0 m
+33.0 sw
+newpath
+1017 2268 av
+847 2268 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+921 2303 av
+1017 2268 as
+1017 2268 as
+921 2234 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+1017 2268 av
+closepath
+7 sf
+254.0 2352.0 m
+0 setgray
+<434243> 0 775 -1 s
+0.0 0.0 m
+33.0 sw
+newpath
+11352 6131 av
+11182 6131 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+11257 6166 av
+11352 6131 as
+11352 6131 as
+11256 6097 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+11352 6131 av
+closepath
+10589.0 6215.0 m
+0 setgray
+<434243> 0 11110 -1 s
+13385.0 8537.0 m
+0 setgray
+<434243> 0 13906 -1 s
+0.0 0.0 m
+33.0 sw
+newpath
+13046 8452 av
+13300 8452 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+13141 8416 av
+13046 8452 as
+13046 8452 as
+13142 8486 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+13046 8452 av
+closepath
+2965.0 10146.0 m
+0 setgray
+<46696775726520352e31362e205061636b657420466f726d617420666f7220507269766163792050726f74656374696f6e> 6 8259 32 s
+8 sf
+10166.0 4809.0 m
+0 setgray
+<7061636b6574> 0 10665 -1 s
+10166.0 4979.0 m
+0 setgray
+<626f6479> 0 10538 -1 s
+10166.0 5233.0 m
+0 setgray
+<61726773> 0 10488 -1 s
+0.0 0.0 m
+16.0 sw
+newpath
+7794 3623 av
+8343 3623 as
+dp
+newpath
+8343 3623 av
+8343 5024 as
+dp
+newpath
+9147 5024 av
+8343 5035 as
+dp
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+9051 5059 av
+9147 5024 as
+9147 5024 as
+9051 4989 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+9147 5024 av
+closepath
+4914.0 4216.0 m
+0 setgray
+<656e6372797074656420636f6e666f756e646572> 1 6572 32 s
+0.0 0.0 m
+9 15 fillpatset
+/drawmode PL_REPLACE def
+newpath
+33.0 sw
+/drawmode PL_SET def
+3352 6673 av
+9573 6673 as
+9573 6673 as
+9573 7012 as
+3352 7012 as
+closepath
+true fp
+dp
+4876.0 6927.0 m
+0 setgray
+<656e6372797074656420636f6e666f756e646572> 1 6534 32 s
+0.0 0.0 m
+16.0 sw
+newpath
+3389 7095 av
+3553 7096 as
+dp
+newpath
+3718 7095 av
+3882 7096 as
+dp
+newpath
+4047 7095 av
+4211 7096 as
+dp
+newpath
+4376 7095 av
+4540 7096 as
+dp
+newpath
+4705 7095 av
+4870 7096 as
+dp
+newpath
+5034 7095 av
+5199 7096 as
+dp
+newpath
+5363 7095 av
+5528 7096 as
+dp
+newpath
+5692 7095 av
+5857 7096 as
+dp
+newpath
+6021 7095 av
+6186 7096 as
+dp
+newpath
+6350 7095 av
+6515 7096 as
+dp
+newpath
+6679 7095 av
+6844 7096 as
+dp
+newpath
+7009 7095 av
+7173 7096 as
+dp
+newpath
+7338 7095 av
+7502 7096 as
+dp
+newpath
+7667 7095 av
+7831 7096 as
+dp
+newpath
+7996 7095 av
+8160 7096 as
+dp
+newpath
+8325 7095 av
+8489 7096 as
+dp
+newpath
+8654 7095 av
+8819 7096 as
+dp
+newpath
+8983 7095 av
+9148 7096 as
+dp
+newpath
+9234 7095 av
+9399 7096 as
+dp
+newpath
+3309 6588 av
+3304 6690 as
+dp
+newpath
+3309 6791 av
+3304 6893 as
+dp
+newpath
+3309 6995 av
+3304 7096 as
+dp
+newpath
+9663 6588 av
+9658 6690 as
+dp
+newpath
+9663 6791 av
+9658 6893 as
+dp
+newpath
+9663 6995 av
+9658 7096 as
+dp
+newpath
+9493 6587 av
+9658 6588 as
+dp
+newpath
+9488 7096 av
+9653 7098 as
+dp
+newpath
+3389 3960 av
+3558 3962 as
+dp
+newpath
+3690 3960 av
+3855 3962 as
+dp
+newpath
+4019 3960 av
+4184 3962 as
+dp
+newpath
+4348 3960 av
+4513 3962 as
+dp
+newpath
+4677 3960 av
+4842 3962 as
+dp
+newpath
+5006 3960 av
+5171 3962 as
+dp
+newpath
+5335 3960 av
+5500 3962 as
+dp
+newpath
+5665 3960 av
+5829 3962 as
+dp
+newpath
+5994 3960 av
+6158 3962 as
+dp
+newpath
+6323 3960 av
+6487 3962 as
+dp
+newpath
+6652 3960 av
+6816 3962 as
+dp
+newpath
+6981 3960 av
+7145 3962 as
+dp
+newpath
+7310 3960 av
+7475 3962 as
+dp
+newpath
+7639 3960 av
+7804 3962 as
+dp
+newpath
+7968 3960 av
+8133 3962 as
+dp
+newpath
+8297 3960 av
+8462 3962 as
+dp
+newpath
+8626 3960 av
+8791 3962 as
+dp
+newpath
+8955 3960 av
+9120 3962 as
+dp
+newpath
+9234 3960 av
+9399 3962 as
+dp
+newpath
+3389 4299 av
+3553 4301 as
+dp
+newpath
+3718 4299 av
+3882 4301 as
+dp
+newpath
+4047 4299 av
+4211 4301 as
+dp
+newpath
+4376 4299 av
+4540 4301 as
+dp
+newpath
+4705 4299 av
+4870 4301 as
+dp
+newpath
+5034 4299 av
+5199 4301 as
+dp
+newpath
+5363 4299 av
+5528 4301 as
+dp
+newpath
+5692 4299 av
+5857 4301 as
+dp
+newpath
+6021 4299 av
+6186 4301 as
+dp
+newpath
+6350 4299 av
+6515 4301 as
+dp
+newpath
+6679 4299 av
+6844 4301 as
+dp
+newpath
+7009 4299 av
+7173 4301 as
+dp
+newpath
+7338 4299 av
+7502 4301 as
+dp
+newpath
+7667 4299 av
+7831 4301 as
+dp
+newpath
+7996 4299 av
+8160 4301 as
+dp
+newpath
+8325 4299 av
+8489 4301 as
+dp
+newpath
+8654 4299 av
+8819 4301 as
+dp
+newpath
+8983 4299 av
+9148 4301 as
+dp
+newpath
+9234 4299 av
+9399 4301 as
+dp
+newpath
+3394 4199 av
+3389 4301 as
+dp
+newpath
+9578 3996 av
+9573 4097 as
+dp
+newpath
+9578 4199 av
+9573 4301 as
+dp
+newpath
+9493 3960 av
+9573 3962 as
+dp
+newpath
+9488 4301 av
+9573 4302 as
+dp
+newpath
+3389 3960 av
+3383 4062 as
+dp
+33.0 sw
+newpath
+1944 4131 av
+3389 4131 as
+dp
+16.0 sw
+newpath
+3219 6588 av
+3134 6641 as
+dp
+newpath
+3134 6747 av
+3050 6800 as
+dp
+newpath
+3134 6853 av
+3050 6800 as
+dp
+newpath
+3219 7012 av
+3134 6959 as
+dp
+newpath
+3134 6641 av
+3134 6747 as
+dp
+newpath
+3134 6853 av
+3134 6959 as
+dp
+33.0 sw
+newpath
+2965 6842 av
+1948 6842 as
+dp
+0 0 fillpatset
+/drawmode PL_REPLACE def
+newpath
+/drawmode PL_SET def
+2870 6878 av
+2965 6842 as
+2965 6842 as
+2869 6808 as
+closepath
+true fp
+dp
+0.0 sw
+newpath
+2965 6842 av
+closepath
+33.0 sw
+newpath
+1944 4131 av
+1948 6842 as
+dp
+16.0 sw
+newpath
+3473 658 av
+9695 658 as
+9695 658 as
+9695 997 as
+3473 997 as
+closepath
+dp
+5422.0 912.0 m
+0 setgray
+<636f6e666f756e646572202872616e646f6d29> 1 7042 32 s
+0.0 0.0 m
+newpath
+3304 658 av
+3219 766 as
+dp
+newpath
+3219 1524 av
+3134 1632 as
+dp
+newpath
+3219 1740 av
+3134 1632 as
+dp
+newpath
+3304 2606 av
+3219 2498 as
+dp
+newpath
+3219 766 av
+3219 1524 as
+dp
+newpath
+3219 1740 av
+3219 2498 as
+dp
+33.0 sw
+newpath
+2880 1632 av
+3134 1632 as
+dp
+newpath
+2880 1632 av
+2880 2183 as
+dp
+13970.0 10542.0 m
+6 sf
+eop
+/first_page true def
+initialstate restore
+%%Trailer
+%%DocumentFonts: Times-Roman
+%%+ Times-Bold
+

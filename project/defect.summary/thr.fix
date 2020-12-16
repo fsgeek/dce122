@@ -1,0 +1,400 @@
+CR Number                     : 12823
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 12729
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : wrappers?
+Short Description             : read() on pipe fails after fork-execlp
+Reported Date                 : 3/24/95
+Found in Baseline             : 1.1
+Found Date                    : 3/24/95
+Severity                      : A
+Priority                      : 1
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : threads/{RIOS,HP800}/cma_thread_io.c
+Sensitivity                   : public
+
+[3/24/95 public]
+
+Here is the test program from IBM that demonstrates CMA problem in
+DCE 1.1. Weidong has tried this test on AIX, HP-UX and OSF/1 DCE1.1
+and DCE 1.03. He has observed problems on both AIX and HP-UX. OSF/1
+does not exibit the problem. He also modified the program a little
+bit to remove dup2 for fd 25. The problem still exists.
+
+The errno 9 is set with child's first read (cma wrapped). However, with
+native read it works. Comments!
+
+----DEFECT BEGINS-----------------------------------------------------
+We are trying to run VTS but we are having a problem with the programs
+that are being execed by remote. When remote execs a program it opens
+pipes between the parent and child and this is what is causing the
+problem. Below is a sample program that illustrates the problem.
+When the child program is compiled with dce it fails.
+We are running on AIX 3.2.5 with the OSF DCE 1.0.3 base.
+
+parent program
+------------------------------------------------------------------
+#include	<stdio.h>
+#include	<errno.h>
+
+void my_perror (char *);
+
+main ()
+{
+	int	rc;
+	char	buf[50];
+	int	io_pipe[2];
+
+	rc = pipe (io_pipe);
+	if (rc == -1)
+		my_perror ("write");
+	rc = fork ();
+
+	if (rc == 0) {
+		int	fd;
+		close (io_pipe[1]);
+		fd = dup2 (io_pipe[0], 25);
+		close (io_pipe[0]);
+		printf ("call read before exec\n");
+		rc = read (fd, buf, 10);
+
+		printf ("read rc = %d  buf = <%s>\n", rc, buf);
+		if (rc == -1)
+			my_perror ("read");
+		sprintf (buf, "%d", fd);
+		printf ("pipe read fd = %s\n", buf);
+		execlp ("bmw_c", "bmw_c", buf, 0);
+		perror ("exec failed\n");
+		exit (errno);
+	} else {
+		close (io_pipe[0]);
+		printf ("write to pipe BEFORE exec\n");
+		sprintf (buf, "0123456789");
+		rc = write (io_pipe[1], buf, strlen(buf));
+		if (rc == -1)
+			my_perror ("write");
+
+		printf ("write to pipe AFTER exec\n");
+		sprintf (buf, "PIPE WRITE");
+		rc = write (io_pipe[1], buf, strlen(buf));
+		if (rc == -1)
+			my_perror ("write");
+
+		wait ();
+	}
+
+	exit (0);
+}
+
+void my_perror (char *s)
+{
+	perror (s);
+	exit (errno);
+}
+
+-----------------------------------------------------------------------
+child program
+-----------------------------------------------------------------------
+
+#ifdef	DCE
+#include	<pthread.h>
+#endif
+#include	<fcntl.h>
+
+main (int argc, char **argv)
+{
+	int	rc;
+	char	buf[50];
+	int	fd = 25;
+
+#ifdef	DCE
+	cma_init();
+#endif
+
+	printf ("%s start\n", argv[0]);
+	printf ("pipe fd = %d\n", fd);
+	rc = fcntl (fd, F_GETFL, 0);
+	printf ("fcntl rc = %d\n", rc);
+	printf ("call read on pipe\n");
+	rc = read (fd, buf, 10);
+
+	printf ("read rc = %d  buf = <%s>\n", rc, buf);
+	if (rc == -1)
+		perror ("read");
+
+#undef	fcntl
+#undef	read
+	printf ("NATIVE calls\n");
+	rc = fcntl (fd, F_GETFL, 0);
+	printf ("fcntl rc = %d\n", rc);
+	printf ("call read on pipe\n");
+	rc = read (fd, buf, 10);
+
+	printf ("read rc = %d  buf = <%s>\n", rc, buf);
+	if (rc == -1)
+		perror ("read");
+
+	exit (0);
+}
+
+[3/24/95 public]
+It looks like that cma dos not handle the already-opened file descriptors
+correctly.
+
+With this in mind, we checked the cma_init() code to see how it initializes
+its internal file descriptor table. In cma__init_thread_io(), we found that
+CMA only reopens the thre well known files (0, 1, 2). Except for SVR4 code,
+CMA does not bother to check what other file descriptors that could have been
+opened when the process starts (in this case, the parent opens a pipe, exec
+the child, so the child starts with some file descriptors open).
+
+I changed the code a little bit so that the child, before exec(), closes 0 and 
+1, then dup its pipes' read and write descriptos to 0 and 1. As expected, the
+code then works.
+
+We still cannot explain why the original code would work on an OSF/1 platform.
+
+We are going to try a fix to use fstat to go through all the file descriptors
+to see whether any files are already opened.
+
+As for VTS failure, Parul (our VTS expert) will get back to IBM folks.
+
+[3/24/95 public]
+We also tried with IBM DCE 1.2. With that, the above original code works.
+Apparently, IBM's pthread package does the right thing.
+
+Why the ibm folks are not using ibm's own pthread?
+
+[3/24/95 public]
+
+Iknow why OSF/1 was working with that code. I was using the OSF/1 system
+pthread.h, not the DCE one. My fault.
+
+So at least we see a consistent failure now.
+
+[3/27/95 public]
+Here is a fix to the problem. Basically, after reopening 0, 1, and 2 , we
+go through all the possible file descriptors (up to cma__g_mx_file. Even
+though getrlimit() with RLIMIT_NOFILE may be a more accurate way to find 
+the number of files that can be opened currently, but it is not portable,
+not every system supports it.), use fstat() to check whether this file is
+currently open. If so, call cma__open_general() to set up the cma internal
+data structures for this file descriptor.
+
+I have tested the fix with 1.0.3 OSF/1, HP-UX,and AIX. THe above test code
+can work now.
+
+This is fix for DCE 1.0.3:
+
+*** cma_thread_io.c.orig	Mon Oct 25 15:03:22 1993
+--- cma_thread_io.c	Mon Mar 27 13:21:22 1995
+***************
+*** 639,644 ****
+--- 639,645 ----
+      {
+  #if _CMA_UNIX_TYPE != _CMA__SVR4
+      struct sigvec   vec, ovec;
++     struct stat sbuf;
+  #else
+      size_t	    	nfds, cur_fd, max_fds;
+  	cma_t_integer	poll_status;
+***************
+*** 834,839 ****
+--- 835,861 ----
+  	    0;
+  	ENDTRY
+  	}
++ 
++     /* Need to find out what are the file descriptors that are currently
++        open */
++ 
++     /* Note: getrlimit() may be a more accurate way to find the number
++ 	of files that can be opened currently, but it is not portable,
++ 	not every system supports it. */
++ 
++     for (i = 3; i < cma__g_mx_file; i++) {
++ 	if ((fstat (i, &sbuf) == -1) && (errno == EBADF)) {
++ 	    continue;
++ 	}
++ 
++ 	/* file descriptor i is open, we need to let cma know */
++ 	TRY
++ 	    cma__open_general (i);
++ 	CATCH (cma_e_badparam)
++ 	    0;
++ 	ENDTRY
++     }
++ 
+  #endif /* (_CMA_UNIX_TYPE ==  _CMA__SVR4) */
+      }
+
+[3/27/95 public]
+
+Forgot to mention that DCE 1.1 thread code has the same problem. The fix
+should be the same, except now since all platform specific (cma_thread_io.c
+is one of them) code have been moved to each platform directory, I don't
+want to put fix for each platform here. But the above should work.
+
+[03/27/95 public]
+Wow, are you really going to fstat every possible descriptor each time
+a DCE program starts?  That can be very expensive...
+
+[03/27/95 public]
+That is just a start-up time cost, right?
+
+Here is another possible way to fix it:
+
+	Instead of calling fstat() to actually find out whether a file 
+	descriptor is open, just mark internally that all files are open.
+	CMA has the functionality built-in that will handle a bad file
+	descriptor: when a EBADF is returned, CMA will loop through all
+	possible file descriptors to do fstat() to find out ...
+	Well, it is the same thing.
+
+Another other fix?
+
+[03/27/95 public]
+Sure it is only startup.  But think:  should every DCE program start off
+by doing "n" (n is 24...1024 depending on the OS) system calls?  I think
+this is a bad thing.
+
+Think of what the common cases are:  a server started by the system (or
+dced) or a client program started by the user.  What % of DCE programs
+will be started like this OT CR shows?  My bet is under 10%.  **Optimize
+the common case.**
+
+Perhaps CMA should only do the scan if/when it gets some descriptor that
+it hasn't heard about.  This makes failures more expensive, but maybe only
+the first one, and much less since it already will know about many descriptors.
+
+Perhaps CMA's fork and exec could set an environment variable that somehow
+specified which descriptors were open and CMA init could read that.
+(Somehow encode the pid so the child can know it's got data from its parent).
+Of course the envvar should be printable so the user doesn't get screwed up.
+
+[03/27/95 public]
+The setting env var approach puts the burden on the programmer. Like the test
+case given above, the parent program is not a DCE one, so its fork()/execl()
+cannot be made to pass anything, unless the programmer does it.
+
+The problem with the current code is that cma will simply check its own fd
+table to determine whether the file is open or not. In this case, since the
+file was not opened through cma, the cma has no knowledge of it. So when the
+file is used, cma simply says it is a bad number.
+
+Maybe the more reasonable fix is to add a new field to the fd table:
+fd_table[i].file_checked, which is initialized to be false. Every time a file
+is accessed, cma should first check this field to see if it is true. If it is
+flase, then regardless of what other fields say, cma should use fstat() to
+check whether the file is really open and set the proper fileds for the table.
+Then it sets the file_checked field to true. From then on, it depends on its
+own field to detemrine if the file is open. This way cma will only fstat() the
+files that the program uses, not everything. Comments?
+
+[03/27/95 public]
+It appears you didn't understand me.  The envvar would be set by CMA when
+CMA was used in the parent.  The programmer couldn't (and in fact should
+not be able to) set the envvar.
+
+As for your "file_checked" field, that seems like a pretty good way to
+implement my second suggestion.
+
+[08/07/95 public]
+
+This is so much fun ;)
+
+Try this:
+
+#include <pthread.h>
+
+main()
+{
+        char c;
+        if (read(0, &c, 1) < 0)
+                exit(1);
+        exit(0);
+}
+
+Well you guessed it, it does not work! It turns out that the cma__ts_func
+macro does not initialize cma so you don't even get 0,1,2 if a read happens
+to be the first cma wrapped call in your program. I think I'll open another
+CR for this one.
+
+[3/27/96 public]
+Fix submitted to 1.2.2. This fix is required for fix in OT 13409 - cds-clerk
+problem.
+
+DIFF:
+*** cma_thread_io.c@@/main/DCE_1.2/0    Fri Mar  8 15:37:52 1996
+--- cma_thread_io.c     Fri Mar  8 16:53:16 1996
+***************
+*** 11,16 ****
+--- 11,19 ----
+  /*
+   * HISTORY
+   * $Log:	c012823,v $
+# Revision 1.14  96/03/27  11:03:46  root
+# changed fields:  new/changed/deleted note(s) [bissen 3/27/96 public] [bissen 3/27/96 public]
+# 
++  * Revision /main/DCE_1.2/1  1996/03/08  21:53 UTC  bissen
++  *    OT 12823 fix for cma__init_thread_io
++  *
+   * Revision 1.1.2.2  1994/06/09  13:35:50  devsrc
+   *     CR10892 - fix copyright in file
+   *    [1994/06/09  13:26:22  devsrc]
+***************
+*** 620,637 ****
+        }
+
+      /*
+!      * "Open" the files (ie, within CMA) which are open by default:
+!      *                stdin, stdout, stderr.
+       *
+!      * Ignore errors resulting from these files having been closed already.
+       */
+!     for (i = 0; i < 3; i++) {
+!       TRY
+!           cma__open_general (i);
+!       CATCH (cma_e_badparam)
+!           0;
+!       ENDTRY
+!       }
+      }
+
+  /*
+--- 623,647 ----
+        }
+
+      /*
+!      * "Open" all files that may have been passed across
+!      * the exec, not just stdin, stdout, stderr.
+       *
+!      * While we're at it, we want to use cma__g_mx_file instead
+!      * of cma__c_mx_file (which is defined to be FD_SETSIZE, a
+!      * very large [2048] number).  Assert that cma__g_mx_file
+!      * is no larger than cma__c_mx_file, since we created
+!      * cma__g_file and cma__g_file_obj using cma__c_mx_file.
+       */
+!
+!     cma__assert_fail (
+!         cma__g_mx_file <= cma__c_mx_file,
+!         "cma__init_thread_io: cma__g_mx_file > cma__c_mx_file" );
+!
+!     for (i = 0; i < cma__g_mx_file; i++) {
+!         if( fcntl(i, F_GETFL, 0) == -1 && errno == EBADF )
+!             continue;
+!         cma__open_general (i);
+!         }
+      }
+
+  /*
+
+
+

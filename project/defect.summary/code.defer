@@ -1,0 +1,168 @@
+CR Number                     : 12908
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : osf1
+Component Name                : sec
+Subcomponent Name             : 
+Short Description             : Warranty Patch Transitive
+Trust Failure
+Reported Date                 : 6/7/95
+Found in Baseline             : 1.1wp
+Found Date                    : 6/7/95
+Severity                      : A
+Priority                      : 0
+Status                        : defer
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[6/7/95 public]
+
+I have merged HP's warranty patch code into Digital's 1.1 Alpha tree and
+transitive trust is simply not working.  I have contacted HP about this.
+It is possible that this is a Digital Alpha porting problem and
+other platforms are not affected.
+
+Here is a detailed description of Digital's transitive trust test setup.
+I have two simple test cases for transitive trust that fail.  The
+first case is a child-parent-child H-cell, where one child fails to
+do an authenticated show dir of the other. The second is a child that
+can't do an authenticated show dir of a DNS peer of its parent.
+Configuration details follow.
+
+Brian
+
+
+/..../zenix_cell.dpe.lkg.dec.com        /.../majik_cell.dpe.lkg.dec.com
++----------------+                           +---------------------+
+| Cell A         |  direct trust link        | Cell B, HCell parent|
+| registered in  | <---------------------->  | registered in       |
+| DNS            |                           |  DNS                |
++----------------+                           +---------------------+
+        ^                                    ^            ^
+         \ transitive trust (fails)         / direct       \ direct
+          \                                / trust          \ trust
+           \                              v link             v link
+            \              +------------------+    +------------------+
+             ------>       | Cell C, HC child |    | Cell D, HC child |
+                           +------------------+    +------------------+
+                                  ^                                ^
+                                  |   transitive trust (fails)     |
+                                   --------------------------------
+
+Cell C = /.../majik_cell.dpe.lkg.dec.com/dce007_cell
+Cell D = /.../majik_cell.dpe.lkg.dec.com/itsit_cell
+
+These are the setup steps to establish the above:
+
+1) configure the parent cell and its peer with a DNS name, and
+   register with a DNS name service:
+
+        i.e. /.../majik_cell.dpe.lkg.dec.com
+
+2) configure child cell(s) with a cell name that is the concatenation
+   of the parent DNS name with the child cell name:
+
+        i.e. /.../majik_cell.dpe.lkg.dec.com/dce007_cell
+
+3) ensure that all cells are running CDS version 4.0 (the default is 3.0).
+   On the each system do this:
+
+   get cell_admin credentials
+   cdscp> show dir /.:
+   cdscp> set dir /.: CDS_UpgradeTo 4.0
+   dcecp> dir synch /.:
+   dcecp> clearinghouse verify /.:/*_ch    (e.g. /.:/dce007_ch)
+   dcecp> dir synch /.:
+
+4) create the cell alias on the child cell(s), give it any old name
+
+   e.g. get cell_admin creds
+   dcecp> cellalias create /.../majik_cell.dpe.lkg.dec.com/dce007_cell/fred
+
+   I have noticed that this command results in cds clerk bind errors that
+   can, for now, be ignored.  Verify the command succeeded with a
+
+   dcecp> cdsalias cat
+
+5) set up explicit cross-cell trust between the parent and child cell(s);
+   test with a cdscp> show dir /.../whereever.  E.g, from the child cell do
+a
+    rgy_edit> cell /.../majik_cell.dpe.lkg.dec.com
+
+6) on the parent set the /.: acl so anyone (i.e. child) can write it; e.g.
+
+   dcecp> acl mod /.: -change {any_other r--t-i-}
+
+7) connect child to parent in the parent's namespace.  On the child,
+   do a
+
+   dcecp> cdsalias connect
+
+8) on the parent cell, test that the connect succeeded.  e.g.
+
+   cdscp> show dir /.:/*
+
+   among other things, this should show all the attribute data of the
+   child cell.  I have found that the connection to the child is not
+   readily  available after the connect.  In this example,  from the parent,
+   doing a
+   cdscp> show dir /.../majik_cell.dpe.lkg.dec.com/dce007_cell
+   (authenticated or not) fails.  This is a CDS bug.  Doing a
+   cdscp> show dir /.../majik_cell.dpe.lkg.dec.com/dce007_cell/subsys
+   clears the problem.
+
+The transitive trust failure is demonstrated by first verifying the
+setup by doing an unauthenticated cdscp show dir in one child of
+the other child.  Or of the DNS peer of the parent.  Then trying
+to do it with local credentials.
+
+[6/14/95 public]
+
+According to the following comment in rpriv_v1_1_mgrs.c, transitive
+trust doesn't work yet.  Did HP complete work in this module and
+Did some oversight keep it out of the warranty patch distribution?
+Or was the relevant code added elsewhere and later, and is this
+comment obsolete?
+
+
+             *
+             * None of the heirarchical trust path evaluation code
+             * is in place, so we can only support point-to-point
+             * trust for the moment.  That means  That all the
+             * cell uuids in all epacs in the chain must be the same
+             * as the cell uuid of the initiator.
+             */
+            if (STATUS_OK(status)) {
+                rsdb_pgo_name_to_uid(sec_rgy_domain_person,
+                                     authz_data.client_tgt_princ,
+
+I stepped through rpriv_get_eptgt in rpriv_v1_1_mgrs.c, and I don't
+see how it can work for a "transited" epac.  rpriv_util_parse_request
+seems to work okay, but rsdb_pgo_name_to_uid fails, apparently because
+it can't locate the given direct trust proxy principal in the registry.
+This causes rpriv_get_eptgt to fail.
+
+[06/15/95 public]
+You've put your finger on the problem:  the transited cell principals need
+to be registered in the security namespace.  This step is apparently not
+documented and should be.  [Yes, this makes transitive trust less useful
+than it could be, but the optional "auto-register" feature discussed in
+the functional spec has not yet been implemented...]
+
+The above code & comment apply to intercell delegation, which is noted in
+the release notes as having limitations in 1.1.
+
+[7/22/96 public]
+The DCE1.2.2 Proj Steering Committee had no objection to deferring this
+problem from DCE1.2.2.
+
+
+

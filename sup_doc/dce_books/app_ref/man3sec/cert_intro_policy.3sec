@@ -1,0 +1,1104 @@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+...\" ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+...\" src directory for the full copyright text. 
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: cert_intro_policy.3sec,v $
+...\" Revision 1.1.2.6  1996/12/21  22:53:20  weir
+...\" 	Final corrections
+...\" 	[1996/12/21  22:53:01  weir]
+...\"
+...\" Revision 1.1.2.5  1996/12/20  21:59:28  weir
+...\" 	Final updates
+...\" 	[1996/12/20  21:58:00  weir]
+...\" 
+...\" Revision 1.1.2.4  1996/12/17  20:10:53  damon
+...\" 	Expanded OSF C O P Y R I G H T   N O T I C E
+...\" 	[1996/12/17  20:08:05  damon]
+...\" 
+...\" Revision 1.1.2.3  1996/11/19  18:55:22  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/19  18:48:27  wardr]
+...\" 
+...\" Revision 1.1.2.2  1996/11/18  19:57:03  weir
+...\" 	No change
+...\" 	[1996/11/18  19:55:02  weir]
+...\" 
+...\" Revision 1.1.2.1  1996/10/15  21:10:22  weir
+...\" 	Initial submission
+...\" 	[1996/10/15  21:09:04  weir]
+...\" 
+...\" $EndLog$
+...\" 
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+...\" 
+.TH policy_intro 3sec
+.SH "Name"
+\*Lpolicy_intro\*O - Introduction to the policy module registration and
+service facility
+...\" 
+...\" 
+...\" 
+.SH "Description"
+.PP
+This reference page describes the data types used by the policy module
+registration and service API.
+...\" 
+...\" 
+.PP
+The routines documented here are intended for the use of policy implementors.
+Regular users invoke a policy via the high-level API (e.g.,
+\*Lpkc_retrieve_keyinfo(3sec)\*O, \*Lpkc_get_key_count(3sec)\*O,
+\*Lpkc_get_key_data(3sec)\*O, etc.) which calls the routines
+documented below internally.
+...\" 
+...\" 
+.SS "Accessing Policy Modules"
+.PP
+Policy modules are identified by OIDs (object identifiers). A policy
+module is accessed by passing its identifying OID to
+\*Lpkc_plcy_lookup_policy(3sec)\*O.
+...\" 
+.LE
+...\" 
+...\" 
+.PP
+There are two ways of retrieving a key: either by looking up the
+desired policy module and then explicitly calling its \*L(retrieve_keyinfo)(\|)\*O
+routine; or by simply calling the \*Lpkc_plcy_retrieve_keyinfo(3sec)\*O routine,
+identifying the desired policy by means of an OID passed directly to the
+call. The latter method, in which the operation is performed in one step,
+is the recommended one.
+...\" 
+...\" 
+...\" old key_information_t type...
+...\" .PP
+...\" The fields have the following meanings:
+...\" 
+...\" .VL
+...\" .LI "\*Lvalue\*O"
+...\" The key information.
+...\" .LI "\*Lowner\*O"
+...\" Name of the key's owner.
+...\" .LI "\*Lstart_date\*O"
+...\" Date from which the key is valid.
+...\" .LI "\*Lend_date\*O"
+...\" Date after which the key will no longer be valid.
+...\" .LI "\*Lca_usages\*O"
+...\" Certifying authority usages.
+...\" .LI "\*Luser_usages\*O"
+...\" Key user usages.
+...\" .LI "\*Lpolicies\*O"
+...\" Policies specified for key.
+...\" .LI "\*Lconstraints\*O"
+...\" Constraints specified for key.
+...\" .LI "\*Ltrusted\*O"
+...\" Whether or not the key is trusted.
+...\" .LI "\*Lcertified\*O"
+...\" Whether or no the key is certified.
+...\" .LI "\*Lcertified_by\*O"
+...\" Name of the CA that certified this key.
+...\" .LI "\*Lserial_number\*O"
+...\" Serial number of certifying certificate.
+...\" .LI "\*Lcertified_start_date\*O"
+...\" Date from which the certifying certificate is valid.
+...\" .LI "\*Lcertified_end_date\*O"
+...\" Date after which the certifying certificate will no longer be valid.
+...\" .LI "\*Lcertified_usages\*O"
+...\" Any usages certified.
+...\" .LI "\*Lcertified_policies\*O"
+...\" Any policies certified.
+...\" .LI "\*Lcertified_constraints\*O"
+...\" Any constraints certified.
+...\" .LE
+...\" 
+...\" 
+...\" 
+.SS "Policy Flags Data Type"
+.PP
+The \*Lpkc_plcy_flags_t\*O data type is used to record various information about
+a policy module. It is defined as follows:
+...\" 
+.sS
+\*Ltypedef struct {\*O
+.nL
+	\*Lchar threadsafe;\*O
+.nL
+	\*Lchar multi_session;\*O
+.nL
+\*L} pkc_plcy_flags_t;\*O
+.sE
+...\" 
+...\" 
+.PP
+The structure contains two fields which have the following meanings:
+...\" 
+.VL
+.LI "\*Lthreadsafe\*O"
+Has a non-zero (TRUE) value if the policy's \*Lretrieve_keyinfo(\|)\*O
+function may be safely called simultaneously (within a single policy
+session) by multiple threads.
+...\" 
+.LI "\*Lmulti_session\*O"
+Has a non-zero (TRUE) value if the policy implementation supports multiple
+simultaneous policy sessions.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+.SS "Policy Module Data Type"
+.PP
+The \*Lpkc_policy_t\*O data type is used to register a new policy module
+with the certification API. It fully describes a policy module's functionality,
+and provides entry points to its key retrieval functions. It is defined as follows:
+...\" 
+...\" 
+.sS
+\*Ltypedef struct {\*O
+.nL
+	\*LOM_uint32 version;\*O
+.nL
+	\*Lgss_OID_desc policy_id;\*O
+.nL
+	\*Lpkc_plcy_flags_t flags;\*O
+.nL
+	\*Lchar reserved[32 - sizeof(pkc_plcy_flags_t)];\*O
+.nL
+	\*Lchar * (* name) (void);\*O
+.nL
+	\*Lunsigned32 (*open) (void** \*Vcontext\*L);\*O
+.nL
+	\*Lunsigned32 (*close) (void** \*Vcontext\*L);\*O
+.nL
+	\*Lunsigned32 (*establish_trustbase) (void ** \*Vcontext\*L,
+.nL
+				\*Lconst pkc_trust_list_t & \*Vinitial_trust\*L,
+.nL
+				\*Lconst utc_t * \*Vdate\*L,
+.nL
+				\*Lpkc_usage_t \*Vdesired_usage\*L,
+.nL
+				\*Lchar \*Vinitial_explicit_policy_required\*L,
+.nL
+				\*Lpkc_trust_list_t & \*Vout_trust\*L);
+
+
+	\*Lunsigned32 (*retrieve_keyinfo) (void ** \*Vcontext\*L,
+.nL
+				\*Lconst pkc_trust_list_t &\*Vtrust\*L,
+.nL
+				\*Lconst x500name &\*VsubjectName\*L,
+.nL
+				\*Lconst utc_t * \*Vdate\*L,
+.nL
+				\*Lconst uuid_t & \*Vdomain\*L,
+.nL
+				\*Lpkc_key_usage_t \*Vdesired_usage\*L,
+.nL
+				\*Lchar \*Vinitial_explicit_policy_required\*L,
+.nL
+				\*Lpkc_key_information_t &\*Vkey\*L);
+.nL
+	\*Lunsigned32 (*delete_trustbase) (void ** \*Vcontext\*L,
+.nL
+				\*Lvoid ** \*Vtrust_base_handle\*L);
+.nL
+	\*Lunsigned32 (*delete_keyinfo) (void ** \*Vcontext\*L,
+.nL
+				\*Lvoid ** \*Vkeys_handle\*L);
+.nL
+	\*Lunsigned32 (*get_key_count) (void ** \*Vcontext\*L,
+.nL
+				\*Lvoid * \*Vkeys_handle\*L,
+.nL
+				\*Lsize_t * \*Vkey_count\*L);
+.nL
+	\*Lunsigned32 (*get_key_data) (void ** \*Vcontext\*L,
+.nL
+				\*Lvoid * \*Vkeys_handle\*L,
+.nL
+				\*Lunsigned \*Vkey_index\*L,
+.nL
+				\*Lunsigned char ** \*Vkey_data\*L,
+.nL
+				\*Lsize_t * \*Vkey_length\*L);
+.nL
+	\*Lunsigned32 (*get_key_trust) (void ** \*Vcontext\*L,
+.nL
+				\*Lvoid * \*Vkeys_handle\*L,
+.nL
+				\*Lunsigned \*Vkey_index\*L,
+.nL
+				\*Lcertification_flags_t * \*Vflags\*L,
+.nL
+				\*Luuid_t * \*Vdomain\*L,
+.nL
+				\*Lpkc_generic_key_usage_t * \*Vusages\*L);
+.nL
+	\*Lunsigned32 (*get_key_certifier_count) (void ** \*Vcontext\*L,
+.nL
+				\*Lvoid * \*Vkeys_handle\*L,
+.nL
+				\*Vunsigned \*Vkey_index\*L,
+.nL
+				\*Lsize_t * \*Vca_count\*L);
+.nL
+	\*Lunsigned32 (*get_key_certifier_info) (void ** \*Vcontext\*L,
+.nL
+				\*Lvoid * \*Vkeys_handle\*L,
+.nL
+				\*Lunsigned \*Vkey_index\*L,
+.nL
+				\*Lunsigned \*Vca_index\*L,
+.nL
+				\*Lchar ** \*Vca_name\*L,
+.nL
+				\*Lutc_t * \*Vcertification_start\*L,
+.nL
+				\*Lutc_t * \*Vcertification_expiration\*L,
+.nL
+				\*Lchar  * \*Vis_crl_valid\*L,
+.nL
+				\*Lutc_t * \*Vlast_crl_seen\*L,
+.nL
+				\*Lutc_t * \*Vnext_crl_expected\*L);
+...\" 
+...\" .nL
+...\" 				\*Lpkc_principal_name_t target\*L,
+...\" .nL
+...\" 				\*Lunsigned char ** public_key\*L,
+...\" .nL
+...\" 				\*Lsize_t * public_key_length\*L);
+...\" 
+.nL
+\*L} pkc_policy_t;\*O
+.sE
+...\" 
+.PP
+The \*L(name)(\|)\*O, \*L(open)(\|)\*O, \*L(close)(\|)\*O,
+\*L(establish_trustbase(\|)\*O, \*L(*get_key_count)(\|)\*O,
+\*L(*get_key_data)(\|)\*O, \*L(*get_key_trust)(\|)\*O,
+\*L(*get_key_certifier_count)(\|)\*O, \*L(*get_key_certifier_info)(\|)\*O,
+and \*L(retrieve_keyinfo)(\|)\*O routines must be implemented by the application
+implementing the module and registered using the \*Lpkc_register_policy(3sec)\*O
+routine. Note, however, that only \*L(retrieve_keyinfo)(\|)\*O,
+\*L(*get_key_count)(\|)\*O, \*L(*get_key_certifier_count)(\|)\*O
+and \*L(*get_key_data)(\|)\*O are required.
+...\" 
+Explanations of all the fields in \*Lpkc_policy_t\*O are contained in the
+following subsections.
+...\" 
+...\" 
+.SS "Policy Module Data Fields"
+.PP
+The structure contains the following data fields:
+...\" 
+.VL 1i
+.LI "\*Lversion\*O"
+Identifies the version of the certification API for which the module is
+implemented. The value of this field is always \*Lpkc_V1\*O for DCE 1.2.
+...\" 
+.LI "\*Lpolicy_id\*O"
+An object identifier that identifies the policy.
+...\" 
+.LI "\*Lflags\*O"
+Describes whether the module's key retrieval function is threadsafe, and
+whether the module supports simultaneous policy sessions.
+...\" 
+.LE
+...\" 
+.PP
+The \*Lversion\*O and \*Lalg_id\*O fields are required for all versions of this
+data structure. Other fields may be version dependent.
+...\" 
+...\" 
+.SS "Policy Module Functions"
+.PP
+\*LNULL\*O may be supplied as the address of the \*L(name)(\|)\*O, \*L(open)(\|)\*O,
+\*L(establish_trustbase)(\|)\*O or \*L(close)(\|)\*O routines, if the policy
+module does not provide or require the corresponding feature; the presence of these
+functions in a policy module is optional. However, all policy modules must provide
+\*L(retrieve_keyinfo)(\|)\*O, \*L(*get_key_count)(\|)\*O, \*L(*get_key_certifier_count)(\|)\*O
+and \*L(*get_key_data)(\|)\*O functions.
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(name)(\|)\*O - Returns the policy name as a string, suitable for use in diagnostic
+or auditing messages
+.PP
+This routine is optional.
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lchar * (* name) (void);\*O
+.sE
+...\" 
+...\" 
+.SH "Description"
+.PP
+The name should be returned in storage allocated using the \*Lpkc_malloc(\|)\*O
+function defined in \*Lpkc_common.h\*O. The caller of this routine is
+expected to invoke \*Lpkc_free(3sec)\*O to release the storage once the name
+is no longer required.
+.PP
+Note that this is the only policy module routine that may be called without
+first calling the \*L(open)(\|)\*O routine.
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(open)(\|)\*O - Opens and initializes the policy module
+.PP
+\*L(close)(\|)\*O - Closes the policy module
+.PP
+Both these routines are optional.
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lunsigned32 (*open) (void** \*Vcontext\*L);
+.nL
+\*Lunsigned32 (*close) (void** \*Vcontext\*L);\*O
+.sE
+...\" 
+.SH "Parameters"
+.SS "Output"
+.VL
+.LI "\*Vcontext\*O"
+An opaque (to the caller) data structure containing any state information
+required by the module across calls.
+.LE
+...\" 
+...\" 
+.SH "Description"
+.PP
+Before invoking any policy routines (e.g., \*L(retrieve_keyinfo)(\|)\*O),
+the certification API will invoke the module's \*L(open)(\|)\*O function.
+Once the module's \*L(close)(\|)\*O routine has been invoked, the
+certification facility will invoke \*L(open)(\|)\*O again before making
+any further calls to the module.
+...\" 
+...\" 
+.PP
+Both the \*L(open)(\|)\*O and the \*L(close)(\|)\*O routines require only one
+argument, \*Vcontext\*O. If the policy module requires state information to be
+maintained between calls, it may use the \*Vcontext\*O parameter to do this. The
+information is initialized by the \*L(open)(\|)\*O routine and returned as an
+opaque object to the caller, who then passes the parameter to subsequent
+\*L(retrieve_keyinfo)(\|)\*O, \*L(establish_trustbase)(\|)\*O, or \*L(close)(\|)\*O
+calls.
+.PP
+Note that if the \*L(open)(\|)\*O routine stores any state in the \*Vcontext\*O
+parameter, the \*L(close)(\|)\*O routine should free this storage.
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(establish_trustbase)(\|)\*O - Initializes a trust base
+...\" 
+.SH "Synopsis"
+.sS
+\*Lunsigned32 (*establish_trustbase) (void ** \*Vcontext\*L,
+.nL
+	\*Lconst pkc_trust_list_t & \*Vinitial_trust\*L,
+.nL
+	\*Lconst utc_t * \*Vdate\*L,
+.nL
+	\*Lchar \*Vinitial_explicit_policy_required\*L,
+.nL
+	\*Lpkc_trust_list_t & \*Vout_trust\*L);
+.sE
+...\" 
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vcontext\*O"
+An opaque (to the caller) data structure containing any state information required
+by the module across calls.
+...\" 
+.LI "\*Vinitial_trust\*O"
+Specifies the caller's initial trust.
+...\" 
+.LI "\*Vdate\*O"
+Specifies time for which information is to be returned.
+...\" 
+...\" 
+.LI "\*Vinitial_explicit_policy_required\*O"
+Specifies whether the initial certificate must explicitly contain
+the active policy in its policies field.
+...\" 
+.LE
+...\" 
+.SS "Output"
+.VL
+.LI "\*Vout_trust\*O"
+An extended trust list.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.SH "Description"
+.PP
+This is a one-time call made by an application to initialize a trust base. It
+returns the \*Vout_trust\*O parameter, which contains an extended trust list.
+After this call is made, the application can call \*L(retrieve_keyinfo)(\|)\*O
+to obtain the public keys of any particular principal. If the trust base does
+not change, \*L(retrieve_keyinfo)(\|)\*O can be used to look up another principal's
+public key without incurring the cost of another call to
+\*L(establish_trustbase)(\|)\*O. A trust base will not change unless the
+\*Vinitial_trust\*O list changes.
+...\" 
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(*delete_trustbase)(\|)\*O - Frees storage allocated for a trust base
+.PP
+This routine is optional.
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lunsigned32 (*delete_trustbase) (void ** \*Vcontext\*L,
+.nL
+	\*Lvoid ** \*Vtrust_base_handle\*L);
+.sE
+...\" 
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vcontext\*O"
+An opaque (to the caller) data structure containing any state information
+required by the module across calls.
+...\" 
+.LI "\*Vkeys_handle\*O"
+A policy specific structure, contained in the \*Lkeyinfo_t\*O structure passed by
+the original caller.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+.SH "Description"
+.PP
+\*L(*delete_trustbase)(\|)\*O
+
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(*delete_keyinfo)(\|)\*O - Frees storage allocated for key information
+.PP
+This routine is optional.
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lunsigned32 (*delete_keyinfo) (void ** \*Vcontext\*L,
+.nL
+	\*Lvoid ** \*Vkeys_handle\*L);
+.sE
+...\" 
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vcontext\*O"
+An opaque (to the caller) data structure containing any state information required
+by the module across calls.
+...\" 
+.LI "\*Vkeys_handle\*O"
+A policy specific structure, contained in the \*Lkeyinfo_t\*O structure passed by
+the original caller.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.SH "Description"
+.PP
+\*L(*delete_keyinfo)(\|)\*O frees storage that was allocated for
+key information.
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(*get_key_count)(\|)\*O - Returns number of keys
+.PP
+This routine is optional.
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lunsigned32 (*get_key_count) (void ** \*Vcontext\*L,
+.nL
+	\*Lvoid * \*Vkeys_handle\*L,
+.nL
+	\*Lsize_t * \*Vkey_count\*L);
+.sE
+...\" 
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vcontext\*O"
+An opaque (to the caller) data structure containing any state information required
+by the module across calls.
+...\" 
+.LI "\*Vkeys_handle\*O"
+A policy specific structure, contained in the \*Lkeyinfo_t\*O structure passed by
+the original caller.
+...\" 
+.LE
+...\" 
+.SS "Output"
+.VL
+.LI "\*Vkey_count\*O"
+Number of keys for the principal.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+.SH "Description"
+.PP
+\*L(*get_key_count)(\|)\*O returns the number of keys for the principal.
+This value is determined by reference to the policy-specific structure
+pointed to by \*Vkeys_handle\*O, a field in the \*Lkeyinfo_t\*O structure
+passed by the original caller.
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(*get_key_data)(\|)\*O - Returns a public key
+.PP
+This routine is optional.
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lunsigned32 (*get_key_data) (void ** \*Vcontext\*L,
+.nL
+	\*Lvoid * \*Vkeys_handle\*L,
+.nL
+	\*Lunsigned \*Vkey_index\*L,
+.nL
+	\*Lunsigned char ** \*Vkey_data\*L,
+.nL
+	\*Lsize_t * \*Vkey_length\*L);
+.sE
+...\" 
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vcontext\*O"
+An opaque (to the caller) data structure containing any state information required
+by the module across calls.
+...\" 
+.LI "\*Vkeys_handle\*O"
+A policy specific structure, contained in the \*Lkeyinfo_t\*O structure passed by
+the original caller (see \*Lpkc_intro(3sec)).
+...\" 
+.LI "\*Vkey_index\*O"
+Index (ranging from 0 to \*Lkey_count\*O - 1) of the key desired.
+...\" 
+.LE
+...\" 
+.SS "Output"
+.VL
+.LI "\*Vkey_data\*O"
+The encoded public key.
+...\" 
+.LI "\*Vkey_length\*O"
+Length of the key data returned.
+...\" 
+.LE
+...\" 
+...\" 
+.SH "Description"
+.PP
+\*L(*get_key_data)(\|)\*O returns the public key specified by \*Vindex\*O.
+The \*Vkey_data\*O returned is extracted from the policy-specific structure
+pointed to by \*Vkeys_handle\*O, a field in the \*Lkeyinfo_t\*O structure
+passed by the original caller.
+.PP
+\*Vkey_data\*O should be returned in storage allocated using the
+\*Lpkc_malloc(\|)\*O function defined in \*Lpkc_common.h\*O.
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(*get_key_trust)(\|)\*O - Returns information about key trust
+.PP
+This routine is optional.
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lunsigned32 (*get_key_trust) (void ** \*Vcontext\*L,
+.nL
+	\*Lvoid * \*Vkeys_handle\*L,
+.nL
+	\*Lunsigned \*Vkey_index\*L,
+.nL
+	\*Lcertification_flags_t * \*Vflags\*L,
+.nL
+	\*Luuid_t * \*Vdomain\*L,
+.nL
+	\*Lpkc_generic_key_usage_t * \*Vusages\*L);
+.sE
+...\" 
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vcontext\*O"
+An opaque (to the caller) data structure containing any state information
+required by the module across calls.
+...\" 
+.LI "\*Vkeys_handle\*O"
+A policy specific structure, contained in the \*Lkeyinfo_t\*O structure
+passed by the original caller (see \*Lpkc_intro(3sec)).
+...\" 
+.LI "\*Vkey_index\*O"
+Index (ranging from 0 to \*Lkey_count\*O - 1) of the key desired.
+...\" 
+.LE
+...\" 
+.SS "Output"
+.VL
+.LI "\*Vflags\*O"
+Information about the trust that can be placed in the key (see below).
+...\" 
+.LI "\*Vdomain\*O"
+Indicates domain of retrieved key. A value of
+\*Lsec_pk_domain_unspecified\*O or \*LNULL\*O
+means that the policy does not distinguish keys by domain.
+...\" 
+.LI "\*Vusages\*O"
+Indicates usage key is intended for.
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+.SH "Description"
+.PP
+\*L(*get_key_trust)(\|)\*O returns information about the trust reposed in
+the key specified by \*Vindex\*O. This information is determined by
+reference to the policy-specific structure pointed to by \*Vkeys_handle\*O,
+a field in the \*Lkeyinfo_t\*O structure passed by the original caller.
+.PP
+The returned \*Lcertification_flags_t\*O structure describes the trust that
+can be placed in the key. It contains the following fields:
+...\" 
+.ML
+.LI
+\*Ltrust_type\*O
+.PP
+A \*Ltrust_type_t\*O value, which will be one of the following:
+...\" 
+.ML
+.LI
+\*LUNTRUSTED\*O
+.PP
+No trust (e.g., unauthenticated).
+...\" 
+.LI
+\*LDIRECT_TRUST\*O
+.PP
+Direct trust via third party (e.g., authenticated registry).
+...\" 
+.LI
+\*LCERTIFIED_TRUST\*O
+.PP
+Trust certified by caller's trust base.
+...\" 
+.LE
+...\" 
+.LI
+\*Lmissing_crls\*O
+.P
+A \*Lchar\*O; its value is TRUE (not 0) if one or more CRLs are
+missing.
+...\" 
+.LI
+\*Lrevoked\*O
+.P
+A \*Lchar\*O whose value is TRUE (not 0) if any certificate
+has been revoked (even if it was still valid at the retrieval time).
+...\" 
+.LE
+...\" 
+...\" 
+.PP
+If \*Vdomain\*O and \*Vusages\*O are
+passed as non-\*LNULL\*O pointers, upon successful return these
+parameters will describe the domain and permitted usage(s) of the specified
+key. Policies that do not distinguish keys according to domain will indicate a
+domain of \*Lsec_pk_domain_unspecified\*O; policies that do not
+distinguish keys according to usage will indicate all usages are permitted.
+.PP
+The returned \*Vusages\*O is a bit mask which describes
+the usage(s), if any, which the key is restricted to. The value is
+formed by AND-ing together one or more of the following constants:
+...\" 
+...\" 
+.VL 2.5i
+.LI "\*LPKC_KEY_USAGE_AUTHENTICATION\*O"
+The key can be used to authenticate a user
+...\" 
+.LI "\*LPKC_KEY_USAGE_INTEGRITY\*O"
+The key can be used to provide integrity protection
+...\" 
+.LI "\*LPKC_KEY_USAGE_KEY_ENCIPHERMENT\*O"
+The key can be used to encrypt user keys
+...\" 
+.LI "\*LPKC_KEY_USAGE_DATA_ENCIPHERMENT\*O"
+The key can be used to encrypt user data
+...\" 
+.LI "\*LPKC_KEY_USAGE_KEY_AGREEMENT\*O"
+The key can be used for key-exchange
+...\" 
+.LI "\*LPKC_KEY_USAGE_NONREPUDIATION\*O"
+The key can be used for non-repudiation
+...\" 
+.LI "\*LPKC_CAKEY_USAGE_KEY_CERT_SIGN\*O"
+The key can be used to sign key certificates
+...\" 
+.LI "\*LPKC_CAKEY_USAGE_OFFLINE_CRL_SIGN\*O"
+The key can be used to sign CRLs
+...\" 
+.LI "\*LPKC_CAKEY_USAGE_TRANSACTION_SIGN\*O"
+The key can be used to sign transactions
+...\" 
+.LE
+...\" 
+.PP
+A returned \*Vusages\*O value of \*LNULL\*O (or a value with all bits
+set) means that the key is suitable for any usage.
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(*get_key_certifier_count)(\|)\*O - Returns number of key's certifying
+authorities
+.PP
+This routine is optional.
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lunsigned32 (*get_key_certifier_count) (void ** \*Vcontext\*L,
+.nL
+	\*Lvoid * \*Vkeys_handle\*L,
+.nL
+	\*Vunsigned \*Vkey_index\*L,
+.nL
+	\*Lsize_t * \*Vca_count\*L);
+.sE
+...\" 
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vcontext\*O"
+An opaque (to the caller) data structure containing any state information required
+by the module across calls.
+...\" 
+.LI "\*Vkeys_handle\*O"
+A policy specific structure, contained in the \*Lkeyinfo_t\*O structure passed by
+the original caller (see \*Lpkc_intro(3sec)).
+...\" 
+.LI "\*Vkey_index\*O"
+Index (ranging from 0 to \*Lkey_count\*O - 1) of the key desired.
+...\" 
+...\" 
+.LE
+...\" 
+.SS "Output"
+.VL
+.LI "\*Vca_count\*O"
+Number of certifying authorities for the key.
+...\" 
+.LE
+...\" 
+...\" 
+.SH "Description"
+.PP
+\*L(*get_key_certifier_count)(\|)\*O returns the number of certifying
+authorities for the key specified by \*Vindex\*O. This information is
+determined from the policy-specific structure pointed to by \*Vkeys_handle\*O,
+a field in the \*Lkeyinfo_t\*O structure passed by the original caller.
+...\" 
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(*get_key_certifier_info)(\|)\*O - Returns information about a certifying
+authority
+.PP
+This routine is optional.
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lunsigned32 (*get_key_certifier_info) (void ** \*Vcontext\*L,
+.nL
+	\*Lvoid * \*Vkeys_handle\*L,
+.nL
+	\*Lunsigned \*Vkey_index\*L,
+.nL
+	\*Lunsigned \*Vca_index\*L,
+.nL
+	\*Lchar ** \*Vca_name\*L,
+.nL
+	\*Lutc_t * \*Vcertification_start\*L,
+.nL
+	\*Lutc_t * \*Vcertification_expiration\*L,
+.nL
+	\*Lchar  * \*Vis_crl_valid\*L,
+.nL
+	\*Lutc_t * \*Vlast_crl_seen\*L,
+.nL
+	\*Lutc_t * \*Vnext_crl_expected\*L);
+.sE
+...\" 
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vcontext\*O"
+An opaque (to the caller) data structure containing any state information required
+by the module across calls.
+...\" 
+.LI "\*Vkeys_handle\*O"
+A policy specific structure, contained in the \*Lkeyinfo_t\*O structure passed by
+the original caller (see \*Lpkc_intro(3sec)).
+...\" 
+.LI "\*Vkey_index\*O"
+Index (ranging from 0 to \*Lkey_count\*O - 1) of the key desired.
+...\" 
+.LI "\*Vca_index\*O"
+Index of the certifier about whom information is desired.
+...\" 
+.LE
+...\" 
+.SS "Output"
+.VL
+.LI "\*Vca_name\*O"
+The name of the certifier.
+...\" 
+.LI "\*Vcertification_start\*O"
+Time at which certification by this certifier starts.
+...\" 
+.LI "\*Vcertification_expiration\*O"
+Time at which certification by this certifier ends.
+...\" 
+.LI "\*Vis_crl_valid\*O"
+If TRUE, there is a certificate revocation list for this
+certifier.
+...\" 
+.LI "\*Vlast_crl_seen\*O"
+Time at which certificate revocation list was last seen.
+...\" 
+.LI "\*Vnext_crl_expected\*O"
+Time at which next certificate revocation list is expected.
+...\" 
+.LE
+...\" 
+...\" 
+.SH "Description"
+.PP
+\*L(*get_key_certifier_info)(\|)\*O returns information about the
+certifying authority specified by \*Vca_index\*O for the key specified
+by \*Vkey_index\*O.
+.PP
+The desired information is extracted by the routine from 
+the policy-specific structure pointed to by \*Vkeys_handle\*O,
+a field in the \*Lkeyinfo_t\*O structure passed by the original caller.
+.PP
+Note that any of the return parameters may be passed as NULL if the
+corresponding information is not required.
+.PP
+The \*Vcertifier_name\*O parameter should be returned in storage allocated
+using the \*Lpkc_malloc(\|)\*O function defined in \*Lpkc_common.h\*O.
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(retrieve_keyinfo)(\|)\*O - Returns the public key for the specified principal
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lunsigned32 (*retrieve_keyinfo) (void ** \*Vcontext\*L,
+.nL
+	\*Lconst void * \*Vtrust_base_handle\*L,
+.nL
+	\*Lconst x500name & \*VsubjectName\*L,
+.nL
+	\*Lconst utc_t * \*Vdate\*L,
+.nL
+	\*Lconst uuid_t & \*Vdomain\*L,
+.nL
+	\*Lpkc_key_usage_t \*Vdesired_usage\*L,
+.nL
+	\*Lchar \*Vinitial_explicit_policy_required\*L,
+.nL
+	\*Lvoid ** \*Vkeys_handle\*L);
+.sE
+...\" 
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vcontext\*O"
+An opaque (to the caller) data structure containing any state information
+required by the module across calls.
+...\" 
+.LI "\*Vtrust_base_handle\*O"
+Specifies trust base.
+.LI "\*VsubjectName\*O"
+Specifies the desired subject name.
+.LI "\*Vdate\*O"
+Specifies time for which information is to be returned.
+.LI "\*Vdomain\*O"
+Specifies the particular domain to which the key-search operation
+should be restricted. Specify \*Lsec_pk_domain_unspecified\*O
+or \*LNULL\*O to indicate that keys for any domain should be
+retrieved.
+.LI "\*Vdesired_usage\*O"
+Specifies the one or more specific usages to which
+the key-search operation should be restricted.
+.LI "\*Vinitial_explicit_policy_required\*O"
+Specifies whether the initial certificate must explicitly contain
+the active policy in its policies field.
+...\" 
+.LE
+...\" 
+.SS "Output"
+.VL
+.LI "\*Vkeys_handle\*O"
+The handle to the public key for the specified target principal.
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.SH "Description"
+.PP
+The \*L(retrieve_keyinfo)(\|)\*O routine reads the certificate for the
+specified principal name, verifies it, and (if the verification is successful)
+extracts the public key stored in it and returns it to the caller.
+.PP
+The returned key information handle can be interrogated by various
+\*Lpkc_cert_\*O routines to extract the actual key and determine
+the degree of trust that can be placed in the returned key.
+...\" 
+.PP
+If \*Vdomain\*O and \*Vdesired_usage\*O are
+passed as non-\*LNULL\*O pointers, upon successful return these
+parameters will describe the domain and permitted usage(s) of the specified
+key. Policies that do not distinguish keys according to domain will indicate a
+domain of \*Lsec_pk_domain_unspecified\*O; policies that do not
+distinguish keys according to usage will indicate all usages are permitted.
+.PP
+The \*Vdesired_usage\*O parameter consists of a bit mask,
+formed by AND-ing together one or more of the following constants:
+...\" 
+...\" 
+.VL 2.5i
+.LI "\*LPKC_KEY_USAGE_AUTHENTICATION\*O"
+The key can be used to authenticate a user
+...\" 
+.LI "\*LPKC_KEY_USAGE_INTEGRITY\*O"
+The key can be used to provide integrity protection
+...\" 
+.LI "\*LPKC_KEY_USAGE_KEY_ENCIPHERMENT\*O"
+The key can be used to encrypt user keys
+...\" 
+.LI "\*LPKC_KEY_USAGE_DATA_ENCIPHERMENT\*O"
+The key can be used to encrypt user data
+...\" 
+.LI "\*LPKC_KEY_USAGE_KEY_AGREEMENT\*O"
+The key can be used for key-exchange
+...\" 
+.LI "\*LPKC_KEY_USAGE_NONREPUDIATION\*O"
+The key can be used for non-repudiation
+...\" 
+.LI "\*LPKC_CAKEY_USAGE_KEY_CERT_SIGN\*O"
+The key can be used to sign key certificates
+...\" 
+.LI "\*LPKC_CAKEY_USAGE_OFFLINE_CRL_SIGN\*O"
+The key can be used to sign CRLs
+...\" 
+.LI "\*LPKC_CAKEY_USAGE_TRANSACTION_SIGN\*O"
+The key can be used to sign transactions
+...\" 
+.LE
+...\" 
+.PP
+A \*LNULL\*O can be specified for \*Vdesired_usage\*O
+to indicate that keys for any usage should be retrieved.
+.PP
+Note that some of the routine's parameters relate to X.509 version 3
+certificates, support for which is not committed for DCE 1.2. The API has
+been designed with the intent that it be capable of supporting all currently
+defined versions of X.509, so that it need not change when version 3 support
+is added. For version 1 or version 2 policies and certificates, the
+\*Vdesired_usage\*O parameter will be ignored, and the
+\*Vinitial_explicit_policy_required\*O parameter must be zero (specifying,
+that is, that the policy need not explicitly appear in the first certificate).
+...\" 
+...\" 
+...\" 
+.nL 
+...\" 
+.ne 1.5i
+...\" 
+...\" 
+.SH "Related Information"
+.PP
+.ad l
+Functions:
+\*Lpkc_plcy_delete_keyinfo(3sec)\*O,
+\*Lpkc_plcy_delete_trustbase(3sec)\*O,
+\*Lpkc_plcy_establish_trustbase(3sec)\*O,
+\*Lpkc_plcy_get_key_certifier_count(3sec)\*O,
+\*Lpkc_plcy_get_key_certifier_info(3sec)\*O,
+\*Lpkc_plcy_get_key_count(3sec)\*O,
+\*Lpkc_plcy_get_key_data(3sec)\*O,
+\*Lpkc_plcy_get_key_trust(3sec)\*O,
+\*Lpkc_plcy_get_registered_policies(3sec)\*O,
+\*Lpkc_plcy_lookup_policy(3sec)\*O,
+\*Lpkc_plcy_retrieve_key(3sec)\*O,
+\*Lpkc_plcy_retrieve_keyinfo(3sec)\*O,
+\*Lpkc_register_policy(3sec)\*O.
+.ad b 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------

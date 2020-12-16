@@ -1,0 +1,216 @@
+/*************************************************************************
+ * MODULE NAME:
+ *
+ *      POSUTIL
+ *
+ * MODIFICATION HISTORY:
+ *
+ *    10-16-92  Bob Russell Created for POS Benchmark
+ *
+ * ABSTRACT
+ *
+ *    Utilities:
+ *
+ *       hari-kari    Kills the Server
+ *       sinker       Requester Syncronization routine
+ *
+ ************************************************************************/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <pthread.h>
+
+
+#ifdef IBMOS2
+#include <io.h>
+#include <os2.h>
+#include <os2def.h>
+#include <sys\stat.h>
+#include <sys\types.h>
+#else
+#include <sys/stat.h>
+#include <sys/types.h>
+#endif
+
+#include "pos_idl.h"
+
+#include "pos.h"
+
+int           history_file_handle=-1;
+
+
+#define check(status, string) \
+	if(status == -1) perror (string)
+pthread_mutex_t cond_mutex;
+pthread_cond_t cond_var;
+
+int proc_cnt;
+static int done=0;
+static int counter=0;
+
+unsigned int getp_count(unsigned short rnum)
+{
+   int   status;
+   unsigned int  bytes_read=0;
+   char     buffer[10];
+
+
+	done=0;
+	counter=0;
+
+
+   proc_cnt = rnum;
+
+printf("proc_cnt=%d\n",proc_cnt);
+   status = pthread_mutex_init(&cond_mutex, pthread_mutexattr_default);
+   check(status, "Mutex_init bad status\n");
+   status = pthread_cond_init(&cond_var, pthread_condattr_default);
+   check(status, "Cond_init bad status\n");
+   return(0);
+
+}
+
+
+/*unsigned long sinker(unsigned short reqnum) */
+unsigned long sinker(void)
+{
+   int   ret_code=0;
+
+   int   status;
+   int   proc=0;
+
+   status = pthread_mutex_lock(&cond_mutex);
+   check( status, "Mutex_lock bad status\n");
+   fprintf(stderr,"Status of MUTEX LOCK = %d.\n", status);
+   {
+   fprintf(stderr,"Inside sinker counter=%d proc_cnt=%d.\n", counter, proc_cnt);
+          if (++counter >= proc_cnt){
+		pthread_cond_broadcast(&cond_var);
+   		check( status, "Cond_boardcast bad status\n");
+   fprintf(stderr,"Status of Cond boardcast = %d.\n", status);
+		done=1;
+   		fprintf(stderr,"Broadcasting a green flag Cash Registers.\n");
+	  } else {
+   		fprintf(stderr,"Waiting for Broadcasting a green flag From Server.\n");
+		while(!done){
+			pthread_cond_wait(&cond_var, &cond_mutex);
+   			check( status, "Cond_wait bad status\n");
+   fprintf(stderr,"Status of Cond wait = %d.\n", status);
+		}
+   		fprintf(stderr,"Got Broadcasting a green flag From Server.\n");
+	  }
+			
+   }
+
+   fprintf(stderr,"              done=%d\n", done);
+   proc=counter;
+   status = pthread_mutex_unlock(&cond_mutex);
+   check( status, "Mutex_unlock bad status\n");
+   fprintf(stderr,"Status of MUTEX UNLOCK = %d.\n", status);
+   
+
+   /*printf("Sending a green flag Cash Register <%d>. Counter set at <%d>\n", reqnum,proc);*/
+   printf("Sending a green flag Cash Register.\n");
+   return(ret_code);
+}
+/********************************************************************/
+int CreateHistorySem(void)
+{
+   char          *sav_path;
+   unsigned char file_name[80];
+
+   /******** Open History File ***********/
+   sav_path = getenv("POSSAVE");
+   if (! sav_path)
+   {
+
+     printf("GetEnv POSSAVE Environment variable not set.\n");
+
+     /* Default to current directory */
+     strcpy(file_name, "POSHIST.ORY");
+
+   }
+   else
+   {
+     strcpy(file_name,sav_path);
+     strcat(file_name,BACK_SLASH);
+     strcat(file_name,"POSHIST.ORY");
+   }
+
+   #ifdef DEBUGIT
+   printf("Opening POS HISTORY FILE <%s>\n",file_name);
+   #endif
+
+   if ((history_file_handle =
+/*        open(file_name, O_CREAT | O_APPEND | O_BINARY | O_RDWR , S_IWRITE) */
+        open(file_name, O_CREAT | O_TRUNC | O_RDWR, S_IWRITE )
+       ) == -1)
+   {
+     printf("Open <%s> Failed\n", file_name);
+   }
+
+   printf("Opening POS HISTORY FILE <%s> rc=%d\n",file_name,history_file_handle);
+
+ return(history_file_handle);
+}
+/********************************************************************/
+unsigned long WriteHistory(SAVE_DATA * sendbuf, unsigned short in_len)
+{
+   int           num_wrt;
+   unsigned long rc;
+
+   /*****************************************************/
+
+   if  ((rc =
+         write(history_file_handle, sendbuf, in_len)
+        ) == -1 )
+
+   {
+     printf("Write HISTORY File Failed %d Handle %d\n",
+              rc, history_file_handle);
+   }
+   #ifdef DEBUGIT
+   printf("<%6d> Bytes written to  History File\n",rc);
+   #endif
+
+   /*****************************************************/
+
+   return(rc);
+}
+/*****************************************************/
+unsigned long CloseHistoryFile(int hfh)
+{
+   int        ret_code;
+
+   if ((ret_code =
+        close(hfh)
+       ))
+     printf("Close HISTORY File Failed %d Handle %d\n", ret_code, hfh);
+   else
+     printf("HISTORY File has been closed.\n");
+
+   return(ret_code);
+}
+/*****************************************************/
+
+
+
+void resetsrv
+(
+   handle_t d1,
+   unsigned short rnum
+)
+{
+   unsigned short reqnum;
+
+   unsigned long   ret_code;
+    reqnum=rnum;
+
+
+   if ((ret_code = getp_count(reqnum)) == 0)
+     printf("!!! Cash Register Syncronization RESET\n");
+
+}
+/*********************************************************************/

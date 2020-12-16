@@ -1,0 +1,217 @@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+...\" ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+...\" src directory for the full copyright text. 
+...\" 
+...\" HISTORY
+...\" $Log: rsh.8sec,v $
+...\" Revision 1.1.2.2  1996/12/17  20:49:17  damon
+...\" 	Expanded OSF C O P Y R I G H T   N O T I C E
+...\" 	[1996/12/17  20:46:37  damon]
+...\"
+...\" Revision 1.1.2.1  1996/09/13  16:09:32  millett
+...\" 	{enh,13626,R1.2.2}
+...\" 	 Adding for krb5 interoperability
+...\" 	[1996/09/13  16:09:09  millett]
+...\" 
+...\" $EndLog$
+...\" 
+...\" 
+...\" Copyright (c) 1983, 1990, 1993
+...\"     The Regents of the University of California.  All rights reserved.
+...\"
+...\" Redistribution and use in source and binary forms, with or without
+...\" modification, are permitted provided that the following conditions
+...\" are met:
+...\" 1. Redistributions of source code must retain the above copyright
+...\"    notice, this list of conditions and the following disclaimer.
+...\" 2. Redistributions in binary form must reproduce the above copyright
+...\"    notice, this list of conditions and the following disclaimer in the
+...\"    documentation and/or other materials provided with the distribution.
+...\" 3. All advertising materials mentioning features or use of this software
+...\"    must display the following acknowledgement:
+...\"     This product includes software developed by the University of
+...\"     California, Berkeley and its contributors.
+...\" 4. Neither the name of the University nor the names of its contributors
+...\"    may be used to endorse or promote products derived from this software
+...\"    without specific prior written permission.
+...\"
+...\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+...\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+...\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+...\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+...\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+...\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+...\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+...\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+...\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+...\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+...\" SUCH DAMAGE.
+...\"
+...\" (C)Copyright 1995, 1996 by the Massachusetts Institute of Technology.
+...\"
+...\"
+...\" Permission to use, copy, modify, and distribute this software and
+...\" its documentation for any purpose and without fee is hereby
+...\" granted, provided that the above copyright notice appear in all
+...\" copies and that both that copyright notice and this permission
+...\" notice appear in supporting documentation, and that the name of
+...\" M.I.T. not be used in advertising or publicity pertaining to
+...\" distribution of the software without specific, written prior
+...\" permission.  M.I.T. makes no representations about the suitability
+...\" of this software for any purpose.  It is provided "as is" without
+...\" express or implied warranty.
+...\"
+.TH rsh "8sec" "" "" ""
+.iX "\*Lrsh\*O command"
+.iX "Security Service commands" "\*Lrsh\*O"
+.SH "NAME" 
+.PP
+\*Lrsh\*O \- Execute a remote command
+.zA "enh,13626,R1.2.2,new for krb5 interop"
+.SH "SYNOPSIS" 
+.PP
+.sS
+\*Lrsh [-FKdfnx] [-l \*Vusername\*L] \*Vhost \*L[\*Vcommand\*L]\*O
+.sE
+.SH  "ARGUMENTS"
+.VL 1i
+.LI "\*Vhost \*O"
+The name of the host on which to execute the remote command.
+.LI "\*Vcommand\*O"    
+The command to execute remotely.  
+If no command is specified, you will be logged in on the remote host 
+using \*Lrlogin(8sec)\*O 
+.LE
+.SH "OPTIONS"
+.VL 1i
+.LI "\*L-F\*O"
+Forwards the local credentials to the remote system for use by the 
+specified command and marks the remote credentials as \*LForwardable\*O, 
+allowing them to be forwarded from there to another remote system.
+.LI "\*L-K\*O"    
+Turns off all Kerberos authentication.
+.LI "\*L-d\*O
+Turns on socket debugging (using \*Lsetsockopt(2)\*O) for 
+the TCP sockets used to communicate with the remote host.
+.LI "\*L-f\*O"
+Forwards the local credentials to the remote system 
+for use by the specified command and 
+marks the remote credentials as \*LNon-Forwardable\*O.  
+The credentials cannot be forwarded from there to another remote system.
+.LI "\*L-l\*O"    
+Allows the remote username to be specified.  
+By default, the remote username is the same as the local username.
+.LI "\*L-n\*O"    
+Redirects input from the special device \*L/dev/null\*O.  
+See \*LBUGS\*O for more information.
+.LI "\*L-x\*O"    
+Turns on DES encryption for all data exchange.  
+DES encryption may introduce a significant delay in response time.  
+This option is subject to export control.
+.LE
+.SH "DESCRIPTION"
+The \*Lrsh\*O command executes commands on the remote host. 
+To accomplish this, the \*Lrsh\*O command 
+copies its standard input to the remote command, the standard output 
+of the remote command to its standard output, and the standard error of 
+the remote command to its standard error.  Interrupt, quit, and terminate 
+signals are propagated to the remote command.  
+The \*Lrsh\*O command normally terminates when the remote command does. 
+.PP
+The \*Lrsh\*O command first attempts to use Kerberos V5 protocol to 
+authenticate to a remote host.  If the authentication is 
+successful, user authorization is performed as described in 
+\*LKerberos Authorization\*O below.  If the remote host does not support 
+Kerberos, the command uses the standard Berkeley \*Lrhosts\*O authorization mechanism.
+.PP
+Shell metacharacters that are enclosed in quotation marks 
+are interpreted on the remote machine. 
+Shell metacharacters that are not enclosed in quotation marks 
+are interpreted on the local machine. 
+.PP
+For example, the following command 
+appends the remote file \*Lremotefile\*O to the local file \*Llocalfile\*O:
+.iS
+rsh otherhost cat remotefile >> localfile
+.iE
+.PP
+The following command  appends the remote file \*Lremotefile\*O 
+to  the remote file \*Lother_remotefile\*O.
+.iS
+rsh otherhost cat remotefile ">>" other_remotefile
+.iE
+.SS "Kerberos Authorization"
+In order for Kerberos V5 authorization to succeed, the remote account must exist 
+in the remote system's password file.  
+If the local principal is using the \*L-l\*O option to log into a remote account with 
+a name that differs from the principal's local account name,
+either one of the following conditions must be true:
+.ML
+.LI
+A \*L.k5login\*O file containing the local principal's name, 
+in the form \*Vprincipal@realm\*O, must 
+exist in the remote account's home directory.  
+The remote account name must be the owner of the \*L.k5login\*O file 
+and the only name granted write permission.  In other words, the file's permissions 
+must be \*L-rw-r--r--\*O.
+.LI
+A Kerberos V5 authorization name database file must exist on the remote system. 
+This file must contain the 
+name of the local principal and map the principal 
+to an account on the remote system.
+.LE
+If \*L-l\*O option is not being used, that is, the local principal is logging into 
+a remote account (in the same realm)
+with the same name as the principal's local name, neither of the above conditions are 
+required to be met.
+.PP
+If Kerberos authentication fails, a warning message is printed, and the 
+standard Berkeley \*Lrlogin\*O is used.
+.SH "BUGS"
+If you are using \*Lcsh(1)\*O and put a \*Lrsh(8sec)\*O in the background without 
+redirecting its input away from the terminal, it will block even if no 
+reads are posted by the remote command.  For no input, 
+redirect the input of \*Lrsh\*O to \*L/dev/null\*O using the \*L-n\*O option.
+.PP
+You cannot run an interactive command (like \*Lrogue(6)\*O or \*Lvi(1)\*O) with 
+\*Lrsh\*O.  Instead, use \*Lrlogin(8sec)\*O.
+.PP
+Stop signals stop the local \*Lrsh\*O process only.
+.SH "DIAGNOSTICS"
+.VL 
+.LI "\*Lrlogin: \*Vreason\*O"
+An error occured in executing \*Lrlogin\*O. (The \*Lrlogin\*O command 
+is executed when the user does not specify any commands to be executed.)  
+This error is followed by the reason the execution failed.
+.LI "\*Lshell/tcp: unknown service\*O"
+.LI "\*Lcan't get entry for \*Ventry_name\*O/tcp service\*O"
+The ``shell'' service specification is not present in the \*L/etc/services\*O file.
+.LI "\*Lcan't establish stderr\*O"
+The \*Lremsh\*O command cannot establish secondary socket connection for \*Lstderr\*O.
+.LI "\*Vsystem call\*L: \*Vreason\*O
+An error occured in executing \*Vsystem call\*O.  
+The reason for the failure is appended to this error.
+.LI "\*Lunknown user id\*O"
+Check with the system administrator to see if your entry in the password file has been deleted by mistake.
+.LI "\*Lrcmd: connect: \*Vhostname\*L: Connection refused\*O"
+One cause for display of this generic error message could be the absence of an entry for \*Vhostname\*O 
+in \*L/etc/inetd.conf\*O on the remote system.  This entry may have been removed or commented out to prevent non-secure access.
+.LI "\*Lkcmd to host \*Vhostname\*L failed - \*Verror message\*O"
+An error occurred during Kerberos authentication.  The Kerberos-specific error message is displayed.
+.LI "\*Lwarning, using standard rsh: \*Verror message\*O"
+Kerberos authentication failed and the host is retrying using the standard Berkeley 
+\*Lrhosts\*O authorization mechanism.
+.LE
+.SH "RELATED INFORMATION"
+.PP
+.ad l
+Commands:
+\*Lrlogin(8sec)\*O,
+\*Lrshd(8sec)\*O.
+
+Files:
+\*L.k5login\*O, 
+\*L/etc/hosts\*O.
+.ad b
+.zZ "enh,13626,R1.2.2,new for krb5 interop"

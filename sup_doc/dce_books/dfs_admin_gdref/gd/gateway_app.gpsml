@@ -1,0 +1,1243 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" Copyright (c) 1994 Hewlett-Packard Company
+...\" Copyright (c) 1994 Transarc Corporation
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" HISTORY
+...\" $Log: gateway_app.gpsml,v $
+...\" Revision 1.1.7.1  1996/05/14  19:52:28  wardr
+...\" 	{enh,R1.2.2}
+...\" 	Removed changebars
+...\" 	[1996/05/14  19:51:16  wardr]
+...\"
+...\" Revision 1.1.4.2  1995/12/29  17:31:13  wfl
+...\" 	{edit, R1.2.1}
+...\" 	made copy edits
+...\" 	[1995/12/29  17:30:08  wfl]
+...\" 
+...\" Revision 1.1.4.1  1995/11/06  15:51:52  wfl
+...\" 	{enh,13187,R1.2.1}
+...\" 	HP update to NFS gateway
+...\" 	[1995/11/06  15:51:11  wfl]
+...\" 
+...\" Revision 1.1.2.3  1995/07/24  18:42:42  weir
+...\" 	Prentice-Hall corrections
+...\" 	[1995/07/24  18:42:07  weir]
+...\" 
+...\" Revision 1.1.2.1  1994/08/25  20:54:21  jeff
+...\" 	{defect, 11180, R1.1}
+...\" 	Incorporate DFS/NFS Gateway documentation.
+...\" 	[1994/08/25  20:53:36  jeff]
+...\" 
+...\" $EndLog$
+...\" 
+.nr H1 0
+.H 1 "The DFS/NFS Secure Gateway"
+.iX "DFS/NFS Gateway" "about"
+.iX "NFS" "access to DFS"
+.iX "DFS" "accessing from NFS"
+.iX "accessing DFS from NFS"
+.P
+The Distributed File Service/Network File System (DFS/NFS) Secure Gateway
+provides a mechanism for granting authenticated access to the DFS filespace
+from an NFS client.  The DFS/NFS Secure Gateway allows users to access data
+in the DFS filespace from a machine that is configured as an NFS client but
+not as a DCE client.
+.P
+To use the DFS/NFS Secure Gateway for authenticated access to DFS, you
+must configure at least one Gateway Server machine.  A Gateway Server
+machine must be a DFS client in the DCE cell to which access is to be
+provided.  One function of a Gateway Server machine is to export the
+root of the DCE global namespace, \*L/...\*O, via NFS.  On each NFS
+client from which users are to access DFS, you then mount \*L/...\*O.
+All users of the NFS clients then have unauthenticated access to DFS.
+.P
+.iX "Gateway"
+.iX "Secure Gateway"
+.iX "DFS/NFS Gateway" "\*L@host\*O variable"
+.iX "DFS/NFS Gateway" "\*L@sys\*O variable"
+The DFS/NFS Secure Gateway recognizes the \*L@sys\*O and
+\*L@host\*O variables on the NFS client system. This allows the Gateway
+system to resolve pathnames to binaries and other system-dependent
+files correctly, based on the user's login system name and system type.
+.P
+The \*L@host\*O variable contains the name of the NFS client, as
+returned by \*Lgethostname()\*O, that is accessing the DFS
+namespace. The \*L@sys\*O variable, which is a unique name derived from
+\*Luname()\*O, describes the machine architecture and OS type.
+Examples of \*L@sys\*O values include \*Lpmax_osf1\*O and \*Lrs_aix32\*O.
+.P
+The primary function of a Gateway Server machine is to provide DCE
+authentication to users of NFS clients.  NFS users who have valid accounts in
+the registry database of the DCE cell authenticate to DCE to gain authenticated
+access to DFS.  Depending on the needs of your users and the security
+considerations of your DCE cell, you can provide local authentication to
+DCE from Gateway Server machines, remote authentication to DCE from NFS
+clients, or both.  Local and remote authentication work as follows:
+.P
+.ML
+.LI
+.iX "DFS/NFS Gateway" "local authentication"
+\*ELocal authentication\*O to DCE from Gateway Server machines is provided via
+the \*Ldfsgw add\*O command.  With local authentication, you can allow users to
+issue the \*Ldfsgw add\*O command to authenticate themselves, or you can
+control access to DFS by allowing only system administrators to provide
+authentication via the \*Ldfsgw add\*O command. (The \*Ldfsgw\*O command suite
+includes additional commands to provide for central administration from Gateway
+Server machines.)
+.P
+Local authentication requires little configuration, but it provides a limited
+approach to authentication.  Configuration consists only of installing the
+\*Ldfsgw\*O commands on the Gateway Server machines.  However, authentication
+requires either administrative intervention or remote access to the Gateway
+Server machine (via the \*Ltelnet\*O program, for example); the latter approach
+results in user passwords being sent over the network in the clear.
+.LI
+.iX "DFS/NFS Gateway" "remote authentication"
+\*ERemote authentication\*O to DCE from NFS clients is provided via the
+\*Ldfs_login\*O command.  With remote authentication, you allow users to issue
+the \*Ldfs_login\*O command to authenticate themselves.
+.P
+Remote authentication requires additional configuration, but it provides a less
+burdensome and more secure approach to authentication.  Configuration consists
+of installing and configuring the Gateway Server (\*Ldfsgwd\*O) process on the
+Gateway Server machines, installing the \*Ldfs_login\*O command (and the
+\*Ldfs_logout\*O command) on the NFS clients, configuring Kerberos on the NFS
+clients, and configuring the remote authentication service on both the Gateway
+Server machines and the NFS clients.  However, authentication requires no
+administrative measures, and user passwords are never sent in the clear.
+.LE
+.P
+.iX "DFS/NFS Gateway" "Process Activation Group"
+.iX "Process Activation Group"
+The \*Ldfsgw add\*O and \*Ldfs_login\*O commands both result in authenticated
+access to DFS from an NFS client.  To provide a user with authenticated access,
+each command obtains a ticket-granting ticket (TGT) for the user from the DCE
+Security Service.  The TGT is used to create a valid login context for the user.
+The login context includes a Process Activation Group (PAG), which DFS stores
+in the kernel of the Gateway Server machine.  The PAG identifies the user's TGT;
+the TGT serves as the user's DCE credentials.
+.nL
+.ne 20
+.P
+.iX "DFS/NFS Gateway" "authentication table"
+On the Gateway Server machine, an association is created between the UNIX user
+identification number (UID) of the user and the network address of the NFS
+client from which DFS access is desired.  A mapping is then created between
+this pair and the PAG created for the user.  The mapping is stored as an entry
+in a local authentication table (AT), which, like the PAG, resides in the
+kernel of the machine.  The mapping provides the user with authenticated access
+to DFS from the NFS client.
+.P
+Each mapping grants a user authenticated access only from the specific NFS
+client for which the mapping exists.  For authenticated access from a different
+NFS client, a user must use the \*Ldfsgw add\*O or \*Ldfs_login\*O command to
+create a new mapping for that client.
+.P
+A user's DCE credentials are good only for the lifetime of the
+TGT. The ticket lifetime is dictated by the registry database of the
+DCE cell.  By default, each ticket receives the default ticket
+lifetime in effect in the registry database.  The \*Ldfs_login\*O
+command includes a \%\*L-l\*O option that can be used to request a
+different lifetime, but a requested lifetime is constrained by the
+policies in effect in the registry database.  Once a user's TGT
+expires, the user must obtain new DCE credentials.
+.P
+A user who wants to cancel authenticated access to DFS before the credentials
+expire can issue either the \*Ldfs_logout\*O command from the NFS client for
+which the credentials were granted or the \*Ldfsgw delete\*O command from the
+Gateway Server machine.  Both commands remove the user's entry for the NFS
+client from the authentication table on the Gateway Server machine.  Either
+command can be used to end the authenticated session, regardless of which
+command was used to obtain the credentials.  Because the authentication table
+resides in memory, all authenticated sessions are terminated if the machine
+configured as a Gateway Server is rebooted.
+.P
+The following sections provide complete instructions for
+configuring Gateway Server machines and NFS clients to provide NFS
+users with either local or remote authentication to DCE.  The final
+section in this appendix provides detailed information about how
+users authenticate to DCE and how they access DFS from an NFS client.
+.nL
+.ne 20
+.H 2 "Configuring Gateway Server Machines"
+.iX "DFS/NFS Gateway" "about Gateway Servers"
+.P
+A Gateway Server machine provides authenticated access to the DFS filespace to
+users on NFS clients.  You can configure any machine that is configured as a
+DFS client and an NFS server as a Gateway Server.  Following successful
+configuration, the machine provides authenticated access to the DFS filespace,
+and it exports the root of the DCE namespace, \*L/...\*O, via NFS.
+.P
+You can configure multiple Gateway Server machines to provide DFS access from
+multiple sources.  However, users do not randomly select Gateway Server machines
+from NFS clients.  By default, users on an NFS client contact the Gateway Server
+machine that exports \*L/...\*O to the client.  If you want to balance the load
+among multiple Gateway Servers, you must configure your NFS clients so that
+each client mounts \*L/...\*O from a different Gateway Server machine. (Section
+A.2 provides information about configuring NFS clients.)
+.P
+Depending on how closely you want to control access to the DFS filespace, 
+configure your Gateway Server machines in one of the following ways:
+.ML
+.LI
+Configure the Gateway Server machines so that users \*Ecannot\*O issue the
+\*Ldfs_login\*O command to authenticate to DCE.
+.P
+This configuration allows system administrators to manage all DCE
+authentication from the Gateway Server machines.  You can allow users to issue
+the \*Ldfsgw add\*O command themselves, or you can limit use of the command to
+administrators only.  To configure a Gateway Server machine without enabling
+remote authentication via the \*Ldfs_login\*O command, follow the instructions
+in Section A.1.1.
+.LI
+Configure the Gateway Server machines so that users \*Ecan\*O issue the
+\*Ldfs_login\*O command to authenticate to DCE.
+.P
+This configuration allows users of NFS clients to acquire their own DCE
+credentials from the NFS clients.  To configure a Gateway Server machine and
+enable remote authentication via the \*Ldfs_login\*O command, follow the
+instructions in Section A.1.2.
+.LE
+.nL
+.ne 20
+.P
+Before configuring a Gateway Server machine, you must do the following:
+.ML
+.LI
+Configure a DCE cell that includes DFS.
+.LI
+Configure each machine that is to become a Gateway Server as a DFS client and
+an NFS server.
+.LI
+Ensure proper synchronization among the system clocks on machines that are
+to become Gateway Servers, machines configured as NFS clients that are to
+contact the Gateway Servers, and machines in the DCE cell to be contacted.
+You must keep the system clocks on these machines synchronized at all times.
+.LE
+.P
+Once you have met these prerequisites, you can configure your Gateway Server
+machines.
+.H 3 "Configuring a Gateway Server Without Enabling Remote Authentication"
+.iX "DFS/NFS Gateway" "configuring Gateway Servers without remote authentication"
+.P
+Perform the steps in this section to enable DCE authentication from a Gateway
+Server machine without enabling it from NFS clients that contact the Gateway
+Server.  Users can authenticate only by issuing the \*Ldfsgw add\*O command on
+the Gateway Server machine (or by having a system administrator issue the
+command for them, if administrators control authentication to the DCE cell).
+.P
+To allow users of NFS clients to authenticate to DCE from the Gateway Server
+machine but not from NFS clients that contact the Gateway Server, perform the
+following steps on the machine to be configured as a Gateway Server:
+.AL
+.LI
+Log in as the local \*Lroot\*O user on the machine.
+.LI
+.iX "\*Ldfsgw\*O command suite"
+.iX "DFS/NFS Gateway" "\*Ldfsgw\*O commands"
+Install the binary file for the \*Ldfsgw\*O command suite in the
+directory \*Vdcelocal\*L/bin\*O on the machine.  The \*Ldfsgw\*O
+command suite provides a local interface to the authentication table
+maintained on the Gateway Server machine.  Commands in the \*Ldfsgw\*O
+suite can be used to add, delete, and view mappings in the
+authentication table. (See Sections A.3.2.2 through A.3.2.4 for
+information about using these commands.)
+.nL
+.ne 20
+.LI
+Export the DCE global root directory, \*L/...\*O, via NFS.  This is typically
+accomplished via the \*Lexportfs\*O command; the exact command and procedure
+depends on your vendor's implementation of NFS. (See your vendor's NFS
+documentation for more information.)
+.LE
+.P
+The Gateway Server machine is now configured to provide DCE
+authentication via only the \*Ldfsgw add\*O command.  Repeat these
+steps on each DFS client that is to be configured as a Gateway Server
+in this manner.  Should you later decide to allow users to
+authenticate to DCE from NFS clients that contact the Gateway Server,
+simply perform the steps in Section A.1.2 on the Gateway Server
+machine.
+.H 3 "Using dce_config to Configure the Gateway Server and Enable Remote Authentication"
+.P
+.iX "DFS/NFS Gateway" "default results"
+To configure a DFS/NFS Secure Gateway by using \*Ldce_config\*O, and get
+the default results, perform the following steps. If you
+want to manually configure the Gateway and make specific changes, go
+to Section A.1.3.
+.P
+On each server machine:
+.AL
+.LI
+Log in as the local \*Lroot\*O user on the machine.
+.LI
+Install the binary file for the \*Ldfsgwd\*O process in the
+directory \*Edcelocal\*L/bin\*O. The \*Ldfsgwd\*O process provides users of NFS clients with a
+remote interface to the authentication table maintained on the Gateway Server
+machine.
+.LI
+Use the \*Lexportfs\*L command to export the DCE global \*Lroot\*O
+directory (\*L/...\*O) via NFS.
+.LI
+Add the \*Ldfsgw\*O service to the Internet services database.
+The \*Ldfsgw\*O service provides the login facility for the
+DFS/NFS Secure Gateway. To add the service, do one of the following:
+.ML
+.LI
+\*EIf you use the \*L/etc/services\*E file in your environment\*O, add an
+entry for the \*Ldfsgw\*O services to the \*L/etc/services\*O file.
+.LI
+\*EIf you use a Network Information Service (NIS) services map in your
+environment\*O, add an entry for the \*Ldfsgw\*O service to the NIS
+services map file on the NIS master. Add the entry to the services
+map for the first Gateway Server process only; do not add the entry
+for additional Gateway Server processes or NFS clients.
+.LE
+.P
+In either case, you must add the following entry for the service:
+.oS
+\*Cdfsgw     438/udp     dlog\*O
+.oE
+.P
+where \*Ldfsgw\*O is the name of the service, \*L438\*O is the port at
+which the service receives RPCs, \*Ludp\*O is the protocol the service
+uses to communicate, and \*Ldlog\*O is an alias for the \*Ldfsgw\*O
+service. 
+.P
+Run \*Ldce_config\*O as follows:
+.ML
+.LI
+From the Main \*LDCE Configuration\*O menu, select \*L4\*O (DFS Client).
+.LI
+Enter the cell administrator's name and password.
+.LI
+Enter \*Ly\*O at the prompt \*LWould you like to configure this client
+as an NFS Gateway?\*O
+.LI
+Respond to the prompt \*LWould you like to use BOS server to
+monitor and administer the dfsgwd process?\*O as follows:
+.P
+If you want the \*Ldfsgw\*O server administrator to be able to
+administer and monitor the \*Ldfsgw\*O server via BOS commands,
+enter \*Ly\*O. Otherwise, enter \*Ln\*O.
+.LE
+.P
+Configuration of the node as an NFS/DFS Gateway Server is complete.
+.H 3 "Manually Configuring a Gateway Server and Enabling Remote Authentication"
+.iX "DFS/NFS Gateway" "configuring Gateway Servers with remote authentication"
+.P
+Perform the steps in this section to enable DCE authentication either from a
+Gateway Server machine or from NFS clients that contact the Gateway Server.
+Users authenticate from the Gateway Server machine by issuing the \*Ldfsgw
+add\*O command; they authenticate from an NFS client by issuing the
+\*Ldfs_login\*O command.  A Gateway Server machine to be configured in this
+manner runs the Gateway Server (\*Ldfsgwd\*O) process.  The steps in Section
+A.1.3.2 configure the \*Ldfsgwd\*O process on the Gateway Server machine.
+.P
+A Gateway Server machine configured in this way should also run the Basic
+OverSeer (BOS) Server to monitor and simplify administration of the
+\*Ldfsgwd\*O process.  The steps in Section A.1.2.1 configure a BOS Server
+(\*Lbosserver\*O) process on the Gateway Server machine.  Perform the steps in
+Section A.1.3.1 only if the BOS Server is not already running on the machine.
+(Note that you typically run the BOS Server only on DFS servers, but you can
+also run it on DFS clients.  See Chapters 4 and 5 for more information about
+the BOS Server.)
+.nL
+.ne 20
+.H 4 "Configuring the BOS Server Process"
+.iX "DFS/NFS Gateway" "configuring the BOS Server process"
+.iX "BOS Server" "configuring for DFS/NFS Gateway"
+.P
+To configure the BOS Server (\*Lbosserver\*O) process, perform the following
+steps on the machine to be configured as a Gateway Server.  In all cases,
+\*Vhostname\*O is the hostname of the local machine. (Note that you may need
+to install the \*Lbosserver\*O binary file on the machine if it is not already
+present.  See your vendor's installation and configuration documentation for
+information about installing the binary file.)
+.AL
+.LI
+Authenticate to DCE as a principal who has the following ACL permissions on
+entries in the registry database:
+.ML
+.LI
+The \*Li\*O permission on the directory \*Lhosts/\*Vhostname\*O.
+.LI
+The \*Lm\*O, \*La\*O, \*Lu\*O, \*Lg\*O, and \*Lc\*O permissions on the
+principal \*Lhosts/\*Vhostname\*L/dfs-server\*O.  The principal is created
+during the configuration steps.
+.LI
+The \*Lt\*O and \*LM\*O permissions on the group \*Lsubsys/dce/dfs-admin\*O.
+.LI
+The \*LR\*O, \*Lt\*O, and \*LM\*O permissions on the organization \*Lnone\*O.
+.LI
+The \*Lr\*O permission on the registry Policy object for the DCE cell.
+.LE
+.P
+This requirement is most easily met by authenticating to a privileged DCE
+identity (for example, \*Lcell_admin\*O or a principal who is a member of the
+group \*Lacct-admin\*O).
+.LI
+Create the principal \*Lhosts/\*Vhostname\*L/dfs-server\*O, and create an
+account for the principal.  Use the following \*Ldcecp\*O commands to create
+the principal and account in the registry database.  In the commands,
+\*Vpassword\*O is the password of the DCE identity to which you are
+authenticated.
+.iS
+\*C$ \*Ldcecp\*O
+\*Cdcecp> \*Lprincipal create hosts/\*Vhostname\*L/dfs-server
+\*Cdcecp> \*Laccount create hosts/\*Vhostname\*L/dfs-server \\
+\*C> \*L-group subsys/dce/dfs-admin \\
+\*C> \*L-org none -password \*Vpassword\*L -mypwd \*Vpassword\*O
+.iE
+.nL
+.ne 20
+.LI
+Grant the group \*Lsubsys/dce/dfs-admin\*O the appropriate permissions on the
+ACL for the \*Lhosts/\*Vhostname\*L/dfs-server\*O principal in the registry
+database:
+.iS
+\*Cdcecp> \*Lacl mod /.:/sec/principal/hosts/\*Vhostname\*L/dfs-server \\
+\*C> \*L-add {group subsys/dce/dfs-admin rcDnfmag}\*O
+\*Cdcecp> \*Lexit\*O
+.iE
+.LI
+Use the \*Lsu\*O command to become the local \*Lroot\*O user on the machine:
+.iS
+\*C$ \*Lsu\*O
+\*CPassword: \*Vroot_password\*O
+.iE
+.LI
+Add a server key for the \*Lhosts/\*Vhostname\*L/dfs-server\*O principal to
+the \*L/krb5/v5srvtab\*O keytab file on the machine.  The \*Ldced\*O process
+recognizes the keytab file by the entry name \*Lself\*O.  The command creates
+the keytab file if the file does not already exist.  In the commands,
+\*Vpassword\*O is the password of the DCE identity to which you were
+authenticated when you created the principal.
+.iS
+\*C# \*Ldcecp\*O
+\*Cdcecp> \*Lkeytab add self -member hosts/\*Vhostname\*L/dfs-server \\
+\*C> \*L-key \*Vpassword\*O
+\*Cdcecp> \*Lkeytab add self -member hosts/\*Vhostname\*L/dfs-server \\
+\*C> \*L-random -registry\*O
+\*Cdcecp> \*Lexit\*O
+.iE
+.LI
+Remove the \*LBosConfig\*O file and any administrative lists that may exist
+from a previous configuration of the BOS Server on the machine:
+.iS
+\*C# \*Lrm -f \*Vdcelocal\*L/var/dfs/BosConfig\*O
+\*C# \*Lrm -f \*Vdcelocal\*L/var/dfs/admin.*\*O
+.iE
+.LI
+Start the \*Lbosserver\*O process with DFS authorization checking disabled.
+The process creates a new \*LBosConfig\*O file and a new \*Ladmin.bos\*O
+file, which is the administrative list for the BOS Server.
+.iS
+\*C# \*Vdcelocal\*L/bin/bosserver -noauth &\*O
+.iE
+.nL
+.ne 20
+.LI
+Add the group \*Lsubsys/dce/dfs-admin\*O to the \*Ladmin.bos\*O file:
+.iS
+\*C# \*Vdcelocal\*L/bin/bos addadmin -server /.:/hosts/\*Vhostname\*L -adminlist \\
+admin.bos -group subsys/dce/dfs-admin\*O
+.iE
+.LI
+Enable DFS authorization checking by the BOS Server:
+.iS
+\*C# \*Vdcelocal\*L/bin/bos setauth -server /.:/hosts/\*Vhostname\*L -authchecking on\*O
+.iE
+.LI
+Configure the \*Lbosserver\*O process to start automatically when the system
+is rebooted by removing the two \*L#\*O (number signs) from the following line
+of the \*L/etc/rc.dfs\*O file (or its equivalent):
+.iS
+\*C##daemonrunning $DCELOCAL/bin/bosserver\*O
+.iE
+.LE
+.P
+The BOS Server process is now fully configured on the machine.
+.H 4 "Configuring the Gateway Server Process"
+.iX "DFS/NFS Gateway" "configuring the Gateway Server process"
+.P
+To configure the Gateway Server (\*Ldfsgwd\*O) process, perform the following
+steps on the machine to be configured as a Gateway Server.  The steps assume
+that the BOS Server is already running on the machine.  In all of the steps,
+\*Vhostname\*O is the hostname of the local machine.
+.nS "note"
+You need to perform some steps only when you configure the first Gateway
+Server process.  Such steps are qualified with the phrase \*Efor the first
+Gateway Server process\*O.
+.nE
+.AL
+.LI
+\*EIf you have not already done so\*O, perform all of the steps in Section
+A.1.1 to install the \*Ldfsgw\*O binary file on the machine and to export
+\*L/...\*O from the machine.
+.LI
+\*EIf you have not already done so\*O, log in as the local \*Lroot\*O user on
+the machine.
+.LI
+.iX "\*Ldfsgwd\*O command"
+.iX "DFS/NFS Gateway" "\*Ldfsgwd\*O command"
+Install the binary file for the \*Ldfsgwd\*O process in the directory
+\*Vdcelocal\*L/bin\*O on the machine.  The \*Ldfsgwd\*O process provides users
+of NFS clients with a remote interface to the authentication table maintained
+on the Gateway Server machine.
+.nL
+.ne 20
+.LI
+Add the \*Ldfsgw\*O service to the Internet services database.  The \*Ldfsgw\*O
+service provides the login facility for the DFS/NFS Secure Gateway.  To add the
+service, do one of the following:
+.ML
+.LI
+\*EIf you use the \*L/etc/services\*E file\*O in your environment, add an entry
+for the \*Ldfsgw\*O service to the \*L/etc/services\*O file on the machine.
+.LI
+\*EIf you use a Network Information Service (NIS) services map\*O in your
+environment, add an entry for the \*Ldfsgw\*O service to the NIS services map
+file on the NIS master.  Add the entry to the services map only \*Efor the first
+Gateway Server process\*O; do not add the entry for additional Gateway Server
+processes or NFS clients.
+.LE
+.P
+In either case, you need to add the following entry for the service:
+.oS
+\*Cdfsgw     438/udp     dlog\*O
+.oE
+.P
+where \*Ldfsgw\*O is the name of the service, \*L438\*O is the port at which
+the service receives RPCs, \*Ludp\*O is the protocol the service uses to
+communicate, and \*Ldlog\*O is an alias for the \*Ldfsgw\*O service.  See the
+reference page for the \*Lservices\*O file for more information.
+.LI
+Authenticate to DCE as a principal who has the following ACL permissions on
+entries in the registry database:
+.ML
+.LI
+The \*Li\*O permission on the directory \*Lhosts/\*Vhostname\*O.
+.LI
+\*EFor the first Gateway Server process\*O, the \*Li\*O permission on the
+directory \*Lsubsys/dce\*O.
+.LI
+The \*Lm\*O, \*La\*O, \*Lu\*O, and \*Lg\*O permissions on the principal
+\*Lhosts/\*Vhostname\*L/dfsgw-server\*O.  The principal is created during the
+configuration steps.
+.LI
+The \*Lt\*O and \*LM\*O permissions on the group \*Lsubsys/dce/dfsgw-admin\*O.
+The group is created during the configuration steps.
+.LI
+The \*LR\*O, \*Lt\*O, and \*LM\*O permissions on the organization \*Lnone\*O.
+.LI
+The \*Lr\*O permission on the registry Policy object for the DCE cell.
+.LE
+.P
+This requirement is most easily met by authenticating to a privileged DCE
+identity (for example, \*Lcell_admin\*O or a principal who is a member of the
+group \*Lacct-admin\*O).
+.nL
+.ne 20
+.LI
+Invoke the \*Ldcecp\*O command:
+.iS
+\*C$ \*Ldcecp\*O
+.iE
+.LI
+\*EFor the first Gateway Server process\*O, create the group
+\*Lsubsys/dce/dfsgw-admin\*O in the registry database.  Use the following
+\*Ldcecp\*O command to create the group:
+.iS
+\*Cdcecp> \*Lgroup create subsys/dce/dfsgw-admin
+.iE
+.LI
+Create the principal \*Lhosts/\*Vhostname\*L/dfsgw-server\*O, and create an
+account for the principal.  The Gateway Server process communicates as the
+principal \*Lhosts/\*Vhostname\*L/dfsgw-server\*O.  Use the following
+\*Ldcecp\*O commands to create the principal and account in the registry
+database.  In the commands, \*Vpassword\*O is the password of the DCE identity
+to which you are authenticated.
+.iS
+\*Cdcecp> \*Lprincipal create hosts/\*Vhostname\*L/dfsgw-server
+\*Cdcecp> \*Laccount create hosts/\*Vhostname\*L/dfsgw-server \\
+\*C> \*L-group subsys/dce/dfsgw-admin -org none -password \*Vpassword\*L \\
+\*C> \*L-mypwd \*Vpassword\*O
+\*Cdcecp> \*Lexit\*O
+.iE
+.LI
+Use the \*Lsu\*O command to become the local \*Lroot\*O user on the machine:
+.iS
+\*C$ \*Lsu\*O
+\*CPassword: \*Vroot_password\*O
+.iE
+.LI
+Add a server key for the \*Lhosts/\*Vhostname\*L/dfsgw-server\*O principal
+to the \*L/krb5/v5srvtab\*O keytab file on the machine.  The \*Ldced\*O process
+recognizes the keytab file by the entry name \*Lself\*O.  In the commands,
+\*Vpassword\*O is the password of the DCE identity to which you were
+authenticated when you created the principal.
+.iS
+\*C# \*Ldcecp\*O
+\*Cdcecp> \*Lkeytab add self -member hosts/\*Vhostname\*L/dfsgw-server \\
+\*C> \*L-key \*Vpassword\*O
+\*Cdcecp> \*Lkeytab add self -member hosts/\*Vhostname\*L/dfsgw-server \\
+\*C> \*L-random -registry\*O
+\*Cdcecp> \*Lexit\*O
+.iE
+.nL
+.ne 20
+.LI
+Log out as \*Lroot\*O to return to your authenticated DCE identity.
+.LI
+If your current DCE identity is not included in the
+\*Vdcelocal\*L/var/dfs/admin.bos\*O file on the machine, either add the
+identity to the file or authenticate to DCE as a principal who is included
+in the file.  You can use the \*Lbos lsadmin\*O command to list the principals
+and groups included in the \*Ladmin.bos\*O file:
+.iS
+\*C$ \*Vdcelocal\*L/bin/bos lsadmin -server /.:/hosts/\*Vhostname\*L \\
+-adminlist admin.bos\*O
+.iE
+.LI
+Create a \*Lsimple\*O BOS Server process named \*Ldfsgw\*O to run the
+\*Ldfsgwd\*O server process:
+.iS
+\*C$ \*Vdcelocal\*L/bin/bos create -server /.:/hosts/\*Vhostname\*L -process dfsgw \\
+-type simple -cmd \*Vdcelocal\*L/bin/dfsgwd\*O
+.iE
+.LE
+.P
+The Gateway Server process is now fully configured on the machine.
+.H 2 "Configuring NFS Clients to Access DFS"
+.iX "NFS" "configuring for DFS/NFS Gateway"
+.iX "DFS/NFS Gateway" "about NFS clients"
+.P
+Once you have configured at least one Gateway Server machine according to the
+instructions in Section A.1, you can configure your NFS clients to provide
+access to the DFS filespace.  Users who have DCE accounts can then authenticate
+to DCE for authenticated access to DFS from the NFS clients.  Authenticating to
+DCE provides these users with the privileges and permissions associated with
+their DCE identities.
+.P
+Depending on how you configured your Gateway Server machines, configure each
+NFS client that is to provide access to DFS in one of the following ways:
+.ML
+.LI
+If you configured your Gateway Servers so that users \*Ecannot\*O issue the
+\*Ldfs_login\*O command to authenticate to DCE, configure your NFS clients
+without enabling DCE authentication via the \*Ldfs_login\*O command; follow
+the instructions in Section A.2.1.
+.nL
+.ne 20
+.LI
+If you configured your Gateway Servers so that users \*Ecan\*O issue the
+\*Ldfs_login\*O command to authenticate to DCE, configure your NFS clients
+and enable DCE authentication via the \*Ldfs_login\*O command; follow the
+instructions in Section A.2.2.
+.LE
+.P
+Because the steps in each of these sections mount \*L/...\*O on an NFS
+client, users who do not have DCE accounts can still use the NFS client for
+unauthenticated access to DFS. (See Section A.3.1 for more information about
+unauthenticated access; see Section A.3.2 for more information about
+authenticated access.)
+.H 3 "Configuring a Client Without Enabling Remote Authentication"
+.iX "DFS/NFS Gateway" "configuring NFS clients without remote authentication"
+.P
+If you configured your Gateway Server machines so that users cannot issue the
+\*Ldfs_login\*O command to authenticate to DCE, perform the steps in this
+section to configure your NFS clients.  The steps enable DFS access from an
+NFS client without enabling DCE authentication from the client.  Users can
+authenticate only via the \*Ldfsgw add\*O command.
+.P
+To provide users of an NFS client with access to DFS but not the
+\*Ldfs_login\*O command, perform the following steps on the client:
+.AL
+.LI
+Log in as the local \*Lroot\*O user on the machine.
+.LI
+Mount the root of the DCE namespace, \*L/...\*O, on the machine.  In the
+command, \*Vhostname\*O is the hostname of a machine that exports \*L/...\*O.
+Each machine configured as a Gateway Server exports \*L/...\*O.  When users
+access DFS from an NFS client, they go through the Gateway Server machine that
+exports \*L/...\*O to the client.  To achieve proper load balancing if you
+configure multiple Gateway Server machines, ensure that the mounts of
+\*L/...\*O on your NFS clients are divided evenly among your Gateway Servers.
+(You can use the NFS automount mechanism with a direct automount map to mount
+\*L/...\*O; see your vendor's NFS documentation for more information.)
+.iS
+\*C# \*Lmkdir  /...\*O
+\*C# \*Lmount  \*Vhostname\*L:/...  /...\*O
+.iE
+.nL
+.ne 20
+.LI
+Create a symbolic link from \*L/:\*O to the root of the DFS filespace for the
+host DCE cell, \*L/.../\*Vcellname\*L/fs\*O.  In the command, \*Vcellname\*O is
+the name of the DCE cell to be accessed from the NFS client (the cell in which
+the machine that exports \*L/...\*O is configured as a DFS client).
+.iS
+\*C# \*Lln  -s  /.../\*Vcellname\*L/fs  /:\*O
+.iE
+.LI
+Verify that the NFS mount of DCE was successful by using the \*Lls\*O command
+to list the contents of \*L/:\*O, which leads to the root directory of the DFS
+filespace.  The command should yield the same output from the NFS client that
+it does from a DFS client of the DCE cell.
+.iS
+\*C# \*Lls  /:\*O
+.iE
+.LE
+.P
+The NFS client is now configured to provide access to DFS but not to allow
+users of the client to authenticate to DCE with the \*Ldfs_login\*O command.
+Repeat these steps on each NFS client to be configured in this manner.  Should
+you later decide to allow users to authenticate to DCE from the NFS client,
+simply perform the steps in Section A.2.2 on the client.
+.H 3 "Configuring a Client and Enabling Remote Authentication"
+.iX "DFS/NFS Gateway" "configuring NFS clients with remote authentication"
+.P
+If you configured your Gateway Server machines so that users can issue the
+\*Ldfs_login\*O command to authenticate to DCE, perform the steps in this
+section to configure your NFS clients.  The steps enable both DFS access and
+DCE authentication from an NFS client.  Users can authenticate via either the
+\*Ldfsgw add\*O command or the \*Ldfs_login\*O command.
+.P
+To provide users of an NFS client with access to both DFS and the
+\*Ldfs_login\*O command, perform the following steps on the client:
+.AL
+.LI
+\*EIf you have not already done so\*O, perform all of the steps in Section
+A.2.1 to mount \*L/...\*O on the machine.
+.LI
+\*EIf you have not already done so\*O, log in as the local \*Lroot\*O user on
+the machine.
+.nL
+.ne 20
+.LI
+Install the binary files for the \*Ldfs_login\*O and \*Ldfs_logout\*O commands
+in the directory \*L/usr/bin\*O on the machine.  These commands provide the
+following functionality:
+.VL .875i
+.LI "\*Ldfs_login\*O"
+.iX "DFS/NFS Gateway" "\*Ldfs_login\*O command"
+.iX "\*Ldfs_login\*O command"
+Allows users of the NFS client to establish an authenticated session by
+obtaining DCE credentials on a Gateway Server machine. (See Section A.3.2.1
+for information about using this command.)
+.LI "\*Ldfs_logout\*O"
+.iX "DFS/NFS Gateway" "\*Ldfs_logout\*O command"
+.iX "\*Ldfs_logout\*O command"
+Allows users on the NFS client to end an authenticated session established with
+the \*Ldfs_login\*O command. (See Section A.3.2.1 for information about using
+this command.)
+.LE
+.P
+The \*Ldfs_login\*O and \*Ldfs_logout\*O commands use version 5 of Kerberos to
+communicate with the DCE Security Service.
+.LI
+Create the Kerberos configuration file named \*L/krb5/krb.conf\*O.  The
+\*Ldfs_login\*O command reads this file to determine the name of a DCE
+Security Server that it can contact.  This file must be identical to the
+\*L/krb5/krb.conf\*O file on machines in the host DCE cell; copy it from a
+machine in the DCE cell.
+.LI
+Create the Kerberos configuration file named \*L/krb5/krb.realms\*O.  The
+Kerberos runtime uses the information in this file to translate Internet
+domains to the corresponding Kerberos realms.  In the file, the Kerberos realm
+has the same name as the DCE cell.  Each line of the file must have the
+following format:
+.oS
+\*Vdomain\*C  \*Vkrb-realm\*O
+.oE
+where \*Vdomain\*O is the name of the local Internet domain, and
+\*Vkrb-realm\*O is the name of the Kerberos realm (the name of the DCE cell
+to be accessed).  For example, in the following \*Lkrb.realms\*O file,
+\*Ldef.com\*O is the name of the Internet domain, and \*Labc.com\*O is the
+name of the DCE cell.  If machines from multiple domains are to contact the
+DCE cell, you need a separate line for each domain.  Note that realm names
+are case-sensitive.
+.oS
+\*C.DEF.COM  abc.com\*O
+.oE
+.nL
+.ne 20
+.LI
+\*EIf you use the \*L/etc/services\*E file\*O in your environment, add the
+following entry for the \*Ldfsgw\*O service to the \*L/etc/services\*O file
+on the machine:
+.oS
+\*Cdfsgw     438/udp     dlog\*O
+.oE
+.P
+where \*Ldfsgw\*O is the name of the service, \*L438\*O is the port at which
+the service receives RPCs, \*Ludp\*O is the protocol the service uses to
+communicate, and \*Ldlog\*O is an alias for the \*Ldfsgw\*O service.
+.P
+\*EIf you use an NIS services map\*O in your environment, you added an entry to
+the services map file when you configured the first Gateway Server process.  You
+do \*Enot\*O need to add the entry to the services map when you configure NFS
+clients.
+.LE
+.P
+The NFS client is now configured to provide access to DFS and to allow users
+of the client to authenticate to DCE with the \*Ldfs_login\*O command.  Repeat
+these steps on each NFS client to be configured in this manner.
+.H 2 "Accessing DFS from an NFS Client"
+.iX "DFS/NFS Gateway" "accessing DFS"
+.iX "NFS" "access to DFS"
+.iX "DFS" "accessing from NFS"
+.iX "accessing DFS from NFS"
+.P
+Once a Gateway Server machine and one or more NFS clients are configured
+according to the instructions in Sections A.1 and A.2, users of the NFS clients
+can access data in the DFS filespace.  Users can access files and directories in
+DFS by full \*L/.../\*Vcellname\*L/fs\*O pathnames or by abbreviated pathnames
+that use the \*L/:\*O link to the DFS filespace.  The following are equivalent
+pathnames for the file \*Lmyfile\*O in the DFS filespace of the DCE cell
+\*Labc.com\*O:
+.iS
+\*L/.../abc.com/fs/myfile\*O
+.iE
+.iS
+\*L/:/myfile\*O
+.iE
+.P
+All users have unauthenticated access to DFS. Users who have DCE accounts can
+authenticate to their DCE identities for authenticated access to DFS.  The
+following subsections provide more information about these two types of access.
+.nL
+.ne 20
+.P
+When accessing DFS data from a DFS client, the DFS Cache Manager caches local
+copies of files accessed from File Server machines.  When accessing DFS data
+from an NFS client, NFS background I/O daemons cache local copies of files
+accessed via the NFS server.  The caching of information by the NFS daemons
+can affect how quickly changes you make to data in DFS become visible to other
+users.
+.H 3 "Unauthenticated Access to DFS"
+.iX "DFS/NFS Gateway" "unauthenticated access"
+.P
+Unauthenticated access is provided to users who access DFS without first
+authenticating to DCE.  For a user who does not have an account in the DCE
+registry database, unauthenticated access is the only form of access available.
+Unauthenticated access requires no preliminary steps; users simply access data
+in DFS from an NFS client.
+.P
+Unauthenticated users receive the following permissions for objects (files and
+directories) in the DFS filespace:
+.ML
+.LI
+\*EFor objects in nonLFS filesets\*O, unauthenticated users receive the
+permissions granted by the \*Lother\*O mode bits of the object.
+.LI
+\*EFor objects in DCE LFS filesets\*O, unauthenticated users receive the
+permissions granted  by the \*Lany_other\*O entry, if it exists, on the ACL
+of the object.  The \*Lmask_obj\*O entry filters permissions granted via the
+\*Lany_other\*O entry.
+.LE
+.P
+When an unauthenticated user creates an object, the object is owned by the user
+\*Lnobody\*O and the group \*Lnogroup\*O.  The UID of the user \*Lnobody\*O is
+\*L-2\*O, and the GID of the group \*Lnogroup\*O is also \*L-2\*O. (Note that
+identities and ID numbers of an unauthenticated user and group can vary between
+systems; see your vendor's documentation for more information.)
+.P
+Unauthenticated access is provided with the DFS/NFS Secure Gateway as a side
+effect of configuring Gateway Server machines and NFS clients.  Unauthenticated
+access is available without the DFS/NFS Secure Gateway.  Simply export
+\*L/...\*O from a DFS client that is also an NFS Server, and mount \*L/...\*O
+on each NFS client from which users are to access DFS.
+.nL
+.ne 20
+.H 3 "Authenticated Access to DFS"
+.iX "DFS/NFS Gateway" "authenticated access"
+.P
+Authenticated access is available to users who have accounts in the DCE cell.
+When an authenticated user accesses an object in the DFS filespace, the user
+receives the permissions associated with the DCE identity to which the user
+is authenticated.  When the user creates an object, the object is owned by the
+user and the user's primary group.
+.P
+To authenticate to DCE, you can issue either of the following commands, both
+of which establish credentials recognized by the DCE Security Service:
+.ML
+.LI
+From an NFS client, enter the \*Ldfs_login\*O command. (See Section A.3.2.1.)
+.LI
+From a Gateway Server machine, enter the \*Ldfsgw add\*O command. (See Section
+A.3.2.2.)
+.LE
+.P
+.iX "DFS/NFS Gateway" "authenticated access prerequisites"
+A user who desires authenticated access to DFS must have a principal and
+account in the registry database of the DCE cell.  An entry must exist for the
+user in the \*L/etc/passwd\*O file on the machine configured as a Gateway
+Server and on each NFS client from which the user is to access DCE.  The user's
+UID in the \*L/etc/passwd\*O file must match the user's UID in the DCE registry
+database. (On a DCE client, the \*Lpasswd_export\*O command can be used to keep
+\*L/etc/passwd\*O files current with respect to the registry database; see the
+\*(Ac for more information.)
+.P
+.iX "DFS/NFS Gateway" "authentication table"
+The \*Ldfs_login\*O and \*Ldfsgw add\*O commands do not obtain a new TGT if
+you already have a valid TGT in your current login context and you do not
+request DCE credentials for a different user.  However, the commands do allow
+you to use your existing TGT to establish authenticated access to DFS from
+additional NFS clients.  If you do not already have an entry in the
+authentication table for an NFS client from which you request authenticated
+access, the commands create a new entry for you, using the existing TGT as the
+basis of the new entry; if you already have an entry in the authentication
+table for the NFS client, the commands have no effect.  In either case, the
+commands do not affect existing entries in the authentication table, and they
+do not affect the remaining ticket lifetime of your existing TGT.
+.nL
+.ne 20
+.P
+DCE credentials (tickets) expire after the lifetime specified by the DCE
+Security Service.  Once they expire, the tickets can no longer be used for
+authenticated access.  To end an authenticated session before the ticket
+lifetime has passed, you can issue either of the following commands:
+.ML
+.LI
+From the NFS client from which authenticated access to DFS is provided, enter
+the \*Ldfs_logout\*O command. (See Section A.3.2.1.)
+.LI
+From the Gateway Server machine via which DFS is accessed, enter the \*Ldfsgw
+delete\*O command. (See Section A.3.2.2.)
+.LE
+.P
+Both commands remove the entry from the authentication table that provides
+authenticated access from the NFS client.  Regardless of which command you used
+to establish the DCE credentials (\*Ldfs_login\*O or \*Ldfsgw add\*O), you can
+end the authenticated session with the \*Ldfs_logout\*O command or the \*Ldfsgw
+delete\*O command.  Neither command affects authenticated access from other
+NFS clients.  If your DCE credentials are the basis of another entry in the
+authentication table, you still have authenticated access via that other entry.
+.P
+.iX "DFS/NFS Gateway" "refreshing credentials"
+To refresh your DCE credentials before they expire, use the \*Lkinit\*O
+command to obtain new credentials, then use the \*Ldfs_login\*O or \*Ldfsgw
+add\*O command to replace your existing TGT with the new TGT.  This procedure
+provides you with authenticated access to DFS for the ticket lifetime of your
+new TGT.  If you do not have access to the \*Lkinit\*O command, you cannot
+refresh your DCE credentials.
+.P
+Note that if you configure multiple Gateway Server machines, each server
+machine houses its own authentication table.  The \*Ldfs_login\*O and
+\*Ldfs_logout\*O commands affect entries only in the authentication table
+maintained on the Gateway Server machine they contact; commands in the
+\*Ldfsgw\*O suite affect entries only in the authentication table on the
+machine on which they are issued.
+.nL
+.ne 20
+.H 4 "Authenticating to DCE from an NFS Client"
+.iX "DFS/NFS Gateway" "authenticated access from NFS clients"
+.iX "DFS/NFS Gateway" "\*Ldfs_login\*O command"
+.iX "\*Ldfs_login\*O command" "logging into DCE"
+.iX "DFS/NFS Gateway" "remote authentication"
+.P
+The \*Ldfs_login\*O command authenticates a user to DCE from an NFS client.
+The command contacts the DCE Security Service to obtain a TGT and a service
+ticket for the Gateway Server (\*Ldfsgwd\*O) process for the user.  It encrypts
+the user's TGT with the service ticket and sends these to the Gateway Server
+process.  It also sends the UID of the user who issues the command and the
+network address of the NFS client from which the command is issued.  The Gateway
+Server process uses this information to create a valid login context, including
+a PAG, and an entry in the authentication table for the user.
+.P
+The syntax of the \*Ldfs_login\*O command follows:
+.iS
+\*Ldfs_login\*O [\*L-h \*Vhostname\*O] [\*L-l \*Vhh\*O [ \*L:\*Vmm \*O]] [\*Vdce_principal\*O] [\*Vdce_password\*O]
+.iE
+.P
+The command includes the following options and arguments:
+.VL .5i
+.LI "\*L-h \*Vhostname\*O"
+.nL
+Specifies the hostname of the Gateway Server machine.  By default, the command
+uses the hostname of the machine that exports \*L/...\*O to the NFS client.  Use
+this option to contact a different Gateway Server.
+.LI "\*L-l \*Vhours\*O[\*L:\*Vminutes\*O]"
+.nL
+Specifies the lifetime to be assigned to the service ticket obtained with the
+command.  Enter the lifetime as a number of hours and, optionally, minutes.  A
+value specified with this option is subject to the policies in effect in the
+registry database of the DCE cell.  By default, the ticket is assigned the
+default lifetime assigned to tickets in the DCE cell.
+.LI "\*Vdce_principal\*O"
+.nL
+Specifies the DCE principal name of the user who is to be logged into DCE.  By
+default, the command uses the name of the issuer of the command.
+.nL
+.ne 20
+.LI "\*Vdce_password\*O"
+.nL
+Provides the DCE password of the specified user.  If you do not specify a
+password, the command prompts for a password if one of the following is true:
+You name a user other than yourself, you name yourself and you do not already
+have a valid TGT, or you do not name a user and you do not already have a valid
+TGT.  The command does not prompt for a password if you do not name a different
+user and you already have a valid TGT.
+.LE
+.P
+For example, the user named \*Lludwig\*O issues the following \*Ldfs_login\*O
+command to authenticate to DCE from an NFS client:
+.iS
+\*C$ \*Ldfs_login\*O
+.iE
+.oS
+\*CPassword for ludwig@abc.com: \*Vpassword\*O
+.oE
+.P
+where \*Vpassword\*O is the DCE password of the user \*Lludwig\*O. In the
+example, the user \*Lludwig\*O does not already have a valid TGT, so the
+command prompts for the user's password and obtains a TGT for the user.  If
+the login succeeds, the \*Ldfs_login\*O command returns no messages.
+.P
+.iX "DFS/NFS Gateway" "\*Ldfs_logout\*O command"
+.iX "\*Ldfs_logout\*O command" "logging out of DCE"
+To end the authenticated session before the DCE credentials expire, issue the
+\*Ldfs_logout\*O command from the NFS client.  The command removes the user's
+entry from the authentication table on the Gateway Server machine.  The command
+can be issued either by the user whose entry is to be removed from the
+authentication table or by a user who is logged into the NFS client as the
+local \*Lroot\*O user.  The command has no effect on authenticated access the
+user may have from other NFS clients.
+.P
+The syntax of the \*Ldfs_logout\*O command follows:
+.iS
+\*Ldfs_logout\*O [\*L-h \*Vhostname\*O] [\*Vdce_principal\*O]
+.iE
+.P
+The command includes the following option and argument:
+.VL .5i
+.LI "\*L-h \*Vhostname\*O"
+.nL
+Specifies the hostname of the Gateway Server machine.  By default, the command
+uses the hostname of the machine that exports \*L/...\*O to the NFS client.  Use
+this option to contact a different Gateway Server.
+.LI "\*Vdce_principal\*O"
+.nL
+Specifies the DCE principal name of the user whose entry is to be removed from
+the authentication table.  By default, the command deletes the entry for the
+user who issues the command.
+.LE
+.P
+For example, the following ends the authenticated session of the issuer of the
+command:
+.iS
+\*C$ \*Ldfs_logout\*O
+.iE
+.P
+See the reference pages for the \*Ldfs_login\*O and \*Ldfs_logout\*O commands
+for detailed information about the use and syntax of the commands.
+.H 4 "Authenticating to DCE from a Gateway Server Machine"
+.iX "DFS/NFS Gateway" "authenticated access from Gateway Servers"
+.iX "DFS/NFS Gateway" "administering DCE authentication"
+.iX "DFS/NFS Gateway" "\*Ldfsgw add\*O command"
+.iX "\*Ldfsgw\*O command suite" "\*Ladd\*O"
+.iX "DFS/NFS Gateway" "local authentication"
+.P
+The \*Ldfsgw add\*O command authenticates a user to DCE from a Gateway Server
+machine.  Users can use the \*Ldfsgw add\*O command if the \*Ldfs_login\*O
+command is not installed on the NFS client from which they desire access to
+DFS.  System administrators can use the command to administer authenticated
+access to DFS from a Gateway Server machine.  Note that for NFS clients not
+configured to enable DCE authentication, the \*Ldfsgw add\*O command represents
+the only avenue to DCE authentication.
+.P
+The \*Ldfsgw add\*O command provides essentially the same functionality as
+the \*Ldfs_login\*O command.  However, unlike the \*Ldfs_login\*O command,
+the \*Ldfsgw add\*O command does not communicate with the Gateway Server
+(\*Ldfsgwd\*O) process; it creates the login context and entry in the
+authentication table for the user.  In addition, it requires the issuer to
+identify the user for whom authenticated access is desired and the NFS client
+from which the user is to access DFS.  Also, the \*Ldfs_login\*O command allows
+the issuer to request a ticket lifetime; the \*Ldfsgw add\*O command does not.
+.P
+The \*Ldfsgw add\*O command has the following syntax:
+.iS
+\*Ldfsgw add -id \*VnetworkID:userID\*O [\*L-dceid \*Vlogin_name\*O[\*V:password\*O]] \\
+[\*L-af \*Vaddress_family\*O]
+.iE
+.P
+The command includes the following options:
+.VL .5i
+.LI "\*L-id \*VnetworkID:userID\*O"
+.nL
+Specifies the network address or hostname of an NFS client and the UID of the
+user who is to be authenticated to DCE from that client.
+.nL
+.ne 20
+.LI "\*L-dceid \*Vlogin_name\*O[\*V:password\*O]"
+.nL
+Specifies the DCE principal name and, optionally, the password of the user
+who is to be authenticated to DCE.  The command does not prompt for a principal
+name and password if you do not specify a principal name and you have a valid
+TGT; the command does not prompt for a password if you specify your own
+principal name and you have a valid TGT.  The command always prompts for a
+password if you name a principal other than yourself.
+.LI "\*L-af \*Vaddress_family\*O"
+.nL
+Specifies the style of network address to be used to identify hosts.  By
+default, the command uses the only address family currently supported,
+\*Linet\*O (Internet).
+.LE
+.P
+For example, the following \*Ldfsgw add\*O command obtains DCE credentials
+for the user \*Lludwig\*O, who has UID \*L7439\*O, from the NFS client that
+has network address \*L15.27.32.40\*O:
+.iS
+\*C$ \*Ldfsgw add -id 15.27.32.40:7439 -dceid ludwig\*O
+.iE
+.oS
+\*CEnter Password: \*Vpassword\*C
+Mapping added successfully, PAG is 41ffffe4\*O
+.oE
+.P
+where \*Vpassword\*O is the DCE password of the user \*Lludwig\*O. The
+command reports that a mapping for the user was successfully added to the
+authentication table on the Gateway Server machine; the user's PAG is
+\*L41ffffe4\*O.
+.P
+.iX "DFS/NFS Gateway" "\*Ldfsgw delete\*O command"
+.iX "\*Ldfsgw\*O command suite" "\*Ldelete\*O"
+To end a user's authenticated session from a specified NFS client, issue the
+\*Ldfsgw delete\*O command on the Gateway Server machine.  The command provides
+the same functionality from a Gateway Server machine that the \*Ldfs_logout\*O
+command provides from an NFS client.  The \*Ldfsgw delete\*O command can be
+issued either by the user whose entry is to be removed from the authentication
+table or by a user who is logged into the Gateway Server machine as the local
+\*Lroot\*O user.  The command has no effect on authenticated sessions the user
+may have for other NFS clients.
+.P
+The syntax of the \*Ldfsgw delete\*O command follows:
+.iS
+\*Ldfsgw delete -id \*VnetworkID:userID\*O [\*L-af \*Vaddress_family\*O]
+.iE
+.nL
+.ne 20
+.P
+The command includes the following options:
+.VL .5i
+.LI "\*L-id \*VnetworkID:userID\*O"
+.nL
+Specifies the network address or hostname of an NFS client and the UID of the
+user whose authenticated access from that client is to be canceled.
+.LI "\*L-af \*Vaddress_family\*O"
+.nL
+Specifies the style of network address to be used to identify hosts.  By
+default, the command uses the only address family currently supported,
+\*Linet\*O (Internet).
+.LE
+.P
+For example, the following \*Ldfsgw delete\*O command ends the authenticated
+session for the user \*Lludwig\*O from the NFS client that has network address
+\*L15.27.32.40\*O.  The command is issued by the local \*Lroot\*O user on the
+Gateway Server machine.
+.iS
+\*C# \*Ldfsgw delete -id 15.27.32.40:7439\*O
+.iE
+.P
+See the reference pages for the \*Ldfsgw add\*O and \*Ldfsgw delete\*O commands
+for detailed information about the use and syntax of the commands.
+.H 4 "Determining Whether a Specific User Is Authenticated to DCE"
+.iX "DFS/NFS Gateway" "administering DCE authentication"
+.iX "DFS/NFS Gateway" "\*Ldfsgw query\*O command"
+.iX "\*Ldfsgw\*O command suite" "\*Lquery\*O"
+.P
+The \*Ldfsgw query\*O command determines whether a specific user is
+authenticated to DCE via the Gateway Server machine.  The command can be issued
+either by the user whose authentication is to be determined or by a user who is
+logged in as the local \*Lroot\*O user on the machine configured as a Gateway
+Server.
+.P
+The command looks for an entry for the user in the authentication table on the
+Gateway Server machine on which it is issued.  If your environment includes
+multiple Gateway Server machines, you must issue the command on the Gateway
+Server machine whose authentication table is to be examined.  The command
+displays information about a user's entry regardless of whether the user
+authenticated via the \*Ldfs_login\*O command or the \*Ldfsgw add\*O command. 
+.P
+The \*Ldfsgw query\*O command has the following syntax:
+.nL
+.ne 20
+.iS
+\*Ldfsgw query -id \*VnetworkID:userID\*O [\*L-af \*Vaddress_family\*O]
+.iE
+.P
+The command includes the following options:
+.VL .5i
+.LI "\*L-id \*VnetworkID:userID\*O"
+.nL
+Specifies the network address or hostname of an NFS client and the UID of the
+user whose DCE authentication for that client is to be determined.
+.LI "\*L-af \*Vaddress_family\*O"
+.nL
+Specifies the style of network address to be used to identify hosts.  By
+default, the command uses the only address family currently supported,
+\*Linet\*O (Internet).
+.LE
+.P
+For example, the following \*Ldfsgw query\*O command determines whether the
+user \*Lludwig\*O is authenticated from the NFS client that has network address
+\*L15.27.32.40\*O.  The command is issued by the local \*Lroot\*O user on the
+Gateway Server machine.
+.iS
+\*C# \*Ldfsgw query -id 15.27.32.40:7439\*O
+.iE
+.oS
+\*CMapping found, PAG is 41ffffe4\*O
+.oE
+.P
+The command reports that a mapping for the user for the specified NFS client
+exists in the local authentication table.  The user's PAG is \*L41ffffe4\*O.
+See the reference page for the \*Ldfsgw query\*O command for more information
+about the command.
+.H 4 "Displaying Information About All Users Who Are Authenticated to DCE"
+.iX "DFS/NFS Gateway" "administering DCE authentication"
+.iX "DFS/NFS Gateway" "\*Ldfsgw list\*O command"
+.iX "\*Ldfsgw\*O command suite" "\*Llist\*O"
+.P
+The \*Ldfsgw list\*O command lists all users who are authenticated to DCE
+via the Gateway Server machine.  The command lists all entries from the
+authentication table on the Gateway Server machine on which it is issued.  If
+your environment includes multiple Gateway Server machines, you must issue the
+command on the Gateway Server machine from whose authentication table entries
+are to be displayed.  The command makes no distinction between entries created
+with the \*Ldfs_login\*O command and entries created with the \*Ldfsgw add\*O
+command.  No privileges are required to issue the command.
+.P
+The \*Ldfsgw list\*O command has the following syntax:
+.iS
+\*Ldfsgw list\*O
+.iE
+.P
+For example, the following \*Ldfsgw list\*O command displays all of the users
+currently authenticated to DCE (all users who have entries in the
+authentication table):
+.nL
+.ne 20
+.iS
+\*C$ \*Ldfsgw list\*O
+\*C\s-1\&Mapping: nfs1.abc.com : ludwig => 41ffffe4 Expires at \\
+Sat Jul 23 01:33:18 1994\s0
+\s-1\&Mapping: nfs2.abc.com : frost => 41ffffa3 Expires at \\
+Sat Jul 23 08:36:23 1994\s0
+\s-1\&Mapping: nfs2.abc.com : wvh => 41ffffbe Expires at \\
+Sun Jul 24 00:51:21 1994\s0
+ . . .\*O
+.iE
+.P
+Note that the \*Ldfsgw list\*O command provides additional information not
+available with the \*Ldfsgw query\*O command, such as the hostname of the NFS
+client from which each user has DFS access, the principal name of each user who
+has DFS access, and the date and time at which each user's DCE credentials
+expire.  See the reference page for the \*Ldfsgw list\*O command for more
+information about the command.

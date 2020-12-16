@@ -1,0 +1,486 @@
+CR Number                     : 12653
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : UHYPE:Old cellname isn't recognized when doing hostdata update.
+Reported Date                 : 10/18/94
+Found in Baseline             : 1.1
+Found Date                    : 10/18/94
+Severity                      : C
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : cdsd
+Sensitivity                   : public
+
+[10/18/94 public]
+
+
+I am unable to show/modify the hostdata cell_name and cell_alias information 
+when the cell alias name has been switched to the cell primary name. 
+
+That is I have two cell names. /.../original and /.../alias 
+where /.../alias has two RDN's. I have done a 
+
+dcecp> cdsalias create /.../alias 
+dcecp> principal create krbtgt/alias -alias yes -uid {uid from krbtgt/original}
+
+dcecp> hostdata modify /.../original/hosts/drkstr/config/hostdata/cell_aliases \
+        -data {/.../alias}
+
+dcecp> hostdata modify /.../original/hosts/drkstr/config/hostdata/pe_site \
+        -data {
+{/.../alias 9d160ed0-e860-11cd-b899-0000c0f7de56@ncacn_ip_tcp:130.105.5.16[]}
+{/.../alias 9d160ed0-e860-11cd-b899-0000c0f7de56@ncadg_ip_udp:130.105.5.16[]}}
+
+Then I attempted to change the primary cell name from /.../original to 
+/.../alias. This failed in the hostdata modify sequence. First 
+
+dcecp> cdsalias set /.../alias
+
+Modified the cds notion of primary and alias names correctly.
+
+dcecp> principal modify /.../orginal/krbtgt/alias -alias no
+
+Modified both the krbtgt/alias and krbtgt/original principal values correctly.
+
+But when I tried to modify the hostdata information I got this error:
+
+dcecp> hostdata modify /.../original/hosts/drkstr/config/hostdata/cell_aliases \
+        -data {/.../alias /.../original} 
+Error: Requested operation would result in lost connectivity to root directory
+
+I was however able to modify the hostdata with:
+
+dcecp> hostdata modify /.../alias/hosts/drkstr/config/hostdata/cell_aliases \
+        -data {/.../alias /.../original} 
+dcecp> hostdata modify /.../alias/hosts/drkstr/config/hostdata/cell_name \
+        -data {/.../alias} 
+
+So it would appear that the new alias name is now accepted as a path to the 
+hostdata information but the original name is not.
+
+[10/18/94 public]
+
+> Error: Requested operation would result in lost connectivity to root directory
+
+This error is returned from cdsd (CDS_ROOTLOST) while the dced_binding_create()
+calls the rpc_ns_entry_inq_resolution() to resolve the input name 
+/.../original/hosts/drkstr/config/hostdata, so I suspect this is a cds related
+problem.
+
+[10/19/94 public]
+Right.  Not a dced API problem.
+
+[10/26/94 public]
+By registering both the original cell name and the new cell alias in DNS,
+I've gotten a somewhat different error on the hostdata command. Roger has 
+identified that part of the above problem is a gdad reference going beyond
+the cell when it doesn't need to. The error which I receive on various
+dcecp hostdata operations using the original cell name or "/.:" is 
+
+"Bad or invalid dce attr schema object name(s)"
+
+This suggests that there might be another problem beyond the cds problem.
+
+[10/26/94 public]
+Susan has ok'd the uhype and Roger has a fix comming momentarily.
+
+[10/26/94 public]
+I've submitted a fix.  The problem was larger than what this OT states.
+Basically, you had to be lucky in your use of cell aliases for the server
+to answer your query.  Often, a cell alias in the name was not recognized
+as such, so the server passed it along to the GDA.
+
+
+
+CR Number                     : 12594
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : UHYP:cellalias create using hierarchical name fails
+Reported Date                 : 10/12/94
+Found in Baseline             : 1.1b21
+Found Date                    : 10/12/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : directory/cds/server/
+Sensitivity                   : public
+
+[10/12/94 public]
+
+(This occurred using last night's build.)
+
+I setup a one-node cell on an HP system, upgraded the CDS directory
+version to 4.0, updated DNS, and brought down and restarted DCE.
+Then, as cell_admin, I attempted to create an alias using a 
+"child" name (containing two simple names) so that I could create 
+a hierarchical cell. The output was:
+
+dcecp> cellalias create /.../oceans.qadce.osf.org/streams
+1994-10-12-12:04:13.684-04:00I0.532 cdsclerk(8044) ERROR cds general
+  clerk_bind.c 490 0x40036080
+Routine rpc_binding_set_auth_info(3rpc) failed : status = 387063930.
+1994-10-12-12:04:13.870-04:00I0.532 cdsclerk(8044) ERROR cds general
+  clerk_bind.c 490 0x40036080
+Routine rpc_binding_set_auth_info(3rpc) failed : status = 387063930.
+dcecp> cdsalias cat
+{CDS_CellAliases {}}
+dcecp>
+
+Then I tried creating an alias with a single simple name:
+
+dcecp> cellalias create /.../streams
+dcecp> cdsalias cat
+{CDS_CellAliases 
+{Alias /.../streams}
+{Primary /.../lakes.qadce.osf.org}}
+dcecp>
+
+[kevins 10/13/94 public] 
+
+There are some problems with attempting to create an alias name for 
+hierarchical cell configuration with DNS configured. I have been
+able to circumvent this problem with gdad by updating the pe_site 
+file with the necessary information. 
+
+I have been able to:
+
+1.) modify the pe_site with necessary foreign cell information
+2.) perform the cellalias create command:
+        dcecp> cellalias create /.../foreign_cell_name/rdn
+3.) perform the cellalias set command:
+        dcecp> cellalias set /.../foreign_cell_name/rdn
+
+While both commands appear to have completed successfully the
+cellname has not been changed. I currently think I have corrupted data 
+in both the:
+/.../garcia.cell.osf.org/hosts/drkstr/config/hostdata/cell_name
+/.../garcia.cell.osf.org/hosts/drkstr/config/hostdata/cell_aliases
+
+When attempting to access them with:
+/.:/hosts....
+or (original cell name)
+/.../garcia.cell.osf.org/hosts/....
+or (new preffered cell name)
+/.../lesh.cell.osf.org/garcia/hosts/...
+
+I get:
+dcecp> hostdata show /.:/hosts/drkstr/config/hostdata/cell_aliases
+Error: Bad or invalid dce attr schema object name(s)
+dcecp> hostdata show /.:/hosts/drkstr/config/hostdata/cell_name   
+Error: Bad or invalid dce attr schema object name(s)
+
+I have restarted the cell also. That is, I have shutdown the cell
+and restarted it. Currently the /opt/dcelocal/dce_cf.db file is not
+updated to reflect the new cell name nor is the 
+/opt/dcelocal/etc/security/pe_site file. They both have been
+updated to show the new alias name though.
+
+[10/13/94 public]
+
+It would seem that after some period of time. ~1hr. I can now 
+access the hostdata information: 
+dcecp> hostdata show /.../lesh.cell.osf.org/garcia/hosts/drkstr/config/hostdata/cell_name
+{uuid 00174f6c-6eca-1d6a-bf90-0000c09ce054}
+{annotation  {Name of cell}}
+{storage cell_name}
+{hostdata/data /.../garcia.cell.osf.org}
+
+dcecp> hostdata show /.../lesh.cell.osf.org/garcia/hosts/drkstr/config/hostdata/cell_aliases
+{uuid 002817df-6eca-1d6a-b08a-0000c09ce054}
+{annotation  {Cell aliases}}
+{storage cell_aliases}
+{hostdata/data /.../lesh.cell.osf.org/garcia}
+
+It would appear that the cell is at this point somewhat confused as to what 
+it's name is. Well I took a bold step to force the modification of the 
+host config data.
+
+[10/13/94 public]
+Assigning this to Roger along with 12583.
+
+[10/14/94 public]
+(From Rick:)
+The CR is locked at the moment so I can't update it. 
+I reinstalled and configured two cells. Executed principal
+create of new account for alias fine; principal cat and
+principal show look okay to me. Executed registry verify
+(probably not needed in my case). Fine.
+
+Executed cdsalias create <alias> and got the same errors
+as reported in the CR: 
+
+dcecp> cdsalias create /.../oceans.qadce.osf.org/streams
+1994-10-13-16:36:25.224-04:00I0.874 cdsclerk(11333) ERROR cds general
+clerk_bind.c 490 0x40033190
+Routine rpc_binding_set_auth_info(3rpc) failed : status = 387063930.
+1994-10-13-16:36:25.373-04:00I0.874 cdsclerk(11333) ERROR cds general
+clerk_bind.c 490 0x40033190
+Routine rpc_binding_set_auth_info(3rpc) failed : status = 387063930.
+Error: Requested entry does not exist
+
+[10/20/94 public]
+Roger fixed this a couple of days ago. He pulled an unnecessary cycle
+check. I'll have him update this with something more specific but it is
+fixed in the unintegrated tree.
+
+
+
+CR Number                     : 12222
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : clerk
+Short Description             : UHYP: more cdsclerk BUS ERROR coredumps
+Reported Date                 : 9/16/94
+Found in Baseline             : 1.1b17
+Found Date                    : 9/16/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : directory/cds/library/deb_ascii.c
+Sensitivity                   : public
+
+[9/16/94 public]
+Build:	bl-17 PLUS cdsadv and cdsclerk built with "cache paranoid"
+Config: rios sec master, cds replica, dts local server
+	hp cds master, sec replica, dts local server, dfs flserver
+	hp sec replica, dts local server
+
+Stopping and restarting DCE on the RIOS causes cdsclerk coredumps on
+the hp cds master machine. Traces differ from previous "corrupted
+cache" traces so logging as a separate CR. Note that these coredumps
+occurred even WITHOUT the cache paranoid build (core.1 and core.2).
+Including all 3 coredumps (3,4 and 5) per John's request.
+
+-rw-rw-rw-   1 root     sys      5403516 Sep 16 10:21 core.5
+-rw-rw-rw-   1 root     sys      5006204 Sep 16 10:09 core.4
+-rw-rw-rw-   1 root     sys      6554492 Sep 16 09:58 core.3
+-rw-rw-rw-   1 root     sys      8049532 Sep 15 19:18 core.2
+-rw-rw-rw-   1 root     sys      6992764 Sep 15 19:03 core.1
+
+Copyright Hewlett-Packard Co. 1985,1987-1992. All Rights Reserved.
+<<<< XDB Version A.09.01 HP-UX >>>>
+Core file from:  cdsclerk
+Child died due to: bus error
+Procedures:      0
+Files: 0
+ 0 uuid_to_string@libdce + 0x0000010c (0x402c58db, 0x403e8b5c, 0x403e8b60, 0x2d2d2d00)
+ 1 deb_ascii_uuid@libdce + 0x0000004c (0x403e8aa8, 0x402c58db, 0x402c6100, 0x403e8a04)
+ 2 get_cached_handle + 0x0000002c (0x403e89f0, 0x402c58db, 0x4043336c, 0x403e8a04)
+ 3 DoUpdateRPC + 0x000000d0 (0x4043336c, 0x402c58eb, 0x402c58db, 0x400049e8)
+ 4 send_msg + 0x0000022c (0x4043336c, 0x403e82ec, 0x402c58db, 0x402c58eb)
+ 5 sendCH + 0x000002ac (0x4043336c, 0x402c5a6d, 0x402c58db, 0x40004b3c)
+ 6 sendToReplica + 0x00000110 (0x4043336c, 0x402c58db, 0x4, 0x40008ae8)
+ 7 nsclerkDoUpdate + 0x000000c0 (0x4043336c, 0x1, 0x3, 0x40003c88)
+ 8 clerk_request + 0x000005dc (0x402c7788, 0x4042bed8, 0x9, 0x400194f0)
+ 9 th_start + 0x000000cc (0x4042bed8, 0x7af4e478, 0x401c6c98, 0x19)
+ 10 cma__thread_base@libdce + 0x0000021c (0x401c6c98, 0, 0, 0)
+ 11 cma__thread_start1@libdce + 0x0000004c (0x401c6c98, 0, 0, 0)
+ 12 cma__thread_start0@libdce + 0x00000008 (0x401c6c98, 0, 0, 0)
+ 13 uuid_to_string@libdce + 0x0000010c (0, 0, 0, 0)
+----------------------------------------------------------------
+Copyright Hewlett-Packard Co. 1985,1987-1992. All Rights Reserved.
+<<<< XDB Version A.09.01 HP-UX >>>>
+Core file from:  cdsclerk
+Child died due to: bus error
+Procedures:      0
+Files: 0
+ 0 uuid_to_string@libdce + 0x0000010c (0x401d5893, 0x4030bb5c, 0x4030bb60, 0x2d2d2d00)
+ 1 deb_ascii_uuid@libdce + 0x0000004c (0x4030baa8, 0x401d5893, 0x401d60b8, 0x4030ba04)
+ 2 get_cached_handle + 0x0000002c (0x4030b9f0, 0x401d5893, 0x402c966c, 0x4030ba04)
+ 3 DoUpdateRPC + 0x000000d0 (0x402c966c, 0x401d58a3, 0x401d5893, 0x400049e8)
+ 4 send_msg + 0x0000022c (0x402c966c, 0x4030b2ec, 0x401d5893, 0x401d58a3)
+ 5 sendCH + 0x000002ac (0x402c966c, 0x401d5a25, 0x401d5893, 0x40004b3c)
+ 6 sendToReplica + 0x00000110 (0x402c966c, 0x401d5893, 0x4, 0x40008ae8)
+ 7 nsclerkDoUpdate + 0x000000c0 (0x402c966c, 0x1, 0x3, 0x40003c88)
+ 8 clerk_request + 0x000005dc (0x402b7eb0, 0x402bf330, 0x9, 0x400194f0)
+ 9 th_start + 0x000000cc (0x402bf330, 0x7af4e478, 0x401bf0d8, 0x13)
+ 10 cma__thread_base@libdce + 0x0000021c (0x401bf0d8, 0, 0, 0)
+ 11 cma__thread_start1@libdce + 0x0000004c (0x401bf0d8, 0, 0, 0)
+ 12 cma__thread_start0@libdce + 0x00000008 (0x401bf0d8, 0, 0, 0)
+ 13 uuid_to_string@libdce + 0x0000010c (0, 0, 0, 0)
+----------------------------------------------------------------
+Copyright Hewlett-Packard Co. 1985,1987-1992. All Rights Reserved.
+<<<< XDB Version A.09.01 HP-UX >>>>
+Core file from:  cdsclerk
+Child died due to: bus error
+Procedures:      0
+Files: 0
+ 0 uuid_to_string@libdce + 0x0000010c (0x401d804b, 0x40311b5c, 0x40311b60, 0x2d2d2d00)
+ 1 deb_ascii_uuid@libdce + 0x0000004c (0x40311aa8, 0x401d804b, 0x401d9638, 0x40311a04)
+ 2 get_cached_handle + 0x0000002c (0x403119f0, 0x401d804b, 0x401dd014, 0x40311a04)
+ 3 DoUpdateRPC + 0x000000d0 (0x401dd014, 0x401d805b, 0x401d804b, 0x400049e8)
+ 4 send_msg + 0x0000022c (0x401dd014, 0x403112ec, 0x401d804b, 0x401d805b)
+ 5 sendCH + 0x000002ac (0x401dd014, 0x401d81dd, 0x401d804b, 0x40004b3c)
+ 6 sendToReplica + 0x00000110 (0x401dd014, 0x401d804b, 0x4, 0x40008ae8)
+ 7 nsclerkDoUpdate + 0x000000c0 (0x401dd014, 0x1, 0x3, 0x40003c88)
+ 8 clerk_request + 0x000005dc (0x400a9338, 0x400a9908, 0x9, 0x400194f0)
+ 9 th_start + 0x000000cc (0x400a9908, 0x7af4e478, 0x401be2f8, 0x13)
+ 10 cma__thread_base@libdce + 0x0000021c (0x401be2f8, 0, 0, 0)
+ 11 cma__thread_start1@libdce + 0x0000004c (0x401be2f8, 0, 0, 0)
+ 12 cma__thread_start0@libdce + 0x00000008 (0x401be2f8, 0, 0, 0)
+ 13 uuid_to_string@libdce + 0x0000010c (0, 0, 0, 0)
+----------------------------------------------------------------
+----------------------------------------------------------------
+
+[9/19/94 public]
+U believe this is due to a reference to an unaligned uuid pointer being
+passed to to get_cached_handle which in turn passes it on. I copied the
+uuid into a uuid_t buffer in get_cached_handle before it passes it on and
+am waiting to see if that gets by the system test problem.
+
+[9/19/94 public]
+John - you have the scenario to test this - let me know how it's going.
+
+[9/30/94 public]
+After creating the same configuration with a 486 in place of the rios I was
+unable to replicate the problem. I won't cancel it but will drop the
+priority to a 1. I only tried once and if I get time next week I will try 
+again and do run some functional tests against this configuration.
+
+[10/6/94 public]
+Hit it again.
+
+>trace
+ 0 uuid_to_string@libdce + 0x0000010c (0x4031da35, 0x4010fbdc, 0x4010fbe0, 0x134)
+ 1 deb_ascii_uuid@libdce + 0x0000004c (0x4010fb28, 0x4031da35, 0, 0x4000b2c0)
+ 2 get_cached_handle + 0x0000002c (0x4010fa18, 0x4031da35, 0x4019004c, 0x4010fa84)
+ 3 ModifyReplicaRPC + 0x000000d0 (0x4019004c, 0x4031da45, 0x4031da35, 0x400049e8)
+ 4 send_msg + 0x0000022c (0x4019004c, 0x4010f2ec, 0x4031da35, 0x4031da45)
+ 5 sendCH + 0x000002ac (0x4019004c, 0x4031db09, 0x4031da35, 0x40004b3c)
+ 6 sendToReplica + 0x00000110 (0x4019004c, 0x4031da35, 0x4, 0x40008f40)
+ 7 nsclerkModifyReplica + 0x000000ec (0x4019004c, 0x1, 0x3, 0x40003c88)
+ 8 clerk_request + 0x000005dc (0x400a6cd8, 0x400a70d0, 0x9, 0x40018e50)
+ 9 th_start + 0x000000cc (0x400a70d0, 0x7af422b0, 0x4003ed48, 0x8)
+
+
+Newly configured cell, Server(hp) - clien(hp)t configuration.
+No replicas  either cds or security.
+
+[10/12/94 public]
+We think this may be an alignment problem. I will add a line
+to deb_ascii_uuid aligning the uuid pointer by copying it to 
+a local structure. This is very low risk and may fix the problem.
+Up'ing it to a 0 and susan will mark it as UHYP.
+
+[10/19/94 public]
+Fixed the alignment problem. Its in the unintegrated tree.
+
+
+
+CR Number                     : 9700
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 9661, 9352
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cds
+Subcomponent Name             : 
+Short Description             : UHYP:Do whatever needs to be done
+to fix-up name space after ip address change.
+Reported Date                 : 1/7/94
+Found in Baseline             : 1.1
+Found Date                    : 1/7/94
+Severity                      : B
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : db_common.c,dump_navigator.c,back_ground.c,ta_cle.c,unix_cds_net.c
+Diff supplied by              : 
+Diff release                  : 1.2.2
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : 
+Transarc Status               : 
+
+[1/7/94 public]
+The short description says it all.
+
+[8/30/94 public]
+Changed Interest List CC from `mp@osf.org' to `mp@osf.org, 
+ dstokes@austin.ibm.com' 
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `' 
+Added field Transarc Status with value `'
+
+[9/23/94 public]
+
+Will go into unintegrated.
+
+[10/13/94 public]
+
+Slated for unintegrated tree via UHYP and P0.
+
+[10/14/94 public]
+Jackie is merging the code up to the unintegrated tree. Assigned to her.
+
+[10/14/94 public]
+Could someone add some detail to this defect wrt what the
+problem and symptoms of the problems are?  What is CDS not
+handling, and what is a general decription of the fix?
+
+We attempted an address change in our production cell last
+night, and finally gave up and reverted our primary CDS
+server back to the old address because we just couldn't get
+it to work.  It would be nice to know if we were doing something
+wrong or hitting a limitation.
+
+We updated the cds_config and pe_site files, removed all CDS
+caches, security creds, etc., and rebooted the system.  Everything
+would come up fine, but the minute you tried to access CDS, it
+would pull directories into its cache with the old addresses.
+Where is this coming from?
+
+[10/17/94 public]
+
+The way it should work is that you just issue a 
+"cdscp clear clearinghouse /.:/my_ch" or whatever the dcecp equivalent is, 
+move the version,tlog & checkpoint files from the directory at
+/opt/dcelocal/var/directory/cds on the "old" node to same on the "new" node
+and then issue "create clearinghouse /.:/my_ch" on the "new" node.
+
+Currently, (before I submit the change into unintegrated) the 
+clearinghouse object and the internal data structures are corrected, but
+until the background runs the changes won't propogate to all the other
+clearinghouses in the cell.  Also, if I remember correctly, the directory
+replica pointers aren't fixed properly -- this is what you're seeing.  
+I'll have the fix in shortly that uses the background thread to do all
+this fix-up immediately after the clearinghouse arrives at its new home, 
+and you can try it out.
+
+[07/25/96 public]
+This was originally checked into the R1.1 unintegrated tree.  HP has
+merged the R1.1 unintegrated into R1.2.2 (I checked the sources and
+saw that this change was there).  So, I'm changing the status of
+this OT to fixed.
+
+
+

@@ -1,0 +1,422 @@
+...\"  @OSF_COPYRIGHT@
+...\"  COPYRIGHT NOTICE
+...\"  Copyright (c) 1990, 1991, 1992, 1993 Open Software Foundation, Inc.
+...\"  ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE in the
+...\"  src directory for the full copyright text.
+...\"
+...\"
+...\" HISTORY
+...\" $Log: 3e_cds.gpsml,v $
+...\" Revision 1.1.6.2  1996/10/14  16:39:09  weir
+...\" 	No change
+...\" 	[1996/10/14  16:38:21  weir]
+...\"
+...\" Revision 1.1.6.1  1996/10/11  13:18:08  wardr
+...\" 	{edir,R1.2.2}
+...\" 	fixed typo before sgml conversion
+...\" 	[1996/10/11  13:17:53  wardr]
+...\" 
+...\" Revision 1.1.4.9  1995/06/02  15:24:56  buckler
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/06/01  20:58:44  buckler]
+...\" 
+...\" 	Incorporated 1.1 edits.
+...\" 	[1995/05/05  22:15:44  buckler]
+...\" 
+...\" Revision 1.1.4.8  1994/10/19  19:09:16  willie
+...\" 	{enh, 11783, R1.1}
+...\" 	Incorporated technical review.
+...\" 	[1994/10/19  19:08:35  willie]
+...\" 
+...\" Revision 1.1.4.7  1994/09/23  18:08:49  zahn
+...\" 	{enh,11783,R1.1}
+...\" 
+...\" 	Revised CDS administration discussions to talk
+...\" 	about dcecp.
+...\" 	[1994/09/23  18:08:34  zahn]
+...\" 
+...\" Revision 1.1.4.6  1994/04/04  17:10:43  zahn
+...\" 	Fixed figure numbering as result of Admin Guide
+...\" 	figure inclusion.
+...\" 	[1994/04/04  17:10:31  zahn]
+...\" 
+...\" Revision 1.1.4.5  1994/04/04  16:26:13  zahn
+...\" 	{enh,7501,R1.1}
+...\" 
+...\" 	Moved generic CDS information and figure from Admin Guide
+...\" 	Volume 1, /admin_gd/overview/overview/4_serv.gpsml
+...\" 	to this file.  Note that figure was embedded in text rather than
+...\" 	pointed to.
+...\" 	[1994/04/04  16:25:55  zahn]
+...\" 
+...\" Revision 1.1.4.4  1993/01/29  17:18:01  cjd
+...\" 	Embedded copyright notice
+...\" 	[1993/01/29  17:01:33  cjd]
+...\" 
+...\" Revision 1.1.4.3  1992/11/24  15:44:51  steiner
+...\" 	Fixed coding conventions.
+...\" 	[1992/11/24  15:25:55  steiner]
+...\" 
+...\" Revision 1.1.4.2  1992/09/01  15:59:18  weir
+...\" 	Moved to 1.0.2 tree
+...\" 	[1992/09/01  15:48:11  weir]
+...\" 
+...\" Revision 1.1.2.2  1992/03/06  16:30:43  steiner
+...\" 	Eddie's edits.
+...\" 	[1992/03/06  15:17:59  steiner]
+...\" 
+...\" Revision 1.1  1992/01/29  15:43:23  damon
+...\" 	Initial revision
+...\" 
+...\" $EndLog$
+...\"
+.H 3 "DCE Cell Directory Service"
+.iX "-![" "CDS"
+.P
+One of the two directory services underlying the XDS API
+is DCE CDS.
+The following subsections describe CDS in terms of
+the data elements that it deals with and
+the components
+that implement it.
+They then describe how CDS handles replication, caching, and data
+consistency.
+Finally, they describe CDS from the end-user, programmer, and
+administrator perspectives.
+.H 4 "What is CDS?"
+.iX "CDS" "components"
+DCE CDS is made up of several components,
+including the
+CDS
+server, CDS clerk, and CDS administration programs.
+.ML
+.LI 
+CDS server
+.PP
+Runs on a node containing a database of directory
+information.
+It responds to queries from clients by accessing
+the database.
+(A CDS database is called a
+\*Eclearinghouse\*O.)
+.iX "clearinghouse"
+.nL
+.ne 12
+.LI 
+CDS clerk
+.PP
+Runs on the client node and serves as an intermediary
+between client applications and CDS servers.
+One of the clerk's most important functions
+is to maintain
+a cache of information acquired through directory queries.
+The clerk stores the response to a query in its cache so that the
+next time a related query is made, the information is already
+available on the client node, and no network communications with
+the CDS server are necessary.
+The cache is written to disk periodically, so it persists even
+if the clerk process dies or the client node crashes.
+.LI 
+CDS administration programs
+.iX "\*Ldcecp\*O"
+.PP
+Carry out CDS administrative tasks.
+Administrators can use the DCE control program, \*Ldcecp\*O,
+for the majority of CDS administrative tasks.
+There are also two administrative programs included
+in the CDS technology\*(EMthe
+CDS browser and the CDS control program.
+The CDS browser, which end users as well as
+CDS administrators can use, is a CDS client application
+that allows you to inspect the cell's namespace.
+The CDS control program,
+\*Lcdscp\*O,
+.iX "\*Lcdscp\*O program"
+.iX "CDS" "control program"
+enables administrators to control CDS servers and data.
+...\" .ig ++
+...\" .P
+...\" The client and server sides of a distributed application are also
+...\" examples of clients of CDS.
+...\" The server side of an application might advertise its location and
+...\" type of service by creating an entry in the Cell Directory Service.
+...\" The client side can then make a query to CDS
+...\" to look up an instance (and location) of a service it requires.
+...\" In this way,
+...\" both the client and the server sides of a distributed application are
+...\" clients of CDS.
+...\" The directory service acts as a rendezvous mechanism for the two
+...\" sides of the distributed application.
+...\" .++
+.LE
+.P
+Figure 3-10 shows a client application that sends a request to
+the CDS clerk, which in turn communicates with the CDS server.  The server
+performs a database lookup or update, depending on the request.  The response
+is then sent back to the client application.
+.P
+.FG "CDS Client and Server Machines"
+.PS
+.in +.5i
+scale = 80
+line ->  from 72, 64 \
+	to 104, 64
+line ->  from 104, 48 \
+	to 72, 48
+line ->  from 160, 64 \
+	to 256, 64
+line ->  from 256, 48 \
+	to 160, 48
+line ->  from 336, 48 \
+	to 312, 48
+line ->  from 312, 64 \
+	to 336, 64
+line   from 72, 72 \
+	to 72, 72
+"\fR\s10Clerk\s0\fP"  at 128, 56
+box  wid 56 ht 40 at 132, 60
+box  wid 168 ht 120 at 84, 60
+box  wid 160 ht 120 at 328, 60
+line   from 72, 72 \
+	to 72, 72
+"\fR\s10Server\s0\fP"  at 288, 56
+"\fR\s10CDS\s0\fP"  at 288, 72
+box  wid 56 ht 40 at 284, 60
+"\fR\s10CDS\s0\fP"  at 128, 72
+"\fR\s10Application\s0\fP"  at 40, 56
+"\fR\s10Client \s0\fP"  at 40, 72
+box  wid 64 ht 40 at 40, 60
+ellipse wid 64 ht 16 at 368, 24
+ellipse wid 64 ht 16 at 368, 80
+line   from 400, 80 \
+	to 400, 24
+"\fR\s10Clearinghouse\s0\fP"  at 368, 48
+line   from 336, 80 \
+	to 336, 24
+"\fR\s10machine 1\s0\fP"  at 88, 128
+"\fR\s10machine 2\s0\fP"  at 328, 128
+.in -.5i
+.PE
+.nL
+.ne 10
+.H 4 "The CDS Database"
+.iX "database" "CDS"
+.iX "CDS" "database"
+.P
+CDS information is contained in three types of data elements: 
+.ML
+.LI
+Directory entries
+.P
+A
+directory entry
+.iX "directory entry"
+consists of a name and its attributes.
+One example is the name of an application server,
+whose attributes include the interface it exports
+and its location on the network.
+...\" .ig ++
+...\" .P
+...\" There are three kinds of directory entries in CDS:
+...\" entries for objects, child pointers, and soft links.
+...\" An
+...\" \*Eobject entry\*O
+...\" .iX "object entry"
+...\" contains the name and attributes
+...\" of a resource, such as a node, user, or server.
+...\" The second kind of directory entry is a
+...\" \*Echild pointer entry\*O.
+...\" .iX "child pointer entry"
+...\" This contains information about a directory that is a child of
+...\" the given directory.
+...\" The third kind of entry is a
+...\" \*Esoft link entry\*O,
+...\" .iX "soft link entry"
+...\" which is a pointer to an object entry.
+...\" It is possible, using soft links, for a single object
+...\" to have more than one name.
+...\" .++
+.LI
+Directories
+.P
+A CDS
+\*Edirectory\*O
+.iX "directories" "CDS"
+is a logical grouping of CDS information; it
+is a collection of directory entries.
+The directory is the administrative unit for replication.
+There can be one or more copies, or
+\*Ereplicas\*O,
+of a given directory.
+CDS directories are in a hierarchical relationship to
+one another; each directory has a parent directory and
+can also have child directories.
+.LI
+Clearinghouses
+.P
+A
+clearinghouse
+.iX "clearinghouse"
+is a physical CDS database; it
+is a collection of directory replicas.
+The clearinghouse is the database on a CDS server machine
+that the CDS server accesses in order to respond to its requests.
+.LE
+.P
+As an example of how the different types of CDS data elements relate
+to one another, imagine
+a directory P, which contains
+all the information about the printers in a given cell.
+This directory contains one directory entry per printer.
+The administrator of the cell may decide that the information
+contained in the P directory is important enough that it
+needs to be replicated on more than one CDS server, so, if one
+server goes down, the P information can still be found on
+the other server.
+To that end, replicas of the P directory might be kept in
+two clearinghouses: one replica in Clearinghouse A, and
+the other in Clearinghouse B.
+.nL
+.ne 10
+.H 4 "Replication and Data Consistency in CDS"
+.iX "replication" "in CDS"
+.P
+A directory service must be highly available since other
+services depend on it.  It must also be fast.  CDS achieves
+these two goals through the replication of directories and caching
+of directory entries.
+It also provides mechanisms for keeping various degrees of consistency
+among copies of data.
+...\" .ig ++
+...\" .nr Hu 5
+...\" .HU "Replication in CDS"
+...\" .++
+.P
+There are two types of directory replicas in CDS:
+.ML
+.LI
+Master replica
+.LI
+Read-only replica
+.LE
+.P
+There is exactly one master replica of a given directory,
+and any kind of operation can be performed on it.
+The only operations that can be performed on a read-only replica
+are those limited to read access to the directory;
+no updates can be made to this type of directory replica.
+There can be zero or more
+read-only replicas.
+...\" .ig ++
+...\" .HU "Data Consistency in CDS"
+...\" .++
+.P
+.iX "consistency" "in CDS"
+CDS provides two methods for maintaining data consistency
+among replicas of a directory:
+.ML
+.LI
+Immediate propagation
+.LI
+Skulking
+.LE
+.P
+With
+immediate propagation,
+a change made to one copy is immediately
+made to other copies of the same data.
+Immediate propagation is used when it is important for all copies of a
+directory to be consistent at all times.
+.P
+In some cases, it is not necessary for copies to be updated immediately.
+Sometimes it is not even possible since a server holding a copy may be
+unavailable to receive updates.
+In these cases,
+the other consistency mechanism,
+\*Eskulking\*O,
+.iX "skulking"
+can be used.
+A skulk happens periodically (for example, every 24 hours),
+and is done on a per-directory basis.
+All changes made to the given directory are collected and propagated
+in bulk to all clearinghouses that contain replicas of the directory.
+If a skulk cannot complete (that is, if one or more of the nodes
+containing a replica to be updated
+is down), then an administrator is notified and the skulk is attempted
+again later.
+...\" .ig ++
+...\" .P
+...\" By combining immediate propagation and skulking, three different levels of
+...\" consistency can be achieved for different directories.
+...\" .AL
+...\" .LI
+...\" Immediate propagation of changes can be used for highest consistency:
+...\" if the propagation does not complete, then a skulk can be scheduled in
+...\" the near future.
+...\" .LI
+...\" A less stringent level can be achieved using immediate propagation, but then
+...\" waiting until the next scheduled skulk if the propagation fails.
+...\" .LI
+...\" Finally, changes can wait to be propagated until the next skulk.
+...\" .LE
+...\" .P
+...\" All three of these levels of consistency are supported by CDS.
+...\" .++
+...\" .ig ++
+...\" .HU "Caching in CDS"
+...\" .++
+.P
+.iX "caching" "in CDS"
+.ne 9
+Caching is also a form of replication and therefore leads to
+the problem of keeping multiple copies of information
+consistent (or in this case, dealing with the fact that cached information
+may be out of date).
+As mentioned previously, the CDS clerk caches directory information
+so that information will be available on the local node rather than
+having to repeatedly query directory servers.
+CDS allows the client application to bypass
+the clerk's cache and go directly to the CDS server for information,
+when the application wants to make sure it has the latest
+information.
+.H 4 "End User's Perspective"
+.iX "CDS" "end user's perspective"
+.P
+An end user may be interested in perusing the cell namespace to look for
+information contained in CDS.
+This can be done using the CDS browser.
+.H 4 "Programming with CDS"
+.iX "CDS" "programming with"
+.P
+Programmers can access CDS through XDS.
+They also use CDS indirectly when they use the name service routines
+of the RPC API.
+...\" .ig ++
+...\" An internal interface to CDS, called the Cell Directory Service
+...\" Portable Interface (CDSPI), is used by some of the other
+...\" DCE components, such as RPC, instead of the XDS API.
+...\" CDSPI is not available for use by application programmers.
+...\" .++
+.H 4 "CDS Administration"
+.iX "CDS" "administration"
+.P
+In general, CDS administrators use \*Ldcecp\*O to administer CDS;
+They can also use \*Lcdscp\*O in the few cases where \*Ldcecp\*O does
+not provide the necessary administrative function.
+Administrators can use the CDS browser to inspect CDS data.
+CDS administrative tasks include monitoring CDS servers, managing
+access control on CDS directories, and specifying replication
+and update of CDS data.
+.nL
+.ne 12
+.H 4 "Additional Information on CDS"
+.iX "CDS" "additional information"
+.P
+For additional information on CDS, see the following:
+.ML
+.LI
+The \*Ldcecp\*O and CDS chapters of the \*(Ac.
+.LI
+The \*L(8dce)\*O and \*L(8cds)\*O reference pages of the \*(Ar.
+.LE
+.iX "-]" "CDS"

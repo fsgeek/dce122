@@ -1,0 +1,1088 @@
+CR Number                     : 13334
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : aud
+Subcomponent Name             : 
+Short Description             : dce_aud_next() TIME predicate.
+Reported Date                 : 2/19/96
+Found in Baseline             : 1.1
+Found Date                    : 2/19/96
+Severity                      : B
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 13312
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/19/96 public]
+
+The man page says that the operators for the time predicate are
+= > <.  In the code, they really are just :> and :<. 
+
+Suggested fix:
+
+Diffing Delta aswini-17366-sec-aud-dce_aud_next-time-pred 1.2
+==============================================================================
+File: security/audit/libaudit/evt_read.c
+===================================================================
+RCS file: RCS/evt_read.c,v
+retrieving revision 12.4
+retrieving revision 12.8
+diff -c -r12.4 -r12.8
+***************
+*** 143,151 ****
+      unsigned32      authz_status;
+      unsigned32      evt_id, evt_outcome;
+      unsigned32      rec_start_pos;
+!     utc_t           before_time, after_time;
+      uuid_t          server_uuid, client_uuid, cell_uuid, group_uuid;
+!     boolean32       check_evt, check_outcome, check_authz_status, check_time_before, check_time_after, check_server, check_client, check_cell, check_group, check_addr;
+      unsigned_char_t *addr;
+      enum utc_cmptype time_relation;
+      char             *local_predicate = NULL;
+--- 161,169 ----
+      unsigned32      authz_status;
+      unsigned32      evt_id, evt_outcome;
+      unsigned32      rec_start_pos;
+!     utc_t           before_time, after_time, at_time;
+      uuid_t          server_uuid, client_uuid, cell_uuid, group_uuid;
+!     boolean32       check_evt, check_outcome, check_authz_status, check_time, check_time_before, check_time_after, check_server, check_client, check_cell, check_group, check_addr;
+      unsigned_char_t *addr;
+      enum utc_cmptype time_relation;
+      char             *local_predicate = NULL;
+***************
+*** 159,165 ****
+      *status = aud_s_ok;
+      *ard = NULL;
+  
+!     check_evt = check_outcome = check_authz_status = check_time_before
+        = check_time_after = check_server = check_client = check_cell
+        = check_group = check_addr = FALSE;
+  
+--- 177,183 ----
+      *status = aud_s_ok;
+      *ard = NULL;
+  
+!     check_evt = check_outcome = check_authz_status = check_time = check_time_before
+        = check_time_after = check_server = check_client = check_cell
+        = check_group = check_addr = FALSE;
+  
+***************
+*** 205,210 ****
+--- 223,231 ----
+        } else if (strncmp(local_predicate, "TIME:<", strlen("TIME:<")) == 0) {
+            utc_mkasctime(&before_time, local_predicate + strlen("TIME:<"));
+            check_time_before = TRUE;
++       } else if (strncmp(local_predicate, "TIME:=", strlen("TIME:=")) == 0) {
++           utc_mkasctime(&at_time, local_predicate + strlen("TIME:="));
++           check_time = TRUE;
+        } else if (strncmp(local_predicate, "SERVER:", strlen("SERVER:")) == 0) {
+            uuid_from_string((unsigned_char_t *)local_predicate + strlen("SERVER:"), &server_uuid, status);
+            check_server = TRUE;
+***************
+*** 252,257 ****
+--- 273,282 ----
+        DCE_SVC_DEBUG((aud_svc_handle, aud_s_msgs, svc_c_debug1,
+            "dce_aud_next: Check time after\n"));
+      }
++     if (check_time) {
++       DCE_SVC_DEBUG((aud_svc_handle, aud_s_msgs, svc_c_debug1,
++           "dce_aud_next: Check at time\n"));
++     }
+      if (check_server) {
+        DCE_SVC_DEBUG((aud_svc_handle, aud_s_msgs, svc_c_debug1,
+            "dce_aud_next: Check server\n"));
+***************
+*** 391,396 ****
+--- 416,428 ----
+      if (check_time_after) {
+        utc_cmpintervaltime(&time_relation, &header->time, &after_time);
+        if (time_relation == utc_lessThan) {
++           goto next_record;
++       }
++     }
++     if (check_time) {
++       utc_cmpintervaltime(&time_relation, &header->time, &at_time);
++       if ((time_relation != utc_equalTo) && 
++           (time_relation != utc_indeterminate)) {
+            goto next_record;
+        }
+      }
+
+[02/19/96 public]
+The complete fix for all predicate values have been submitted in 13312.
+Please cancel this OT as a DUP. Thanks.
+
+[2/19/96 public]
+
+13312 does not take care of the case where predicate is "TIME=value" or "TIME:=".
+Also are  "TIME:<" ,"TIME=<" and "TIME<" are same? Does this apppy to > and = as
+well? Could you clarify this?
+
+[2/19/96 public]
+To my knowledge, the operator colon ":"  meant "equal to" and it has been using
+in some DCE 1.1 applications.  Therefore, I don't want to remove or change it to
+"=". I instead added to recognize the equal sign "=", too.  That meant:
+
+  o : or = means equal to
+  o < means less than
+  o > means greater than
+  o :> or => means greater than or equal to
+  o :< or =< means less than or equal to
+
+Since we don't know exactly what time the event is recorded in advance,
+"TIME=value" or "TIME:value" is not practical search.  So, I treated 
+TIME a little bit difference from the others to cover all operators, i.e 
+
+  o TIME<value
+  o TIME>value
+  o TIME:<value or TIME=<value (cover the "equal to")
+  o TIME:>value or TIME=>value (cover the "equal to") 
+
+Once this is merged, I'll ask to change the man page for TIME.
+
+[02/19/96 public]
+This is the first time I can recall hearing : used for =.
+As for syntax, I think <= and >= are the more-common notations.
+
+[2/19/96 public]
+
+>[trant 2/19/96 public]
+>Since we don't know exactly what time the event is recorded in advance, 
+>"TIME=value" or "TIME:value" is not practical search.  So, I treated 
+>TIME a little bit difference from the others to cover all operators, i.e 
+
+It is possible to know the time event is recorded. One can store the time
+when an event is recorded in the first pass and use this time to position 
+at the record that time in the next pass.  Infact one of Transarc's customer 
+is doing this. I think "TIME=value" is practical.
+
+[2/20/96 public]
+That's what previous onwer and I thought about the exactly time search. Since
+we don't know exactly time in advance, using =< (before) or => (after) make 
+more sense than = (at). 
+
+Do you know why the customer wants to use "dcecp audtrail show" to record 
+the time then use it to search in the next pass ??? What advantages ??? 
+
+By the way, if you look at EVENT, SERVER, OUTCOME, STATUS, CLIENT, CELL, GROUP,
+and ADDR attribute, the only valid operator is : (in codes) and = (in man pages). 
+However, they meant the same, i.e "equal to". I don't know the history behind
+them. But I was told to leave : as it is and add = to match the man pages.
+
+I am afraid that your suggestion "TIME:=" is not proper syntax. ":=" is not 
+meant "equal to" because it is not consistent with "equal to" operator of the
+other attributes.
+
+[2/20/96 public]
+
+It can be used to monitor an audit trail. When you reach the end of the event file note down the time and close the audit trail file.  When you want to start
+again use the time noted down to advance the pointer to previous last rec..
+and continue processing again.
+
+[2/20/96 public]
+If this is the case, would it be better to use dce_aud_prev()???. Its syntax is 
+exactly the same as dce_aud_next().  The only difference is that next returns
+the next record whereas prev() returns the previous one. I supplied dce_aud_prev()
+via OT 11175. You may want to ovoid opening/closing the Audit file so often. It'll  
+impact the performance when the file is getting big.
+
+[2/20/96 public]
+OK. I am happy with dce_aud_prev()/dce_aud_next() combination. Thanks.
+canceling this OT.
+
+
+
+CR Number                     : 13138
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : aud
+Subcomponent Name             : auditd & libaudit
+Short Description             : missing sec_rgy_site_close
+Reported Date                 : 10/3/95
+Found in Baseline             : 1.1
+Found Date                    : 10/3/95
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 13024
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/3/95 public]
+
+While investigating on memory leak in DCE, we found the leaks
+in several Audit codes.  The leaks are caused by missing API
+sec_rgy_site_close() and not freeing the variables at the end.
+
+[10/3/95 public]
+
+Is this OT talking about the same thing as 13024? If you have additional
+fixes please put it under OT 13024. Please mark this a dup of 13024
+if you don't mind putting fixes in that OT. Thanks.
+
+[10/4/95 public]
+Yeah, this is a dup of 13024.  I will put the fixes in 13024.
+
+
+
+CR Number                     : 12766
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : aud
+Subcomponent Name             : libaudit
+Short Description             : Need local audit trail accessable from multiple processes
+Reported Date                 : 12/12/94
+Found in Baseline             : 1.1
+Found Date                    : 12/12/94
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 11472
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[12/12/94 public]
+
+Refer to CR 11372.
+
+This is an enhancement request for the capability of multiple processes 
+to be able to write to a local audit trail file.  (The central audit trail
+file is too big for some layered processes.)
+
+
+
+CR Number                     : 12561
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : aud
+Subcomponent Name             : 
+Short Description             : doc bug: dce_aud_start_with_name(3) does not match code
+Reported Date                 : 10/7/94
+Found in Baseline             : 1.1b20
+Found Date                    : 10/7/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 10076
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/7/94 public]
+
+
+The dce_aud_start_with_name(3) doesn't match the audit code
+
+                dce_aud_start_with_name
+                (
+                                 unsigned32 event,
+                                 unsigned_char_t * client, /* global name */
+                                 unsigned_char_t * address,
+                                 unsigned32 options,
+                                 unsigned32 outcome,
+                                 dce_aud_rec_t * ard,
+                                 unsigned32 * status
+		)
+
+
+SYNOPSIS
+     #include <dce/audit.h>
+
+     void dce_aud_start_with_name(
+             unsigned32 event,
+             unsigned_char_t *self,
+             unsigned_char_t *other,
+             unsigned_char_t *address,
+             unsigned32 options,
+             unsigned32 outcome,
+             dce_aud_rec_t *ard,
+             unsigned32 *status);
+
+[10/18/94 public]
+The self and other parameters have been deleted from the man page.
+Added the "client" parameter to the man page of this API.
+
+
+
+CR Number                     : 12428
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : aud
+Subcomponent Name             : 
+Short Description             : cannot access /opt/dce/bin/auditd: No such file or directory
+Reported Date                 : 9/30/94
+Found in Baseline             : 1.1
+Found Date                    : 9/30/94
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 12487
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/30/94 public]
+
+This could be related to OT 12427.  I am opening an OT just in case it is not.
+
+Platform - HPUX
+Machine - budapest
+test - multi-machine smoketest
+
+extract from /u1/RAT_tools/do_test.dfs.log on budapest
+
++ ./dce_config -c /u1/RAT_tools/mult_mach_configs/budapest_secr_cdsr_ds.cmd -e /
+u1/RAT_tools/mult_mach_configs/budapest_secr_cdsr_ds.env -i
+
+
+S:****** Attempting to remove all remnants of previous DCE installations for
+         all components...
+S:****** Successfully removed all remnants of previous DCE installations for
+         all components.
+                installing sec_create_db secd pwd_strengthd ...
+                installing dced cdsadv cdsclerk dtsd auditd dtstimed...
+                installing dts_null_provider dts_ntp_provider...
+                installing rpccp uuidgen cdscp getcellname getip...
+                installing acl_edit dce_login rgy_edit dtscp dcecp...
+                installing svcdumplog dcecf_postproc...
+                installing sec_admin passwd_import passwd_export...
+                installing kinit klist kdestroy...
+cp: cannot access /opt/dce/bin/auditd: No such file or directory
+Can't create file /opt/dcelocal/bin/auditd
+
+[09/30/94 public]
+This is most definitely a duplicate of 12427.  Since libaudit did not build
+cleanly, is was not placed into the install tree and dce_config could not
+install it.
+
+
+
+CR Number                     : 11429
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : aud
+Subcomponent Name             : libaudit
+Short Description             : When DCEAUDITFILTERON is
+set to 1, secd core dumps
+Reported Date                 : 7/25/94
+Found in Baseline             : 1.1
+Found Date                    : 7/25/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 11700
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/25/94 public]
+
+Setting the DCEAUDFILTERON environment variable to "1" causes secd
+to core dump due to receiving a fatal status from rpc of "no bindings".
+
+The engineer who did the rest of the investigation on this problem had
+this to say:
+
+"In looking through the libaudit code further, I was able to determine
+that when setting DCEAUDITFILTERON, the dce_aud_open() code takes a
+much different path than when this environment variable is not set
+(where it simply returns).  Instead, the routine continues processing
+and ultimately issues a call to register_update_interface(stp),
+which is located in esl_sync.c.  This routine attempts to register
+the update interface and contains the following initial code:
+    rpc_server_inq_bindings(&bindings, status);
+    if (BAD_STATUS(status)) {
+        return;
+    }
+I believe this is where the "no bindings" rpc status is being returned
+back to secd.
+
+The one odd thing about all this is this update interface server 
+registration is occurring in libaudit.  All other audit related 
+interface server registrations occur within the auditd startup.
+Unless I'm mistaken...the libaudit library is statically linked into 
+secd, hence the libaudit call to rpc_server_register_if() seems to
+be bogus - after all, in this instance, secd is the client of auditd.
+It (secd) should not be trying to register auditd's interfaces,
+should it?
+
+[7/25/94 public]
+The question is why the "no bindings" status is returned from RPC?  
+Also why does this cause a coredump?
+In case of DCEAUDITFILTERON being set, which means that secd wants to 
+use audit functionality with filters being used.  But since filters are
+maintained by the audit daemon, each library registers an "update" interface
+so as the daemon can signal all audit clients whenever the filter database
+is changed.  (auditcp or dcecp are used to talk to the audit daemon for filter
+modifications.)
+So indeed, if the audit library cannot register this update interface with RPC,
+then secd bringup should fail, since otherwise no filter updates are going to
+be performed and secd is not going to "see" any filter changes made in the system.
+
+[7/25/94 public]
+
+We're not sure why it's dumping core, it takes an rs_fatal() because
+the call to dce_aud_open() in secd returns an error status.
+
+When you say "each library" above - what do you mean?  Do you mean libaudit?
+Remember that secd is logging audit events through libaudit.  It seems that
+a client (in this case, secd because it's issuing libaudit client calls) is 
+not able to register server interfaces.  
+
+According to the man page for rpc_server_register_if(3rpc) - "A server can 
+register an unlimited number of interfaces.  Once registered, an interface
+is available to clients..."  In the above example, the client (secd) is
+trying to register the interface.  The auditd code appears to register all
+interfaces except this one.  This seems suspect.  
+
+Why can't we get auditd to use filters, either?  What are we doing wrong?  
+Are there some administrative tasks (undocumented) that are required to
+get this to work?  I am concerned by the fact that there are no entries in
+our central trail file (see above), even though we started auditd with the
+-a option.
+
+[7/26/94 public]
+
+Per Robert's suggestion I have removed the auditd portion of this defect
+and am opening a new defect for it.  This is a separate problem.
+
+[7/26/94 public]
+Looking in rs_main.c, the call to dce_aud_open is done before secd had
+a chance to register its interfaces with rpc runtime, so no wonder that
+the return code of "no bindings" is received by the audit library.  [mob 8/2/94 public]
+HP made the changes that Robert recommended and secd still dumps core
+when DCEAUDITFILTERON=1 , the stack trace is below:
+
+ 0 dce_svc__debug@libdce + 0x00000008 (hp-ux export stub)
+ 1 malloc@libc_r + 0x000005d0 (0, 0x4, 0x1, 0x40024134)
+ 2 dce_aud_start_with_pac + 0x000000fc (0x129, 0x4034969c, 0, 0)
+ 3 dce_aud_start + 0x000001c4 (0x129, 0x403460c0, 0, 0xffffffff)
+ 4 rsec_id_parse_name + 0x000000cc (0x403460c0, 0, 0x402088a8, 0x1e)
+ 5 rsec_id_parse_name_cache + 0x0000005c (0x403460c0, 0, 0x402088a8, 0x1e)
+ 6 op3_ssr + 0x000001b0 (0x403460c0, 0x40346c80, 0x4020854c, 0x40345c38)
+ 7 rpc__cn_call_executor@libdce + 0x000003a8 (0x40346c80, 0, 0, 0)
+ 8 cthread_call_executor@libdce + 0x00000178 (0x402062d0, 0, 0, 0)
+ 9 cma__thread_base@libdce + 0x000000f4 (0x4018c638, 0, 0, 0)
+10 cma__thread_start1@libdce + 0x00000038 (0x4018c638, 0, 0, 0)
+11 cma__thread_start0@libdce + 0x0000000c (0x4018c638, 0, 0, 0)
+
+[8/4/94 public]
+Changed priority to 1.  This still needs to be fixed but it's isn't holding
+anyone else up.
+
+[8/8/94 public]
+This looks like blowing inside dce_svc_debug macro.  Are you getting ANY 
+debug messages from the audit component at all?
+(I.e. is your environment set up correctly for the debug messages to come out?).
+This specific debug message comes out correctly on both my HP and RIOS machines.
+
+[8/8/94 public]
+
+What are the steps required to setup my environment so that the SVC debug
+messages come out correctly?  All I'm doing is using a default routing file
+and sending that info to a file.
+
+[8/9/94 public]
+Can you append here or send me the contents of that file?
+
+[8/16/94 public]
+Duplicate of 11700.  dce_aud_start should not be invoked before dce_aud_open.
+
+
+
+CR Number                     : 11243
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 11119
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : aud
+Subcomponent Name             : auditd
+Short Description             : auditd server entry does not
+have write permission for self
+Reported Date                 : 7/11/94
+Found in Baseline             : 1.1
+Found Date                    : 7/11/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 11431
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/11/94 public]
+This is taken from OT11119:
+
+  Here's what happens to me:
+  
+  <config, shutdown, then restart>
+  
+  root@surf# /etc/rc.dce
+	  /opt/dcelocal/bin/dced
+  No currently established network identity for which context exists
+  DCED listening...
+	  /opt/dcelocal/bin/secd
+	  /opt/dcelocal/bin/sec_clientd
+	  /opt/dcelocal/bin/cdsadv
+	  /opt/dcelocal/bin/cdsd
+	  /opt/dcelocal/bin/auditd -a
+	  /opt/dcelocal/bin/dtsd -s
+  1994-07-05-15:49:37.639-04:00I----- auditd FATAL aud general 0xa44b0bc4
+  cannot register daemon's ACL manager interface bindings
+    
+Auditd, running as self, can't export it's bindings.  During the initial
+dce_configuration, auditd is running as cell_admin.
+
+[7/11/94 public]
+I don't think that this is the problem. I just repaired the ACL my hand, and
+started auditd. Same problem. I don't think that the way auditd registers
+itself has changed recently, but this behavior is new.
+
+dcecp> acl show /.:/hosts/ninja/aud-acl -e
+{unauthenticated r--t-}
+{user cell_admin rwdtc}
+{user hosts/ninja/self rwdtc}
+{group subsys/dce/cds-admin rwdtc}
+{group subsys/dce/cds-server rwdtc}
+{any_other r--t-}
+
+I added hosts/ninja/self to the acl, but...
+
+[ninja]
+1994-07-11-22:16:39.994-04:00I----- auditd FATAL aud general dmn_main.c 462 0xa44cebd4
+cannot register daemon's ACL manager interface bindings
+
+[8/8/94 public]
+I marked this as dup of 11431 and not the other way around, since there is 
+more discussion there on the subject.
+
+
+
+CR Number                     : 11206
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : aud
+Subcomponent Name             : security/audit/auditcp
+Short Description             : automatic smoke test can't create /opt/dcelocal/bin/auditcp
+Reported Date                 : 7/7/94
+Found in Baseline             : 1.1
+Found Date                    : 7/7/94
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 11192
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/7/94 public]
+
+This is breaking all our automatic smoke tests.
+
++ hostname 
+smoke_machine=budapest
+build_machine=zagreb
+build_fs=/u3
+sb_suffix=ux
+platform=hp800
+release=1.1
+mt_pt=/mnt
+toolsdir=/u1/RAT_tools
+dcelocal=/u1/opt/dcelocal
+dcetest=/dcetest/dcelocal/test
++ /usr/bin/whoami 
+user_name=root
++ [ root != root ] 
++ echo setting up DCE NLSPATH and LANG 
+setting up DCE NLSPATH and LANG
+NLSPATH=/usr/lib/nls/C/%N
+LANG=C
++ export NLSPATH LANG 
++ [ ! -d /mnt ] 
++ [ ! -d /mnt/opt/dce1.1 ] 
++ /etc/mount -f zagreb:/u3/devobj/sb/nb_ux/install/hp800 /mnt 
++ cd /mnt/opt/dce1.1/etc 
++ ./dce_config -c /u1/RAT_tools/mult_mach_configs/budapest_secr_cdsr_ds.cmd -e /u1/RAT_tools/mult_mach_configs/budapest_secr_cdsr_ds.env -i 
+
+
+S:****** Attempting to remove all remnants of previous DCE installations for 
+         all components...
+S:****** Successfully removed all remnants of previous DCE installations for 
+         all components.
+                installing sec_create_db sec_salvage_db secd ...
+                installing dced rpcd cdsadv cdsclerk dtsd sec_clientd auditd dtstimed...
+                installing dts_null_provider dts_ntp_provider...
+                installing rpccp uuidgen cdscp getcellname getip...
+                installing acl_edit dce_login rgy_edit dtscp dcecp...
+                installing sec_admin passwd_import passwd_export auditcp...
+                installing kinit klist kdestroy...
+cp: cannot access /opt/dce/bin/auditcp: No such file or directory
+Can't create file /opt/dcelocal/bin/auditcp
+Ensure no DCE daemons are running
+        Press <RETURN> to continue, CTRL-C to exit: 
+# 
+
+
+tests hang at this point
+
+[7/7/94 public]
+By the way, if you hit return it will continue.
+
+
+
+CR Number                     : 11011
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : aud
+Subcomponent Name             : cp_filter03 test
+Short Description             : Test hangs indefinately w/o notice
+Reported Date                 : 6/20/94
+Found in Baseline             : 1.1
+Found Date                    : 6/20/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 10766
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/20/94 public]
+
+The test named above hangs "forever" without notification of anything
+going wrong.  From running the same command that the test is performing
+manually, I have reason to believe that auditcp might be dumping core
+(See ot 11010), which is causing the test to hang.  I would expect the
+test to fail and continue, not hang.
+
+
+
+CR Number                     : 10991
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa,i486
+S/W Ref Platform              : hpux,osf1
+Component Name                : aud
+Subcomponent Name             : 
+Short Description             : ecfile_filter01 fails
+Reported Date                 : 6/17/94
+Found in Baseline             : 1.1
+Found Date                    : 6/17/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 10764
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/17/94 public]
+ecfile_filter01 fails on 486 and HP.  No further information available in
+the journal or log.
+
+[6/17/94 public]
+aud_testec was dumping core.  Dupped to appropriate defect.
+
+
+
+CR Number                     : 10989
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : aud
+Subcomponent Name             : libaudit
+Short Description             : api_filter01 fails
+Reported Date                 : 6/17/94
+Found in Baseline             : 1.1
+Found Date                    : 6/17/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 10990
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/17/94 public]
+api_filter01 fails on HP.  No further information availabe in journal or
+log.
+
+[6/17/94 public]
+I'm duping this to 10990.  While rerunning the tests occaisionally
+different test cases would fail, although api_filter03 seems to fail more
+often than others.  (also saw 6 and 7 fail.)
+
+Therefore, I think these are the same defects.
+
+
+
+CR Number                     : 10766
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : aud
+Subcomponent Name             : cp_filter
+Short Description             : 'auditcp audfilter catalog' hangs
+Reported Date                 : 5/25/94
+Found in Baseline             : 1.1
+Found Date                    : 5/25/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 10770
+Fix By Baseline               : 1.1beta
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/25/94 public]
+When running all tests on HP everything hangs in cp_filter03 on the
+'auditcp' invocation.  Here's the tet_xres file from the test:
+
+15|1 1.9 5|TCM Start
+520|1 0 4159 1 1|START DCE audit functional: /u1/dcetest/dcelocal/test/tet/tet_tmp_dir/4083a/cp_filter/cp_filter; DATE: Wed May 25 10:17:42 EDT 1994
+400|1 1 1 10:18:00|IC Start
+200|1 1 10:18:00|TP Start
+520|1 1 4159 1 2|START: cp_filter01 started
+520|1 1 4159 1 3|auditcp return value = 0
+520|1 1 4159 1 4|PASS: cp_filter01 passed
+220|1 1 0 10:18:01|PASS
+410|1 1 1 10:18:01|IC End
+400|1 2 1 10:18:01|IC Start
+200|1 1 10:18:01|TP Start
+520|1 1 4159 1 2|START: cp_filter02 started
+520|1 1 4159 1 3|OK: filter for aud_test_princ1 added successfuly
+520|1 1 4159 1 4|ERROR: filter for aud_test_princ1 not found
+520|1 1 4159 1 5|OK: filter for aud_test_group1 added successfuly
+520|1 1 4159 1 6|ERROR: filter for aud_test_group1 not found
+520|1 1 4159 1 7|OK: filter for local cell added successfuly
+520|1 1 4159 1 8|ERROR: filter for local cell not found
+520|1 1 4159 1 9|OK: world filter added successfuly
+520|1 1 4159 1 10|ERROR: world filter not found
+520|1 1 4159 1 11|ERROR: cp_filter02 failed
+220|1 1 1 10:41:29|FAIL
+410|1 2 1 10:41:29|IC End
+400|1 3 1 10:41:29|IC Start
+200|1 1 10:41:29|TP Start
+520|1 1 4159 1 2|START: cp_filter03 started
+
+
+
+CR Number                     : 10755
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : aud
+Subcomponent Name             : auditd_acl
+Short Description             : can't bind to aud-acl
+Reported Date                 : 5/24/94
+Found in Baseline             : 1.1
+Found Date                    : 5/24/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 10313
+Fix By Baseline               : 1.1beta
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/24/94 public]
+journal file name is: /dcetest/dcelocal/test/tet/functional/security/audit/results/0005e/journal
+
+START DCE audit functional: auditd_acl; DATE: Tue May 24 15:16:56 EDT 1994
+
+START: auditd_acl01 started
+
+call acl_edit to list audit daemon's ACL
+ERROR: communications failure (dce / rpc)
+Unable to bind to object /.:/hosts/gemini/aud-acl
+
+ERROR: acl_edit returns: 1
+
+ERROR: auditd_acl01 failed
+command excution failed
+
+END DCE audit functional: auditd_acl; DATE: Tue May 24 15:18:21 EDT 1994
+
+
+
+CR Number                     : 10753
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : aud
+Subcomponent Name             : 
+Short Description             : aud_testf dumps core in api_filter
+Reported Date                 : 5/24/94
+Found in Baseline             : 1.1
+Found Date                    : 5/24/94
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 10770
+Fix By Baseline               : 1.1beta
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/24/94 public]
+Couldn't get a backtrace from the corefile.
+
+Here's the tcc standard out:
+  servername= hosts/gemini/self
+  aud_client_server pw_princ1= princ1, pw_princ2= princ2
+  OK: memory allocated
+  listener START
+  prec->key.tagged_union.plain = princ1, plain= princ1
+  Start aud_testf_case1
+  
+  client is aud_test_princ1
+  
+  calling dce_aud_open 
+  cannot make /opt/dcelocal/var/audit/client/26363/ directory
+  prec->key.tagged_union.plain = princ1, plain= princ1
+  Start aud_testf_case1
+  
+  client is aud_test_princ1
+  
+  calling dce_aud_open 
+  cannot make /opt/dcelocal/var/audit/client/26363/ directory
+  
+  dce_aud_open returns bad status= 10323064
+  
+  dce_aud_start
+  api_filter1[8]: 26363 Memory fault(coredump)
+  16#8b
+
+Here's the journal:
+  0|1.10 14:57:17 19940524|User: zeliff (0) TCC Start, Command Line: /dcetest/dcelocal/test/tet/bin/tcc -e functional/security/audit api_filter 
+  20|/dcetest/dcelocal/test/tet/functional/security/audit/tetexec.cfg 1|Config Start
+  30||TET_VERSION=1.10
+  30||TET_OUTPUT_CAPTURE=False
+  30||TET_RESCODES_FILE=tet_code
+  30||TET_EXEC_IN_PLACE=False
+  30||TET_NSIG=31
+  30||TET_SIG_IGN=26,34
+  40||Config End
+  70||"Starting AUDIT api_filter Test Suite"
+  10|0 /ts/api_filter/api_filter 14:57:17|TC Start, scenario ref 36-1
+  90|15:02:29|User Abort
+  15|0 1.9 1|TCM Start
+  520|0 0 26369 1 1|START DCE audit functional test: /u2/dcetest/test/tet/tet_tmp_dir/26224a/api_filter/api_filter; DATE: Tue May 24 14:57:24 EDT 1994
+  400|0 1 1 14:57:42|IC Start
+  200|0 1 14:57:42|TP Start
+  520|0 0 26369 1 1|END DCE audit functional test: /u2/dcetest/test/tet/tet_tmp_dir/26224a/api_filter/api_filter; DATE: Tue May 24 15:03:27 EDT 1994
+  520|0 1 26369 1 2|unexpected signal 15 received
+  520|0 0 26369 1 2|unexpected signal 2 received
+  520|0 1 26369 1 2|START: api_filter1 started
+  520|0 1 26369 1 3|ERROR: api_filter01 failed
+  520|0 1 26369 1 4|ERROR: api_filter02 failed
+  520|0 1 26369 1 5|PASS: api_filter03 passed
+  520|0 1 26369 1 6|ERROR: api_filter04 failed
+  520|0 1 26369 1 7|PASS: api_filter05 passed
+  520|0 1 26369 1 8|PASS: api_filter06 passed
+  520|0 1 26369 1 9|PASS: api_filter07 passed
+  520|0 1 26369 1 10|ERROR: api_filter08 failed
+  520|0 1 26369 1 11|PASS: api_filter09 passed
+  520|0 1 26369 1 12|PASS: api_filter10 passed
+  520|0 1 26369 1 13|PASS: api_filter11 passed
+  510|0|Abandoning test case: received signal 15
+  80|0 15 15:03:28|TC End
+  70||"Completed AUDIT api_filter Test Suite"
+  900|15:03:28|TCC End
+
+[5/25/94 public]
+This was an artifact of 10770.
+
+
+
+CR Number                     : 10274
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : aud
+Subcomponent Name             : 
+Short Description             : aud control API needs .acf
+Reported Date                 : 4/1/94
+Found in Baseline             : 1.1
+Found Date                    : 4/1/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 9928
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/1/94 public]
+
+The audit control API needs an acf file created so that exceptions
+raised by the daemon can be trapped and passed back to the caller as
+status codes. The control program should not need to be concerned 
+about exceptions, only status codes. The TRY/CATCH blocks then can 
+be removed from the audit control program.
+
+
+
+CR Number                     : 10153
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : aud
+Subcomponent Name             : auditcp
+Short Description             : auditcp core dumps on command
+when auditd not running
+Reported Date                 : 3/16/94
+Found in Baseline             : 1.1
+Found Date                    : 3/16/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 9928
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[3/16/94 public]
+Auditcp dumps core when issued the 'aud enable' command while auditd is not
+running:
+
+  root@gemini var/audit$ auditcp
+  auditcp> aud enable
+  Exception: communications failure (dce / rpc)
+  Resources lost(coredump)
+
+I didn't get much of a stack trace; 'gdb' reports that it died in
+start_time() 
+
+This happens on OSF1 and HPUX.
+
+
+
+CR Number                     : 10060
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : aud
+Subcomponent Name             : 
+Short Description             : dce_config should support audit installation
+Reported Date                 : 3/3/94
+Found in Baseline             : 1.1
+Found Date                    : 3/3/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 9625
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : dce_config
+Sensitivity                   : public
+
+[3/3/94 public]
+dce_config should add a procedure for audit installation.  Shyh-Wei 
+will send a request for submission.
+
+
+
+CR Number                     : 9906
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : aud
+Subcomponent Name             : libaudit
+Short Description             : libaudit ar'ed twice in build
+Reported Date                 : 2/8/94
+Found in Baseline             : 1.1
+Found Date                    : 2/8/94
+Severity                      : E
+Priority                      : 3
+Status                        : dup
+Duplicate Of                  : 9977
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/8/94 public]
+ar is run twice when building libaudit.a.
+
+
+

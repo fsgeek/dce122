@@ -1,0 +1,1020 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: fundamentals.gpsml,v $
+...\" Revision 1.1.4.1  1996/03/27  13:32:23  wardr
+...\" 	{edit R1.2.1}
+...\" 	More Release Edits
+...\" 	[1996/03/27  13:31:47  wardr]
+...\"
+...\" Revision 1.1.2.10  1995/06/07  14:37:56  rcb
+...\" 	PRENTICE HALL reformat; final edits and changes
+...\" 	[1995/06/05  19:55:55  rcb]
+...\" 
+...\" 	PRENTICE HALL reformat
+...\" 	[1995/04/17  18:05:16  rcb]
+...\" 
+...\" 	incorporated 1.1 edits
+...\" 	[1995/04/17  17:34:31  rcb]
+...\" 
+...\" Revision 1.1.2.9  1994/10/27  22:54:07  jshirley
+...\" 	Fix minor edit so book will build.
+...\" 	[1994/10/27  22:53:52  jshirley]
+...\" 
+...\" Revision 1.1.2.8  1994/10/27  19:42:54  jshirley
+...\" 	Final edits.
+...\" 	[1994/10/27  19:41:47  jshirley]
+...\" 
+...\" Revision 1.1.2.7  1994/09/14  19:21:12  jshirley
+...\" 	{def,10526,R1.1,Reorg RPC chapters.
+...\" 	[1994/09/14  19:20:36  jshirley]
+...\" 
+...\" Revision 1.1.2.6  1994/09/01  18:37:36  buckler
+...\" 	{enh, 8569, R1.1}
+...\" 	Added another caveat about input argument size limit.
+...\" 	[1994/09/01  18:36:47  buckler]
+...\" 
+...\" Revision 1.1.2.5  1994/09/01  18:27:14  buckler
+...\" 	{enh, 8569, R1.1}
+...\" 	Added caveats about broadcasting.
+...\" 	[1994/09/01  18:26:22  buckler]
+...\" 
+...\" Revision 1.1.2.4  1994/08/11  20:36:29  jhh
+...\" 	expand copyright
+...\" 	[1994/08/11  19:58:31  jhh]
+...\" 
+...\" Revision 1.1.2.3  1994/07/13  15:02:14  jshirley
+...\" 	{def,10220,R1.1} Remove reference to rpcd and sec_clientd
+...\" 	[1994/07/13  15:01:31  jshirley]
+...\" 
+...\" Revision 1.1.2.2  1994/07/11  15:48:48  jshirley
+...\" 	{def,10526,R1.1}
+...\" 	Swapped order of two sections.  Now have UUID followed by Comm.  Protocol
+...\" 	discusions.
+...\" 	[1994/07/11  15:48:22  jshirley]
+...\" 
+...\" 	{def,10526,R1.1}
+...\" 	Merged in information from old files (1_intro.gpsml,2_components.gpsml,
+...\" 	6_advanced_topics.gpsml) and modified headings.
+...\" 	Data is still in a rough state.
+...\" 	[1994/07/11  15:35:37  jshirley]
+...\" 
+...\" Revision 1.1.2.1  1994/07/07  19:12:04  jshirley
+...\" 	{def,10526,R1.1}
+...\" 	Created new file for the RPC reorganization based on the
+...\" 	old file 4_remoteness.gpsml.
+...\" 	[1994/07/07  19:11:35  jshirley]
+...\" 
+...\" $EndLog$
+...\" 
+.H 1 "RPC Fundamentals"
+DCE RPC provides a call environment that behaves essentially like a local call
+environment.  However, some special requirements are imposed on remote procedure
+calls by the remoteness of calling code to the called procedure.
+Therefore, a remote procedure
+call may not always behave exactly like a local procedure call. 
+.PP
+This chapter discusses the following topics:
+.ML
+.LI
+Universal unique identifiers
+.LI
+Communications protocols
+.LI
+Binding information
+.LI
+Endpoints
+.LI
+Execution semantics
+.LI
+Communication failures
+.LI
+Scaling applications
+.LI
+RPC Objects
+.LE
+...\" END .ML (bulleted) list
+.P
+.ne 5
+Distributed applications have the following implications:
+.ML
+.LI
+Client/server relationship\(embinding
+.PP
+Like a local procedure call,
+a remote procedure call depends on a static relationship between the calling
+code and the called procedure.  In a local application,
+this relationship is established by linking the calling and called code.
+Linking gives the calling code access to the address 
+of each procedure to be called.
+Enabling a remote procedure call to go to the right procedure
+requires a similar relationship
+.iX "binding"
+(called a \*Vbinding\*O) between a client and a server.
+A binding is a temporary relationship that depends on a
+communications link between the client and server RPC runtimes.
+A client establishes a binding over a specific protocol sequence to a specific
+host system and endpoint.
+.LI
+Independent address spaces
+.PP
+The calling code and called remote procedure reside in different address
+spaces, generally on separate systems.  The calling and called code cannot
+share global variables or other global program state such as open files. 
+All data shared between the caller and the called remote procedure must be
+specified as procedure parameters in the IDL specification.  
+Unlike a local procedure call that
+commonly uses the call-by-reference passing mechanism for input/output
+parameters, remote procedure calls with input/output parameters have
+copy-in/copy-out semantics due to the differing address spaces of the
+calling and called code.
+These two passing mechanisms are only slightly different, and most
+procedure calls are not sensitive to the differences between
+call-by-reference and copy-in/copy-out semantics.
+.LI
+Independent failure
+.PP
+Distributing a calling program and the called procedures to physically separate
+machines increases the complexity of procedure calls.  Remoteness introduces
+issues such as a remote system crash, communications failures, 
+naming and binding
+issues, security problems, and protocol incompatibilities.  Such issues can
+require error handling that is unnecessary for local procedure calls. 
+Also, as with local procedure calls, remote procedure calls are subject
+to execution errors that arise from the procedure call itself. 
+.LE 
+.H 2 "Universal Unique Identifiers"
+.iX "UUIDs"
+Each UUID contains information, including a timestamp and a host identifier.
+Applications
+use UUIDs to identify many kinds of entities.  DCE RPC identifies 
+several uses of UUIDs, according to the kind of entities each identifies: 
+.ML
+.LI
+Interface UUID
+.PP
+A UUID that identifies a specific RPC interface.  An interface UUID
+is declared in an RPC interface definition (an IDL file) and is
+a required element of the interface.  For example:
+.oS
+uuid(2fac8900-31f8-11ca-b331-08002b13d56d),
+.oE
+.LI
+Object UUID
+.PP
+A UUID that identifies an entity for an application; for example, a resource,
+a service, or a particular instance of a server.
+An application defines an RPC object by associating the object with its own
+UUID known as an 
+...\" .gL "object UUID"
+.iX "object" "UUID" 
+\*Eobject UUID\*O. 
+The object UUID exists independently of the object, unlike an interface UUID.
+A server usually generates UUIDs for its
+objects as part of initialization.  A given object UUID is meaningful only
+while a server is offering the corresponding RPC object to clients. 
+.P
+To distinguish a specific use of an object UUID, 
+a UUID is sometimes labeled for the entity it identifies.
+For example, an object UUID that is used to identify a particular instance
+of a server is known as an 
+.iX "instance" "RPC UUID"
+\*Einstance UUID\*O.
+.P
+.LI
+Type UUID
+.P
+.iX "type" "UUID"
+A UUID that identifies a set of RPC objects and an
+associated manager (the set of remote procedures that
+implements an RPC interface for objects of that type).
+This is often called a \*Vmanager type UUID\*O.
+.LE
+...\" .ML (bulleted) list
+.P
+Servers can 
+create object and type UUIDs by calling the \*Luuid_create(\|)\*O routine.
+.H 2 "Communications Protocols"
+A communications link depends on a set of communications protocols.  
+A
+...\" .gL "communications protocol"
+.iX "communications" "protocols"
+.iX "communications" "RPC protocol"
+communications protocol is a clearly defined set of operational
+rules and procedures for communications.
+.iX "protocol" "for RPC communications"
+.PP
+Communications protocols include a 
+transport protocol
+(from the Transport Layer of the OSI network architecture) 
+...\" .gL "transport protocol"
+.iX "transport protocol"
+such as the Transmission Control Protocol (TCP) 
+or the User Datagram Protocol (UDP); 
+and the
+...\" .gL "network protocol"
+.iX "network" "protocol"
+corresponding network protocol
+(from the OSI Network Layer) such as 
+the Internet Protocol (IP).
+.PP
+For an RPC client and server to communicate, their RPC
+runtimes must use at least one
+identical communications protocol, including a common
+RPC protocol, transport protocol, and network protocol.
+...\" .gL "RPC protocol"
+...\" .iX "RPC protocol" "definition of"
+.iX "RPC" "protocol"
+An RPC protocol is a communications protocol 
+that supports the semantics of the DCE RPC 
+API and runs over specific combinations of
+transport and network protocols.
+DCE RPC provides two RPC protocols:
+the connectionless RPC protocol and the connection-oriented RPC protocol.  
+.PP
+.ML
+.LI
+Connectionless (Datagram) RPC protocol
+...\" .gL "connectionless RPC protocol"
+.iX "connectionless RPC protocol"
+.PP
+This protocol runs over a connectionless transport protocol
+such as UDP.  
+The connectionless protocol supports broadcast calls.
+.LI
+Connection-oriented RPC protocol
+...\" .gL "connection-oriented RPC protocol"
+.iX "connection-oriented RPC protocol"
+.PP
+...\"
+This protocol runs over a connection-oriented transport protocol
+such as TCP.
+.LE
+.PP
+Each binding uses a single RPC protocol and a single pair of
+transport and network protocols.  Only certain combinations of communications
+protocols are functionally valid (are actually useful for
+interoperation); for instance, the RPC connectionless protocol cannot
+run over connection-oriented transport protocols such as TCP.
+...\" or NSP.
+DCE RPC supports the following combinations of communications
+protocols (as provided by OSF):
+.ML
+.LI
+RPC connection-oriented protocol over 
+the Internet Protocol Suite, Transmission Control Protocol (TCP/IP)
+...\" .LI
+...\" RPC connection-oriented over DECnet Network Services Protocol 
+...\" (NSP) (DECnet Phase IV)
+...\" .LI
+...\" RPC connection-oriented over Open Systems Interconnection 
+...\" ...\" (ISO TP4) 
+...\" (DECnet Phase V)
+.LI
+RPC connectionless protocol over 
+the Internet Protocol Suite, User Datagram Protocol (UDP/IP)
+...\" .LI 
+...\" RPC connectionless over Domain Datagram Service
+.LE 
+.H 2 "Binding Information"
+...\" .gL "binding information"
+.iX "binding" "information"
+Binding information includes a set of information that
+identifies a server to a client or a client to a server. 
+Each instance of 
+binding information contains all or part of a single address.  The RPC runtime
+maintains binding information for RPC servers and clients.  To make a
+specific instance of locally maintained binding information available to a
+given server or client, the runtime creates a local reference known as a 
+...\" .gL "binding handle"
+.iX "binding" "handle"
+\*Ebinding handle\*O.  Servers and clients use binding handles to refer to
+binding information in runtime calls or remote procedure calls. 
+A server obtains a complete list of its binding handles from its RPC runtime. 
+A client obtains one binding handle at a time from its RPC runtime. 
+Figure 12-1 illustrates a binding.
+.P
+.FG "A Binding"
+...\" DEC-file name .P! pictures/rpc-binding.ps 3.0i
+.pI ../rpc/figures/4_remoteness_01.ps 0 0 1
+.sp .5
+.P
+Binding information includes the following components:
+.ML
+.LI
+...\" .gL "protocol sequence"
+.iX "protocol" "sequence"
+.iX "RPC" "protocol" "sequence"
+Protocol sequence
+.P
+A valid combination of communications protocols
+presented by the runtime as a character string. 
+Each protocol sequence includes 
+a network protocol, a transport protocol, and an RPC protocol that works with
+them. 
+.PP
+An RPC server tells the runtime which protocol sequences to use
+when listening for calls to the server,
+and its binding information contains those protocol sequences.
+.LI
+.iX "network" "addressing information"
+Network addressing information
+.P
+Includes the network address and the endpoint of a server.
+.ML
+.LI
+...\" .gL "network address"
+.iX "network" "address"
+The network address identifies a specific host system on a network.
+The format of the address depends on the network protocol 
+portion of the protocol sequence. 
+.LI
+.iX "endpoint" "role of within server address"
+The endpoint acts as the address of a specific server instance within the
+host system.  The format of the endpoint depends on the transport protocol
+portion of the protocol sequence.  For each protocol sequence a server instance
+uses, it requires a unique endpoint. 
+A given endpoint can be used by only one server per system, 
+assigned by the local system on a first-come, first-served basis. 
+.LE
+.LI
+Transfer Syntax
+.P
+The server's RPC runtime 
+must use a transfer syntax that matches one used by
+the client's RPC runtime.
+.iX "transfer syntax"
+A transfer syntax is a set of encoding rules used for the network
+transmission of data and the conversion to and from different local data
+representations.  A shared transfer syntax enables communications between
+systems that represent local data differently. 
+DCE RPC currently uses a single transfer syntax, 
+Network Data Representation (NDR). 
+.iX "-: NDR" "Network Data Representation"
+.iX "NDR"
+NDR encodes data into a byte stream for transmission over a network. 
+A transfer syntax such as NDR enables machines with different formats to
+exchange data successfully.  
+(The DCE RPC communications protocols support the negotiation of
+transfer syntax.  However, at present, the outcome of a
+transfer-syntax negotiation is always NDR.)
+.LI
+RPC protocol version numbers
+.P
+The client and server 
+runtimes must use compatible versions of the RPC protocol
+specified by the client in the protocol sequence.  The major version number of
+the RPC protocol used by the server must equal the specified major version
+number.  The minor version number of the RPC protocol used by the server must be
+greater than or equal to the specified minor version number. 
+.iX "minor version number"
+.iX "major version number"
+.iX "version numbers"
+...\" .iX "RPC protocol" "minor version number" 
+...\" .iX "RPC protocol" "major version number" 
+.iX "RPC" "protocol" "version numbers" 
+.LE
+.H 3 "Server Binding Information"
+Binding information for a server is known as 
+...\" .gL "server binding information"
+.iX "server" "binding information"
+\*Eserver binding information\*O.
+A binding handle that refers to server binding information is known as a 
+...\" .gL "server binding handle"
+.iX "server" "binding handle"
+\*Eserver binding handle\*O.  The use of server binding handles
+differs on servers and clients.
+.H 4 "Server Binding On a Server"
+.P
+Servers use a list of server binding handles.  Each represents one way to
+establish a binding with the server.  Before exporting 
+binding information to a namespace, a server
+tells the RPC runtime which RPC protocol sequences to use for the RPC
+interfaces the server supports.  For each protocol sequence, the server runtime
+creates one or more server binding handles. 
+Each server binding handle refers to binding information for a single potential
+binding, including a protocol sequence, a network (host) address, an endpoint
+(server address), a transfer syntax, and an RPC protocol 
+version number. 
+.H 4 "Server Binding On a Client"
+.P
+A client uses a single
+server binding handle that refers to the server binding information 
+the client needs for making one or more remote procedure calls to a 
+given server.
+Server binding information on a client contains
+binding information for one potential binding. 
+.P
+On a client, server binding information always
+includes a protocol sequence and the network address of the server's host
+system.  However,
+sometimes a client obtains binding information that lacks an endpoint,
+resulting in a partially bound binding handle.
+...\" .gL "partially bound binding handle"
+.iX "partially bound binding handle"
+A partially bound binding handle corresponds to a system, but not to a
+particular server instance.  When a client makes a remote procedure call
+using a partially bound binding handle, the client runtime gets an endpoint
+either from the interface specification (if one a well-known endpoint
+is specified) 
+or from the endpoint map on the server's system. 
+Bindings almost never use well-known endpoints.
+Adding the endpoint to the server binding information results
+in a 
+...\" .gL "fully bound binding handle"
+.iX "fully bound binding handle"
+fully bound binding handle, which 
+contains an endpoint and corresponds to a specific server instance.
+Note clients can get a partially bound handle even if a server is not running.
+.H 3 "Defining a Compatible Server"
+.iX "compatible" "binding information" "RPC"
+Compatible binding information identifies a server whose communications
+capabilities (RPC protocol and protocol version, 
+network and transport protocols, and transfer syntax) are compatible with those
+of the client.  Compatible binding information is sufficient for establishing a
+binding.  However, binding information is insufficient for ensuring that the
+binding is to a compatible server.
+.P
+The additional information required that a client imposes on the RPC runtime
+includes an RPC interface identifier and an object UUID, as follows:
+.ML
+.LI
+Interface identifier
+.P
+The interface UUID and version numbers of an RPC interface:
+.ML
+.LI
+Interface UUID:
+.iX "RPC" "interface" "UUID" 
+.iX "interface" "UUID" "RPC use of"
+The interface UUID, unlike the interface name,  clearly identifies the
+RPC interface across time and space. 
+.LI
+Interface version number:
+The combined major and minor
+version numbers identify one generation of an interface. 
+.PP
+.iX "minor version number"
+.iX "major version number"
+.iX "version numbers"
+...\" .iX "RPC interface" "minor version number" 
+...\" .iX "RPC interface" "major version number" 
+.iX "RPC" "interface" "version numbers" 
+Version numbers allow multiple versions of an RPC interface to
+coexist.  Strict rules govern valid changes to an interface and
+determine whether different versions of an interface are compatible.
+For a description of these rules, see Chapter 18 on IDL syntax
+and usage. 
+.PP
+The runtime uses the version number of an RPC interface to decide whether the
+version offered by a given server is compatible with the version requested by a
+client.  The offered and requested interface are compatible under the following
+conditions: 
+.ML
+.LI
+The interface requested by the client and the interface offered by the server
+have the same major version number.
+.LI
+The interface requested by the client has a minor version number less than or
+equal to that of the interface offered by the server.
+.LE
+...\" .ML (bulleted) list
+.LE
+.LI
+.ne 10
+Object UUID
+.P
+A UUID that identifies a particular object.
+.P
+An object is a distinct computing resource,
+...\" .gL "object"
+.iX "object" "RPC" "use of"
+.iX "RPC" "object"
+such as a particular database, a specific RPC service that a remote 
+procedure can access, and so on; for example, personal calendars may 
+be RPC objects to a calendar service.  Accessing an object
+requires including its object UUID with the binding information used for
+establishing a binding.  A client can request a specific RPC object when
+requesting new binding information, or the client can ask the runtime to
+associate an object UUID with binding information the client already has
+available. 
+.PP
+.iX "nil UUID" "RPC"
+Sometimes the object UUID is the ``nil'' UUID;
+when calling an RPC runtime routine, 
+you can represent the nil UUID by specifying NULL. 
+In this case, the object UUID does not represent any object. 
+Often, however, the object UUID represents a specific RPC object and
+is a non-nil value. 
+To create a non-nil object UUID, a server calls the 
+\*Luuid_create(\|)\*O routine,
+which returns a UUID that the server then associates with a
+particular object.
+.P
+If a client requests a non-nil object UUID, the client runtime
+uses that UUID as one of the criteria for a compatible server.
+When searching the namespace for server binding
+information, the client runtime looks for the requested 
+interface identifier and object UUID.
+The endpoint map service uses this same information
+to help find a compatible server.
+.LE
+.P
+Figure 12-2 illustrates the aspects of a server and
+its system that are identified by the client's server binding information,
+requested interface identifier, and requested object UUID.
+.PP
+.FG "Information Used to Identify a Compatible Server"
+...\" DEC-file name .P! pictures/rpc-binding-compat-info.ps 3.0i
+.pI ../rpc/figures/4_remoteness_04.ps 0 0 1
+.H 3 "How Clients Obtain Server Binding Information"
+.PP
+When a client initiates a series of related remote procedure calls, the RPC
+runtime tries to establish a binding, which requires the address of a
+compatible server.
+An RPC client can use compatible binding information obtained from either a
+namespace or from a string representation of the binding
+information.  Using the namespace is the most common approach. 
+.P
+Establishing a binding also involves requesting an endpoint from
+the endpoint mapper of the server's system. 
+.H 4 "Binding Information in a Namespace"
+.P
+Usually, a server exports binding information for one or more of its
+interface identifiers and its object UUIDs, if any, to an 
+entry in a namespace.  The namespace is provided by a directory service such
+as the DCE Cell Directory Service (CDS).  The namespace entry to which a
+server exports binding information is known as a \*Eserver entry\*O. 
+.P
+To learn about a server that offers a given RPC interface 
+and object, if any, a client
+can import binding information from a server entry belonging to that server. 
+A client can delegate the finding of servers from the namespace to a stub. 
+In this case, if a binding is accidentally broken, the RPC runtime
+automatically tries to establish a new binding with a compatible server.
+.P
+Advantages of using a directory service to obtain binding information
+include the following:
+.ML
+.LI
+It is convenient for large RPC environments.  Initial overhead of
+understanding and configuring a directory service is balanced by easier
+management over time.
+.LI
+Management of data in a directory service is more automated.
+.LI
+It is effective in dynamic end-user environments.
+.LI
+Binding information is stored in a named server entry.  Data can be
+dynamic.  Servers can automatically place their binding information in
+the namespace.  Changes in binding information are made once by a
+server or administrator and then propagated automatically by the directory
+service to the replicas of the data.
+.LI
+There is centralized administration of data in a namespace.  Sophisticated
+access control is possible.
+.LI
+It supports searching for and choosing services based on an interface
+identifier and object UUID.  Clients access data by specifying an
+entry name.  Groups and profiles in directory service entries provide
+search paths for importing binding information.
+.LE
+.H 4 "Binding Information in Strings"
+.P
+Occasionally, a client can receive binding information in the form of a string
+(also known as a 
+.iX "string" "bindings"
+\*Estring binding\*O).
+The client can receive a string binding (or the information to compose a string
+binding) from many sources; for example, an application-specific
+environment variable, a file, or the application user.  
+The client must call the RPC runtime to convert a string binding to a
+binding handle. 
+The runtime returns this binding handle to the client to use for
+remote procedure calls.  
+.P
+String representations of binding information have several possible components.
+The binding information includes an RPC protocol sequence, a network
+address, and an endpoint.  The protocol sequence is mandatory; the endpoint is
+optional; and for a server on the client's system, the network address is
+optional.  Also, a string binding optionally associates an object UUID with
+the binding information. 
+.P
+The string bindings have the following format:
+.iS
+.ps 11
+\*Vobj-uuid\*L@\*Vrpc-protocol-seq\*L:\*Vnetwork-addr\*L[\*Vendpoint\*L,\*Voption-name\*L=\*Vopt-value\*O...\*L]\*O
+.ps 12
+.iE
+or
+.iS
+.ps 11
+\*Vobj-uuid\*L@\*Vrpc-protocol-seq\*L:\*Vnetwork-addr\*L[\*Lendpoint=\*Vendpoint\*L,\*Voption-name\*L=\*Vopt-value\*O...\*L]\*O
+.ps 12
+.iE
+.PP
+The following example string binding contains all possible components:
+.oS
+.ps 10
+b07122e2-83df-11c9-be29-08002b1110fa@ncacn_ip_tcp:130.105.1.1.123[2001]
+.ps 12
+.oE
+.PP
+.ne 5
+The following example string binding contains only the protocol 
+sequence and network address:
+.oS
+ncacn_ip_tcp:130.105.1.1.123
+.oE
+.PP
+For more information about the string binding format, 
+see the RPC introduction reference
+page, \*Lrpc_intro(3rpc)\*O.
+.P
+.iX "directory service" "when to use"
+.iX "string" "bindings"
+String bindings are useful in small environments; for example,
+when developing and testing an application. 
+However, string bindings are inappropriate as the principal way of
+providing binding information to clients. 
+Applications should use the directory service to advertise binding information. 
+.H 3 "Client Binding Information for Servers"
+When making a remote procedure call, the client runtime provides information
+about the client to the server runtime.  This information, known as 
+.iX "client" "binding information" "RPC"
+\*Eclient binding information\*O, includes the following information:
+.ML
+.LI
+The address where the call originated (network address and endpoint)
+.LI
+The RPC protocol used by the client for the call
+.LI
+The object UUID that a client requests
+.LI
+The client authentication information (if present) 
+.LE
+.P
+The server runtime maintains the client binding information and makes it
+available to the server application by a 
+...\" .gL "client binding handle"
+.iX "client" "binding handle" "RPC"
+client binding handle.
+Figure 12-3 illustrates the relationships between
+what a client supplies when establishing a binding and the corresponding
+client binding information.
+...\" 
+.PP
+.ne 4i
+.FG "Client Binding Information Resulting from a Remote Procedure Call"
+...\" DEC-file name .P! pictures/rpc-client-binding-info.ps 4.0i
+.pI ../rpc/figures/4_remoteness_06.ps 0 0 1
+.sp .5
+.PP
+The callouts in the figure refer to the following:
+.AL
+.LI
+The requested object UUID, which may be the nil UUID
+.LI
+Client authentication information, which is optional
+.LI
+The address from which the client is making the remote procedure call,
+which the communications protocols supply to the server
+.LE
+...\" .AL (numbered) list
+.PP
+A server application can use the client binding handle to
+ask the RPC runtime about the object UUID requested by a client or
+about the client's authentication information.
+.H 2 "Endpoints"
+An endpoint is the address of a specific server instance on a host system.
+Two kinds of endpoints exist: well-known endpoints and dynamic endpoints. 
+.H 3 "Well-Known Endpoints"
+A
+...\" .gL "well-known endpoint"
+.iX "well-known endpoint"
+well-known endpoint is a preassigned stable address that a server 
+uses every time it runs.  Well-known endpoints typically are assigned by a
+central authority responsible for a transport protocol; for example, the
+Internet Assigned Numbers Authority assigns endpoint values for the IP family of
+protocols.  If you use well-known endpoints for a server, you should register
+them with the appropriate authority. 
+.P
+Well-known endpoints can be declared for an interface (in the interface
+declaration) or for a server instance, as follows:
+.ML
+.LI
+Any interface definition can be associated with one or more endpoints,
+along with the RPC protocol sequence corresponding to each endpoint
+(the \*Lendpoint\*O attribute).
+.P
+When compiling an interface, the IDL compiler stores each combination of
+endpoint and protocol sequence in the interface specification.
+If a call is made using binding information that lacks an
+endpoint, the RPC runtime automatically looks in the interface specification
+for a well-known endpoint specified for the protocol sequence obtained from the
+binding information.  If the interface specification contains an appropriate
+endpoint, the runtime adds it to the binding information. 
+.LI
+Alternatively, server-specific, well-known endpoints can be defined in server
+application code.  When asking the runtime to use a given protocol sequence, the
+server supplies the corresponding endpoints to the RPC runtime. 
+On a given system, each endpoint can be used by only one server at a time.
+If server application code contains a hardcoded endpoint or the server's
+installers always specify the same well-known endpoint, only one instance of
+the server can run per system. 
+.LE
+.P
+When a server exports its binding information to a namespace server
+entry, the export
+operation includes any well-known endpoints within the server 
+binding information stored in the server entry. 
+.H 3 "Dynamic Endpoints"
+A 
+...\" .gL "dynamic endpoint"
+.iX "dynamic endpoint"
+dynamic endpoint is requested and assigned at runtime. 
+For some transport protocols, the number of endpoints is limited;
+for example, TCP/IP and UDP/IP use a 16-bit number for endpoints,
+which allows 65,535 endpoints. 
+When the supply of endpoints for a transport protocol is limited, 
+the protocol ensures an adequate supply of endpoints by limiting the
+portion that can be reserved as well-known endpoints.  
+A transport, on request, dynamically makes its remaining endpoints
+available on a first-come, first-served basis to specific processes
+such as RPC server instances. 
+.PP
+When a server requests dynamic endpoints, the server's RPC runtime asks
+the operating system for a unique dynamic endpoint for each protocol sequence
+the server is using.  For a given protocol sequence, the local implementation
+of the corresponding transport protocol provides the requested endpoints.  When
+an RPC server with dynamic endpoints stops listening, its dynamic endpoints are
+released. 
+.PP
+Because of the transient nature of dynamic endpoints, the NSI
+of the RPC API does not export them to a namespace; 
+however, NSI does export the rest of the server's binding information. 
+References to expired endpoints would remain
+indefinitely in server entries, causing clients to import and try,
+unsuccessfully, to establish bindings to nonexistent endpoints. 
+Therefore, 
+the export operation removes dynamic endpoints before
+adding binding information to a server entry; the exported server address
+contains only network addressing information.  The import operation returns a
+partially bound binding handle.  The client makes its first remote procedure
+call with the partially bound handle, and the endpoint mapper service on the
+server's system resolves the binding handle with the endpoint of a
+compatible server.  
+To make dynamic endpoints available to 
+clients that are using partially bound binding handles, 
+...\" DCE 1.2 WRITER: check above two lines for correctness
+a server must register its dynamic endpoints
+in the local endpoint map. 
+...\".nS note
+...\"Register all endpoints to enable administrators to view all the
+...\"endpoints of RPC servers by showing the endpoint map elements.  To do this,
+...\"use the \*Ldcecp endpoint show\*O operation of the DCE control program.
+...\".nE
+.P
+By using object UUIDs, a server can ensure that a client that imports a
+partially bound handle obtains one of a particular
+server's endpoints.  
+This requires that the server do the following:
+.AL
+.LI
+Specify a list of one or more object UUIDs that are unique to the server.
+.LI
+Export the list of object UUIDs.
+.LI
+.ne 4
+Supply the list of object UUIDs to the endpoint map service when
+registering endpoints.
+.LI
+If the server provides different managers that implement an
+interface for different types of objects, the server must specify
+the type of each object.
+.LE
+...\" .ML (bulleted) list
+.PP
+To request binding information for a particular server, a client specifies one
+of the server's object UUIDs, which is then associated with the server binding
+information the client uses for making a remote procedure call. 
+.nS note
+If a client requests the nil object UUID when importing from
+a server entry containing object UUIDs, the client runtime
+selects one of those object UUIDs and associates it with the imported
+server binding information.  This object UUID guarantees that the
+call goes to the server that exported the binding information and
+object UUID to the server entry.
+.H 2 "Execution Semantics"
+Execution semantics
+.iX "execution semantics"
+identify the ability of a procedure to execute more than once during a given
+remote procedure call.  
+The communications environment that underlies remote procedure calls
+affects their reliability.  A communications link can break for a
+variety of reasons such as a server termination, a remote system 
+crash, a network failure, and so forth; all invocations of remote
+procedures risk disruption due to communications failures.  However,
+some procedures are more sensitive to such failures, and their impact depends
+partly on how reinvoking an operation affects its results. 
+.PP
+To maximize valid outcomes for its operations, 
+the operation declarations of an RPC interface definition indicate the effect
+of multiple invocations on the outcome of the operations. 
+.PP
+Table 12-1 summarizes the execution semantics for DCE RPC calls. 
+.P
+.ne 5i 
+.TB "Execution Semantics for DCE RPC Calls"
+.in +.5i
+.TS
+center, box, tab(@);
+lb | lbw(4.0i) s
+l | lw(4.0i) s.
+Semantics@Meaning
+=
+\*Lat-most-once\*O@T{
+...\" .gL "at-most-once semantics" 
+.iX "at-most-once semantics"
+The operation must execute either once, partially, or not at all; for
+example, adding or deleting an appointment from a calendar can
+use \*Lat-most-once\*O semantics.  This is
+the default execution semantics for remote procedure calls.
+T}
+_
+\*Lidempotent\*O@T{
+...\" .gL "idempotent semantics" 
+.iX "idempotent semantics"
+The operation can execute more than once; executing more than once using the
+same input arguments produces identical outcomes without undesirable side
+effects; for example, an operation that reads a block of an immutable file is
+\*Lidempotent\*O. 
+DCE RPC supports \*Lmaybe\*O semantics and \*Lbroadcast\*O semantics
+as special forms of \*Lidempotent\*O operations.
+T}
+@_
+.T&
+l | lw(.75i) | lw(3.0i).
+@\*LSemantics\*O@\*LMeaning\*O
+@_@_
+@\*Lmaybe\*O@T{
+...\" .gL "maybe semantics" 
+.iX "maybe semantics"
+The caller neither requires nor receives any response or fault indication for
+an operation, even though there is no guarantee that the operation completed.
+An operation with \*Lmaybe\*O semantics 
+is implicitly idempotent and must lack output parameters. 
+T}
+@_@_
+@\*Lbroadcast\*O@T{
+...\" .gL "broadcast semantics" 
+.iX "broadcast semantics"
+The operation is always broadcast to one server on each host system
+on the local network, rather than delivered to a specific server, and
+one reply is returned to the client.
+An operation with \*Lbroadcast\*O
+semantics is implicitly \*Lidempotent\*O. 
+T}
+.TE
+.in -.5i
+.sp .5
+.P
+.ne 6
+The broadcast capabilities of RPC runtime have a number 
+of distinct limitations:
+.ML
+.LI
+Not all systems and networks support broadcasting.  In particular,
+broadcasting is not supported by the RPC connection-oriented
+protocol.
+.LI
+Broadcasts are limited to hosts on the local network.
+.LI
+Broadcasts make inefficient use of network bandwidth and processor
+cycles.  
+.LI
+The RPC runtime library does not support \*Lat-most-once\*O semantics
+for broadcast operations; it applies \*Lidempotent\*O semantics
+to all such operations.
+.LI
+The input arguments for broadcast calls are limited to
+944 bytes.
+.LE
+.H 2 "Communications Failures"
+.iX "cancels" "RPC" "use of"
+If a server detects a communications failure during a remote
+procedure call, the server runtime attempts to terminate the now
+orphaned call by sending a cancel to the called procedure. 
+A \*Vcancel\*O is a mechanism by which a client thread of execution
+notifies a server thread of execution
+(the to be canceled thread) to terminate as soon as possible. 
+A cancel sent by the RPC runtime after a communications
+failure initiates orderly termination for a remote procedure call.
+...\" WRITER'S NOTE:  threads concepts still not introduced, so I'm
+...\" making a nebulous statement about such cancels.
+(For a brief discussion of how cancels work with
+remote procedure calls, see the discussions with respect to Threads.)
+.P
+Applications that use context handles to establish a client context require a
+context rundown procedure to 
+...\" .gL "context rundown procedure"
+.iX "context rundown procedure"
+enable the server to clean up client context when it is no longer needed. 
+The name of the context rundown procedure is determined from the type
+name of the context handle declared in the interface definition; 
+this ensures that the stub knows about the procedure in
+the server application code. 
+If a
+communications link with a client is lost while a server is maintaining context
+for the client, the RPC runtime will inform the server to invoke the context
+rundown procedure.  
+For a more thorough discussion of context handles see Chapter 17.
+.H 2 "Scaling Applications"
+...\"Future Writers: this seems like it should be in the Style Guide somewhere.
+...\"
+Unlike local applications, RPC applications require network resources, 
+which are possible bottlenecks to scaling an RPC application.
+RPC clients and servers require network resources that are not required by
+local programs.  The main network resources to consider are
+network bandwidth, endpoints, 
+...\" .gL "network descriptor"
+.iX "network" "descriptor"
+network descriptors (the identifiers of potential network channels such
+as UNIX sockets), kernel buffers and, for a connection-oriented transport,
+the connections.  Also, RPC applications place extra demands on system resources
+such as memory buffers, various quotas, and the CPU. 
+.PP
+The number of remote procedure calls that a server can support depends
+on various factors, such as the following:
+.ML
+.LI
+The resources of the server and the network
+.LI
+The requirements of each call
+.LI
+The number of calls that can be concurrently offered at some level of
+service
+.LI
+The performance requirements
+.LE 
+.PP
+An accurate analysis of the requirements of a given server involves detailed
+work load and resource characterization and modeling techniques.  Although
+measurement of live configurations under load will offer the best information,
+general guidelines apply.  You should consider the connection, buffering,
+bandwidth, and CPU resources as the most likely RPC bottlenecks to scaling. 
+Use these application requirements to scale resources. 
+.PP
+Many system implementations limit the number of network connections per
+process.  This limit provides an upper bound on the number of clients that can
+be served concurrently using the connection-oriented protocol.  Some
+UNIX based systems set this limit at 64.  However, except for applications
+that use context handles, the connection-oriented RPC runtime allows pooling
+of connections.  Pooling permits simultaneously supporting more clients than the
+maximum number of connections, provided they do not all make calls at the same
+instant and occasionally can wait briefly. 
+.H 2 "RPC Objects"
+DCE RPC enables clients to find servers that offer specific RPC objects.
+An
+...\" .gL "object"
+.iX "object" "RPC"
+.iX "RPC" "object"
+RPC object is an entity that an RPC server defines and identifies to
+its clients.  Frequently, an RPC object is a distinct computing resource such as
+a particular database, directory, device, process, or processor.  Identifying a
+resource as an RPC object enables an application to ensure that clients can use
+an RPC interface to operate on that resource.  An RPC object can also be an
+abstraction that is meaningful to an application such as a service or the
+location of a server. 
+.PP
+RPC objects are defined by application code. 
+The RPC runtime provides substantial flexibility to applications about whether,
+when, and how they use RPC objects.  RPC applications generally use RPC objects
+to enable clients to find and access a specific server.  When servers are
+completely interchangeable, using RPC objects may be unnecessary.  However, when
+clients need to distinguish between two servers that offer the same RPC
+interface, RPC objects are essential.  If the servers offer distinct computing
+resources, each server can identify itself by treating its resources as RPC
+objects.  Alternatively, each server can establish itself as an RPC object that
+is distinct from other instances of the same server.
+.PP
+RPC objects also enable a single server to distinguish among alternative
+implementations of an RPC interface, as long as each implementation 
+...\" fully supports the semantics of the RPC interface and
+operates on a distinct type of object.  To offer multiple implementations of
+an RPC interface, a server must identify RPC objects, classify them into types,
+and associate each type with a specific implementation.
+.PP
+The set of remote procedures that implements an RPC interface for a given type
+of object is known as a 
+...\" .gL "manager"
+.iX "manager" "RPC"
+\*Emanager\*O.  The tasks performed by a 
+manager depend on the type of object on which the
+manager operates.  For example, one manager of a queue-management interface may
+operate on print queues, while another manager may operate on batch queues. 

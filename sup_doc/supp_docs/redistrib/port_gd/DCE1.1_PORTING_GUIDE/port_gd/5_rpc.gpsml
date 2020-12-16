@@ -1,0 +1,5479 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" HISTORY
+...\" $Log: 5_rpc.gpsml,v $
+...\" Revision 1.1.2.16  1994/10/30  22:47:40  weir
+...\" 	Last updates
+...\" 	[1994/10/30  22:46:38  weir]
+...\"
+...\" Revision 1.1.2.15  1994/10/30  16:25:42  weir
+...\" 	Updates
+...\" 	[1994/10/30  16:24:23  weir]
+...\" 
+...\" Revision 1.1.2.14  1994/10/29  23:26:02  weir
+...\" 	More Updates
+...\" 	[1994/10/29  23:24:47  weir]
+...\" 
+...\" Revision 1.1.2.13  1994/10/28  20:50:22  weir
+...\" 	DCE 1.1 updates
+...\" 	[1994/10/28  20:49:01  weir]
+...\" 
+...\" Revision 1.1.2.12  1994/10/26  20:40:55  weir
+...\" 	DCE 1.1 Updates
+...\" 	[1994/10/26  20:39:33  weir]
+...\" 
+...\" Revision 1.1.2.11  1994/10/14  18:38:59  weir
+...\" 	Minor edit changes
+...\" 	[1994/10/14  18:37:58  weir]
+...\" 
+...\" Revision 1.1.2.10  1994/09/07  21:30:13  jshirley
+...\" 	{def,10351,R1.1}Moved endpoint restriction info to Admin Guide.
+...\" 	[1994/09/07  21:29:29  jshirley]
+...\" 
+...\" Revision 1.1.2.9  1994/09/07  21:16:57  weir
+...\" 	Checked in for John Shirley
+...\" 	[1994/09/07  21:16:08  weir]
+...\" 
+...\" Revision 1.1.2.8  1994/06/20  20:28:52  weir
+...\" 	Beta Update
+...\" 	[1994/06/20  20:27:34  weir]
+...\" 
+...\" Revision 1.1.2.7  1994/06/19  20:54:02  weir
+...\" 	Beta Update
+...\" 	[1994/06/19  20:52:57  weir]
+...\" 
+...\" Revision 1.1.2.6  1994/06/17  13:50:29  weir
+...\" 	Beta Update
+...\" 	[1994/06/17  13:49:02  weir]
+...\" 
+...\" Revision 1.1.2.5  1994/06/13  19:25:22  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  19:24:22  devobj]
+...\" 
+...\" Revision 1.1.2.4  1994/06/12  17:32:07  weir
+...\" 	No change-- for copyright insertion
+...\" 	[1994/06/12  17:30:44  weir]
+...\" 
+...\" Revision 1.1.2.3  1994/06/08  18:47:27  weir
+...\" 	Beta Update
+...\" 	[1994/06/08  18:46:25  weir]
+...\" 
+...\" Revision 1.1.2.2  1994/06/02  21:12:45  weir
+...\" 	Beta Updates
+...\" 	[1994/06/02  21:11:00  weir]
+...\" 
+...\" Revision 1.1.2.1  1994/05/03  19:00:27  weir
+...\" 	Reorganization
+...\" 	[1994/05/03  18:59:14  weir]
+...\" 
+...\" $EndLog$
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 1 "DCE Remote Procedure Call"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Overview"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+.iX "-: RPC" "Remote Procedure Call"
+.iX "overview" "of RPC"
+.iX "RPC" "overview of"
+...\" 
+.P
+The DCE Remote Procedure Call (RPC) facility is a network protocol
+used in distributed systems. RPC is modeled after the local procedure
+call found in most programming languages, but the called procedure is
+executed in a different process from that of the caller, and is usually
+executed on another machine. The RPC facility makes the construction of
+distributed systems easier because developers can focus on the fundamentals
+of building distributed applications, instead of the underlying communication
+mechanisms.
+.P
+Making a remote procedure call involves five different bodies of code:
+...\" 
+.BL
+.LI
+the client application
+.LI
+the client stub
+.LI
+the RPC runtime library
+.LI
+the server stub
+.LI
+the server application
+.LE
+.P
+...\" 
+The client and server stubs are created by compiling a description of
+the remote interface with the DCE Interface Definition Language (IDL)
+compiler. The client application, the client stub, and one instance of
+the RPC runtime library all execute in the caller machine; the server
+application, the server stub, and another instance of the RPC runtime
+library execute in the called (server) machine.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Outline of a Remote Procedure Call"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+When a client application makes a remote procedure call, it actually
+invokes a local procedure in the client stub. The client stub places
+a specification of the called procedure and its arguments into one or
+more packets and asks the RPC runtime library to transmit them to the
+machine that actually executes the procedure. The process by which a
+stub converts local application data into network data and packages
+the network data into packets for transmission is called \*Lmarshalling\*O.
+.P
+When the RPC runtime library for the server receives these packets, it
+passes them to the server stub. The server stub extracts the procedure
+arguments from these packets and makes a local call to the indicated
+procedure. The process by which a stub disassembles incoming network
+data and converts it into application data is called \*Lunmarshalling\*O.
+.P
+When this local call returns to the server stub, the server stub marshals
+the data. It places the results (the return code and output parameters)
+into one or more packets and asks the RPC runtime library to transmit them
+back to the client.
+.P
+When the client RPC runtime library receives these packets, it passes
+them on to the client stub for unmarshalling. The client stub extracts
+the results and returns them to the client.
+.P
+In addition to handling all communications between client and server
+applications, the RPC runtime library provides the following utilities:
+...\" 
+.BL
+.LI
+An interface that lets applications access various name servers (which can
+be used to locate various network resources).
+.LI
+Management services such as monitoring servers, monitoring runtime
+operations, and stopping servers.
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Considerations and Dependencies"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "dependencies" "of RPC"
+.iX "RPC" "dependencies"
+...\" 
+.P
+DCE RPC internally uses a vendor-provided threading facility (POSIX Pthreads).
+There is wide variation in the completeness and transparency of the various
+Pthread implementations provided by vendors. The limitations of a given Pthread
+implementation are inherited by any application that uses DCE RPC, including
+applications that unknowingly use libraries that internally happen to use DCE
+RPC.
+.P
+The DCE RPC runtime has internal threads that need to run in a timely fashion
+for the runtime to operate correctly. Therefore, the application or Pthreads
+implementation must neither perform nor permit operations that block the entire
+process. This restriction is relevant only if you are using a threads
+implementation other than DCE Threads. Refer to the platform's or vendor's
+Pthread release notes to determine what limitations the implementation has.
+.P
+You should also instruct users of any library you develop that uses RPC to
+refer to the vendor's Pthread release notes. Limitations on the use of threads
+may include (but are not necessarily limited to): the need for thread-safe
+libraries; compliance with POSIX; non-process-blocking call behavior; and
+so on.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Kernel Space RPC"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "KRPC"
+.iX "-: KRPC" "Kernel RPC"
+...\" 
+.P
+The Kernel Space Remote Procedure Call (KRPC) service is an extension of
+ordinary RPC which provides RPC services to the kernel. In contrast to
+``standard'' RPC, only the UDP transport layer is supported in KRPC.
+.P
+KRPC must be in place for Distributed File Service (DFS) to be ported
+onto your system, since DFS accesses the underlying Virtual File
+Structure (VFS) on the server and client machines. However, it is not
+needed by any other component of DCE.
+.nS "Note"
+If you do not intend to bring up DFS on your system(s), you have no
+reason to port KRPC. See the ``Kernel Space RPC'' section later in this
+chapter.
+.nE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Protecting KRPC Process States"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+KRPC processes must protect certain databases and condition variables from
+corruption by other processes. The code sections which generate and use these
+objects are crucial to the operation of KRPC and must be immune from interference.
+.P
+The specific data objects may differ, depending on the kernel within which RPC
+operates. Some kernels are preemptible, meaning processes can be interrupted or
+paged out: for example, the AIX kernel on the IBM RISC System/6000 (one of the
+reference platforms). If your kernel is preemptible, then the critical sections
+of code must be protected using locks. The same considerations apply if you are
+running KRPC in a multiprocessor configuration. On kernels whose processes cannot
+be pre-empted, such as the OSF/1 reference platform, such locks may not be necessary.
+However, other pieces of critical code must still be kept safe.
+.P
+Some platforms provide \*Vkernel services\*O, routines that provide the runtime
+kernel environment to programs executing in kernel mode. These services are
+described below, under ``APIs and Services for Kernel Threads.'' If your platform
+provides analogous services, you may be able to use them to simplify your KRPC port.
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.H 3 "RPC File Locations"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "file locations" "RPC"
+.iX "RPC" "file locations"
+...\" 
+.de ZY
+\v'-3p'\\$1\v'3p'\s0
+..
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+.P
+The following table lists the locations of libraries and executables built for RPC.
+...\" 
+.nS note
+A subcomponent may consist of multiple source files.
+...\" in a \*Vdce-root-dir\*L/dce/src/directory/cds\*O directory
+.nE
+...\" ...\" 
+.br
+.ne 2i
+.TB "Locations of RPC Subcomponent Files"
+...\" 
+.ad l
+.TS
+expand tab (@) box;
+lB | lB | lB | lB
+lB | lB | lB | lB
+lB | l | lB | lB.
+RPC@@Location of@Location of
+Subcomponent@Function\h'1.6i'@Source Files\v'-3p'\\1\v'3p'\s0@Installed Files\v'-3p'\\2\v'3p'\s0
+_
+_
+
+libnck.a@T{
+RPC routines available to applications.
+T}@runtime@T{
+usr/lib \*Oas part of \*Llibdce.a\*O
+T}
+_
+libidl.a@T{
+RPC routines for IDL.
+T}@idl/lib@T{
+usr/lib \*Oas part of \*Llibdce.a\*O
+T}
+...\" _
+...\" rpcd@T{
+...\" RPC daemon.
+...\" T}@rpcd@bin
+...\" _
+...\" rpccp@T{
+...\" RPC control program.
+...\" T}@rpccp@bin
+_
+idl@T{
+IDL compiler.
+T}@idl/idl_compiler@bin
+_
+nidl_to_idl@T{
+Translates NCS Version 1.5 files to DCE IDL.
+T}@idl/nidl_to_idl@bin
+_
+uuidgen@T{
+Tool that generates UUIDs for IDL.
+T}@idl/uuidgen@bin
+_
+.T&
+lp-3 s s s.
+T{
+.ZY "1"
+All paths are relative from \*Vdce-root-dir\*L/dce/src/rpc\*O.
+The path indicates the
+.nL
+\  directory in which the \*LMakefile\*O attempts to build the component.
+T}
+.nL
+T{
+.na
+.ZY "2"
+All paths are relative from \*Vdce-root-dir\*L/dce/install/\*Vmachine_name\*L/opt/dce1.1\*O.
+.nL
+\  The path indicates the directory in which the subcomponent is installed.
+T}
+.TE
+...\" 
+...\" 
+...\" 
+.ad b
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.H 4 "KRPC File Locations"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "file locations" "KRPC"
+.iX "KRPC" "file locations"
+...\" 
+.de ZY
+\v'-3p'\\$1\v'3p'\s0
+..
+...\" 
+.P
+The following table lists the locations of libraries and files built for KRPC.
+.P
+.ne 2i
+.TB "Locations of KRPC Subcomponent Files"
+.ad l
+.TS
+expand tab (@) box;
+lB | lB | lB | lB
+lB | lB | lB | lB
+lB | l | lB | lB.
+KRPC@@Location of@Location of
+Subcomponent@Function\h'1.8i'@Source Files\v'-3p'\\1\v'3p'\s0@Exported Files\v'-3p'\\2\v'3p'\s0
+_
+_
+
+libknck.a@T{
+KRPC routines available to applications.
+T}@kruntime@lib
+_
+libkidl.a@T{
+KRPC routines for IDL.
+T}@idl/klib@lib
+_
+libkdes.a@T{
+KRPC DES runtime library.
+T}@kdes@lib
+_
+libkrpcdriver.a@T{
+KRPC test driver routines.
+T}@kruntime/kdriverlib@lib
+_
+libkncs.a@T{
+KRPC \*Lv2test\*O driver routines.
+T}@kruntime/kncstestlib@lib
+_
+libkt.a@T{
+KRPC \*Lv2test\*O routines.
+T}@kruntime/kv2testlib@lib
+_
+exc_handling.h@T{
+Header file for exception handling in C.
+T}@kruntime@include/dce/ker
+_
+exc_handling_ids_krpc.h@T{
+Exception definitions for the DCE exceptions.
+T}@kruntime@include/dce/ker
+_
+idl_ss_krpc.h@T{
+Kernel support functions for idl stub support.
+T}@kruntime@include/dce/ker
+_
+krpc_helper.h@T{
+Header file for definitions to assist KRPC.
+T}@kruntime@include/dce/ker
+_
+pthread.h@T{
+External definitions for CMA's pthreads services.
+T}@kruntime@include/dce/ker
+_
+pthread_exc.h@T{
+External definitions for CMA's pthreads exception (ptdexc) services.
+T}@kruntime@include/dce/ker
+_
+.T&
+lp-3 s s s.
+T{
+.ZY "1"
+All paths are relative from \*Vdce-root-dir\*L/dce/src/rpc\*O.
+The path indicates the directory in which the \*LMakefile\*O attempts
+to build the component.
+T}
+.nL
+T{
+.ZY "2"
+All paths are relative from
+\*Vdce-root-dir\*L/dce/export/\*Vmachine_name\*L/usr\*O unless denoted by
+"N/A."
+The path indicates the directory in which the subcomponent is
+exported.
+These items are not installed.
+T}
+.TE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Porting"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+OSF\*(Tm DCE Version 1.1 contains DCE RPC code ported to the reference
+platforms listed in Chapter 1 of this guide. As you port RPC to a different
+platform, you can use this code as a basic structure and basis for comparison.
+In particular, you will need to consider the information in the following
+sections.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Porting the IDL Compiler"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "porting" "IDL compiler"
+.iX "IDL compiler" "porting" "compiler"
+...\" 
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/idl/idl_compiler\*O
+.DE
+.P
+directory contains IDL compiler code ported to the reference platforms listed
+in Chapter 1 of this guide. If you are porting to a different platform, you may
+need to modify the following files:
+...\" 
+.BL
+.LI
+\*Lsysdep.h\*O
+.P
+An interface definition file can include other interface definition files.
+To read such an interface definition file, a parser is called recursively.
+The parser uses global variables to maintain the state of the file being
+parsed. In order to process an included file, the global variables must be
+saved, then restored once the included file has been processed.
+.P
+\*Lsysdep.h\*O defines the \*LAIX_LEX_YACC\*O, \*LAPOLLO_LEX_YACC\*O,
+\*LOSF_LEX_YACC\*O, and \*LULTRIX_LEX_YACC\*O macros. These macros are used
+to save and restore the global state variables used by output files generated
+by \*Llex\*O and \*Lyacc\*O. In order to support your platform, enable one of
+these macros or add an additional set of macros in \*Lsysdep.h\*O.
+.P
+This file also defines the \*LYACC_VAR\*O and \*LYACC_INT\*O macros to permit
+sharing of \*Llex\*O or \*Lyacc\*O macros across different implementations.
+\*LYACC_VAR\*O is used to declare a variable as local or external. \*LYACC_INT\*O
+macro is used to declare a variable as integer or short integer.
+.P
+\*Lsysdep.h\*O also defines the national language versions of the \*Lsprintf\*O
+and \*Lfprint\*O routines.
+.iX "sprintf" "national language"
+These are called by \*LNL_SPRINTF\*O and \*LNL_VFPRINTF\*O. If the national
+language routines on your platform have different names, use a \*L#define\*O
+statement at the top of
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/idl/idl_compiler/message.c\*O
+.DE
+...\" 
+.P
+to rename them. For example, add
+...\" 
+.oS
+    #if defined(__\*VPLATFORM\*C__)
+    #     define NL_SPRINTF \*Vplatform_sprintf\*C
+    #     define NL_VFPRINTF \*Vplatform_fprintf\*C
+    #endif\*O
+.oE
+...\" 
+.P
+where \*VPLATFORM\*O identifies your platform and \*Vplatform_sprintf\*O and
+\*Vplatform_fprintf\*O are the names of the national language routines on your
+platform.
+...\" 
+...\" 
+.P
+Finally, IDL-generated code in the DCE serviceability component contains a
+\*LTRY\*O - \*LENDTRY\*O block in which \*LCATCH\*O and \*LFINALLY\*O are both
+used. If you are porting IDL to a platform that does not support the threads
+macro sequence \*LTRY\*O - \*LCATCH\*O - \*LFINALLY\*O, you should define the
+\*LNO_TRY_CATCH_FINALLY\*O macro as 1 in \*Lsysdep.h\*O.
+...\" 
+...\" 
+.LI
+\*Lacf.h\*O
+.P
+An interface definition file can have a corresponding Attribute Configuration file
+(\*Vfilename.\*Lacf\*O). This file renames the global variables used by \*Llex\*O
+and \*Lyacc\*O when parsing \*Lacf\*O files. Renaming global variables allows
+multiple lexical analyzers and parsers to be present in the IDL compiler. If
+additional state variables are required for save and restore logic, they must
+be redefined in \*Lacf.h\*O.
+...\" 
+...\" 
+.LI
+\*Lidlparse.c\*O
+.P
+Contains a \*Llex\*O and \*Lyacc\*O dependency for state save and restore during
+recursive parsing.
+...\" 
+...\" 
+.LI
+\*Lmessage.c\*O
+.P
+This file contains a layer of message catalog routines specific to the IDL
+compiler. If you do not have a message catalog system, you must modify this
+file.
+...\" 
+...\" 
+.LI
+\*Lsysdep.c\*O
+.P
+Contains functions used only for particular systems. If your system handles such
+functions differently, make the appropriate additions or changes to this file.
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .zA "Added conditional symbols"
+...\" IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+...\" ----------------------------------------------------------------------
+.H 4 "System-Dependent IDL Preprocessor Variables"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following system-dependent preprocessor variables are used in building
+the IDL compiler. They are all defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/idl/idl_compiler/sysdep.h\*O
+.DE
+...\" 
+...\" 
+...\" .zA "def,8422,R1.0.3,alphabetized symbol list"
+...\" 
+.VL .5i
+.LI
+\*LAUTO_HEAP_STACK_THRESHOLD\*O
+.P
+\*LAUTO_HEAP_STACK_THRESHOLD\*O defines an estimate for the maximum size of
+a stack in a server stub. If the IDL compiler estimates that this amount will
+be exceeded, objects will be allocated via \*Lmalloc\*O instead of on the
+stack. 
+...\" 
+...\" 
+...\" 
+.LI
+\*LAUTO_IMPORT_FILE\*O
+.P
+Default input file pathname.
+...\" 
+...\" 
+...\" 
+.LI
+\*LCC_OPT_OBJECT\*O
+.P
+Compiler option string to generate object file.
+...\" 
+...\" 
+...\" 
+.LI
+\*LCC_IDIR\*O
+.P
+Current directory string for \*L#include\*Os.
+...\" 
+...\" 
+...\" 
+.LI
+\*LCD_IDIR\*O
+.P
+You must define \*LCD_IDIR\*O with the ``current directory'' symbol for your
+system. For example, on a UNIX platform, \*LCD_IDIR\*O is defined as ``.''.
+...\" 
+...\" 
+...\" 
+.LI
+\*LCPP\*O
+.P
+Default C preprocessor command.
+...\" 
+...\" 
+...\" 
+.LI
+\*LCSTUB_SUFFIX\*O
+.P
+Default suffix for client stubs file.
+...\" 
+...\" 
+...\" 
+.LI
+\*LDEFAULT_H_IDIR\*O
+.P
+\*LDEFAULT_H_IDIR\*O defines default directory for system include
+(\*L.h\*O) files.
+...\" 
+...\" 
+...\" 
+.LI
+\*LDEFAULT_IDIR\*O
+.P
+\*LDEFAULT_IDIR\*O defines the default directory IDL imports files from.
+...\" 
+...\" 
+...\" 
+.LI
+\*LHASDIRTREE\*O
+.P
+\*L#define HASDIRTREE\*O if your file system supports directory trees. If you
+define \*LHASDIRTREE\*O, you must also define the tree separator characters
+(e.g. slash for Unix):
+.BL
+.LI
+\*LBRANCHCHAR\*O
+.LI
+\*LBRANCHSTRING\*O
+.LE
+...\" 
+...\" 
+.LI
+\*LHASINODES\*O
+.P
+\*L#define HASINODES\*O if your system returns meaningful inode numbers from
+the \*Lstat(\|)\*O system call.
+...\" 
+...\" 
+...\" 
+.LI
+\*LHASPOPEN\*O
+.P
+\*L#define HASPOPEN\*O if your system supports the \*Lpopen(\|)\*O call.
+...\" 
+...\" 
+...\" 
+.LI
+\*LIDL_PROTOTYPES\*O
+.P
+Defined if IDL should use prototypes.
+...\" 
+...\" 
+...\" 
+.LI
+\*LIDL_VERSION_TEXT\*O
+.P
+Version string for IDL compiler.
+...\" 
+...\" 
+...\" 
+.LI
+\*LINCLUDE_TEMPLATE\*O
+.P
+\*LINCLUDE_TEMPLATE\*O tells the IDL compiler how to construct an include
+statement for DCE include files. For example, when built on a UNIX platform,
+\*LINCLUDE_TEMPLATE\*O is defined as:
+...\" 
+.oS		
+    #include <dce/%s>\\n
+.oE
+...\" 
+...\" 
+...\" 
+.sp 1
+.LI
+\*LLEX_YACC_STATE_BUFFER\*O
+.LI
+\*LRESTORE_LEX_YACC_STATE\*O
+.LI
+\*LSAVE_LEX_YACC_STATE\*O
+...\"
+...\" 
+...\" 
+.P
+The above three variables (actually macros) control the way that \*Llex\*O and
+\*Lyacc\*O are used by IDL.
+.P
+Due to differences between implementations of the \*Llex\*O and \*Lyacc\*O
+tools, different state variables must be saved in order to perform multiple
+parses within a single program execution. You should either enable one of
+the \*LLEX_YACC\*O sets in
+.DS
+    \*Vdce-root-dir\*L/rpc/idl/idl_compiler/sysdep.h\*O
+.DE
+.P
+for your architecture, or add an additional set of macros to save or restore
+the variables used by \*Llex\*O and \*Lyacc\*O. This is done via inspection
+of the generated \*Llex\*O/\*Lyacc\*O output files for any non-automatic state
+variables. You may also need to make additions to the
+.DS
+    \*Vdce-root-dir\*L/rpc/idl/idl_compiler/acf.h\*O
+.DE
+...\" 
+.P
+file, depending on your implementations of \*Llex\*O/\*Lyacc\*O. See the
+comments in \*Lacf.h\*O for more information.
+...\" 
+...\" 
+...\" 
+.LI
+\*LOBJ_FILETYPE\*O
+.P
+\*LOBJ_FILETYPE\*O is defined as the filename extension on your system for
+object files. For example, under Unix, \*LOBJ_FILETYPE\*O is defined as \*L``.o''\*O.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+.LI
+\*LPATH_MAX\*O
+.P
+Used as filename buffer size if the operating system does not define it.
+...\" 
+...\" 
+...\" 
+...\" .LI
+...\" \*LPROTO\*O
+...\" .P
+...\" \*L#define PROTO\*O if your C compiler supports ANSI function prototypes. 
+...\" 
+...\" 
+...\" 
+.LI
+\*LRESTORE_LEX_YACC_STATE\*O
+.P
+See \*LLEX_YACC_STATE_BUFFER\*O.
+...\" 
+...\" 
+...\" 
+.LI
+\*LS_IFREQ\*O
+.P
+
+...\" 
+...\" 
+...\" 
+.LI
+\*LSAVE_LEX_YACC_STATE\*O
+.P
+See \*LLEX_YACC_STATE_BUFFER\*O.
+...\" 
+...\" 
+...\" 
+.LI
+\*LUSER_INCLUDE_TEMPLATE\*O
+.P
+\*LUSER_INCLUDE_TEMPLATE\*O tells the IDL compiler how to construct an include
+statement for user include files. For example, when built on a UNIX platform,
+\*LUSER_INCLUDE_TEMPLATE\*O is defined as:
+...\" 
+.oS
+    #include <%s>\n
+.oE
+...\" 
+...\" 
+.LE
+...\" 
+...\" .zZ "def,8422,R1.0.3,alphabetized symbol list"
+...\" .zZ "Added conditional symbols"
+...\" 
+...\" The following is duplicated in "Porting the IDL Compiler" above...
+...\" ----------------------------------------------------------------------
+...\" .H 4 "System-Dependent Considerations"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .P
+...\" The following IDL modules contain various system dependencies that you
+...\" may need to address for your system:
+...\" 
+...\" .BL
+...\" .LI
+...\" \*Vdce-root-dir\*L/dce/src/rpc/idl/idl_compiler/sysdep.h\*O
+...\" .P
+...\" This header file used to encapsulate most system dependencies that can be handled
+...\" using C macros. Make sure appropriate conditional code is selected for your system.
+...\" Conditional code exists for file system attributes, locations of include directories,
+...\" C compiler interface, file naming conventions, enabling of prototype checking, and
+...\" \*Llex\*O/\*Lyacc\*O state descriptions.
+...\" .LI
+...\" \*Vdce-root-dir\*L/dce/src/rpc/idl/idl_compiler/sysdep.c\*O
+...\" .P
+...\" Contains functions used only for particular systems. If your system handles such
+...\" functions differently, make the appropriate additions or changes to this file.
+...\" .LI
+...\" \*Vdce-root-dir\*L/dce/src/rpc/idl/idl_compiler/idlparse.c\*O
+...\" .P
+...\" Contains a \*Llex\*O and \*Lyacc\*O dependency for state save and restore during
+...\" recursive parsing.
+...\" .LI
+...\" \*Vdce-root-dir\*L/dce/src/rpc/idl/idl_compiler/acf.h\*O
+...\" .P
+...\" This file also contains a \*Llex\*O and \*Lyacc\*O dependency. It renames the
+...\" \*Llex\*O and \*Lyacc\*O global state variables let multiple parse tables be
+...\" built into the compiler.
+...\" .LI
+...\" \*Vdce-root-dir\*L/dce/src/rpc/idl/idl_compiler/message.c\*O
+...\" .P
+...\" Contains error message reporting functions that dependend on the type and level
+...\" of NLS (national language support) on your system.
+...\" .LE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Definitions for lex and yacc "
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The IDL compiler uses \*Llex\*O and \*Lyacc\*O to parse interface definitions.
+Most implementations of \*Llex\*O and \*Lyacc\*O maintain state with global
+variables. In order to support the \*Vimport\*O statement and the parsing of
+ACF files, the IDL compiler invokes the parser recursively. In order to make
+these recursive invocations work with non-reentrant implementations of \*Llex\*O
+and \*Lyacc\*O, IDL has code to save and restore the global state of the parser.
+.P
+The following source files depend upon the implementation of \*Llex\*O and
+\*Lyacc\*O:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/idl/idl_compiler/sysdep.h\*O
+
+    \*Vdce-root-dir\*L/dce/src/rpc/idl/idl_compiler/acf.h\*O
+
+    \*Vdce-root-dir\*L/dce/src/rpc/idl/idl_compiler/idlparse.c\*O
+.DE
+...\" 
+...\" ...N.B.: MORE DETAIL IS DESIRABLE HERE.
+...\"  "IDL actually tries to store internal yacc state..."
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Porting System IDL Files"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "porting" "IDL files"
+.iX "IDL compiler" "porting" "files"
+...\" 
+...\" .zA "def,8422,R1.0.3,alphabetized symbol lists"
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/sys_idl\*O
+.DE
+.P
+directory contains IDL files that clients may need to interact with RPC.
+You may need to modify the following files when porting to your platform:
+...\" 
+.BL
+.LI
+\*Lstubbase.h\*O
+.P
+This file defines macros for marshalling and unmarshalling data.
+If the default macros do not work on your platform, you may have to
+redefine them; the \*VTARGET_MACHINE\*L/marshall.h\*O file (see below)
+is the place to do this.
+...\" 
+...\" Special cases exist in \*Lstubbase.h\*O for different
+...\" platforms. One or more of these cases may work for your platform, or
+...\" provide a model for you to write your own macros.
+...\" 
+...\" 
+...\" 
+.LI
+\*Lidlbase.h\*O
+.P
+The following are defined in this file:
+...\" 
+...\" 
+.BL
+...\" 
+.LI
+\*LHAS_GLOBALDEFS\*O
+If this symbol is \*Vnot\*O defined, then the following definitions take
+effect:
+...\" 
+.oS
+    #define globaldef
+    #define globalref extern
+.oE
+...\" 
+.P
+You may choose to globally define \*LHAS_GLOBALDEFS\*O, or to incorporate
+the correct definitions from the appropriate header files, or on the
+command line.
+...\" 
+...\" 
+.LI
+\*LCONST_NOT_SUPPORTED\*O
+.LI
+\*LVOLATILE_NOT_SUPPORTED\*O
+.P
+If these macros are defined, the C keywords \*Lconst\*O and \*Lvolatile\*O
+are defined as null strings.
+...\" 
+...\" 
+...\" .LI
+...\" \*LHANDLE_T_IS_VOID_PTR\*O
+...\" .P
+...\" If this macro is defined, the type \*Lhandle_t\*O is defined to be a
+...\" \*Lvoid *\*O. Otherwise, \*Lhandle_t\*O is defined as a structure type.
+...\" 
+...\" 
+.LI
+\*LIDL_CHAR_IS_CHAR\*O
+.P
+If this macro is defined, the \*Lidl_char\*O type will be defined as \*Lchar\*O
+when client code is being compiled. The base type for the IDL character type is
+\*Lunsigned char\*O. However, passing a native character string to a function
+that requires an \*Lidl_char *\*O will cause a type mismatch compile error if
+the native character type of the machine is \*Lsigned char\*O.
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+.LI
+\*L\*VTARGET_MACHINE\*L/ndrtypes.h\*O
+.P
+You may need to edit \*Lndrtypes.h\*O (and \*Lidlbase.h\*O) to add \*L#define\*O
+statements to map IDL types to platform-specific types. A default set of
+\*L#define\*Os will work for most systems. The following table shows which
+\*L#define\*Os are needed:
+...\" 
+...\" ndrtypes.h (?and idlbase.h?) installed in dce/include
+...\" 
+.P
+.ne 2i
+.TB "idlbase.h and <TARGET_MACHINE>/ndrtypes.h Defines"
+.TS H
+center tab (@) box;
+lB | lB | lB
+l | l | l.
+C define@IDL type@Number of bits
+_
+.TH
+_
+ndr_boolean@boolean@N/A
+_
+ndr_byte@byte@8
+_
+ndr_char@char OR unsigned char@8
+_
+ndr_false@false constant@N/A
+_
+ndr_hyper_int@hyper int@64
+_
+ndr_long_float@double@64
+_
+ndr_long_int@long int@32
+_
+ndr_short_float@float@32
+_
+ndr_short_int@short int@16
+_
+ndr_small_int@small int@8
+_
+ndr_true@true constant@N/A
+_
+ndr_uhyper_int@unsigned hyper int@64
+_
+ndr_ulong_int@unsigned long int@32
+_
+ndr_ushort_int@unsigned short int@16
+_
+ndr_usmall_int@unsigned small int@8
+.TE
+...\" 
+...\" 
+...\" 
+.LI
+\*L\*VTARGET_MACHINE\*L/marshall.h\*O
+.P
+This file contains local definitions (if any) of the \*Lrpc_marshall_*\*O
+macros. If platform-specific macros are required, the macro
+\*LUSE_DEFAULT_MACROS\*O should be undefined in this file.
+.P
+Platforms that are able to use the standard macros defined in \*Lstubbase.h\*O
+(see above) can simply leave this file empty.
+...\" 
+...\" 
+...\" 
+.P
+The following variables are defined (and undefined) within
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/sys_idl/stubbase.h\*O
+.DE
+...\" 
+.P
+or
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/sys_idl/\*VTARGET_MACHINE\*L/marshall.h\*O
+.DE
+...\" 
+.P
+to control the definition of macros which are emitted into stub files by
+the IDL compiler. For each variable there is a set of default definitions
+which is used, unless a target system specific section \*L#undef\*Os it
+and supplies an alternate set of definitions. Exactly which macro definitions
+are governed by each variable is listed below.
+...\" 
+...\" .zA "def,8422,R1.0.3,alphabetized symbol list"
+...\" 
+.LI
+\*LUSE_DEFAULT_MACROS\*O
+.P
+Controls the definition of the macros which define how to
+marshall, unmarshall and convert values of each NDR
+scalar type as well as NDR string types. The following
+macros must be defined if \*LUSE_DEFAULT_MACROS\*O is
+\*L#undef\*O'd:
+...\" 
+...\" 
+.VL 2.51
+.LI "\*Lrpc_marshall_boolean\*O"
+.LI "\*Lrpc_marshall_byte\*O"
+.LI "\*Lrpc_marshall_char\*O"
+.LI "\*Lrpc_marshall_enum\*O"
+.LI "\*Lrpc_marshall_hyper_int\*O"
+.LI "\*Lrpc_marshall_long_float\*O"
+.LI "\*Lrpc_marshall_long_int\*O"
+.LI "\*Lrpc_marshall_short_float\*O"
+.LI "\*Lrpc_marshall_short_int\*O"
+.LI "\*Lrpc_marshall_small_int\*O"
+.LI "\*Lrpc_marshall_uhyper_int\*O"
+.LI "\*Lrpc_marshall_ulong_int\*O"
+.LI "\*Lrpc_marshall_ushort_int\*O"
+.LI "\*Lrpc_marshall_usmall_int\*O"
+.LI "\*Lrpc_marshall_v1_enum\*O"
+...\" 
+.LI "\*Lrpc_convert_boolean\*O"
+.LI "\*Lrpc_convert_byte\*O"
+.LI "\*Lrpc_convert_char\*O"
+.LI "\*Lrpc_convert_enum\*O"
+.LI "\*Lrpc_convert_hyper_int\*O"
+.LI "\*Lrpc_convert_long_float\*O"
+.LI "\*Lrpc_convert_long_int\*O"
+.LI "\*Lrpc_convert_short_float\*O"
+.LI "\*Lrpc_convert_short_int\*O"
+.LI "\*Lrpc_convert_small_int\*O"
+.LI "\*Lrpc_convert_uhyper_int\*O"
+.LI "\*Lrpc_convert_ulong_int\*O"
+.LI "\*Lrpc_convert_ushort_int\*O"
+.LI "\*Lrpc_convert_usmall_int\*O"
+.LI "\*Lrpc_convert_v1_enum\*O"
+...\" 
+.LI "\*Lrpc_unmarshall_boolean\*O"
+.LI "\*Lrpc_unmarshall_byte\*O"
+.LI "\*Lrpc_unmarshall_char\*O"
+.LI "\*Lrpc_unmarshall_enum\*O"
+.LI "\*Lrpc_unmarshall_hyper_int\*O"
+.LI "\*Lrpc_unmarshall_long_float\*O"
+.LI "\*Lrpc_unmarshall_long_int\*O"
+.LI "\*Lrpc_unmarshall_short_float\*O"
+.LI "\*Lrpc_unmarshall_short_int\*O"
+.LI "\*Lrpc_unmarshall_small_int\*O"
+.LI "\*Lrpc_unmarshall_uhyper_int\*O"
+.LI "\*Lrpc_unmarshall_ulong_int\*O"
+.LI "\*Lrpc_unmarshall_ushort_int\*O"
+.LI "\*Lrpc_unmarshall_usmall_int\*O"
+.LI "\*Lrpc_unmarshall_v1_enum\*O"
+.LE
+...\" 
+...\" 
+...\" 
+.LI
+\*LUSE_DEFAULT_MP_REP\*O
+.P
+Controls the definition of a type and the macros which define the marshalling
+pointer scheme used on a particular target system. The following macros need to
+be defined if \*LUSE_DEFAULT_MP_REP\*O is \*L#undef\*O'd:
+...\" 
+.VL 2.5i
+.LI "\*Lrpc_advance_mop\*O"
+.LI "\*Lrpc_advance_mp\*O"
+.LI "\*Lrpc_advance_op\*O"
+.LI "\*Lrpc_align_mop\*O"
+.LI "\*Lrpc_align_mp\*O"
+.LI "\*Lrpc_align_op\*O"
+.LI "\*Lrpc_init_mp\*O"
+.LI "\*Lrpc_init_op\*O"
+.LI "\*Lrpc_synchronize_mp\*O"
+.LE
+...\" 
+...\" 
+.P
+and the following types need to be \*Ltypedef\*O'd:
+.VL 2.5i
+.LI "\*Lrpc_mp_t\*O"
+.LI "\*Lrpc_op_t\*O"
+.LE
+...\" 
+...\" 
+...\" .zZ "def,8422,R1.0.3,alphabetized symbol list"
+...\" 
+...\" ...installed in dce/include
+...\" 
+...\" 
+...\" 
+...\" 
+.LI
+\*L\*VTARGET_MACHINE\*L/ndr_rep.h\*O
+.P
+This file contains code that lets you specify the data representations used
+by your system (for example, big-endian, little-endian, IEEE floating point,
+ASCII). You do so by defining the following constants as follows:
+...\" 
+.BL
+.LI
+\*LNDR_LOCAL_CHAR_REP\*O
+.P
+Should be defined as either \*Lndr_c_char_ascii\*O or \*Lndr_c_char_ebcdic\*O.
+.LI
+\*LNDR_LOCAL_FLOAT_REP\*O
+.P
+Should be defined as \*Lndr_c_float_ieee\*O, \*Lndr_c_float_vax,\*O
+\*Lndr_c_float_cray\*O, or \*Lndr_c_float_ibm\*O.
+.LI
+\*LNDR_LOCAL_INT_REP\*O
+.P
+Should be defined as either \*Lndr_c_int_big_endian\*O or \*Lndr_c_int_little_endian\*O.
+.LE
+...\" 
+.P
+These constants specify how a particular platform represents things
+like characters (ASCII/EBCDIC), integers (big-endian, little-endian),
+and floating-point numbers (IEEE, VAX, CRAY, and so on).
+...\" 
+...\" This file contains the current list of assignments; the possible values
+...\" are defined in \*Lnbase.idl\*O.
+...\" 
+.P
+In addition, the macro to specify the platform's natural alignment should,
+if needed, be defined here. The choices are:
+...\" 
+.BL
+.LI
+\*LIDL_NATURAL_ALIGN_8\*O
+...\" 
+.LI
+\*LIDL_NATURAL_ALIGN_4\*O
+...\" 
+.LI
+\*LIDL_NATURAL_ALIGN_1\*O
+...\" 
+.LE
+...\" 
+...\" installed in dce/include
+...\" 
+.LE
+...\" 
+...\" 
+...\" .zZ "def,8422,R1.0.3,alphabetized symbol lists"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Conditionally Built Characteristics of the IDL API"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .zA "Added IDL conditionals"
+...\" .zA "def,8422,R1.0.3,alphabetized symbol list"
+...\" 
+...\" 
+.P
+The following symbols, all defined in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/sys_idl/idlbase.h\*O
+.DE
+.P
+header file, conditionally control various aspects of the IDL API:
+...\" 
+.BL
+...\" 
+.LI
+\*LIDL_NO_PROTOTYPES\*O
+.P
+Define IDL_NO_PROTOTYPES to hide prototypes regardless of conditions.
+...\" 
+...\" 
+.LI
+\*LIDL_PROTOTYPES\*O
+.P
+Define IDL_PROTOTYPES to control function prototyping in generated stubs.
+...\" 
+.LI
+\*LUSE_DEFAULT_NDR_REPS\*O
+.P
+Controls the definition of the macros which assign a particular
+target system type to each NDR scalar type.
+...\" 
+...\" NDR (aka DCE Transfer Syntax) is described in excruciating detail
+...\" in the RPC AES, available for member review. 
+...\" 
+...\" 
+The following \*Ltypedef\*Os must be defined if \*LUSE_DEFAULT_NDR_REPS\*O
+is undefined:
+...\" 
+...\" ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+.BL
+.LI
+\*Lndr_boolean\*O
+.LI
+\*Lndr_byte\*O
+.LI
+\*Lndr_char\*O
+.LI
+\*Lndr_false\*O
+.LI
+\*Lndr_hyper_int\*O
+.LI
+\*Lndr_long_float\*O
+.LI
+\*Lndr_long_int\*O
+.LI
+\*Lndr_short_float\*O
+.LI
+\*Lndr_short_int\*O
+.LI
+\*Lndr_small_int\*O
+.LI
+\*Lndr_true\*O
+.LI
+\*Lndr_uhyper_int\*O
+.LI
+\*Lndr_ulong_int\*O
+.LI
+\*Lndr_ushort_int\*O
+.LI
+\*Lndr_usmall_int\*O
+.LE
+...\" 
+.LE
+...\" 
+...\" .zZ "def,8422,R1.0.3,alphabetized symbol list"
+...\"
+...\" ----------------------------------------------------------------------
+.sp 2
+.in -0.25i
+\*L\s+1Properly Defining ``volatile'' on Non Standard Platforms\s-1\*O
+.in +0.25i
+.sp 1
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+.P
+The following remarks are adapted from comments in \*Lidlbase.h\*O.
+.P
+Note that you should not redefine \*Lvolatile\*O except upon careful
+consideration of the consequences on your platform. If \*Lvolatile\*O
+is redefined for a compiler that actually supports it already, the
+result will be nasty program bugs.
+...\" 
+...\" The test for whether or not
+...\" \*Lvolatile\*O is already supported by a compiler is performed as
+...\" follows in \*Lidlbase.h\*O:
+...\" 
+...\" .oS
+...\"     #if (defined(ultrix) && !defined(vaxc) && !defined(__STDC__)
+...\"     /* || defined(your_compiler) ... */
+...\"     #  define volatile
+...\"     #endif
+.oE
+...\" 
+...\" .P
+...\" The test is done this way because there are several compilers that
+...\" support \*Lvolatile\*O and yet do not define \*L__STDC__\*O, so this
+...\" definition alone is not a safe check.
+...\" 
+.P
+Therefore, you should not redefine \*Lvolatile\*O. If your system in fact
+does not support it, use the \*LVOLATILE_NOT_SUPPORTED\*O macro instead
+(see ``Porting System IDL Files'', earlier in this chapter).
+...\" 
+...\" This statement
+...\" errs on the side of caution, but at worst your compiler will complain,
+...\" and you can add \*C-Dvolatile\*O to the \*Lcc\*O command line.
+...\" 
+...\" 
+...\" .zZ "Added IDL conditionals"
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .zA "Added conditional symbols"
+...\" ----------------------------------------------------------------------
+.H 4 "System IDL Preprocessor Variables"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following C preprocessor variables are used in building the IDL compiler.
+...\" 
+...\" 
+.VL .5i
+.LI
+\*LSTUBS_USE_PTHREADS\*O
+.P
+This is normally \*L#define\*O'd in \*Lstubbase.h\*O.
+.P
+If you are using a threads package with an API different from Pthreads, you
+will need to redefine the following macros in \*Lstubbase.h\*O:
+.VL 2.5i
+.LI "\*LRPC_SS_THREADS_CANCEL_STATE_T\*O"
+.LI "\*LRPC_SS_THREADS_CANCEL_STATE_T\*O"
+.LI "\*LRPC_SS_THREADS_CONDITION_CREATE\*O"
+.LI "\*LRPC_SS_THREADS_CONDITION_CREATE\*O"
+.LI "\*LRPC_SS_THREADS_CONDITION_DELETE\*O"
+.LI "\*LRPC_SS_THREADS_CONDITION_DELETE\*O"
+.LI "\*LRPC_SS_THREADS_CONDITION_SIGNAL\*O"
+.LI "\*LRPC_SS_THREADS_CONDITION_SIGNAL\*O"
+.LI "\*LRPC_SS_THREADS_CONDITION_T\*O"
+.LI "\*LRPC_SS_THREADS_CONDITION_T\*O"
+.LI "\*LRPC_SS_THREADS_CONDITION_WAIT\*O"
+.LI "\*LRPC_SS_THREADS_CONDITION_WAIT\*O"
+.LI "\*LRPC_SS_THREADS_DISABLE_ASYNC\*O"
+.LI "\*LRPC_SS_THREADS_DISABLE_ASYNC\*O"
+.LI "\*LRPC_SS_THREADS_ENABLE_GENERAL\*O"
+.LI "\*LRPC_SS_THREADS_ENABLE_GENERAL\*O"
+.LI "\*LRPC_SS_THREADS_INIT\*O"
+.LI "\*LRPC_SS_THREADS_INIT\*O"
+.LI "\*LRPC_SS_THREADS_KEY_CREATE\*O"
+.LI "\*LRPC_SS_THREADS_KEY_CREATE\*O"
+.LI "\*LRPC_SS_THREADS_KEY_GET_CONTEXT\*O"
+.LI "\*LRPC_SS_THREADS_KEY_GET_CONTEXT\*O"
+.LI "\*LRPC_SS_THREADS_KEY_SET_CONTEXT\*O"
+.LI "\*LRPC_SS_THREADS_KEY_SET_CONTEXT\*O"
+.LI "\*LRPC_SS_THREADS_KEY_T\*O"
+.LI "\*LRPC_SS_THREADS_KEY_T\*O"
+.LI "\*LRPC_SS_THREADS_MUTEX_CREATE\*O"
+.LI "\*LRPC_SS_THREADS_MUTEX_CREATE\*O"
+.LI "\*LRPC_SS_THREADS_MUTEX_DELETE\*O"
+.LI "\*LRPC_SS_THREADS_MUTEX_DELETE\*O"
+.LI "\*LRPC_SS_THREADS_MUTEX_LOCK\*O"
+.LI "\*LRPC_SS_THREADS_MUTEX_LOCK\*O"
+.LI "\*LRPC_SS_THREADS_MUTEX_T\*O"
+.LI "\*LRPC_SS_THREADS_MUTEX_T\*O"
+.LI "\*LRPC_SS_THREADS_MUTEX_UNLOCK\*O"
+.LI "\*LRPC_SS_THREADS_MUTEX_UNLOCK\*O"
+.LI "\*LRPC_SS_THREADS_ONCE\*O"
+.LI "\*LRPC_SS_THREADS_ONCE\*O"
+.LI "\*LRPC_SS_THREADS_ONCE_INIT\*O"
+.LI "\*LRPC_SS_THREADS_ONCE_INIT\*O"
+.LI "\*LRPC_SS_THREADS_ONCE_T\*O"
+.LI "\*LRPC_SS_THREADS_ONCE_T\*O"
+.LI "\*LRPC_SS_THREADS_RESTORE_ASYNC\*O"
+.LI "\*LRPC_SS_THREADS_RESTORE_ASYNC\*O"
+.LI "\*LRPC_SS_THREADS_RESTORE_GENERAL\*O"
+.LI "\*LRPC_SS_THREADS_RESTORE_GENERAL\*O"
+.LI "\*LRPC_SS_THREADS_X_CANCELLED\*O"
+.LI "\*LRPC_SS_THREADS_X_CANCELLED\*O"
+.LE
+...\" 
+...\" 
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.sp 2
+.in -0.75i
+\*L\s+1
+Stub Macro Variables
+\s-1\*O
+.in +0.75i
+.sp 1
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+See ``Porting System IDL Files'', above.
+...\" 
+...\" 
+...\" .zZ "Added conditional symbols"
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Porting the RPC Runtime Library"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "porting" "RPC runtime library"
+.iX "RPC runtime library" "porting"
+...\" 
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime\*O
+.DE
+.P
+directory has subdirectories that contain RPC runtime library code for various
+hardware platforms. To port this code to a particular platform, you may need to
+modify the following files:
+...\" 
+.BL
+.LI
+\*Luuidsys.c\*O
+.P
+This file contains system-specific code for generating universal unique identifiers
+(UUIDs), together with all the necessary operations for doing so, such as getting the
+time, getting a process ID, and calling \*Ldce_get_802_addr(\|)\*O, which is
+defined in:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/dce/utils/misc/\*Lplatform\*L/dce_802_addr.c\*O
+.DE
+...\" 
+.P
+All UUIDs contain a 48-bit node-ID field which must uniquely identify a machine.
+The OSF/1 reference port uses the IEEE physical level address of the node network
+controller (either IEEE 802.3 (Ethernet) or IEEE 802.5 (token ring)) for this.
+Machines with a network controller only sometimes provide access to this number;
+you will have to use platform-specific techniques to retrieve this information.
+.P
+If you do not have such an interface or cannot get the number, you will have to
+produce your own way to generate a unique number.  IEEE will sell you a
+block of numbers from the Ethernet number space if that helps in
+your solution to this problem. A \*VRequest Form for IEEE Assignment
+of a 48-bit LAN Globally Assigned Address Block\*O can be obtained
+by writing to the following address:
+.P
+.DS
+    Mr. Vincent Condello
+    IEEE Standards Office
+    445 Hoes Lane
+    P.O. Box 1331
+    Piscataway, NJ  08855-1331
+
+    Telephone: (908) 562-3812
+.DE
+.LI
+\*Vmachine\*L/sysconf.h\*O
+.P
+This system-specific configuration file lets you override several
+default symbolic constants, include files that are not portable to
+your system, or both. The DCE source tree contains different versions of
+\*Lsysconf.h\*O in platform-specific subdirectories of:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime\*O
+.DE
+.P
+The easiest way to build your own version of this file is by examining
+the existing versions of \*Lsysconf.h\*O, selecting the one that comes
+closest to meeting your requirements, copying it to a new
+platform-specific subdirectory, then making the necessary changes. See
+the ``RPC Runtime Preprocessor Variables'' section later in this chapter.
+.LI
+\*Vmachine\*L/ipnaf_sys.c\*O
+.P
+Contains routines specific to the Internet Protocol (IP), the Internet
+Network Address Family extension service, and the Berkeley BSD) UNIX
+system. You will need to modify this file so that it runs on your platform.
+The DCE source tree contains different versions of \*Lipnaf_sys.c\*O in
+platform-specific subdirectories of:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime\*O
+.DE
+.P
+As with \*Vmachine\*L/sysconf.h\*O,  you will probably want to copy the
+closest version to a new, machine-specific directory, then modify the
+copy. Use the contents of
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/ipnaf_bsd.c\*O
+.DE
+...\" 
+.P
+as a beginning. If possible, you should use this file unchanged; the
+OSF/1 version does.
+...\" 
+...\" .zA "def,8367,R1.0.3,enumerate_interfaces buffer size"
+...\" 
+.P
+Note that the \*Lenumerate_interfaces(\|)\*O routine defined both in this
+file and in
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/ipnaf_bsd.c\*O
+.DE
+.P
+may not allocate space for a sufficient number of \*Lifreq\*O structures for
+your system. The routine as supplied allocates a 1024-byte buffer on the stack
+for the structures, which are returned by the \*Lioctl(..., SIOCGIFCONF, ...)\*O
+call. Each \*Lifreq\*O structure is at least 32 bytes long, so this means
+that space is allocated for at most 32 \*Lifreq\*Os. If this is an inadequate
+amount for your purposes, an alternative to using stack space would be to replace
+the stack allocation with a call to \*Lmalloc(\|)\*O with a \*L#define\*Od size.
+Note however that the \*Lmalloc(\|)\*O approach cannot be used in the kernel
+runtime version of the routine in \*Lipnaf_sys.c\*O (see the subsection ``Operating
+System-Specific Code'' in ``Porting the KRPC Runtime Library'', below).
+...\" 
+...\" .zZ "def,8367,R1.0.3,enumerate_interfaces buffer size"
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .zA "Added Conditional Symbols"
+...\" 
+...\" RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+...\" ----------------------------------------------------------------------
+.H 4 "RPC Runtime Preprocessor Variables"
+...\" ----------------------------------------------------------------------
+...\"
+.P
+The following C preprocessor variables are used in building \*Lrpc/runtime\*O.
+Many of these are set in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/\*VTARGET_MACHINE\*L/sysconf.h\*O
+.DE
+.P
+...\" 
+...\" 
+...\" 
+...\" .zA "def,5818,R1.0.2,sysconf.h defines explained"
+...\" .zA "def,8422,R1.0.3,alphabetized symbol list"
+...\" 
+...\" 
+...\" 
+.VL .5i
+.LI
+\*Lunix\*O
+.P
+This currently governs including certain Internet include
+files. See \*Lipnaf.h\*O and \*Ltwr*.c\*O files.
+...\" 
+...\" 
+.LI
+\*LATFORK_SUPPORTED\*O
+.P
+If a fork handler is available, this routine invokes
+\*Lrpc__fork_handler\*O prior to and immediately after forking.
+See:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/cominit.c\*O
+.DE
+...\" 
+...\" 
+.LI
+\*LAUTH_DEFS\*O
+.P
+The value of this variable is set in
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/Makefile\*O
+.DE
+...\" 
+.P
+and is dependent on the values of the following preprocessor variables:
+...\" 
+.BL
+.LI
+\*LAUTH_KRB\*O
+.LI
+\*LAUTH_KRB_DG\*O
+.LI
+\*LAUTH_KRB_CN\*O
+.LE
+...\" 
+.P
+If only \*LAUTH_KRB\*O is defined, then Kerberos support for both
+connection-oriented and datagram RPC is enabled. However, if \*Vonly one\*O
+of \*LAUTH_KRB_DG\*O and \*LAUTH_KRB_CN\*O is defined (together with
+\*LAUTH_KRB\*O), then support only for the specified RPC protocol is enabled.
+If \*LAUTH_KRB\*O is not defined, \*Vno\*O Kerberos support is enabled.
+.P
+For further information, see the comments in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/Makefile\*O
+.DE
+...\" 
+...\" 
+...\" .LI
+...\" \*LCLOCK_SEQ_BIT_BANG\*O
+...\" .P
+...\" Can use bitwise AND to perform modulo operation.
+...\" [in uuid.c]
+...\" 
+...\" 
+...\" .LI
+...\" \*LDEBUG\*O
+...\" .P
+...\" Define \*LDEBUG\*O to build the runtime with the ability to
+...\" produce large amounts of debug output. See:
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/runtime/rpcdbg.*\*O
+...\" .DE
+...\" .P
+...\" See also the ``Debugging Hints'' section, later in this chapter.
+...\" 
+...\" 
+...\" .LI
+...\" \*LFILE_SEPARATOR_CHAR\*O
+...\" .P
+...\" Character value of pathname separator. Default is ``/''.
+...\" [in rpcdbg.c]
+...\" 
+...\" 
+...\" .LI
+...\" \*LIEEE_802_FILE\*O
+...\" .P
+...\" Filename of file containing IEEE 802 address string. Defined in:
+...\" 
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/runtime/\*VTARGET_MACHINE\*L/uuidsys.c\*O
+...\" .DE
+...\" 
+...\" .P
+...\" and
+...\" 
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/runtime/uuidsys_template.c\*O
+...\" .DE
+...\" 
+...\" 
+...\" 
+...\" .LI
+...\" \*LMAX_DEBUG\*O
+...\" .P
+...\" Enables even more debugging output than \*LDEBUG\*O, above.
+...\" 
+...\" 
+.LI
+\*LMAX_NETADDR_LENGTH\*O
+.P
+Maximum number of bytes in network address. Default is 14.
+...\" 
+...\" 
+...\" 
+...\" .LI
+...\" \*LNO_VARARGS_PRINTF\*O
+...\" .P
+...\" Define \*LNO_VARARGS_PRINTF\*O if you cannot use \*LSTDARG_PRINTF\*O
+...\" but can use \*Lvsprintf\*O. See
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/runtime/rpcdbg.c\*O
+...\" .DE
+...\" 
+...\" .zA "def,5284,R1.0.2,NO_RPC_PRINTF info added"
+...\" 
+...\" .LI
+...\" \*LNO_RPC_PRINTF\*O
+...\" .P
+...\" Define \*LNO_RPC_PRINTF\*O if you can use neither \*LSTDARG_PRINTF\*O
+...\" nor \*LNO_VARARGS_PRINTF\*O (\*Lvsprintf(\|)\*O). See
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/runtime/rpcdbg.c\*O
+...\" .DE
+...\" .P
+...\" If none of the provided \*Lrpc__printf\*O signatures (or implementations) is
+...\" acceptable to a target, the intent is that the target be allowed to provide its
+...\" own implementation (which is indicated by \*VTARGET_MACHINE\*L/sysconf\*O's
+...\" defining \*LNO_RPC_PRINTF\*O). One simple alternative implementation is to just
+...\" use \*Lprintf\*O. This can be easily accomplished in \*VTARGET_MACHINE\*L/sysconf\*O
+...\" via:
+...\" .oS
+...\"     #define rpc__printf printf
+...\" .oE
+...\" .P
+...\" See
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/runtime/HP_PA/sysconf.h\*O
+...\" .DE
+...\" .P
+...\" for an example.
+...\" 
+...\" .zZ "def,5284,R1.0.2,NO_RPC_PRINTF info added"
+...\" 
+...\" 
+...\" 
+...\" 
+.LI
+\*LNON_CANCELLABLE_IO\*O
+.P
+For Pthreads implementations that do not allow cancels to
+be delivered in \*Lstdio\*O (read, write, select, etc.,) this
+define enables a \*Ltimed\*O select in the listener thread that
+performs a \*Lpthread_testcancel(\|)\*O to receive cancels.
+...\" 
+...\" 
+.LI
+\*LNO_SIOCGIFADDR\*O
+.P
+Define \*LNO_SIOCGIFADDR\*O if your network interface does not
+support the \*Lioctl SIOCGIFADDR\*O operation.
+...\" 
+...\" 
+.LI
+\*LNAF_IP\*O
+.P
+Define \*LNAF_IP\*O if Internet Protocol is used. \*LNAF_IP\*O is
+set for the DCE reference platforms.
+...\" 
+...\" 
+...\" .LI
+...\" \*LNO_VOID_STAR\*O
+...\" .P
+...\" Define \*LNO_VOID_STAR\*O if your C compiler does not support
+...\" \*Lvoid *\*O pointers.
+...\" 
+...\" 
+.LI
+\*LPROT_NCACN\*O
+.P
+Define \*LPROT_NCACN\*O to build connection-based support into
+RPC.
+...\" 
+...\" 
+.LI
+\*LPROT_NCADG\*O
+.P
+Define \*LPROT_NCADG\*O to build datagram support into RPC.
+...\" 
+...\" 
+.LI
+\*LRPC_MUTEX_DEBUG\*O
+.P
+Enables mutex lock and/or condition variable debugging.
+...\" 
+...\" 
+.LI
+\*LRPC_MUTEX_STATS\*O
+.P
+Enables mutex lock and/or condition variable statistics.
+...\" 
+...\" 
+.LI
+\*LRPC_DEFAULT_NLSPATH\*O
+.P
+Not used, although present in:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/\*VTARGET_MACHINE\*L/sysconf.h\*O
+.DE
+...\" 
+...\" A format for \*Lsprintf(\|)\*O describing how to construct a full pathname to
+...\" where the DCE message catalogs will be installed on the system. Set
+...\" \*LRPC_DEFAULT_NLSPATH\*O to the default directory for message catalogs. See
+...\" examples in:
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/runtime/\*VTARGET_MACHINE\*L/sysconf.h\*O
+...\" .DE
+...\" .P
+...\" where \*VTARGET_MACHINE\*O is the name of a platform-specific subdirectory.
+...\" See the ``Platform-Dependent Building of DCE'' section of Chapter 12 for
+...\" more information.
+...\" 
+...\" 
+...\" 
+.LI
+\*LRPC_NLS_FORMAT\*O
+.P
+Not used, although present in:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/dce_error.c\*O
+.DE
+...\" 
+...\" A format for \*Lsprintf(\|)\*O describing how to construct a relative
+...\" pathname for a message catalog from the ``base'' part of the name.
+...\" Set \*LRPC_NLS_FORMAT\*O to the format of your NLS string if it
+...\" is other than ``\*L%s.cat\*O''. See:
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/runtime/dce_error.c\*O
+...\" .DE
+...\" 
+...\" 
+...\" 
+...\" .LI
+...\" \*LSTDARG_PRINTF\*O
+...\" .P
+...\" Define \*LSTDARG_PRINTF\*O if your C compiler supports the ANSI C \*Lstdargs\*O
+...\" package ``...'' notation in: 
+...\" .oS
+...\"     int rpc__printf (char *format, ...)
+...\" .oE
+...\" 
+...\" 
+...\" .LI
+...\" \*LUSE_PROTOTYPES\*O
+...\" .P
+...\" Define \*LUSE_PROTOTYPES\*O if your C compiler supports
+...\" function prototypes.
+...\" 
+...\" 
+.LI
+\*L_SOCKADDR_LEN\*O
+.P
+The layout of a 4.4 \*Lstruct sockaddr\*O includes a 1 byte
+``length'' field which used to be one of the bytes of the
+``family'' field.  (The ``family'' field is now 1 byte
+instead of 2 bytes.)  4.4 provides binary compatibility
+with applications compiled with a 4.3 \*Lsockaddr definition
+by inferring a default length when the supplied length is
+zero.
+...\" 
+.P
+Define \*L_SOCKADDR_LEN\*O if your socket's \*Lsockaddr struct\*O
+contains \*Lsa_len\*O.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+.LE
+...\" 
+...\" .zZ "def,5818,R1.0.2,sysconf.h defines explained"
+...\" .zZ "def,8422,R1.0.3,alphabetized symbol list"
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.sp 2
+.in -0.25i
+\s+1\*L
+Kernel RPC Symbols
+\*O\s-1
+.in +0.25i
+.sp 1
+...\" ----------------------------------------------------------------------
+...\"
+...\" 
+...\" 
+...\" .zA "Kernel RPC conditionals added"
+...\" 
+.VL .5i
+.LI
+\*LRPC_DG_LOSSY\*O (Kernel RPC)
+.P
+Enables building a version of \*Lrpc__socket_sendmsg(\|)\*O and related
+functions that deliberately mishandles packets\(emfor debugging purposes
+only, of course. This is useful for ``stress testing'' Datagram RPC as well,
+although if the ``dice rolls'' are consistently too bad you will see some
+extra \*Lcomm_failure\*Os.
+.P
+The ``lossy'' behavior is under the control of the \*LRPC_DEBUG\*O switch,
+so it can be compiled into a ``mostly-production'' system and turned on
+only as desired for testing.
+...\" 
+...\" 
+...\" 
+...\" 
+.LI
+\*LRPC_DG_PLOG\*O (Kernel RPC)
+.P
+Enables the use of a ``packet log'' to contain the \*Vn\*O packets most recently
+received or sent through the RPC datagram protocol.
+...\" 
+...\" 
+...\" 
+...\" .zZ "Kernel RPC conditionals added"
+...\" 
+...\" 
+...\" 
+.LE
+...\" 
+...\"
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .zZ "Added Conditional Symbols"
+...\" 
+...\" 
+...\" 
+...\" .zA "Added mispacked header info"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Correction of Mispacked RPC Headers on Certain PLatforms"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Luuid_t\*O type is defined by IDL, and interface and object UUIDs are
+transmitted ``over the wire'' as part of the RPC message headers. However,
+not all C compilers (especially those for machines whose smallest addressible
+unit is not 8 bits) pack the RPC header structure ``correctly'' (that is, into
+a storage layout that can be overlayed on a vector of bytes that make up a
+packet that has just come off the wire). As a result, on some machines
+\*Lrpc_dg_pkt_hdr_t\*O cannot be used ``as is'' on incoming packets, or used
+to set up outgoing packets. Machines that have this problem are called
+``mispacked header machines''.
+.P
+If the host machine is a mispacked header machine, the incoming RPC headers,
+which contain the UUID, will not be able to be overlaid correctly onto the host
+header struct (\*Lrpc_dg_pkt_hdr_t\*O), which will be somewhat too ``big'' for
+it; instead, the header will have to be expanded first. It is the job of a porter
+whose target platform has this characteristic to add code to the skeleton of
+\*Lunpack_hdr(\|)\*O in
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/dglsn.c\*O
+.DE
+...\" 
+.P
+to accomplish the unpacking, and to \*Lcompress_hdr(\|)\*O, which is called in
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/dgutl.c\*O
+.DE
+...\" 
+.P
+and
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/dgxq.c\*O
+.DE
+...\" 
+.P
+to pack the outgoing headers. (Note that no skeleton is supplied for the
+\*Lcompress_hdr(\|)\*O routine.) Calls to these routines are already present at
+the appropriate places in the RPC runtime; all that is needed is to activate them
+(after, of course, you have added the necessary code to the routines themselves)
+by defining \*LMISPACKED_HDR\*O in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/\*VTARGET_MACHINE\*L/sysconf.h\*O
+.DE
+...\" 
+.P
+The \*Lrpc_c_dg_rpho_...\*O constants (``\*Lrpho\*O'' stands for ``raw packet
+header offset'') in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/dg.h\*O
+.DE
+...\" 
+.P
+file can be used to locate the logical header fields in a raw packet header.
+...\" 
+...\" 
+...\" .zZ "Added mispacked header info"
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "DCE Host Daemon"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The RPC daemon (\*Lrpcd\*O) has been replaced in DCE 1.1 by the DCE host daemon,
+\*Ldced\*O. For information about porting \*Ldced\*O, see Chapter 3.
+.P
+Note that the \*Lrpcd\*O sources can still, however, be found in the DCE 1.1
+source at:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/nosupport/rpc/rpcd\*O
+.DE
+...\" 
+...\" 
+.zA "def,10739,R1.1beta,removed rpcd info"
+...\" 
+...\" .zA "Added rpcd info"
+...\" .zA "def,8539,R1.0.3,remote endpoint access information"
+...\" ======================================================================
+...\" ----------------------------------------------------------------------
+...\" .H 3 "Information on Porting ``rpcd''"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .P
+...\" The following sections contain information pertinent to porting the RPC daemon
+...\" (\*Lrpcd\*O, also referred to as the ``endpoint mapper'').
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+...\" .H 4 "Enabling or Disabling Remote Endpoint Access"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .P
+...\" The behavior of \*Lrpcd\*O has been changed in DCE 1.0.3 so that requests
+...\" from remote hosts to add or delete endpoints from the endpoint map will now
+...\" be rejected (in previous versions of DCE, \*Lrpcd\*O would fulfill such
+...\" requests). The change has been made in order to prevent the possibility of
+...\" unauthenticated users' adding or deleting endpoints anywhere in a cell,
+...\" simply by making calls through the RPC interface, or by issuing commands
+...\" through \*Lrpccp\*O.
+...\" .P
+...\" The code that enables remote endpoint access is still present in the source,
+...\" however, and it can be enabled or disabled by defining or undefining the
+...\" preprocessor variable \*LREMOTE_ENDPOINT_ACCESS\*O. The code exists in
+...\" two modules:
+...\" 
+...\" .BL
+...\" .LI
+...\" \*Vdce-root-dir\*L/dce/src/rpc/rpcd/rpcdep.c\*O
+...\" .P
+...\" If the variable is \*Vnot\*O defined in this code, \*Lrpcd\*O will reject
+...\" remote requests to modify the endpoint map, but will allow the map to be
+...\" read. If the variable \*Vis\*O defined, \*Lrpcd\*O will execute remote
+...\" endpoint map modification requests (the pre-DCE 1.0.3 behavior).
+...\" .P
+...\" The default is that the variable is not defined, and remote modification
+...\" requests are rejected.
+...\" 
+...\" 
+...\" .LI
+...\" \*Vdce-root-dir\*L/dce/src/rpc/rpccp/rpccp.c\*O
+...\" .P
+...\" If the variable is \*Vnot\*O defined in this code, \*Lrpccp\*O will reject
+...\" remote requests to modify the endpoint map (via the \*Ladd mapping\*O and
+...\" \*Lremove mapping\*O subcommands), but will allow the map to be read by
+...\" remote users. If the variable \*Vis\*O defined, \*Lrpccp\*O will execute
+...\" remote endpoint map modification requests (the pre-DCE 1.0.3 behavior).
+...\" .P
+...\" The default is that the variable is not defined, and remote modification
+...\" requests are rejected.
+...\" 
+...\" .LE
+...\" 
+...\" 
+...\" .zZ "def,8539,R1.0.3,remote endpoint access information"
+...\" 
+...\" ----------------------------------------------------------------------
+...\" .H 4 "RPCD data file"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .P
+...\" The RPCD service maintains a persistent database of endpoints in a file,
+...\" located in
+...\" .DS
+...\"     \*Vdcelocal\*L/var/rpc/rpcdep.dat\*O
+...\" .DE
+...\" .P
+...\" on the OSF/1 reference platform (where \*Vdcelocal\*O usually stands for
+...\" .DS
+...\"     \*L/opt/dcelocal\*O
+...\" .DE
+...\" .P
+...\" as set up by default by \*Ldce_config\*O during cell configuration).  The
+...\" following comments were derived from the three source files
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/rpcd/dsm.idl\*O
+...\" 
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/rpcd/dsm.c\*O
+...\" 
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/rpcd/dsm_p.h\*O
+...\" .DE
+...\" .P
+...\" and discuss the physical representation of this database.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+...\" .sp 2
+...\" .in -0.25i
+...\" \s+1\*L
+...\" DSM (Data Store Manager) Public Interface Definition
+...\" \*O\s-1
+...\" .in +0.25i
+...\" .sp 1
+...\" ----------------------------------------------------------------------
+...\" 
+...\" ----------------------------------------------------------------------
+...\" .H 4 "DSM (Data Store Manager) Public Interface Definition"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .P
+...\" The Data Store Manager is a heap storage allocation package wherein allocated
+...\" records are strongly associated with storage in a backing file, such that they
+...\" can be stably stored upon modification. The basic paradigm is that the client
+...\" \*LALLOCATE\*Os a block of some requested size, modifies it in memory, and
+...\" \*LWRITE\*Os it; successful completion of the \*LWRITE\*O implies that the
+...\" record has been stably stored in the file.
+...\" .P
+...\" DSM uses OS page alignment to define an atomic operation (a write of or within
+...\" a page is assumed to either succeed or fail, without any intermediate state).
+...\" Records are laid out in the file such that the DSM header, as well as some
+...\" reasonable chunk of the start of application data (e.g. the first 64 bytes
+...\" total of each record) are contiguous in a page, and so can be written
+...\" atomically. A write that spans a page boundary occurs in two phases (assuming
+...\" the record being written was previously free and is so marked on disk): the
+...\" data portion is written and synched first, then the DSM header (specifically
+...\" the ``inuse/free'' mark) to commit the write.
+...\" .P
+...\" Updates are not atomically supported. Changing the contents of a record requires
+...\" conceptually adding a new version and deleting the old one. DSM provides an
+...\" operation to ``detach'' a record (mark it free in the file, effectively deleting
+...\" it if a crash occurs at this point), after which it can be written normally. This
+...\" is adequate for applications like DSM which can recover from crashes by replaying
+...\" the last operation on its propagation queue. Another approach would be to allocate
+...\" a new record and make a copy, setting a ``new'' flag in its application header,
+...\" then freeing the old copy, and finally clearing the ``new'' flag in the new copy.
+...\" Upon crash recovery the application might see two versions of the same datum, one
+...\" flagged ``new'', and can discard the other one (or it may see only the ``new''
+...\" version).
+...\" .P
+...\" The DSM does not currently itself provide mutual exclusion, although it must be
+...\" used in such a context (the caller is currently assumed to do the mutex).
+...\"     
+...\" 
+...\" 
+...\" 
+...\" .oS
+...\"     typedef struct page_t {     /* generic page */
+...\"         unsigned char page_contents[PAGE_SIZE];
+...\"     } page_t;
+...\" 
+...\"     typedef struct block_t {        /* block preheader */
+...\"         struct block_t *link;       /* link to next block on (free) list */
+...\"                                     /*   [meaningless in file]           */                    
+...\"         unsigned long   size;       /* size of user data */
+...\"         unsigned long   loc;        /* location (offset) of preheader in file */
+...\"         boolean         isfree;     /* true iff free */
+...\"         unsigned char   cookie;     /* magic number basic identification */
+...\"         unsigned char   unused[2];  /* preheader ends here */
+...\"         double          data;       /* user data begins here -- double to align */
+...\"     } block_t;
+...\" 
+...\"     typedef struct file_hdr_t {     /* first page of file contains global info */
+...\"         long            version;    /* file format version */
+...\"         long            pages;      /* number of initialized data pages */
+...\"         long            pad1[20];   /* reserve for DSM header expansion */
+...\"         unsigned char   info[INFOSZ];   /* space for client info */
+...\"         page_t          padding;    /* pad out past page boundary */
+...\"     } file_hdr_t;
+...\" .oE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .P
+...\" \*VNote that strong assumptions are made about the size and alignments of
+...\" this structure\*O.  The important thing is that the \*Ldata\*O field be naturally
+...\" aligned for all potential user data (8-byte alignment), and the preheader should
+...\" occupy the \*LPREHEADER\*O bytes just before the user data. It currently looks as
+...\" follows (16 bytes):
+...\" ...\" 
+...\" .DS
+...\" \*C        +--------+--------+--------+--------+  <-
+...\" \*C        |         space for link ptr        |   |
+...\" \*C        +--------+--------+--------+--------+   |
+...\" \*C        |         size of user data         |   |    
+...\" \*C        +--------+--------+--------+--------+    > preheader (16 bytes)
+...\" \*C        |     offset in file of preheader   |   |
+...\" \*C        +--------+--------+--------+--------+   |
+...\" \*C        |  FREE  | cookie |    (unused)     |   |
+...\" \*C        +--------+--------+--------+--------+  <-
+...\" \*C        |  user data...       
+...\" \*C        +--------+
+...\" .DE
+...\" \*O
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .zZ "Added rpcd info"
+...\" 
+.zZ "def,10739,R1.1beta,removed rpcd info"
+...\" 
+...\" .zA "def,8238,add endpoint restriction info"
+...\" 
+.zA "def,10351,R1.1, moved Endpoint restriction to Admin Guide"
+.zZ "def,10351,R1.1, moved Endpoint restriction to Admin Guide"
+...\" 
+...\" 
+...\" .zZ "def,8238,add endpoint restriction info"
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Porting the KRPC Runtime Library"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "porting" "KRPC runtime library"
+.iX "KRPC" "porting" "runtime library"
+...\" 
+.P
+Subdirectories of the
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime\*O
+.DE
+.P
+directory have platform-specific KRPC runtime library code. To port this code
+to a particular platform, you may need to modify the following files in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime\*O
+.DE
+.P
+directory:
+.BL
+.LI
+\*Luuidsys.c\*O
+.LI
+\*Lsysconf.h\*O
+.LI
+\*Lipnaf_sys.c\*O
+.LI
+\*Lcomsoc_sys.c\*O
+.LE
+...\" 
+...\" 
+...\" KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+...\" ----------------------------------------------------------------------
+.H 4 "Platform Definitions and Variables"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Platform-specific definitions significant to KRPC can be found in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime/\*Vmachine\*L/sysconf.h\*O
+.DE
+.P
+In particular, the following variables must be defined:
+...\" 
+.VL .5i
+...\" 
+...\" 
+.LI
+\*LALT_COMMON_INCLUDE\*O
+.P
+Kernel RPC requires a modified set of common include files. This symbol is used in
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/commonp.h\*O
+.DE
+.P
+and should be defined as follows:
+...\" 
+.oS
+    #define ALT_COMMON_INCLUDE <alt_common_krpc.h>
+.oE
+...\" 
+.P
+in your \*Lsysconf.h\*O file.
+...\" 
+...\" 
+...\" 
+.LI
+\*LAUTH_DUMMY\*O
+.P
+To include the initialization routine for null authentication
+...\" 
+...\" 
+.LI
+\*LAUTH_KRB\*O
+.P
+To include the initialization routine for Private Key Authentication.
+...\" 
+...\" 
+.LI
+\*LDO_NOT_ALLOW_HOSTNAMES\*O
+.P
+Hostnames are not relevant in the kernel.
+...\" 
+...\" 
+.LI
+\*LNO_GETENV\*O
+.P
+Within a kernel, there is no equivalent to the UNIX exec-time environment,
+so Kernel RPC cannot acquire various values from it.
+...\" 
+...\" 
+.LI
+\*LNO_NS\*O
+.P
+KRPC does not use the naming service.
+...\" 
+...\" 
+.LI
+\*LPTHREAD_NO_TIMESPEC\*O
+.P
+To include the definition for \*Lstruct timespec\*O, if your kernel does not
+define it. This structure is used in the Pthreads implementation.
+...\" 
+...\" 
+.LI
+\*LRPC_C_DG_PKT_MAX\*O
+.P
+Maximum number of packets ever allocated (default is 100,000) can be overridden
+for the kernel.
+...\" 
+...\" 
+.LI
+\*LRPC_C_DG_SOCK_LOAD\*O
+.P
+Estimated number of simultaneous calls; default is 2 in connectionless protocol.
+...\" 
+...\" 
+.LI
+\*LRPC_C_SERVER_MAX_SOCKETS\*O
+.P
+Maximum number of sockets that the listener can take (default is 64).
+...\" 
+...\" 
+.LI
+\*LRPC_NO_TOWER_SUPPORT\*O
+.P
+Protocol towers are not supported in Kernel RPC.
+...\" 
+...\" 
+.LI
+\*L_PTHREAD_NO_CANCEL_SUPPORT\*O
+.P
+The threads implementation provided with Kernel RPC does not support the
+Pthreads thread cancel mechanism.
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.sp 2
+.in -0.25i
+\s+1\*L
+Kernel RPC Runtime Library Preprocessor Variables
+\*O\s-1
+.in +0.25i
+.sp 1
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .zA "KRPC Conditionals added"
+...\" 
+.P
+The following C preprocessor variables have a role in
+building the KRPC runtime library. The description of each variable is
+followed by the name of the file where it should be defined, if it is
+used at all.
+...\" 
+...\" 
+.VL .5i
+.LI
+\*LNO_SO_SNDBUF\*O
+.P
+Defined only if your platform defines \*LSOL_SOCKET\*O (for socket-level
+socket options), and \*LSO_SNDBUF\*O and \*LSO_RCVBUF\*O (to access send
+and receive buffer length), but misbehaves if actually used. Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime/\*Vplatform\*L/comsoc_sys.h\*O
+.DE
+...\" 
+...\" 
+...\" .sp 1
+...\" .LI
+...\" \*LNO_SPRINTF\*O
+...\" .LI
+...\" \*LNO_SSCANF\*O
+...\" .P
+...\" The above two variables are normally defined, to indicate that the formatted
+...\" input and output conversion functions \*Lsscanf(\|)\*O and \*Lsprintf(\|)\*O
+...\" are not provided in the platform's kernel environment. Defined in:
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/kruntime/\*Vplatform\*L/sysconf.h\*O
+...\" .DE
+...\" 
+...\" 
+.LI
+\*LNO_TSLEEP\*O
+.P
+Defined only if your platform does not define a \*Ltsleep(\|)\*O function to
+implement a sleep with timeout. Defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime/\*Vplatform\*L/sysconf.h\*O
+.DE
+...\" 
+.LE
+...\" 
+.P
+Also, various functions from the standard C library are required by the Kernel RPC
+runtime and stubs. If these are not available in the kernel environment on your
+platform, then the appropriate symbol corresponding to the missing function from
+the list below should be defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime/\*Vplatform\*L/sysconf.h
+.DE
+.P
+Note that many kernels are not linked with a full ANSI C library; simple
+implementations of these functions are included in the KRPC source.
+...\" 
+...\" 
+...\" 
+.BL
+.LI
+\*LNEED_INDEX\*O
+.LI
+\*LNEED_ISDIGIT\*O
+.LI
+\*LNEED_ISXDIGIT\*O
+.LI
+\*LNEED_MEMCMP\*O
+.LI
+\*LNEED_MEMCPY\*O
+.LI
+\*LNEED_MEMSET\*O
+.LI
+\*LNEED_RINDEX\*O
+.LI
+\*LNEED_STRCAT\*O
+.LI
+\*LNEED_STRCMP\*O
+.LI
+\*LNEED_STRCPY\*O
+.LI
+\*LNEED_STRLEN\*O
+.LI
+\*LNEED_STRNCAT\*O
+.LI
+\*LNEED_STRNCMP\*O
+.LI
+\*LNEED_STRNCPY\*O
+.LI
+\*LNEED_STRRCHR\*O
+.LI
+\*LNEED_STRSPN\*O
+.LI
+\*LNEED_TOUPPER\*O
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .zZ "KRPC Conditionals added"
+...\" 
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.H 4 "Functions Which Must be Implemented"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+In addition, the following functions must be implemented:
+.P
+To implement the \*Lgettimeofday\*O function, use the most efficient
+way to access system time on your platform.
+.P
+The maximum number of packets (\*LRPC_C_DG_PKT_MAX\*O) is defined in
+\*Lsysconf.h\*O. The maximum number of sockets available
+(\*LRPC_C_SERVER_MAX_SOCKETS\*O) is also defined in this file.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Selection of Include Files"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "KRPC" "include files for"
+...\" 
+.P
+Each file in the KRPC code includes
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/commonp.h\*O
+.DE
+.P
+by default. If you do not want to include the default set of files listed in
+\*Lcommonp.h\*O, then insert the following line
+.DS
+        \*L#define\*O \*LALT_COMMON_INCLUDE\*O \*Lalt_common_krpc.h\*O
+.DE
+.P
+in the \*Lsysconf.h\*O file for
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime\*O
+.DE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Operating System-Specific Code"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Depending on your platform definitions, you must add operating system-specific
+code to the following files:
+...\" 
+.BL
+.LI
+\*Lcomsoc_sys.c\*O
+.P
+This file defines prototypes of functions that are layered over the BSD socket
+abstraction (\*Ve.g.\*O, \*Lrpc__socket_open\*O, \*Lrpc__socket_close\*O, etc).
+\*Lcomsoc_sys.c\*O contains the implementation of the various socket abstraction
+interfaces used by the KRPC component. Edit the following items in this file:
+...\" 
+.BL
+.LI
+Define \*Lrpc_socket_t\*O to be a pointer to \*Lstruct socket\*O if you are
+porting KRPC to an environment that implements sockets as structures (examples
+are BSD 4.4, OSF/1); otherwise, define \*Lrpc_socket_t\*O as an integer file
+descriptor. Be sure to match types. For example, the AIX reference platform uses
+\*Llong\*O integers for sockets.
+.LI
+Consider the implementation of the \*Lrpc__socket_select\*O routine in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime/BSD44_TEMPLATE\*O
+.DE
+.P
+and
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime/\*Vmachine\*O
+.DE
+.P
+directories. In the AIX reference port, \*Lrpc__socket_select\*O calls
+\*Lfp_poll\*O kernel service to poll the set of file pointers corresponding
+to a set of socket descriptors. Kernel process threads do not share socket
+descriptors, so a function in \*Lkproc_map.c\*O stores the file pointer
+corresponding to a socket descriptor obtained by a thread in a global array.
+The index to this array is used as a socket descriptor by all the threads.
+.LE
+...\" 
+.LI
+\*Lipnaf_sys.c\*O
+.P
+The functions in this file give a vector of IP addresses that correspond to
+the network interfaces on a machine. Consider the implementation of the
+\*Lrpc__ip_desc_inq_addr\*O routine in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime/BSD44_TEMPLATE\*O
+.DE
+.P
+and
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime/\*Vmachine\*O
+.DE
+.P
+directories.
+...\" 
+...\" 
+...\" .zA "def,8367,R1.0.3,enumerate_interfaces buffer size"
+...\" 
+.P
+Note that the \*Lenumerate_interfaces(\|)\*O routine defined in
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime/\*Vmachine\*L/ipnaf_sys.c\*O
+.DE
+.P
+may not allocate space for a sufficient number of \*Lifreq\*O structures for
+your system. The routine as supplied allocates a 1024-byte buffer on the stack
+for the structures, which are returned by the \*Lioctl(..., SIOCGIFCONF, ...)\*O
+call. Each \*Lifreq\*O structure is at least 32 bytes long, so this means
+that space is allocated for at most 32 \*Lifreq\*Os. See ``Porting the RPC Runtime
+Library'', above.
+...\" 
+...\" .zZ "def,8367,R1.0.3,enumerate_interfaces buffer size"
+...\" 
+.LI
+\*Luuidsys.c\*O
+.P
+This file contains system-specific code for generating universal unique
+identifiers (UUIDs). The DCE source tree contains different versions of
+\*Luuidsys.c\*O in the platform-specific subdirectories of:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime/\*O
+.DE
+.P
+The implementation of the \*Luuid__get_os_pid\*O, \*Luuid__get_os_address\*O,
+and \*Luuid__get_os_time\*O routines is platform-dependent.
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Exception Package for KRPC"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "KRPC" "exception package for"
+...\" 
+.P
+The kernel implementation of the DCE Exception Package resides in \*Lexc_handling.h\*O.
+The macros \*LTRY\*O, \*LCATCH\*O, \*LCATCH_ALL\*O, \*LFINALLY\*O, \*LENDTRY\*O,
+\*LRAISE\*O, and \*LRERAISE\*O are defined here. These macros may need to be
+redefined for your platform.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Threads Package for KRPC"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "KRPC" "threads package for"
+...\" 
+.P
+A kernel implementation of Pthreads was developed to minimize the effort involved
+in porting KRPC, and to minimize kernel-specific modules. This Pthreads
+implementation is not complete. It is only intended to satisfy the internal needs
+of DCE KRPC.
+.P
+Some operating systems have implemented threads in the kernel: for example, MACH
+and OSF/1. The Pthreads implementation on such a platform differs from the
+implementation on the reference port. In the AIX port, a thread in the kernel
+is a kernel process. A kernel process (\*Lkproc\*O) is created and always executes
+in the kernel protection domain. Unlike user space processes, kernel processes do
+not share all their data structures. In particular, \*Lkproc\*Os do not share
+socket descriptors.
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "APIs and Services for Kernel Threads"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The DCE Threads Application Programming Interfaces (API) can be grouped as
+follows:
+...\" 
+.BL
+.LI
+Thread Services
+.LI
+Attributes Object Services
+.LI
+Mutex Services
+.LI
+Condition Variable Services
+.LI
+Per-thread Context Services
+.LI
+Thread Cancellation Services
+.LE
+...\" 
+.P
+One way to get an idea of the effort involved in porting the threads package
+to a platform is to examine certain files depending on your system's kernel.
+The threads services include a \*Lpthread_create\*O procedure to create a
+thread. If your system supports threads in the kernel, look at the
+implementation of \*Lpthread_create\*O in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime/OSF1_TEMPLATE/pthread_sys.c\*O
+.DE
+.P
+file. If your system provides services to create kernel processes, look at
+the implementation of \*Lpthread_create\*O in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime/\*Vmachine\*L/pthread_sys.c\*O
+.DE
+.P
+or
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime/BSD44_TEMPLATE/pthread_sys.c\*O
+.DE
+.P
+file, depending on your operating system.
+...\" 
+...\" 
+...\"
+...\" ----------------------------------------------------------------------
+.sp 2
+.in -0.25i
+\s+1\*L
+Kernel RPC Threads Preprocessor Variables
+\*O\s-1
+.in +0.25i
+.sp 1
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+...\" 
+...\" .zA "KRPC Conditionals added"
+...\" 
+...\" 
+.P
+The KRPC threads implementation provided uses the following C preprocessor
+variables that may be of interest to developers using the package. All of
+these are defined in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime/pthread.h\*O
+.DE
+...\" 
+...\" 
+.VL .5i
+.LI
+\*LPTHREAD_COND_MACROS_ENABLE\*O
+.P
+Define to enable the use of an in-line macro rather than a function call
+for \*Lpthread_cond_signal(\|)\*O.
+...\" 
+.LI
+\*LPTHREAD_DESTRUCTOR_USEFUL\*O
+.P
+Define to enable the use of destructors for per-thread data, if useful on
+your platform \(em the KRPC threads implementation can apply destructors only
+at thread exit, and since normally it isn't called at thread exit, normally
+destructors cannot be used.
+...\" 
+.LI
+\*LPTHREAD_MUTEX_MACROS_ENABLE\*O
+.P
+Define to enable the use of in-line macros rather than function calls for
+the following routines:
+...\" 
+.BL
+.LI
+\*Lpthread_mutex_lock(\|)\*O
+.LI
+\*Lpthread_mutex_try_lock(\|)\*O
+.LI
+\*Lpthread_mutex_unlock(\|)\*O
+.LE
+...\" 
+.LE
+...\" .zZ "KRPC Conditionals added"
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Building and Linking"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "building component code" "RPC"
+.iX "RPC" "building component code"
+...\" 
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc\*O
+.DE
+.P
+directory contains the subdirectories for building the DCE RPC Service.
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/rpc.mk\*O
+.DE
+.P
+file contains the compiler flags for building the RPC Service. Machine-specific
+compiler flags that affect the compilation of the whole component or flags for
+individual subdirectories should be set in this file. Also, any machine specific
+libraries necessary to link the RPC binaries should be specified in this file.
+.P
+In \*Lrpc.mk\*O, the \*L${\*VTARGET_MACHINE\*L}_CFLAGS_COMMON\*O macro defines the
+compiler flags common to each of the component subdirectories. The
+\*L${\*VTARGET_MACHINE\*L}_CFLAGS\*O macro is set on a subdirectory-by-subdirectory
+basis using the \*L${\*VTARGET_MACHINE\*L}_CFLAGS_COMMON\*O macro and any additional
+compiler flags required by the subdirectory in question. The \*LCFLAGS\*O macro is
+then set via the \*L${\*VTARGET_MACHINE\*L}_CFLAGS\*O macro. The \*LYFLAGS\*O and
+\*LLIBS\*O macros are set up in a similar fashion.
+.P
+The
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/Makefile\*O
+.DE
+.P
+may be used to configure \*Llibnck.a\*O for various combinations of network
+protocols, authentication mechanisms, and name server usage.
+...\" 
+...\" An optional trace
+...\" facility may be enabled by extending \*LCFLAGS\*O with the \*L-DDEBUG\*O
+...\" flag.
+.P
+RPC uses the \*Llibdce.a\*O global library to resolve subroutines from other
+components, primarily DCE Threads, DCE Cell Directory Service, and DCE Security.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Building the IDL Compiler"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The DCE 1.1 IDL compiler sources must be built with the \*L-DMIA\*O option
+specified. If they are not, some of the files will be built in their 1.0
+versions. The ODE Makefiles that accompany DCE 1.1 have been modified to
+include this flag.
+...\" 
+...\" 
+...\" 
+...\" 
+.zA "def,10739,R1.1beta,removed NCS info"
+...\" ----------------------------------------------------------------------
+...\" .H 3 "NCS 1.5 Compatibility"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .P
+...\" Compilation of additional files for \*Llibnck.a\*O (the RPC runtime library)
+...\" which will provide NCS 1.5 compatibility can be suppressed by setting the
+...\" \*LNO_COMPAT_NCS15\*O flag.
+...\" 
+...\" 
+.zZ "def,10739,R1.1beta,removed NCS info"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Kernel Space RPC"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "building component code" "KRPC"
+.iX "KRPC" "building component code"
+...\" 
+.P
+The \*Llibknck.a\*O library is built in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/kruntime\*O
+.DE
+.P
+directory. To include kernel related definitions, define the \*L_KERNEL\*O and
+\*LKERNEL\*O flags.
+.P
+If you do not want to build KRPC, you should define \*LNO_KRPC\*O in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/Makeconf\*O
+.DE
+...\" 
+.P
+See Chapter 12 of this guide for more information about \*LMakeconf\*O.
+.P
+The \*LSIOCGIFCONF\*O flag causes an \*Lioctl(\|)\*O to obtain the list of active
+interfaces in the system. If each \*Lifreq\*O structure obtained contains the
+address of the interface, then specify the \*LNO_SIOCGIFADDR\*O flag to avoid
+having to do another \*Lioctl(\|)\*O to get the address of an interface.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Setup, Testing, and Verification"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "testing" "RPC"
+.iX "RPC" "testing"
+...\" 
+.P
+The following types of RPC test cases are shipped with DCE:
+...\" 
+.BL
+...\" .LI
+...\" IDL front end tests (for testing stub generation and error messages)
+.LI
+IDL compiler tests (for testing compiled stubs)
+.LI
+RPC application tests
+.LI
+KRPC application tests
+.LI
+RPC runtime library and IDL compiler tests
+.LE
+...\" 
+.P
+Before running the RPC runtime library and IDL compiler Name Service Interface
+(NSI) test cases, you must configure the namespace and start the namespace
+daemon and clerk. See the section on CDS setup in Chapter 6 of this guide for
+more information on configuring and starting CDS.
+.P
+Before running the RPC runtime library and IDL compiler RPC authentication test
+cases, the DCE Security Service must be configured properly. See the section on
+DCE Security Service setup in Chapter 9 of this guide for more information on
+configuring and starting DCE Security Service.
+...\" 
+.nS "note"
+These setup steps are not required prior to running the IDL compiler tests. They
+may be tested once their code has been built.
+.nE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+...\" .zA "dcetest_config information added"
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Installing RPC Functional Tests with dcetest_config"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+You can install the functional tests described in the following sections
+by running the menu-driven \*Ldcetest_config\*O script described in Chapter
+13 of this guide. \*Ldcetest_config\*O will install the tests you select at
+the path you specify, and will create a softlink (called \*L/dcetest/dcelocal\*O)
+to that location. The functional tests for a given component will thus be
+installed under a:
+.DS
+    \*L/dcetest/dcelocal/test/\*Vcomponent_name\*L/\*O
+.DE
+...\" 
+.P
+directory, where the \*Ltest/\*Vcomponent_name\*O elements of this path are
+equivalent to the \*Ltest/\*Vcomponent_name\*O elements in the pathnames given in
+the sections below, which refer to the tests' source or build locations.
+.P
+Note that \*Ldcetest_config\*O will prompt you for the location \*Vfrom which\*O
+the tests should be installed (in other words, the final location of the built
+test tree). For the RPC functional tests, this path should be the location, on
+your machine, of:
+.DS
+    \*Vdce-root-dir\*L/dce/install\*O
+.DE
+...\" 
+...\" 
+.P
+\(emwhich is the DCE \*Linstall\*O tree (for more information on the structure
+of the DCE tree, see Chapter 12 of this guide).
+.P
+Thus, \*Ldcetest_config\*O will install the RPC functional tests at:
+.DS
+    \*L/dcetest/dcelocal/test/rpc/\*O
+.DE
+...\" 
+.P
+where \*L/dcetest/dcelocal\*O is the link to whatever path you supplied as
+the install destination. 
+.P
+The advantage in using \*Ldcetest_config\*O to install the functional tests
+is that it will install \*Vall\*O that is needed and \*Vonly\*O what is needed
+out of the DCE build, thus avoiding the mistakes that can occur with manual
+installation.
+.P
+Note that you can only \*Vinstall\*O (if you choose) functional tests with
+\*Ldcetest_config\*O; for test configuration and execution you must follow
+the instructions in the sections below.
+.P
+Refer to Chapter 13 of this guide for further information on using
+\*Ldcetest_config\*O.
+...\" 
+...\" 
+...\" .zZ "dcetest_config information added"
+...\" 
+...\" ----------------------------------------------------------------------
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "RPC Setup"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "setup for testing" "of RPC"
+.iX "RPC" "setup for testing"
+...\" 
+.P
+The following steps are necessary in order to run the \*Lperf\*O and \*Lv2test\*O
+tests in normal configuration (that is, using the namespace to handle binding
+information). If you are testing only with full string bindings, the following
+steps are not necessary.
+.P
+To configure RPC for OSF\*(Tm DCE Version 1.1 testing, do the following:
+...\" 
+.AL
+.LI
+Make sure that
+.DS
+    \*L/opt/dce1.1/etc/cds_attributes\*O
+.DE
+.P
+is available from the DCE CDS component.
+...\" 
+.LI
+Make sure that the \*Ldced\*O endpoint map service is running.
+...\" 
+...\" 
+...\" .LI
+...\" Change to the
+...\" .DS
+...\"     \*L/opt/dce1.1/bin\*O
+...\" .DE
+...\" .P
+...\" directory and enter
+...\" .iS
+...\"     rpcd
+...\" .iE
+...\" .P
+...\" to start \*Lrpcd\*O (the RPC daemon). Note that \*Lrpcd\*O will not start unless
+...\" the \*Lcds_attributes\*O file is available. You can also include the \*L-d\*O flag
+...\" to provide debugging output when you start \*Lrpcd\*O.
+...\" 
+...\" 
+...\" 
+.LI
+You can optionally configure DCE CDS for \*Lrtandidl\*O name service tests and
+DCE Security Service for authenticated RPC testing. For more information on
+configuring these components, see the sections on component setup in the CDS
+and Security Service chapters of this guide.
+.LE
+...\" 
+...\" 
+...\" .zA "def,6901,R1.0.2,rpcd and no network interfaces"
+...\" 
+...\" .nS "Note"
+...\" RPC should be tested on a machine with at least one network interface; \*Lrpcd\*O
+...\" will terminate with a core dump if run on a machine with no network interfaces.
+...\" .nE
+...\" 
+...\" .zZ "def,6901,R1.0.2,rpcd and no network interfaces"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "RPC Application Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "testing" "user-mode RPC"
+.iX "RPC" "testing" "user-mode"
+...\" 
+.P
+The following test cases are shipped with DCE to test the user-mode version of
+RPC:
+...\" 
+.BL
+.LI
+\*Lperf\*O
+.LI
+\*Lv2test\*O
+.LE
+...\" 
+.P
+The source code for these test cases can be found in the \*Lperf\*O
+and \*Lv2test_lib\*O subdirectories of the
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/rpc/runtime\*O
+.DE
+.P
+directory of the DCE source tree.
+...\" 
+...\" Executables can be found in
+...\"	\*Vdce-root-dir\*L/obj/\*Vmachine\*L/test/rpc/runtime/v2test_lib\*O
+...\" 
+.P
+Both of these test cases let you test authenticated remote procedure calls.
+However, running authenticated RPC requires special configuration of both the
+client and server machines. See Chapter 9 of this guide for information on how
+to perform this configuration.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The perf Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lperf\*O test case tests a larger subset of the RPC runtime library than
+\*Lv2test\*O. You must start the \*Lperf server\*O as one process and then start
+the \*Lperf client\*O as another process before running the \*Lperf\*O test case.
+These processes can be run on the same or different hosts, as long as the server
+process is started first. The \*Lserver\*O and \*Lclient\*O can be found in the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/rpc/runtime/perf\*O
+.DE
+...\" 
+.P
+directory. (Note that the contents of this directory are built from the contents
+of the
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/rpc/runtime/perf\*O
+.DE
+...\" 
+.P
+directory in the source tree.)
+.P
+To test using the \*Lperf\*O test case, make a number of remote procedure calls
+from the \*Lperf\*O client to the \*Lperf\*O server. The \*Lperf\*O server waits
+for remote procedure calls from the \*Lperf\*O client and then gives a response.
+The \*Lperf\*O server then prints messages that give the results of the remote
+procedure call. To fully test using \*Lperf\*O test, use different combinations
+of \*Lperf\*O server and \*Lperf\*O client testing options and observe the
+resulting messages.
+.P
+To start the \*Lserver\*O, enter
+...\" 
+.iS
+    server 1 ncadg_ip_udp
+.iE
+...\" 
+.P
+or:
+...\" 
+.iS
+    server 1 ncacn_ip_tcp
+.iE
+...\" 
+.P
+at the command line. The following message will be printed:
+...\" 
+.oS
+    Got Binding: ncadg_ip_udp:\*Vip_addr\*C[\*Vport\*C]\*O
+.oE
+...\" 
+.P
+where \*Vip_addr\*O is the IP address of the server and \*Vport\*O is the number
+of the port the server is listening to.
+.P
+To start the \*Lclient\*O, enter a command similar to the following:
+...\" 
+.iS
+    client 1 ncadg_ip_udp:\*Vip_addr\*L[\*Vport\*L] 10 5 n y 100\*O
+.iE
+...\" 
+.P
+or:
+...\" 
+.iS
+    client 1 ncacn_ip_tcp:\*Vip_addr\*L[\*Vport\*L] 10 5 n y 100\*O
+.iE
+...\" 
+.P
+at the command line, where \*Vip_addr\*O is the IP address of the server (printed
+out when you started the server) and \*Vport\*O is the port number that the server
+is listening to (printed out when you started the server).
+.P
+See the
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/rpc/runtime/perf/README\*O
+.DE
+...\" 
+.P
+file for further information, including information about several scripts that
+can be used to run the \*Lperf\*O tests.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 5 "Help Messages"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+You can get help messages on how to invoke both the \*Lserver\*O and \*Lclient\*O
+programs by entering the program name at the command line with no arguments. You
+can get additional help on a specific \*Lclient\*O test case by entering the
+program name followed by the test number. For example, entering \*Lclient 2\*O
+prints help on test number 2.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 5 "The perf server Program"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lperf server\*O testing options are listed below:
+...\" 
+...\" 
+.in +2
+.iS
+server [-sD] [-S server_loops] [-d \*Vswitch_level\*L] [-p \*Vauth_proto, principal\*L, [\*Vkeytab_file\*L]]
+.nL
+[-v {0|1}]
+.nL
+[-B \*Vbufsize\*L] \*Vmax_calls protseq_spec \*L[\*Vprotseq_spec ...\*L]\*O
+.iE
+.in -2
+...\" 
+...\" 
+where:
+...\" 
+.VL 1.4i
+.LI "\*L-s\*O"
+Enables remote shutdown of the server. This parameter is optional, and is currently
+not implemented.
+.LI "\*L-D\*O"
+This optional parameter specifies the default level of debug output.
+.LI "\*L-S\ \*Vserver_loops\*O"
+Specifies the number of times to run the server listen loop. If no value is specified
+for the \*Vserver_loops\*O parameter, the default value is 1.
+.LI "\*L-d\ \*Vswitch_level\*O"
+This optional parameter lets you specify the amount of debug output desired. Some
+useful \*Vswitch_level\*O settings are the following:
+...\" 
+.VL 1i
+.LI "0-3.5"
+Maximum error/anomalous condition reporting and mutex checking. This amount of
+output is often too verbose for normal use. Also, there is extra overhead for mutex
+checking.
+.LI "0-1.10"
+Same function as 0-3.5, but drops some transmit/receive informational messages.
+.LI "2-3.4"
+Same function as 0-1.10.
+.LI "0.10"
+Reports all error conditions plus a little more; no mutex checking.
+.LI "0.1"
+Report error conditions only (same as specifying \*L-d\*O).
+.LE
+...\" 
+.LI "\*L-p\*O
+Specifies an authenticated RPC call. You must enter the \*L-p\*O parameter with the
+\*Vauth_proto\*O parameter and the \*Vprincipal\*O parameter.
+.LI "\*Vauth_proto\*O"
+Specifies which authentication service to use when the server receives a remote
+procedure call. The following values are valid for \*Vauth_proto\*O:
+...\" 
+.VL 1i
+.LI "0"
+No authentication is used.
+.LI "1"
+OSF DCE private key authentication is used.
+.LI "2"
+OSF DCE public key authentication is used. This parameter is reserved for future
+use and is not yet supported.
+.LE
+...\" 
+...\" 
+...\" .zA "def,8240,R1.0.3,added warning"
+.P
+Note that if private key authentication is desired, a keytab file must be set up
+(with the \*Lrgy_edit ktadd\*O command) before the server program is run. Otherwise,
+the server will display the following message at startup:
+.oS
+    ***Error setting principal - Requested key is unavailable (dce/sec)
+.oE
+.P
+and terminate.
+...\" 
+...\" .zZ "def,8240,R1.0.3,added warning"
+...\" 
+...\" 
+.LI "\*Vprincipal\*O"
+Specifies the principal name of the server to use when authenticating remote
+procedure calls. The content of the name and its syntax are defined by the
+authentication service in use.
+.LI "\*L-v\ 0\*O"
+Enables verbose output.
+.LI "\*L-v\ 1\*O"
+Disables verbose output. Verbose output is disabled by default if no \*L-v\*O
+flag is used with \*Lperf server\*O.
+.LI "\*Vbufsize\*O"
+Sets the connection-oriented protocol socket buffer size, specified in bytes.
+.LI "\*Vmax_calls\*O"
+Specifies the number of threads that are created to service requests.
+.LI "\*Vprotseq_spec\*O"
+Specifies one of the following:
+...\" 
+.VL 1i
+.LI "\*Vprotocol_sequence\*O"
+.nL
+Tells the server to listen for remote procedure calls using the specified protocol
+sequence (for example, network protocol) combined with the endpoint information in
+\*Lperf.idl\*O. Valid values for this argument are described in the discussion of
+the \*Lv2server\*O program. The server calls \*Lrpc_server_use_protseq_if\*O to
+register the protocol sequence with the RPC runtime.
+.LI "\*Vall\*O"
+Tells the server to listen for remote procedure calls using all supported protocol
+sequences. The RPC runtime creates a different binding handle for each protocol
+sequence. Each binding handle contains an endpoint dynamically generated by the
+RPC runtime. The server calls \*Lrpc_server_use_all_protseqs\*O to accomplish this.
+...\"	
+.LI "\*Vallif\*O"
+Tells the server to listen for remote procedure calls using all the specified protocol
+sequences and endpoint information in \*Lperf.idl\*O. The server uses
+\*Lrpc_server_use_all_protseqs_if\*O to accomplish this.
+.LI "\*Lep\ \*Vprotocol_sequence\ endpoint\*O"
+.nL
+Tells the server to listen for remote procedure calls using the specified protocol
+sequence and endpoint information (for example, \*Lep ncadg_ip_udp 2000\*O). The
+server calls \*Lrpc_server_use_protseq_ep\*O to accomplish this.
+.LI "\*Lnotif\ \*Vprotocol_sequence\*O"
+.nL
+Tells the server to listen for remote procedure calls using the specified protocol
+sequence. The RPC runtime dynamically generates the endpoint. The server calls
+\*Lrpc_server_use_protseq\*O to accomplish this.
+.LE
+...\" 
+...\" .LI "\*L-r\*O"
+...\" Enables the use of reserved threads.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 5 "The perf client Program"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+the \*Lperf client\*O testing options are listed below:
+...\" 
+.iS
+    client [-Disf] [-d \*Vswitch_level\*L] [{-m | -M} \*Vnthreads\*L] [-t \*Vtimeout\*L]\\
+           [-c \*Vtimeout\*L] [-w \*Vwait_point\*L, \*Vwait_secs\*L]\\
+           [-p \*Vauth_proto\*L, \*Oauthz_proto \*L[, \*Vlevel, principal\*L]\\
+           [-r \*Vfrequency\*L] [-R \*Vfrequency\*L] [-v {0|1}]\\
+           [-f \*Vopt\*L] [-B \*Vbufsize\*L] [-o] [-s]\\
+           \*Ltest \*Vtest_parms\*O
+.iE
+...\" 
+where:
+...\" 
+.VL 1.4i
+.LI "\*L-D\*O"
+This optional parameter specifies the default level of debug output.
+.LI "\*L-i\*O"
+This optional parameter causes statistics to be dumped at the end of
+the test.
+.LI "\*L-s\*O"
+This optional parameter prints statistics at the end of the test.
+.LI "\*L-o\*O"
+Specifies that \*Lperf\*O object UUID be used in bindings (default is that no
+object UUID is used).
+.LI "\*L-f\*O"
+Repeats the test after a \*Lfork(\|)\*O.
+.LI "\*L-d\ \*Vswitch_level\*O"
+Lets you specify the amount of debug output desired. Some useful \*Vswitch_level\*O
+settings are the following:
+...\" 
+.VL 1i
+.LI "0-3.5"
+Maximum error/anomalous condition reporting and mutex checking. This amount of
+output is often too verbose for normal use. Also, there is extra overhead for
+mutex checking.
+.LI "0-1.10"
+Same function as 0-3.5, but drops some transmit/receive informational messages.
+.LI "2-3.4"
+Same function as 0-1.10.
+.LI "0.10"
+Reports all error conditions plus a little more; no mutex checking.
+.LI "0.1"
+Report error conditions only (same as specifying \*L-d\*O).
+.LE
+...\" 
+.LI "\*L-m\ \*Vnthreads\*O"
+This optional parameter causes \*Vnthreads\*O tasks to be run at the same time.
+.LI "\*L-M\ \*Vnthreads\*O"
+This optional parameter has the same function as the \*L-m\*O parameter, but
+uses a shared binding handle.
+.LI "\*L-t\ \*Vtimeout\*O"
+Sets the communications timeout value to \*Vtimeout\*O seconds. The value
+specified for \*Vtimeout\*O must be between zero and ten.
+.LI "\*L-c\ \*Vtimeout\*O"
+Sets the cancel timeout value to \*Vtimeout\*O seconds.
+.LI "\*L-w\ \*Vwait_point,\ wait_secs\*O"
+.nL
+Causes the client to wait at the \*Vwait_point\*O for \*Vwait_secs\*O seconds.
+.LI "\*L-p\*O"
+Specifies an authenticated RPC call. You must enter the \*Vauth_proto\*O and
+\*Vauthz_proto\*O parameters when using \*L-p\*O; the \*Vlevel\*O and
+\*Vprincipal\*O parameters are optional.
+...\" 
+.LI "\*L-r\ \*Vfrequency\*O"
+Resets bindings every \*Vfrequency\*O number of calls in a single pass.
+.LI "\*L-R\ \*Vfrequency\*O"
+Recreates bindings every \*Vfrequency\*O number of calls in a single pass.
+...\" 
+.LI "\*Vauth_proto\*O"
+Specifies which authentication service to use. The following values are valid
+for \*Vauth_proto\*O:
+...\" 
+.VL .5i
+.LI "0"
+No authentication is used.
+.LI "1"
+OSF DCE private key authentication is used.
+.LI "2"
+OSF DCE public key authentication is used. This parameter is reserved for future
+use and is not yet supported.
+.LE
+...\" 
+.LI "\*Vauthz_proto\*O"
+Specifies the authorization service implemented by the server.
+...\" The validity and trustworthiness of authorization data is dependent
+...\" on the authentication service and authentication level selected.
+The following values are valid for \*Vauthz_proto\*O:
+...\" 
+.VL .5i
+.LI "0"
+The server performs no authorization.
+.LI "1"
+Server performs authorization based on the client principal name.
+.LI "2"
+Server performs authorization checking using the client DCE privilege
+attribute certificate (PAC) information sent to the server with each
+remote procedure call.
+.LE
+...\" 
+.LI "\*Vlevel\*O"
+Specifies the level of authentication to be performed on remote procedure calls.
+The following values are valid for \*Vlevel\*O:
+...\" 
+.VL .5i
+.LI "0"
+Use the default authentication level for the specified authentication service.
+.LI "1"
+Perform no authentication.
+.LI "2"
+Authenticate only when the client first establishes a relationship with the
+server (only on "connect.")
+.LI "3"
+Authenticate only at the beginning of each remote procedure call.
+.LI "4"
+Authenticate that all data received is from the expected client.
+.LI "5"
+Authenticate that none of the data transferred between client and server has
+been modified.
+.LI "6"
+Authentication includes all previous levels as well as encrypting each remote
+procedure call argument.
+.LE
+...\" 
+.LI "\*Vprincipal\*O"
+Specifies the expected principal name of the server. The content of the name
+and its syntax are defined by the authentication service in use.
+.LI "\*L-v\ 0\*O"
+Enables verbose output.
+.LI "\*L-v\ 1\*O"
+Disables verbose output. Verbose output is disabled by default if no \*L-v\*O
+flag is used with
+\*Lperf client\*O.
+...\" 
+.LI "\*L-f\ \*Vopt\*O"
+Repeats test after fork. \*Vopt\*O is a digit from 1 to 6, with the following
+meanings:
+...\" 
+.VL .5i
+.LI "\*L1\*O"
+Repeat test in the original and child processes.
+.LI "\*L2\*O"
+Repeat test in the original process only.
+.LI "\*L3\*O"
+Repeat test in the child process only.
+.LI "\*L4\*O"
+Repeat test in the child and grandchild processes.
+.LI "\*L5\*O"
+Repeat test in the grandchild process only.
+.LI "\*L6\*O"
+Run test in the child process only.
+.LE
+...\" 
+...\" 
+.LI "\*L-B\ \*Vbufsize\*O"
+Sets the connection-oriented protocol TCP socket buffer size, where
+\*Vbufsize\*O is the desired size, specified in bytes.
+...\" 
+...\" 
+.LI "\*Ltest\*O"
+Specifies which test to run. Each test requires different \*Vtest_parms\*O. The
+following values are valid for \*Vtest\*O:
+...\" 
+.VL .5i
+.LI "0"
+Null call
+.LI "1"
+Variable-length input argument
+.LI "2"
+Variable-length output argument
+.LI "3"
+Broadcast test
+.LI "4"
+Maybe test
+.LI "5"
+Broadcast/maybe test
+.LI "6"
+Floating-point test
+.LI "7"
+Call unregistered server interface
+.LI "8"
+Forwarding test
+.LI "9"
+Exception test
+.LI "10"
+Slow call
+.LI "11"
+Shutdown server
+.LI "12"
+Callback (\*LNote:\*O This test is not supported.)
+.LI "13"
+Generic interface test
+.LI "14"
+Context test
+.LI "15"
+Static cancel test
+.LI "16"
+Statistics test
+.LI "17"
+Interface identifiers test
+.LI "18"
+One shot test
+...\" 
+.LE
+...\" 
+.LI "\*Vtest_parms\*O"
+The following \*Vtest_parms\*O correspond to the test numbers:
+...\" 
+.VL .5i
+.LI "\*LTest Number\*O"
+\*LTest_Parms\*O
+.LI "0"
+\*Vstring_binding passes calls/pass verify? idempotent?\*O
+.LI "1"
+\*Vstring_binding passes calls/pass verify? idempotent? nbytes\*O
+.LI "2"
+\*Vstring_binding passes calls/pass verify? idempotent? nbytes\*O
+.LI "3"
+\*Vprotocol_sequence\*O
+.LI "4"
+\*Vstring_binding\*O
+.LI "5"
+\*Vprotocol_sequence\*O
+.LI "6"
+\*Vstring_binding passes calls/pass verify? idempotent?\*O
+.LI "7"
+\*Vstring_binding\*O
+.LI "8"
+\*Vstring_binding global?\*O
+.LI "9"
+\*Vstring_binding\*O
+.LI "10"
+\*Vstring_binding passes calls/pass verify? idempotent? seconds [mode]\*O
+.LI "11"
+\*Vstring_binding\*O
+.LI "12"
+\*Vstring_binding passes callbacks/pass idempotent?\*O
+.LI "13"
+\*Vstring_binding\*O
+.LI "14"
+Host passes \*Vdie?\*O seconds
+.LI "15"
+Host passes \*Vidempotent?\*O \*L[seconds[cancel_two_seconds]]\*O
+.LI "16"
+\*V[host+ep]\*O
+.LI "17"
+\*V[host+ep]\*O
+.LI "18"
+\*V[host+ep] \*Vforward? idempotent?\*O
+.LE
+...\" 
+where:
+...\" 
+.VL .5i
+...\" 
+.LI "\*Vstring_binding\*O"
+.nL
+Contains the character representation of a binding in the form
+\*Vprotocol_sequence:network_address[port]\*O, where \*Vprotocol_sequence\*O
+is one of the valid protocol sequences discussed previously, \*Vnetwork_address\*O
+is the network address of the server, and \*Vport\*O is the port the server is
+listening to.
+...\" 
+.LI "\*Vpasses\*O"
+.nL
+Specifies the number of times to run the test.
+...\" 
+.LI "\*Vcalls/pass\*O"
+.nL
+Specifies the number of remote calls per pass.
+...\" 
+.LI "\*Vverify?\*O"
+.nL
+Specifies whether the test case must verify that there were no data transmission
+errors. Enter \*Ly\*O to verify, \*Ln\*O to not verify.
+...\" 
+.LI "\*Vdie?\*O"
+.nL
+For the context test, this parameter specifies if the server's context is freed
+at the end of each pass. Enter \*Ly\*O to free the context.
+...\" 
+.LI "\*Vidempotent?\*O"
+.nL
+Specifies whether or not to place an idempotent or nonidempotent call (enter \*Ly\*O
+to place an idempotent call, \*Ln\*O to place a nonidempotent call.)
+...\" 
+.LI "\*Vnbytes\*O"
+.nL
+Specifies the number of bytes transferred per call.
+...\" 
+.LI "\*Vprotocol_sequence\*O"
+.nL
+Specifies one or more network protocols that can be used to communicate with a client.
+Valid values for this argument are specified in the discussion of the \*Lv2server\*O
+program.
+...\" 
+.LI "\*Vcallbacks/pass\*O"
+.nL
+Specifies the number of times the server calls back the client per pass.
+...\" 
+.LI "\*Vseconds\*O"
+.nL
+The \*Vseconds\*O parameter specifies the number of seconds the server delays while
+executing a remote procedure call. For the context test, this parameter specifies the
+number of seconds the client will \*Lsleep\*O after it checks if the test was
+successful.
+...\" 
+.LI "\*Vmode\*O"
+.nL
+For the \*Vslow call\*O test, \*Vmode\*O specifies the technique used by \*Lperf\*O
+to slow down the call. The following values are valid for \*Vmode\*O:
+...\" 
+.VL .5i
+.LI "0"
+Sleep
+.LI "1"
+Slow I/O
+.LI "2"
+CPU loop
+.LE
+...\" 
+.LI "\*Vglobal\*O"
+.nL
+This parameter is currently not checked. It can be set by entering \*Ly\*O or \*Ln\*O.
+...\" 
+...\" .zA "def,7012,R1.0.2,add cancel_two_seconds info"
+...\" 
+.LI "\*Vcancel_two_seconds\*O"
+.nL
+Specifies the number of seconds that the client's RPC runtime will wait for a server
+to acknowledge a cancel. Note that the value of \*Vcancel_two_seconds\*O must be
+greater than the value of the \*Vseconds\*O argument (described above); otherwise
+Test 15 cannot be run successfully.
+...\" 
+...\" 
+...\" .zZ "def,7012,R1.0.2,add cancel_two_seconds info"
+...\" 
+...\" 
+...\" 
+...\" 
+.LI "\*V[host+ep]\*O"
+.nL
+Specifies the host IP address and endpoint.
+.LE
+...\" 
+.LE
+...\" 
+...\" .zA "Moved v2test section"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The v2test Testcase"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lv2test\*O test suite tests the underlying packet-handling routines of
+the RPC runtime library. You must start the \*Lv2server\*O program as one
+process and then start the \*Lv2client\*O program as another process before
+running the \*Lv2test\*O test suite. These processes can be run on the same
+host or on different hosts as long as the server process is started first.
+The \*Lv2server\*O and \*Lv2client\*O can be found in the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/rpc/runtime/v2test_lib\*O
+.DE
+.P
+directory. (Note that the contents of this directory are built from the
+contents of the
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/rpc/runtime/v2test_lib\*O
+.DE
+...\" 
+.P
+directory in the source tree.)
+...\" 
+...\" .P
+...\" For OSF/1, there is also a version of \*Lv2test\*O which can be used to test
+...\" KRPC. It requires that debugging libraries be included into the kernel. These
+...\" libraries are included in the kernels built under:
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/file/OSF1\*O
+...\" .DE
+...\" 
+...\" 
+...\" .zA "Added v2test information"
+...\" 
+.P
+Essentially, the \*Lv2test\*O bypasses the IDL stubs to test parts of the
+underlying RPC runtime. The following two scripts:
+...\" 
+.BL
+.LI
+\*Lv2test_tcp.sh\*O
+.LI
+\*Lv2test_udp.sh\*O
+.LE
+...\" 
+.P
+contain useful test scenarios.
+...\" 
+...\" 
+...\" 
+.nS "Note"
+It is possible to successfully pass illegal combinations of arguments to the
+\*Lv2test\*Os; the tests should therefore be used carefully.
+.nE
+...\" 
+...\" .zZ "Added v2test information"
+...\" 
+...\" 
+...\" 
+...\" 
+.P
+To test using the \*Lv2test\*O suite, make a number of remote procedure calls
+from the \*Lv2client\*O to the \*Lv2server\*O. The \*Lv2server\*O waits for
+remote procedure calls from the \*Lv2client\*O and then gives a response. The
+\*Lv2server\*O then prints messages that give the results of the remote procedure
+call. To fully test using \*Lv2test\*O, use different combinations of \*Lv2server\*O
+and \*Lv2client\*O testing options and observe the resulting messages.
+.P
+To start the server, enter
+...\" 
+.iS
+    v2server 1 ncadg_ip_udp
+.iE
+...\" 
+.P
+or:
+...\" 
+.iS
+    v2server 1 ncacn_ip_tcp
+.iE
+...\" 
+.P
+at the command line. A message similar to the following will be printed:
+...\" 
+.oS
+    Got Binding: ncadg_ip_udp:\*Vip_addr[port]\*O
+.oE
+...\" 
+.P
+where \*Vip_addr\*O is the IP address of the server and \*Vport\*O is
+the port number the server is listening to.
+.P
+To start the client, enter a command similar to the following:
+...\" 
+.iS
+    v2client io ncadg_ip_udp:\*Vip_addr[port]\*O \*O10 17 132 0
+.iE
+...\" 
+.P
+or:
+...\" 
+.iS
+    v2client io ncacn_ip_tcp:\*Vip_addr[port]\*O \*O10 17 132 0
+.iE
+...\" 
+.P
+at the command line, where \*Vip_addr\*O is the IP address of the
+server (printed out when you started \*Lv2server\*O) and \*Vport\*O is
+the port number that the server is listening to (also printed out when
+you started \*Lv2server\*O).
+.P
+You can get help messages on how to invoke both the \*Lv2server\*O
+and \*Lv2client\*O programs by entering the program name at the command
+line with no arguments.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 5 "The v2server Program"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lv2server\*O testing options are as follows:
+...\" 
+.iS
+    v2server [-Dbce] [-d \*Vswitch_level\*L] [-p \*Vauth_prot, auth_name\*L] \\
+             \*Vmax_calls protocol_sequence\*O
+.iE
+...\" 
+.P
+where:
+...\" 
+.VL 1.4i
+.LI "\*L-D\*O"
+This optional parameter specifies the default level of debug output.
+.LI "\*L-b\*O
+Enables a break between the RPC runtime calls.
+.LI "\*L-c\*O"
+This optional parameter causes the server to call back its clients.
+.LI "\*L-e\*O"
+This optional parameter causes the server to register its endpoint
+with the local location broker daemon, unregister its endpoint, and
+print a message indicating whether these operations were successful.
+.LI "\*L-d\ \*Vswitch_level\*O"
+This optional parameter lets you specify the amount of debug output desired.
+Some useful \*Vswitch_level\*O settings are the following:
+...\" 
+.VL 1i
+.LI "0-3.5"
+Maximal error/anomalous condition reporting and mutex checking.
+This amount of output is often too verbose for normal use, and there
+is extra overhead for mutex checking.
+.LI "0-1.10"
+Same function as 0-3.5, but drops some transmit/receive
+informational messages.
+.LI "2-3.4"
+Same function as 0-1.10.
+.LI "0.10"
+Reports all error conditions plus a little more; no mutex checking.
+.LI "0.1"
+Report error conditions only (same as specifying \*V-d\*O).
+.LE
+...\" 
+.LI "\*L-p\*O"
+Specifies an authenticated RPC call. You must enter the \*L-p\*O parameter
+with the \*Vauth_prot\*O and the \*Vauth_name\*O parameters.
+.LI "\*Vauth_prot\*O"
+Specifies which authentication service to use. The following values are
+valid for \*Vauth_prot\*O:
+...\" 
+.VL .5i
+.LI "0"
+No authentication is used.
+.LI "1"
+OSF DCE private key authentication is used.
+.LI "2"
+OSF DCE public key authentication is used. This parameter is reserved for
+future use, and is not yet supported.
+.LE
+...\" 
+.LI "\*Vauth_name\*O"
+Specifies the principal name of the server. The content of the name and its
+syntax are defined by the authentication service in use.
+.LI "\*Vmax_calls\*O"
+Specifies the number of threads that are created to service requests.
+.LI "\*Vprotocol_sequence\*O"
+Specifies one or more network protocols that can be used to communicate with
+client applications. The following values are valid for \*Vprotocol_sequence\*O:
+...\" 
+.VL 1.4i
+.LI "\*Lncacn_ip_tcp\*O"
+NCA connection over Internet Protocol: Transmission Control Protocol
+(TCP/IP).
+.LI "\*Lncadg_ip_udp\*O"
+NCA datagram over Internet Protocol: User Datagram Protocol (UDP/IP).
+.LE
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 5 "The v2client Program"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lv2client\*O testing options are listed below:
+...\" 
+...\" 
+.iS
+\*Lv2client [-D] [-d \*Vswitch_level\*L] [-p \*Vauth_prot, authz_proto, level, auth_name\*L]\\
+            \*Vtest  string_binding num_calls  num_buffs  buff_size  call_opts\*O\*O
+.iE
+...\" 
+.P
+where:
+...\" 
+.VL 1.4i
+.LI "\*L-D\*O"
+This optional parameter specifies the default level of debug output.
+.LI "\*L-d\ \*Vswitch_level\*O"
+This optional parameter lets you specify the amount of debug output desired. Some
+useful \*Vswitch_level\*O settings:
+...\" 
+.VL 1i
+.LI "0-3.5"
+Maximum error/anomalous condition reporting and mutex checking. This amount of output
+is often too verbose for normal use, and there is extra overhead for mutex checking.
+.LI "0-1.10"
+Same function as 0-3.5, but drops some transmit/receive informational messages.
+.LI "2-3.4"
+Same function as 0-1.10.
+.LI "0.10"
+Reports all error conditions plus a little more; no mutex checking.
+.LI "0.1"
+Reports error conditions only (same as specifying \*V-d\*O).
+.LE
+...\" 
+.LI "\*L-p\*O"
+Specifies an authenticated RPC call. You must enter the \*L-p\*O parameter with the
+\*Vauth_prot\*O, \*Vauthz_proto\*O, \*Vlevel\*O, and \*Vauth_name\*O parameters.
+.LI "\*Vauth_prot\*O"
+Specifies which authentication service to use. The following values are valid for
+\*Vauth_prot\*O:
+...\" 
+.VL .5i
+.LI "0"
+No authentication is used.
+.LI "1"
+OSF DCE private key authentication is used.
+.LI "2"
+OSF DCE public key authentication is used. This parameter is reserved for future use
+and is not yet supported.
+.LE
+...\" 
+.LI "\*Vauthz_proto\*O"
+Specifies the authorization service implemented by the server. The validity and
+trustworthiness of authorization data depends on the authentication service and
+authentication level selected. The following values are valid for \*Vauthz_prot\*O:
+...\" 
+.VL .5i
+.LI "0"
+The server performs no authorization
+.LI "1"
+Server performs authorization based on the client principal name.
+.LI "2"
+Server performs authorization checking using the client DCE privilege
+attribute certificate (PAC) information sent to the server with each
+remote procedure call.
+.LE
+...\" 
+.LI "\*Vlevel\*O"
+Specifies the level of authentication to be performed on remote procedure calls.
+The following values are valid for \*Vlevel\*O:
+...\" 
+.VL .5i
+.LI "0"
+Use the default authentication level for the specified authentication service.
+.LI "1"
+Perform no authentication.
+.LI "2"
+Authenticate only when the client first establishes a relationship with the server
+(only on ``connect.'')
+.LI "3"
+Authenticate only at the beginning of each remote procedure call.
+.LI "4"
+Authenticate that all data received is from the expected client.
+.LI "5"
+Authenticate that none of the data transferred between client and server has been
+modified.
+.LI "6"
+Authentication includes all previous levels as well as encrypting each remote
+procedure call argument.
+.LE
+...\" 
+.LI "\*Vauth_name\*O"
+Specifies the expected principal name of the server. The content of the name and
+its syntax are defined by the authentication service in use.
+.LI "\*Vtest\*O"
+Specifies one of the following tests:
+...\" 
+.VL .5i
+.LI "n"
+Null test. Makes remote procedure calls with no parameters.
+.LI "i"
+Input test. Makes remote procedure calls with input parameters only.
+.LI "o"
+Output test. Makes remote procedure calls with output parameters only.
+.LI "io"
+Input/Output test. Makes remote procedure calls with both input and output
+parameters.
+.LE
+...\" 
+.LI "\*Vstring_binding\*O"
+Contains the character representation of a binding in the form
+...\" 
+.DS
+    \*Vprotocol_sequence:network_address[port]\*O
+.DE
+...\" 
+.P
+where \*Vprotocol_sequence\*O is one of the valid protocol sequences
+discussed previously, \*Vnetwork_address\*O is the network address of
+the server, and \*Vport\*O is the port the server is listening to.
+.LI "\*Vnum_calls\*O"
+Specifies the number of times \*Lv2client\*O calls the server.
+.LI "\*Vnum_buffs\*O"
+Specifies the number of buffers that are sent with each call.
+.LI "\*Vbuff_size\*O"
+Specifies the number of bytes in each buffer.
+.LI "\*Vcall_opts\*O"
+Specifies one of the following call options:
+...\" 
+.VL .5i
+.LI "0"
+Nonidempotent call
+.LI "1"
+Broadcast call
+.LI "2"
+Idempotent call
+.LI "4"
+Maybe call
+.LI "8"
+Nonidempotent call; actively keeps communications alive with the server
+.LI "9"
+Broadcast call; actively keeps communications alive with the server
+.LI "10"
+Idempotent call; actively keeps communications alive with the server
+.LI "12"
+Maybe call; actively keeps communications alive with the server
+.LE
+...\" 
+.LE
+...\" 
+...\" .zZ "Moved v2test section"
+...\" 
+...\" 
+...\" 
+...\" .zA "Removed IDL frontend tests"
+...\" .zZ "Removed IDL frontend tests"
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "IDL Compiler Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "testing" "IDL compiler"
+.iX "IDL compiler" "testing" "IDL data types"
+...\" 
+.P
+The test cases for IDL data types are found in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/rpc/idl\*O
+.DE
+.P
+directory. The compatibility testcases are provided for information purposes
+only; they do not compile properly. The
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/rpc/idl/README\*O
+.DE
+.P
+file contains additional information about the test cases.
+.P
+Before running the IDL tests, be aware of the following:
+...\" 
+.BL
+.LI
+The stubs and the \*Lserver\*O and \*Lclient\*O programs for each test case
+are built when the source tree is built.
+.LI
+The IDL compiler will not report an error if there is no \*L.acf\*O file
+corresponding to an \*L.idl\*O file, so always keep the \*L.acf\*O file in
+the directory where the \*Lbuild\*O or \*Lmake\*O command is issued.
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "IDL Compiler Testcase Driver"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+To run the IDL compiler testcase driver, enter:
+...\" 
+.iS
+    run_tests \*Vrepeat_count \*L[\*V testcase_name ... \*L]
+.iE
+...\" 
+.P
+where \*Vrepeat_count\*O specifies the number of times to repeat a test, and
+\*Vtestcase_name\*O specifies the testcase (or testcases ) to run.
+...\" 
+.P
+To test connection-oriented RPC, you must set the \*LPROTOCOL\*O environment
+variable to ``ncacn_ip_tcp''; \*Lrun_tests\*O defaults this to ``ncadg_ip_udp''.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Running Individual Testcases"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+To run a test, you must first start the \*Lserver\*O as one process, then start
+the \*Lclient\*O as another process. These processes can be run on the same or
+different hosts as long as the \*Lserver\*O process is started first.
+.P
+The server and client processes exist under each built subdirectory (for example,
+in the
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/rpc/idl/array\*O
+.DE
+...\" 
+.P
+directory. In general these build locations correspond to subdirectories in
+the source tree; for example, the contents of the subdirectory mentioned just
+above are built from the contents of the
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/rpc/idl/array\*O
+.DE
+...\" 
+.P
+directory). To start the \*Lserver\*O for a test case, enter
+...\" 
+.iS
+    server [ - | -f \*Vfilename\*L ] \*Vprotseq\*O
+.iE
+...\" 
+.P
+where \*L-\*O specifies that binding information be written to standard output,
+\*L-f\*V filename\*O specifies that binding information be written out to the
+file \*Vfilename\*O, and \*Vprotseq\*O specifies the protocol sequence (usually
+\*Lncadg_ip_udp\*O or \*Lncadg_ip_tcp\*O) used. The command prints the line
+...\" 
+.oS
+    \*Vprotocol\*C \*Vip_addr\*C \*Vport\*O
+.oE
+...\" 
+.P
+where \*Vprotocol\*O is the protocol specified with the \*Lserver\*O command,
+\*Vip_addr\*O is the IP address of the server, and \*Vport\*O is the number
+of the port the server is monitoring. Unless you specify a name for \*Vfilename\*O,
+information is written to a file called \*Lbinding.dat\*O.
+.P
+To start the \*Lclient\*O, enter
+...\" 
+.iS
+    client \*Vprotocol\*L  \*Vip_addr\*L \*Vport\*L \*Vpasses\*O
+.iE
+...\" 
+.P
+where \*Vprotocol\*O, \*Vip_addr\*O, and \*Vport\*O are the values obtained from
+the output of the \*Lserver\*O command, and \*Vpasses\*O is the number of times
+the client calls each remote procedure call specified in the interface definition.
+.P
+Entering \*Lserver\*O or \*Lclient\*O at the command line with no arguments prints
+a help message on how to invoke the programs.
+.P
+The test case automatically generates data and verifies correct data transfer. See
+the
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/rpc/idl/README\*O
+.DE
+...\" 
+.P
+file for more information.
+.P
+Testcases are provided that test:
+...\" 
+.BL
+.LI
+Simple data types like \*Lchar\*O, \*Lbyte\*O, and \*Lfloat\*O, as well as
+structures that can be transmitted using the \*Lpipe\*O data type
+.LI
+Reference pointers with null or non-null values and directional attributes
+.LI
+Reference pointers with directional attributes
+.LI
+The field attribute for arrays
+.LI
+Arrays of pointers and field attributes for arrays specified as pointers
+.LI
+Attributes
+.LE
+...\" 
+...\" 
+.zA "def,10739,1.1beta,new test info"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "RPC Runtime I18N Extension Functional Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+This test suite tests the APIs for I18N extensions to the RPC runtime in OSF
+DCE 1.1. The following APIs are tested:
+...\" 
+...\" 
+.BL
+.LI
+NSI management:
+.BL
+.LI
+\*Lrpc_ns_mgmt_set_attribute\*O
+.LI
+\*Lrpc_ns_mgmt_remove_attribute\*O
+.LI
+\*Lrpc_ns_mgmt_read_codesets\*O
+.LI
+\*Lrpc_ns_mgmt_free_codesets\*O
+.LE
+...\" 
+.LI
+Codeset Registry
+.BL
+.LI
+\*Ldce_cs_loc_to_rgy\*O
+.LI
+\*Ldce_cs_rgy_to_loc\*O
+.LI
+\*Lrpc_rgy_get_max_bytes\*O
+.LI
+\*Lrpc_rgy_get_codesets\*O
+.LE
+...\" 
+.LI
+Evaluation
+.BL
+.LI
+\*Lrpc_ns_import_ctx_add_eval\*O
+.LI
+\*Lrpc_cs_eval_without_universal\*O
+.LI
+\*Lrpc_cs_get_tags\*O (default eval logic)
+.LI
+\*Lrpc_ns_binding_lookup_next\*O
+.LI
+\*Lrpc_ns_binding_lookup_done\*O
+.LI
+\*Lrpc_cs_binding_set_tags\*O
+.LI
+\*Lrpc_cs_char_set_compat_check\*O
+.LI
+custom evaluations (\*LCMIR\*O/\*LSMIR\*O)
+.LE
+...\" 
+.LI
+Stub Support
+.BL
+.LI
+\*Lrpc_cs_get_tags\*O
+.LI
+\*Lcs_byte_net_size\*O
+.LI
+\*Lwchar_t_net_size\*O
+.LI
+\*Lcs_byte_to_netcs\*O
+.LI
+\*Lwchar_t_to_netcs\*O
+.LI
+\*Lcs_byte_local_size\*O
+.LI
+\*Lwchar_t_local_size\*O
+.LI
+\*Lcs_byte_from_netcs\*O
+.LI
+\*Lwchar_t_from_netcs\*O
+.LE
+...\" 
+.LE				
+...\" 
+.P
+The test sources are located at
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/functional/rpc/runtime/i18n_api\*O
+.DE
+...\" 
+.P
+in the source tree; the built objects can be found at:
+...\" 
+...\" ...N.B. apparently these tests are not installed right now.
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/obj/\*Vplatform\*L/test/functional/rpc/runtime/i18n_api
+.DE
+...\" 
+...\" "Installing the DCE Functional Tests with dcetest_config" in Chapter 13:
+...\"  we can't talk about this here, because dcetest_config expects to find
+...\"  the stuff to install in the DCE install tree...
+...\" 
+...\" 
+...\" 
+...\" Makefile
+...\" README
+...\" common (directory)
+...\" headers (directory)
+...\" tet_code
+...\" tet_scen
+...\" tetexec.cfg
+...\" ts (directory)
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Prerequisites for Running the Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The following things must be true in order to successfully run the I18N
+Extension RPC runtime tests:
+...\" 
+.BL
+.LI
+All platforms:
+...\" 
+.BL
+.LI
+OSF character and code set registry must be installed as
+...\" 
+.DS
+    \*L/usr/lib/nls/csr/code_set_registry.db\*O
+.DE
+...\" 
+.P
+This is a binary file, which is produced by \*Lcsrc\*O (the code set registry
+compiler). The input file should be found in:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/functional/rpc/runtime/i18n_api/ts/cs_rgy/\*Vplatform\*O
+.DE
+...\" 
+...\" 
+...\" 
+.LI
+The Japanese EUC and SJIS locales are required. This is because the test input data
+are Japanese. However, the contents of \*Li18n_input_data\*O can be changed to other
+data (for example, French), in which case the other appropriate locale will be required.
+.LE
+...\" 
+.LI
+HP-UX Platform:
+.BL
+.LI
+HP-UX version 10 is required, since \*Lnl_langinfo(\|)\*O is broken with HP-UX
+version 9.
+.LE
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Running the Test and Checking Results"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+To run the tests, do the following:
+...\" 
+...\" 
+.AL
+.LI
+Compile the code set registry:
+...\" 
+.iS
+\s-1
+ \*C% \*Lcd /usr/lib/nls/csr
+
+ \*C% \*Lcsrc \e
+       -i \*Vdce-root-dir\*L/dce/src/test/functional/rpc/runtime/i18n_api/ts/cs_rgy/\*Vplatform\*L/code_set_registry.txt \e
+       -o code_set_registry.db\*O
+\s+1
+.iE
+...\" 
+.P
+(Note that this step requires \*Lroot\*O permission, because \*L/usr/lib/nls\*O
+is a system directory.)
+...\" 	
+.LI
+\*Ldce_login\*O as \*Lcell_admin\*O:
+...\" 
+.iS
+    dce_login cell_admin \*Vpassword\*O
+.iE
+...\" 
+...\" 
+.LI
+Go to the
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/obj/\*Vplatform\*L/test/functional/rpc/runtime\*O
+.DE
+...\" 
+.P
+directory.
+...\" 
+.LI
+Execute the following shell commands (the following is given in \*Lcsh\*O syntax):
+...\" 
+.iS
+    \*C% \*Lsetenv I18N_SERVER_ENTRY "/.:/i18n_test"
+    \*C% \*Lsetenv TET_ROOT "`pwd`/i18n_api"
+    \*C% \*Lsetenv TET_EXECUTE "`pwd`/i18n_api"
+    \*C% \*Lmkdir i18n_api/all
+.iE
+...\" 
+.LI
+Add TET's path to your current execution path, for example:
+...\" 
+.iS
+    \*C% \*Lsetenv PATH /usr/dcetest/test/tet/bin:$PATH
+.iE
+...\" 
+...\" 
+.LI
+Set the appropriate locale names for your system (locale names are system
+dependent). For example, on an HP-UX system:
+...\" 
+.iS
+    \*C% \*Lsetenv I18N_SERVER_LOCALE "japanese.euc"
+    \*C% \*Lsetenv I18N_CLIENT_LOCALE "japanese"
+.iE
+...\" 
+.P
+\(emor, on an OSF/1 system:
+...\" 
+.iS
+    \*C% \*Lsetenv I18N_SERVER_LOCALE "/usr/lib/nls/loc/ja_JP.AJEC"
+    \*C% \*Lsetenv I18N_CLIENT_LOCALE "/usr/lib/nls/loc/ja_JP.SJIS"
+.iE
+...\" 
+...\" 
+.LI
+Execute the test under TET with the following command:
+...\" 
+.iS
+    \*C% \*Ltcc -e -s i18n_api/tet_scen -x i18n_api/tetexec.cfg -j \*Vjournal\*L all
+.iE
+...\" 
+.P
+where \*Vjournal\*O is the pathname of the journal file where test results
+will be written. This command will execute all of the available test cases.
+Note that if you wish to execute the test more than once, you will have to
+either remove the journal file from the test's previous run or specify a
+different journal filename.
+...\" 
+.LE
+...\" 
+.P
+To verify the test results, check the journal output. The journal will be
+located in a numbered directory, where the number represents a test run. A
+numbered directory and journal is created for each invocation of the
+\*Ltcc\*O command (for example, \*L0001e\*O, \*L0002e\*O, and so on).
+.P
+For the evaluation/stub support test cases, go to the
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/obj/\*Vplatform\*L/test/functional/rpc/runtime/i18n_api/ts/cs_eval/cs_byte\*O
+.DE
+...\" 
+.P
+and
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/obj/\*Vplatform\*L/test/functional/rpc/runtime/i18n_api/ts/cs_eval/wchar\*O
+.DE
+...\" 
+.P
+directories, and run the \*Lresult_check.sh\*O script. The script will verify
+that the generated output is the same as the expected output.
+...\" 
+...\" 
+...\" 
+.zZ "def,10739,1.1beta,new test info"
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "RPC Runtime Library and IDL Compiler Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "testing" "RPC" "runtime library"
+.iX "testing" "IDL compiler"
+.iX "RPC runtime library" "testing"
+.iX "IDL compiler" "testing" "with runtime"
+...\" 
+.P
+A suite of test cases is provided for verification of compiler and runtime
+interaction. Use the \*Ltestsh\*O shell script, which allows for summary
+statements and uniformly formatted output for each test case, to execute
+these test cases. Control program scripts are ``built'' in the directory:
+.DS
+    \*Vdce-root-dir\*L/dce/install/\*Vmachine\*L/dcetest/dce1.1/test/rpc/rtandidl/control\*O
+.DE
+...\" 
+.P
+(The scripts all have file names ending with \*L.tsh\*O.) Note that the
+contents of this directory are built from the contents of the
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/rpc/rtandidl/control\*O
+.DE
+...\" 
+.P
+directory.
+.P
+Each control program imports an environment from one or more configuration files
+(with names ending with the suffix \*L.tshrc\*O) and invokes the test case with
+the appropriate input parameters. Summary information can be printed prior to exit
+from the control program. This structure lets the user ignore complicated parameter
+requirements for individual test cases, thereby simplifying test case execution.
+.P
+Before executing the Naming Service Interface (NSI) portion of this suite, be
+aware of the following:
+...\" 
+.BL
+.LI
+The namespace must be configured.
+.LI
+The \*LNSTEST_DIR\*O directory must be created in the namespace for use by the NSI
+tests. See Chapter 6 of this guide, the chapters on configuring and starting up DCE
+in the \*VOSF DCE Administration Guide\(emIntroduction\*O, and \*VAppendix A\*O of
+the \*VOSF DCE Administration Guide\(emIntroduction\*O for details on namespace
+configuration.
+.LE
+...\" 
+.P
+Before executing the RPC Authentication testcases, the DCE Security Service must be
+properly configured. See Chapter 9 of this guide for information on configuring and
+enabling the DCE Security Service.
+.P
+You must also do the following before running authenticated RPC tests:
+...\" 
+.BL
+.LI
+Login as the privileged user (root).
+.LI
+Authenticate as cell_admin, or any user with privileges to modify the registry, using
+the \*Ldce_login\*O command. The default password is ``-dce-''.
+...\" 
+.iS
+    dce_login  cell_admin  -dce-
+.iE
+...\" 
+.LI
+Set the following environment variables:
+...\" 
+...\" 
+...\" .zA "def,5048,5605,R1.0.2,added symbols"
+...\" .zA "def,8181,R1.0.3,added SERVERHOST"
+.VL 1.5i
+.LI "\*LBACKTREE\*O"
+The absolute path to the backing tree or sandbox.
+.LI "\*LCALLER_KEY\*O"
+Password for the \*Lcell_admin\*O account. The default is \*L-dce-\*O.
+.LI "\*LCLIENT_KEY\*O"
+Password given to the client user account.
+.LI "\*LCLIENT_NAME\*O"
+Account name for the client user.
+.LI "\*LPROTOCOL\*O"
+Should be set to either ``ncadg_ip_udp''
+.nL
+or ``ncacn_ip_tcp''.
+...\" 
+.LI "\*LSERVERHOST\*O"
+Should be set to the machine name of the machine that is to run the
+server daemon.
+...\" 
+.LI "\*LSERVER_KEY\*O"
+Password given to the server account.
+.LI "\*LSERVER_NAME\*O"
+Account name for the server user.
+.LE
+...\" .zZ "def,8181,R1.0.3,added SERVERHOST"
+...\" .zZ "def,5048,5605,R1.0.2,added symbols"
+...\" 
+...\" 
+.LI
+Ensure the \*Lrun_server\*O shell script invokes the \*Lsofserv\*O
+process with the appropriate value for the server account and
+\*Vserver_key\*O.
+...\" 
+.nS "note"
+Typically \*Vserver_name\*O and \*Vserver_key\*O are set to ``server,''
+and \*Vclient_name\*O and \*Vclient_key\*O are set to ``client.''
+.nE
+...\" 
+.LE
+...\" 
+.P
+To run these tests, you must first start the \*Lrun_server\*O shell
+script, and then start the \*Lrun_client\*O shell script.
+Since \*Lrun_server\*O starts a server process, it must be executed
+prior to \*Lrun_client\*O.
+The \*Lrun_client\*O script invokes the test case control files using
+the \*Ltestsh\*O program.
+.P
+To start the server process, enter
+...\" 
+.iS
+    \*Lrun_server\*O
+.iE
+...\" 
+.nL
+at the command line.  No parameters are required.
+.P
+The \*Lrun_client\*O shell script executes the specified test cases
+and has the following syntax:
+.P
+\*Lrun_client \*V-testlist server_host testsh_dir testcase_dir include_dir testname\*O
+.P
+where
+...\" 
+.VL 1.5i
+.LI "\*V-testlist\*O"
+Provides a listing of all valid test case choices.
+Individual test cases are valid choices, as are categories of tests
+such as \*Lall\*O, which requests execution of all test cases in
+this suite.
+.LI "\*Vserver_host\*O"
+Specifies the name of the machine on which the \*Lrun_server\*O shell
+script was executed.
+.LI "\*Vtestsh_dir\*O"
+Specifies the name of the directory containing the \*Ltestsh\*O
+executable.
+.LI "\*Vtestcase_dir\*O"
+Specifies the name of the directory containing the test case
+executables.
+.LI "\*Vinclude_dir\*O"
+Specifies the name of the directory containing the DCE header files.
+It is used by the IDL compiler tests \*Lnocode\*O and \*Lcmd_line\*O
+so these tests can be run prior to final installation of the DCE RPC
+header files.
+.LI "\*Vtestname\*O"
+Specifies the name of the test to run, or category of test cases to be
+run.
+The \*Lrun_client -testlist\*O command can be used to generate a list
+of valid test names.
+.LE
+...\" 
+...\" 
+.P
+See the
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/rpc/rtandidl/README\*O
+.DE
+...\" 
+.P
+file for further information, including information about the \*Ldo_rpc_test\*O
+script, which will run the \*Lrtandid\*O test suite.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "The testsh Program"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Ltestsh\*O program is a front end for execution of test programs.
+Source code for this program can be found in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/rpc/rtandidl/testsh\*O
+.DE
+...\" 
+.P
+directory. It provides a standard way for a test developer to create a test
+environment and it tallies subtotals and summaries of test results. It also
+allows error conditions to abort a test suite.
+.P
+The default behavior for \*Lrun_client\*O is to run the test
+specified, and log results in \*Vtestname\*L.log\*O.
+.P
+The \*Ltestsh\*O testing options are as follows:
+...\" 
+...\" 
+.iS
+    testsh [-d [\*Voutput_level\*L]] [-e] [-l \*Vfilename\*L |\\
+        -L \*Vfilename\*L] [-s | -S] [-I \*Vpath\*L]
+.iE
+...\" 
+.P
+where:
+...\" 
+.VL 1i
+.LI "\*L-d\*O"
+Specifies an output level for all test programs.
+Using the \*L-d\*O option with no \*Voutput_level\*O integer returns a
+message only when a test fails.
+.LI "\*Voutput_level\*O"
+Specifies a specific output level for all test programs.
+The following list shows the valid integer values for
+\*Voutput_level\*O and the output levels they specify:
+...\" 
+.VL .5i
+.LI "1"
+Prints message on failure.
+.LI "2"
+Prints message on success.
+.LI "3"
+Prints message on warning.
+.LI "4"
+Prints message on trace.
+.LI "5"
+Prints message on information.
+.LI "63"
+Prints debug messages during test case execution.
+.LE
+...\" 
+.LI "\*L-e\*O"
+Terminates the execution of the test case when an error is encountered.
+.LI "\*L-l\*O"
+Generates a log file and stores that log file in \*Vfilename\*O.
+.LI "\*L-L\*O"
+Sends the expanded \*Ltestsh\*O script commands from
+\*Ltestcase.tsh\*O to \*Vfilename\*O. 
+.LI "\*L-s\*O"
+Prints output to the screen using the standard error.
+.LI "\*L-S\*O"
+Sends verbose output to the screen using the standard error.
+.LI "\*L-I\*O"
+Enables \*Ltestsh\*O to look in the \*Vpath\*O directory for test case
+executables.
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "RPC API Function Tests"
+...\" ----------------------------------------------------------------------
+...\" 
+.iX "testing" "RPC" "API functions"
+.iX "RPC" "testing" "API functions"
+...\" 
+.P
+.P
+This test suite includes a test for all RPC API functions.
+The tests are located in the
+.DS
+    \*Vdce-root-dir\*L/dce/src/test/rpc/rtandidl/control\*O
+.DE
+...\" 
+.P
+directory and are grouped as shown in the following table:
+...\" 
+.nP
+.TS H
+expand tab (@) box;
+cB | cB | cB
+l | lB | l.
+Test Group@Control File@Function Tested
+_
+.TH
+_
+ Binding tests@ all_binding.tsh@ \*Lrpc.binding_*(\|)\*O & \*Lstring_(\|)*\*O calls 
+ DCE error inquire text tests @ error_inq_text.tsh @ \*Ldce_error_inq_text(\|)\*O call 
+ NSI tests @ all_ns.tsh @ \*Lrpc_ns_*(\|)\*O calls 
+ RPC authentication tests @ all_auth.tsh @ \*Lrpc_*_auth_*(\|)\*O calls 
+ RPC management tests @ all_mgmt.tsh @ \*Lrpc_mgmt_*(\|)\*O & \*Lnetwork_protseqs*\*O calls  
+ Object tests @ object_set_type.tsh, object_inq_type.tsh @ \*Lrpc_object_*(\|)\*O calls 
+ UUID tests @ all_uuid.tsh @ \*Luuid_*(\|)\*O calls 
+ IDL tests @ all_idl.tsh @ IDL compiler and application tests 
+.TE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Specification for control file and Command Descriptions"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+The \*Lcontrol file\*O is a template that directs the execution of
+test cases.
+The control file consists of commands that can be composed of
+keywords, function calls, literals, and values that are interpreted by
+the script as parameters to pass to test cases.
+.P
+The valid commands are as follows:
+...\" 
+.VL 1.5i
+.LI "\*Lecho\ \*Vstring\*O"
+Prints the specified string.
+.LI "\*L#\ \*Vstring\*O"
+The \*L#\*O (number sign) character specifies a comment, which is ignored.
+.LI "\*Linclude\ \*Vconfigfile\*O"
+Executes the \*Vconfigfile\*O configuration file.
+.LI "\*Lexecute\ \*Vrunfile\*O"
+Spawns a subshell and executes \*Vrunfile\*O.
+.LI "\*Ltest\ \*Voptions\ testcase_parameters\*O"
+.nL
+Executes a test case.
+The \*L-p\*V(iterations) \*O option can be used to execute multiple
+iterations of a test.
+The test case parameters must coincide with the parameters expected by
+the individual test case to be run.
+.LI "\*Lrun\ \*Vprogram\*O"
+Executes the specified program.
+.LI "\*Lsummary\*O"
+Generates and prints the number of successful and unsuccessful test
+cases.
+It is typically the last line of a control file.
+.LI "\*Lsubtotal\*O"
+Prints the number of test cases that have passed or failed since the
+last \*Lsubtotal\*O command.
+.LI "\*Lsubtotal\ clear\*O"
+Resets the subtotal counts to zero passes and zero failures.
+.LI "\*Lremote\ \*Vhost\ program\ testsh_options\*O"
+.nL
+Remotely executes a \*Vprogram\*O on the machine \*Vhost\*O.
+The \*Vprogram\*O is run under the \*Ltestsh\*O controller with the
+options specified by  \*Vtestsh_options\*O.
+.LI "\*Lset\ \*VVAR=value\*O"
+Sets an environment variable \*VVAR\*O to \*Vvalue\*O.
+.LI "\*Lpause\*O"
+Prints the message
+.oS
+    Press RETURN to continue or q to quit
+.oE
+on the screen and delays the execution of the program
+until the tester enters a valid response.
+.LI "\*Lonerror\ \*Voption\*O"
+Specifies default behavior of the control program when errors occur.
+The following values are valid for \*Voption\*O:
+...\" 
+.VL 1.5i
+.LI "\*Lstop\*O"
+Causes \*Ltestsh\*O execution to halt if an error is encountered.
+.LI "\*Lcontinue\*O"
+Causes \*Ltestsh\*O execution to continue regardless of errors.
+.LI "\*Ldefault\*O"
+Consults the global parameter (set by the \*L-e\*O option to the
+\*Ltestsh\*O controller) to determine the appropriate behavior in the
+event of a failure.
+.LE
+...\" 
+.LE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Name Service Interface Test"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+\*Ldcesx\*O is a test of the CDS NSI (Name Service Interface). Refer to
+Chapter 6 of this guide for information on running the test.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Test Plans"
+...\" ----------------------------------------------------------------------
+.iX "RPC" "test plans"
+.iX "test plans" "RPC"
+.P
+Refer to Chapter 1 of the \*VOSF DCE Release Notes\*O for the location of
+the DCE test plans on the DCE distribution tape.
+...\" 
+...\" 
+...\" 
+...\" .zA "Added Debugging Hints section"
+...\" 
+...\" ----------------------------------------------------------------------
+...\" .H 2 "Debugging Hints"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .P
+...\" The following sections contain information that may be helpful in debugging
+...\" an RPC port. You should refer also to the ``Preprocessor Variables''
+...\" subsection in ``Porting the RPC Runtime Library'' above in this chapter, in
+...\" particular to the descriptions of the following variables:
+...\" 
+...\" .BL
+...\" .LI
+...\" \*LDEBUG\*O
+...\" .LI
+...\" \*LMAX_DEBUG\*O
+...\" .LI
+...\" \*LRPC_DG_LOSSY\*O
+...\" .LI
+...\" \*LRPC_MUTEX_DEBUG\*O
+...\" .LE
+...\" 
+...\" .P
+...\" See also the description of the use of the \*L-DDEBUG\*O flag in the
+...\" ``Building and Linking'' section above in this chapter.
+...\" .P
+...\" Finally, you should refer also to the ``Debugging Hints'' in Chapter 4
+...\" (``DCE Threads'') of this guide, and to the lists of global flags in
+...\" Chapter 1.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "RPC Runtime Output and Debugging Output"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .zA "Added RPC_DEBUG info"
+...\" 
+.P
+The RPC component outputs server information of all kinds via the DCE serviceability
+component. The following sections describe how to control the various kinds of
+information (including debugging output) available from RPC via serviceability.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Normal RPC Server Message Routing"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+There are basically two ways to control normal RPC server message routing:
+...\" 
+.BL
+.LI
+At startup, through the contents of a routing file (which are applied to
+all components that use serviceability messaging).
+.LI
+Dynamically, through the \*Ldcecp log\*O object.
+.LE
+...\" 
+...\" 
+.P
+The following sections describe each of these methods.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Routing File"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+If a file called
+...\" 
+.DS
+    \*Vdce-local-path\*L/svc/routing\*O
+.DE
+...\" 
+.P
+exists when RPC is brought up (i.e., when \*Ldced\*O is executed or when the
+cell is started through \*Ldce_config\*O), the contents of the file (if in the
+proper format) will be used as to determine the routing of RPC serviceability
+messages.
+.P
+The value of \*Vdce-local-path\*O depends on the values of two \*Lmake\*O
+variables when DCE is built:
+...\" 
+...\" 
+...\" 
+.VL 1i
+.LI "\*LDCEROOT\*O"
+its default value is: \*L/opt\*O
+...\" 
+.LI "\*LDCELOCAL\*O"
+its default value is: \*L$DCEROOT/dcelocal\*O
+...\" 
+.LE
+...\" 
+.P
+Thus, the default location of the serviceability routing file is normally:
+...\" 
+.DS
+    \*L/opt/dcelocal/svc/routing\*O
+.DE
+...\" 
+.P
+However, a different location for the file can be specified by setting the
+value of the environment variable \*LDCE_SVC_ROUTING_FILE\*O to the complete
+desired pathname.
+...\" 
+.P
+The contents of the routing file consist of formatted strings specifying
+the routing desired for the various kinds of messages (based on message
+severity). Each string consists of three fields as follows:
+...\" 
+.DS
+    \*Vseverity\*L:\*Voutput_form\*L:\*Vdestination\*O\ [\*Voutput_form\*L:\*Vdestination\*O .\ .\ .\ ]
+.DE
+...\" 
+.P
+Where:
+...\" 
+.VL 1i
+.LI "\*Vseverity\*O"
+specifies the severity level of the message, and must be one of the following:
+.BL
+.LI
+\*LFATAL\*O
+...\" Fatal error, about to exit
+.LI
+\*LERROR\*O
+...\" Normal exit
+.LI
+\*LWARNING\*O
+...\" Error detected, program proceeding
+.LI
+\*LNOTICE\*O
+...\" Informational notice
+.LI
+\*LNOTICE_VERBOSE\*O
+...\" Verbose informational notice
+.LE
+...\" 
+.P
+(The meanings of these severity levels are explained in detail in Chapter 4 of
+the \*VOSF DCE Application Development Guide \(em Core Components\*O volume,
+in the section entitled ``Specifying Message Severity''.)
+...\" 
+...\" 
+...\" 
+.LI "\*Voutput_form\*O
+specifies how the messages of a given severity level should be processed, and
+must be one of the following:
+.BL
+.LI
+\*LBINFILE\*O
+.P
+Write these messages as binary log entries
+.LI
+\*LTEXTFILE\*O
+.P
+Write these messages as human-readable text
+.LI
+\*LFILE\*O
+.P
+Equivalent to \*LTEXTFILE\*O
+.LI
+\*LDISCARD\*O
+.P
+Do not record messages of this severity level
+.LI
+\*LSTDOUT\*O
+.P
+Write these messages as human-readable text to standard output
+.LI
+\*LSTDERR\*O
+.P
+Write these messages as human-readable text to standard error
+.LE
+...\" 
+.P
+Files written as \*LBINFILE\*Os can be read and manipulated with a set of
+logfile functions. See Chapter 4 of the \*VOSF DCE Application Development
+Guide \(em Core Components\*O volume, mentioned above, for further information.
+.P
+The \*Voutput_form\*O specifier may be followed by a two-number specifier of the form:
+...\" 
+.DS
+    \*L.\*Vgens\*L.\*Vcount\*O
+.DE
+...\" 
+.P
+Where:
+...\" 
+.VL .5i
+.LI "\*Vgens\*O"
+is an integer that specifies the number of files (i.e., generations) that
+should be kept
+.LI "\*Vcount\*O"
+is an integer specifying how many entries (i.e., messages) should be
+written to each file
+.LE
+...\" 
+.P
+The multiple files are named by appending a dot to the simple specified
+name, followed by the current generation number. When the number of entries
+in a file reaches the maximum specified by \*Vcount\*O, the file is closed,
+the generation number is incremented, and the next file is opened. When the
+maximum generation number files have been created and filled, the generation
+number is reset to 1, and a new file with that number is created and written
+to (thus overwriting the already-existing file with the same name), and so
+on, as long as messages are being written. Thus the files wrap around to their
+beginning, and the total number of log files never exceeds \*Vgens\*O, although
+messages continue to be written as long as the program continues writing them.
+...\" 
+...\" 
+...\" 
+...\" 
+.LI "\*Vdestination\*O
+specifies where the message should be sent, and is a pathname. The field
+can be left blank if the \*Voutput_form\*O specified is \*LDISCARD\*O,
+\*LSTDOUT\*O, or \*LSTDERR\*O. The field can also contain a \*L%ld\*O
+string in the filename which, when the file is written, will be replaced
+by the process ID of the program that wrote the message(s). Filenames may
+\*Vnot\*O contain colons or periods.
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+.P
+Multiple routings for the same severity level can be specified by simply
+adding the additional desired routings as space-separated
+...\" 
+.DS
+    \*Voutput_form\*L:\*Vdestination\*O
+.DE
+...\" 
+.P
+strings.
+...\" 
+.P
+For example, 
+...\" 
+.oS
+    FATAL:TEXTFILE:/dev/console
+    WARNING:DISCARD:--
+    NOTICE:BINFILE.50.100:/tmp/log%ld STDERR:-
+.oE
+...\" 
+.P
+Specifies that:
+...\" 
+.BL
+.LI
+Fatal error messages should be sent to the console.
+.LI
+Warnings should be discarded.
+.LI
+Notices should be written both to standard error and as binary entries in files
+located in the \*L/tmp\*O directory. No more than 50 files should be written, and
+there should be no more than 100 messages written to each file. The files will have
+names of the form:
+...\" 
+.DS
+    \*L/tmp/log\*Vprocess_id\*L.\*Vnn\*O
+.DE
+...\" 
+.P
+where \*Vprocess_id\*O is the process ID of the program originating the messages,
+and \*Vnn\*O is the generation number of the file.
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 4 "Routing by the dcecp log Object"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Routing of RPC server messages can be controlled in an already-started cell
+through the \*Ldcecp log\*O object. See the \*Llog.8dce\*O reference page
+in the \*VOSF DCE Command Reference\*O for further information.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Debugging Output"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Debugging output from RPC can be enabled (provided that RPC has been built with
+\*LDCE_DEBUG\*O defined) by specifying the desired debug messaging level and route(s)
+in the
+...\" 
+.DS
+    \*Vdce-local-path\*L/svc/routing\*O
+.DE
+...\" 
+.P
+routing file (described above), or by specifying the same information in the
+\*LSVC_RPC_DBG\*O environment variable, before bringing up RPC (i.e., prior to
+starting the cell). Debugging output can also be enabled and controlled through
+the \*Ldcecp log\*O object.
+.P
+Note that, unlike normal message routing, debugging output is always specified
+on the basis of DCE component/sub-component (the meaning of ``sub-component''
+will be explained below) and desired level.
+.P
+The debug routing and level instructions for a component are specified by the
+contents of a specially-formatted string that is either included in the value
+of the environment variable or is part of the contents of the routing file.
+.P
+The general format for the debug routing specifier string is:
+...\" 
+.DS
+\s-1
+    "\*Vcomponent\*L:\*Vsub_comp\*L.\*Vlevel\*L,\*V.\ .\ .\*L:\*Voutput_form\*L:\*Vdestination\*O \e
+    [\*Voutput_form\*L:\*Vdestination\*O .\ .\ .\ ] "
+\s+1
+.DE
+...\" 
+.P
+where the fields have the same meanings as in the normal routing specifiers
+described above, with the addition of the following:
+...\" 
+...\" 
+...\" 
+.VL 1i
+.LI "\*Vcomponent\*O"
+specifies the component name (i.e., \*Lrpc\*O)
+...\" 
+.LI "\*Vsub_comp\*L.\*Vlevel\*O"
+specifies a subcomponent name, followed (after a dot) by a debug level
+(expressed as a single digit from 1 to 9). Note that multiple
+subcomponent/level pairs can be specified in the string.
+.P
+A star (``\*L*\*O'') can be used to specify all sub-components. The sub-component
+list is parsed in order, with later entries supplementing earlier ones; so the
+global specifier can be used to set the basic level for all sub-components, and
+specific sub-component exceptions with different levels can follow (see the example
+below).
+...\" 
+.LE
+...\" 
+...\" 
+.P
+``Sub-components'' denote the various functional modules into which a component has
+been divided for serviceability messaging purposes. For RPC, the sub-components are
+as follows:
+...\" 
+...\" 
+...\" 
+.VL 2.5i
+.LI "\*Lgeneral\*O"
+RPC general messages
+...\" 
+.LI "\*Lmutex\*O"
+RPC mutex messages
+...\" 
+.LI "\*Lxmit\*O"
+RPC xmit messages
+...\" 
+.LI "\*Lrecv\*O"
+RPC receive messages
+...\" 
+.LI "\*Ldg_state\*O"
+RPC DG state messages
+...\" 
+.LI "\*Lcancel\*O"
+RPC cancel messages
+...\" 
+.LI "\*Lorphan\*O"
+RPC orphan messages
+...\" 
+.LI "\*Lcn_state\*O"
+RPC CN state messages
+...\" 
+.LI "\*Lcn_pkt\*O"
+RPC CN packet messages
+...\" 
+.LI "\*Lpkt_quotas\*O"
+RPC packet quota messages
+...\" 
+.LI "\*Lauth\*O"
+RPC authorization messages
+...\" 
+.LI "\*Lsource\*O"
+RPC source messages
+...\" 
+.LI "\*Lstats\*O"
+RPC statistics messages
+...\" 
+.LI "\*Lmem\*O"
+RPC memory messages
+...\" 
+.LI "\*Lmem_type\*O"
+RPC memory type messages
+...\" 
+.LI "\*Ldg_pktlog\*O"
+RPC DG packetlog messages
+...\" 
+.LI "\*Lthread_id\*O"
+RPC thread ID messages
+...\" 
+.LI "\*Ltimestamp\*O"
+RPC timestamp messages
+...\" 
+.LI "\*Lcn_errors\*O"
+RPC CN error messages
+...\" 
+.LI "\*Lconv_thread\*O"
+RPC conversation thread messages
+...\" 
+.LI "\*Lpid\*O"
+RPC pid messages
+...\" 
+.LI "\*Latfork\*O"
+RPC atfork messages
+...\" 
+.LI "\*Lcma_thread\*O"
+RPC CMA thread messages
+...\" 
+.LI "\*Linherit\*O"
+RPC inherit messages
+...\" 
+.LI "\*Ldg_sockets\*O"
+RPC datagram sockets messages
+...\" 
+.LI "\*Ltimer\*O"
+RPC timer messages
+...\" 
+.LI "\*Lthreads\*O"
+RPC threads messages
+...\" 
+.LE
+...\" 
+...\" 
+.P
+For example, the string
+...\" 
+.DS
+    "rpc:*.1,cma_thread.3:TEXTFILE.50.200:/tmp/RPC_LOG
+.DE
+...\" 
+.P
+sets the debugging level for all RPC sub-components (\*Vexcept\*O
+\*Lcma_thread\*O) at 1; \*Lcma_thread\*O's level is set
+at 3. All messages are routed to \*L/tmp/RPC_LOG\*O. No more than
+50 log files are to be written, and no more than 200 messages are
+to be written to each file.
+.P
+The texts of all the RPC serviceability messages, and the sub-component list,
+can be found in the RPC sams file, at:
+...\" 
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/sys_idl/rpc.sams\*O
+.DE
+...\" 
+.P
+For further information about the serviceability mechanism and API, see Chapter 4
+of the \*VOSF DCE Application Development Guide \(em Core Components\*O volume,
+``Using the DCE Serviceability Application Interface''.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" .P
+...\" If you have built the RPC runtime with the DEBUG switch (see ``Preprocessor
+...\" Variables'' in the ``Porting the RPC Runtime Library'' section, above), you
+...\" can turn on RPC runtime debugging output by calling the routine
+...\" \*Lrpc__dbg_set_switches(\|)\*O.
+...\" 
+...\" .P
+...\" Another way to turn on debugging output is by setting the \*LRPC_DEBUG\*O
+...\" environment variable. The RPC runtime checks \*LRPC_DEBUG\*O at startup and
+...\" then calls \*Lrpc__dbg_set_switches(\|)\*O to initialize \*Lrpc_g_dbg_switches\*O,
+...\" which is used by the \*LRPC_DBG_*\*O macros to determine whether or not to print
+...\" debug messages.
+...\" 
+...\" .P
+...\" The specific switches are detailed in:
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/runtime/rpcdbg.h\*O
+...\" .DE
+...\" 
+...\" .P
+...\" Also, see the documentation of the \*L-d\*O option in the section earlier in this
+...\" chapter on ``The perf client Program''. The \*Lperf client -d\*O option invokes
+...\" \*Lrpc__dbg_set_switches\*O at program startup.
+...\" 
+...\" .P
+...\" See the comments in
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/runtime/rpcdbg.h
+...\" .DE
+...\" 
+...\" .P
+...\" and
+...\" .DS
+...\"     \*Vdce-root-dir\*L/dce/src/rpc/runtime/rpcdbg.c
+...\" .DE
+...\" 
+...\" .P
+...\" for more details.
+...\" 
+...\" 
+...\" 
+...\" .zZ "Added RPC_DEBUG info"
+...\" 
+...\" 
+...\" 
+...\" .zA "def,9323,R1.0.3,Added RPC_SUPPORTED_PROTSEQS info"
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Restricting Protocol Sequences Used"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+There is a way to restrict the pool of protocol sequences eligible for use
+by RPC to a group of one or more that you specify. \*LRPC_SUPPORTED_PROTSEQS\*O
+is an environment variable tested at RPC startup by code in:
+.DS
+    \*Vdce-root-dir\*L/dce/src/rpc/runtime/cominit.c\*O
+.DE
+...\" 
+.P
+It should be used \*Vonly\*O for debugging DCE.
+.P
+The value of \*LRPC_SUPPORTED_PROTSEQS\*O is a colon-separated list of RPC
+protocol sequence strings. When \*LRPC_SUPPORTED_PROTSEQS\*O is defined, it
+restricts the set of protocol sequences that the RPC runtime will use to the
+list of sequences defined as its value. Normally, the RPC runtime uses any
+protocol sequences it can detect on the local host.
+.P
+To use this debugging feature, just set \*LRPC_SUPPORTED_PROTSEQS\*O (\*Vbefore\*O
+starting \*Ldced\*O) to one or more DCE RPC protocol sequences (each sequence
+separated by a colon when using C shell). For example:
+.iS
+    setenv RPC_SUPPORTED_PROTSEQS ncadg_ip_udp
+.iE
+...\" 
+.P
+will restrict RPC to only use UDP. If you wanted to use only the RPC
+connection-oriented protocol over TCP/IP and DECnet (assuming that your
+implementation supports the latter), you could set the variable as follows:
+.iS
+    setenv RPC_SUPPORTED_PROTSEQS ncacn_ip_tcp:ncacn_dnet_nsp
+.iE
+...\" 
+.P
+The set of protocol sequences currently defined in DCE are:
+.BL
+.LI
+\*Lncadg_ip_udp\*O
+.LI
+\*Lncacn_ip_tcp\*O
+.LE
+...\" 
+.P
+\*LRPC_SUPPORTED_PROTSEQS\*O is tested at RPC startup in each process. It lasts only
+for the life of that process. If \*LRPC_SUPPORTED_PROTSEQS\*O is not set, all protocol
+sequences that can be supported will be available for use by the application.
+...\" 
+.P
+Note that if you build the RPC runtime library without defining \*LDEBUG\*O (i.e.,
+without \*L-DDEBUG\*O), then \*LRPC_SUPPORTED_PROTSEQS\*O is ignored.
+...\" 
+...\" 
+...\" .zZ "def,9323,R1.0.3,Added RPC_SUPPORTED_PROTSEQS info"
+...\" 
+...\" .zZ "Added Debugging Hints section"
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Some RPC Questions and Answers"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .zA "Questions and Answers Added"
+.P
+This section contains several RPC questions and answers that have arisen during
+DCE porting and application development efforts so far. Some of this
+material is not directly applicable to porting but is included here as useful
+background information about the component and DCE.
+...\" 
+...\" 
+.VL .5i
+...\" 
+...\" QUESTION 1:
+...\" 
+.LI "\*LQ1:\*O"
+Is it possible to add simultaneous TP4 and TCP support under the connection
+oriented protocol?
+.LI "\*LA:\*O"
+Yes. The RPC runtime is designed so that new protocols can be added in a
+modular fashion.
+.P
+Assuming that you have a sockets interface to TP4, the work required would be
+to first implement a new network address family (NAF), and then implement the
+NSI tower support. More work would be required if you do not have a sockets
+interface to your TP4 implementation.
+...\" 
+...\" 
+...\" 
+...\" QUESTION 2:
+...\" 
+.LI "\*LQ2:\*O"
+I'm not sure I understand how RPC functions work with the \*L[broadcast]\*O
+attribute. When an application is using the automatic binding method, why
+does the \*LRPC_DEFAULT_ENTRY\*O environment variable have to be set to the NSI
+entry that contains the server's exported bindings, even though the \*Lbroadcast\*O
+attribute is being used in making the client call? When I try to make such a call
+without setting \*LRPC_DEFAULT_ENTRY\*O, the client gives an IOT exception. But
+if \*LRPC_DEFAULT_ENTRY\*O is set to the correct namespace entry, the call
+succeeds. If the client still has to bind to the server before sending a
+broadcast, what point is there in using the broadcast attribute?
+.LI "\*LA:\*O"
+It's probably fair to say that it was not expected that applications would
+try to mix the use of the \*Lauto_handle\*O and \*Lbroadcast\*O features.
+In your case, the IDL compiler is making a valiant attempt to do something useful
+with the combination, but it's not clear it shouldn't simply flag the mixed use as
+being an error.
+.P
+The client doesn't \*Vhave\*O to bind to a server, but it \*Vdoes\*O have to
+make a choice about what RPC protocol sequence it wants to use. The thing a client
+would generally do is something like:
+...\" 
+.oS
+    {
+        handle_t h;
+        error_status_t status;
+
+        rpc_binding_from_string_binding("ncadg_ip_udp:", &h, &status);
+        bcast(h, ...);
+    }
+.oE
+...\" 
+.P
+\(emWhere the choice of protocol sequence would, one hopes, be configured a little more
+cleanly than in the example.
+.P
+The server needn't call \*Lrpc_ns_binding_export(\|)\*O, and no one needs to set up
+\*LRPC_DEFAULT_ENTRY\*O; CDS doesn't get involved in this operation at all.
+.P
+What's happened in your case is that the client stub is attempting to import a binding.
+If it succeeds (that is, if the server's done the export and the client process has
+\*LRPC_DEFAULT_ENTRY\*O set appropriately), the binding is passed to the RPC runtime,
+which promptly discards everything in it except for the protocol sequence. If it fails
+\(emas will happen, for example, when you haven't set \*LRPC_DEFAULT_ENTRY\*O\(em
+it should raise an exception, which is what's showing up as your IOT.
+...\" 
+...\" 
+...\" 
+...\" 
+.LE
+...\" .zZ "Questions and Answers Added"
+...\" 
+...\" 
+...\" 
+...\" .zZ "Chapter has been reorganized"
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------

@@ -1,0 +1,3676 @@
+CR Number                     : 13204
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : aix
+Component Name                : thr
+Subcomponent Name             : cma
+Short Description             : cma_validate_handle fails when seq passes 2^16
+Reported Date                 : 11/16/95
+Found in Baseline             : 1.2
+Found Date                    : 11/16/95
+Severity                      : B
+Priority                      : 1
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.1maint
+Affected File(s)              : cma_handle.[ch],cma_defs.h
+Sensitivity                   : public
+
+[11/16/95 public]
+Here is the problem with test_anode handing on some long running scripts.
+
+In threads/cma_handle.h:
+/*
+ * Internal format of a handle (to the outside world it's an array of two
+ * addresses, but we know better).
+ */
+typedef struct CMA__T_INT_HANDLE {
+    cma__t_object       *pointer;       /* Address of internal structure */
+    cma__t_short        sequence;       /* Sequence number of object */
+    cma__t_short        type;           /* Type code of object */
+    } cma__t_int_handle;
+
+And in threads/cma_defs.h:
+typedef struct CMA__T_OBJECT {
+    cma__t_queue        queue;          /* Queue element MUST BE FIRST */
+#ifdef  AIX_CORE_FILE
+    cma_t_natural       sequence;       /* Sequence number */
+#else
+    cma__t_short        sequence;       /* Sequence number */
+#endif  /* AIX_CORE_FILE */
+    cma__t_short        type;           /* Type of object */
+    cma_t_natural       revision;       /* Revision count of attr. obj */
+    cma__t_string       name;           /* Name of object for debugging */
+    } cma__t_object;
+
+In cma_handle.c there is this function called cma__validate_handle which
+is called constantly to convert mutexes and condition variables to
+internal types.  Among other things it signals an error via cma__error
+if the sequence of the handle and the object it points to do not match:
+    ...
+    else if ((ihandle->sequence != ihandle->pointer->sequence)
+            || (ihandle->type != ihandle->pointer->type))
+        cma__error (cma_s_existence);
+
+I put a breakpoint here and I found it comparing 0xffff8000 with 0x8000.
+Clearly there is a sign extension problem with the two declarations.
+Surprisingly these cma__errors don't cause trouble immediately, but
+eventually the I/O completer thread gets stuck waiting forever for a
+mutex and then everyone else gets stuck waiting for him.
+
+[11/16/95 public]
+Since cma__t_short is a signed short and cma_t_natural is unsigned long,
+the above if condition should occur between properly type casted values.
+Since, we don't have enough information about why AIX_CORE_FILE define is
+done, and that we don't use it, we will just remov the use of cma_t_natural
+in cma__t_object. If anyone thinks differently, please let me know.
+
+[02/05/95 public]
+Fixed in 1.2.1. Closed.
+
+
+
+CR Number                     : 12206
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : aix core file does not contain heap
+Reported Date                 : 9/15/94
+Found in Baseline             : 1.1b16
+Found Date                    : 9/15/94
+Severity                      : B
+Priority                      : 1
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1b18
+Affected File(s)              : threads/RIOS/cma_signal.c
+Sensitivity                   : public
+
+[9/15/94 public]
+
+In order to get a valid core file that contains the heap, the SA_FULLDUMP
+flag must be set. This flag needs to be set in cma___sig_sync_kill
+and in cma__init_signal.
+
+NOTE: In order to get a full core file the ulimit for corefile should
+be set to some large value or unlimited. The default value will NOT
+create a valid core file that contains the heap. I would suggest
+modifying the file /etc/security/limits and make the default corefile
+size unlimited.
+
+
+
+CR Number                     : 10560
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : thr
+Subcomponent Name             : wrapper for cma_system
+Short Description             : cma_stdio.h defines the wrapper for "system" at the wrong place
+Reported Date                 : 5/6/94
+Found in Baseline             : 1.1
+Found Date                    : 5/6/94
+Severity                      : A
+Priority                      : 0
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1
+Affected File(s)              : threads/AT386/cma_stdio.h
+Sensitivity                   : public
+
+[5/6/94 public]
+
+There is a "#define system cma_system" in cma_stdio.h. This define
+is not protected with "# if !defined(_CMA_NOWRAPPERS_)".
+So cma_stdio.c is compiled with this wrapper - this means 
+cma_system calls cma_system which calls cma_system ...
+The fix is to move line 294 to the line before the current line 281
+in version 1.1.2.1 of AT386/cma_stdio.h.
+This is a A0 because our basic administration tool gdssysadm 
+core dumps in cma_system.
+
+[05/06/94 public]
+I changed this in my environment and did run into the next problem:
+The same problem we have for "popen".
+
+Does nobody in DCE use "system" and "popen" - only we stupid germans?
+I will change also this here - I'm sure there will be more of these
+wrapper problems.
+
+[5/6/94 public]
+Moved defines of both system and popen into area conditionalized by
+NOWRAPPER.
+
+
+
+CR Number                     : 10518
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 10670
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : no wrappers for execv
+Reported Date                 : 5/4/94
+Found in Baseline             : 1.1
+Found Date                    : 5/4/94
+Severity                      : A
+Priority                      : 0
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.1beta
+Fixed In Baseline             : 1.1
+Affected File(s)              : threads/AT386/cma_ux.c
+                                             threads/AT386/cma_ux.h
+                                             threads/HP800/cma_ux.h
+                                             threads/HP800/cma_ux.h
+                                             threads/RIOS/cma_ux.h
+                                             threads/RIOS/cma_ux.h
+Sensitivity                   : public
+
+[5/4/94 public]
+
+GDS servers use "execv" calls. There is no cma wrapper for execv.
+We get sometimes problems with VTALARM - it interrupts execv - so no
+new process is started. This problem occurs on all relevant platforms -
+RIOS, HP800, AT386.
+There was already some discussion between John Dugas, Rich Zeliff and
+Gundula Loose (SNI). John has sent us a fix for that by mail
+on February 9th. But it is still not in dce1.1.
+May be it was in some former base level and died while code cleanup ...
+
+We have seen that cma_ux.c has moved to machine specific subdirectories.
+No T_M/cma_ux.c contains execv; only in SVR4/cma_ux.c we have found a 
+cma_execve. But in cma_ux.h there is no "#define execve cma_execve" -
+so this function has to be called directly.
+
+If we will get the statement that in DCE 1.1 only a wrapper for cma_execve
+is available on all platforms we can change from "execv" to "execve" -
+but we need a wrapper for one of them.
+
+[Wed May  4 09:16:17 EDT 1994 public]
+
+Just to clarify the story for SVR4.  SVR4 does not use wrappers via 
+#define's.  The cma__execve is implicitly turned into execve() so
+when applications on SVR4 call execve() they are really using
+the routine cma__execve().  Therefore, no #define is needed.
+
+[5/18/94 public]
+Bumped priority.  All GDS processes die during the XOM FVT.  Munich has
+implemented fixes for this defect in their sandbox and they do not see the
+errors.  Therefore, it appears that this is causing the problem.  More
+research will be done.
+
+[05/19/94 public]
+dced uses execve -- do I have a problem, too?
+
+[5/19/94 public]
+added wrapper.
+
+[06/09/94 public]
+Reopened:
+There is still no wrapper for execv!!!
+There is a wrapper now for execve - but nobody told us.
+I think it's much easier to add the wrapper for execv
+than to change our code from execv to execve.
+This is A0 because our testing for security enhancements is blocked:
+We need the newest security - so we can't use our modified bl-9
+(with a wrapper for execv) for building our "Munich"-libdce.
+
+[5/19/94 public]
+I added the wrapper for execve to the OSF1 code about 2 or 3 weeks ago.
+This was to sync up with a work around that I had supplied about 2 months 
+ago that did exactly the same thing and supposedly worked for that
+2 months. The execve wrapper never existed for the hp_ux or aix and does
+not now. I can easily supply the execv wrapper for OSF1 and probably the 
+for the rios as well because they pretty much do wrappers in the
+same manner and I understand the OSF1 wrappers. The hp on the other hand
+does wrappers in a different way and I am not familiar with the mechanism.
+It will therefore take longer to get these wrappers for the hp_ux code.
+
+[06/09/94 public]
+
+OK. This OT is right because we need a wrapper for execv on all
+platforms. First we detected this problem on HP800.
+Then on AT386 and on RIOS.
+
+What we have here in our backing build is:
+We changed 
+AT386/cma_ux.c
+AT386/cma_ux.h
+HP800/cma_ux.c
+HP800/cma_ux.h
+RIOS/cma_ux.c
+RIOS/cma_ux.h
+
+(We forgot SVR4 ...)
+
+We took the wrapper for execve on AT386 and copied it into HP800/cma_ux.c
+and RIOS/cma_ux.c. We modified it a little bit to have a wrapper for execv
+and added this to all three platforms.
+(John: Do you want to have our files?)
+It works on all three platforms without problems!
+
+I think this has to be fixed by 1.1beta because gds testcases can't run
+completely on HP800 without a wrapper.
+
+We can get the agreement that only execve is ported to HP800 and RIOS.
+(But I think if you have execve you have execv.)
+
+Why do you think that it's enough to have cma_execve on AT386?
+I.e. you have wrappers for fprintf on all AT386, HP800, RIOS, SVR4.
+
+[6/9/94 public]
+I didn't say it was enough. I said I don't know the wrapper implementation
+on the hp platform. I've looked at them and know they are different from
+the OSF1 wrappers. For example a grep for the accept system call in the
+threads/HP800 directory gives
+
+cma_iocalls_4.h:#undef accept
+cma_iocalls_4.h:#pragma _HP_SECONDARY_DEF _accept accept
+cma_iocalls_4.h:#define cma_accept _accept
+cma_iocalls_4.h:#define accept _accept_sys
+cma_libc_calls.h:#define accept     _accept_sys
+cma_signal.c: *         RIOS doesn't accept conditionalized arguments within protype lists.
+cma_thdio_4.c: *        cma_accept:  accept a connection to a socket
+cma_thdio_4.c: *        socket_             fd of socket to accept a connection to 
+cma_thdio_4.c: *        Note: the accept operation is "select'able" as a "read" on the socket.
+cma_thdio_4.c:cma_accept(
+cma_thdio_4.c:      accept, 
+cma_thread_io.c: *      time, since other character special devices may not accept
+cma_thread_io.c: *              Modified _ts_ macro to allow accept to call open_general if
+cma_ux.h:#  define accept       cma_accept
+cma_ux.h:extern int  cma_accept (int ,void *,int *);
+
+The other system call wrappers are similar. I don't know what the cma_iocalls
+wrappers do or under what circumstances they are used. Rather than spend the
+time figureing it out I've got a call into hp to have someone  tell me
+if just using the OSF1 wrapper for execv will cause any problems at some 
+point down the line. If you could mail me the wrapper after you have 
+'modified it a little bit' it would help.
+
+[6/13/94 public]
+Added wrappers for execve and execv to hp and rios. Added wrapper for 
+execv to 486.
+
+
+
+CR Number                     : 10497
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : other
+Component Name                : thr
+Subcomponent Name             : cma_open
+Short Description             : Statement not reached warning
+errors during compilation of cma_open and cma_ioctl
+Reported Date                 : 5/2/94
+Found in Baseline             : 1.1
+Found Date                    : 5/2/94
+Severity                      : D
+Priority                      : 3
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1
+Affected File(s)              : cma_thdio_2.c
+Sensitivity                   : public
+
+[5/2/94 public]
+
+ The customer found this bug in DCE1.0.3, but it's also present in
+/project/dce/build/dce1.1/src/threads/*/cma_thdio_2.c.
+ 
+ In the function cma_open(), the call va_end just right after the 
+macro cma__ts_open (defined in ma_thread_io.h) which always returns __fd_ 
+causes the warning  error message "Statement not reached" during compilation.
+
+ The same problem occurs in the function cma_ioctl().
+
+ This means that in cma_open() and, on one branch, in cma_ioctl(),
+va_start() is called without a call to va_end(). I've seen compilers
+for which this can be a real problem.
+
+[7/12/94 public]
+Taken care of by code cleanup.
+
+
+
+CR Number                     : 9998
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : test/systest/threads
+Short Description             : can't find "dce/std.h"
+Reported Date                 : 2/23/94
+Found in Baseline             : 1.1
+Found Date                    : 2/23/94
+Severity                      : A
+Priority                      : 0
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1
+Affected File(s)              : dce/std.h
+Sensitivity                   : public
+
+[2/23/94 public]
+
+Various GDS test modules report they cannot find "dce/std.h" and cannot
+find the library for "-lxx_":
+
+[ /test/systest/directory/gds/dcegdshd at 23:46 (PM) Tuesday ]
+view_obj.c
+shd_util.c
+
+The following module complains about unsatisfied symbols:
+
+[ /test/directory/gds/ros/testenv/adm at 23:37 (PM) Tuesday ]
+
+c89      -z -Wl,-Bimmediate,-Bnonfatal,-a,default,+b,/lib:/usr/lib    -L. \
+-L/u3/devobj/sb/nb_ux/src/test/directory/gds/ros/testenv \
+-L/project/dce/build/dce1.1-snap/src/test/directory/gds/ros/testenv \
+-L/u3/devobj/sb/nb_ux/export/hp800/usr/shlib \
+-L/project/dce/build/dce1.1-snap/export/hp800/usr/shlib -L/usr/shlib \
+-L/u3/devobj/sb/nb_ux/export/hp800/usr/lib \
+-L/project/dce/build/dce1.1-snap/export/hp800/usr/lib  \
+-o adrmgr.X adrmgr.o nameserv.o d20frame.o d20trans.o  ldformats.o \
+-ladmv2e -losiaddr -lcurses -ltermcap
+/bin/ld: Unsatisfied symbols:
+   cma_sprintf (code)
+   cma_catgets (code)
+   pthread_once (code)
+   pthread_mutex_init (code)
+   cma_fputs (code)
+   cma_isatty (code)
+   cma_fputc (code)
+   pthread_mutex_unlock (code)
+   cma_lib_malloc (code)
+   cma_fprintf (code)
+   cma_fgets (code)
+   cma_lib_free (code)
+   cma_fflush (code)
+   cma_fclose (code)
+   cma_fgetc (code)
+   pthread_mutex_lock (code)
+   pthread_mutexattr_default (data)
+   cma_fopen (code)
+*** Error code 1
+
+The following modules seem to be indirectly affected (message is
+merely "'build_all' not remade because of errors"):
+
+[ /test/directory/gds/mavrostest at 23:38 (PM) Tuesday ]
+[ /test/systest/directory/gds/gds_xds_str_001 at 23:46 (PM) Tuesday ]
+
+[2/23/94 public]
+
+OK: I will repair the /test/directory/gds/ros/testenv/adm problems.
+	(That means I will add a "-ldce".)
+
+The other problems: std.h is a include file from src/directory/gds/asn1/DUA.
+We have it exported before but we have changed that because we didn't know
+that i.e. systest files use this private gds include. We don't export it
+because nobody in directory outside gds/asn1 uses it. 
+I have checked some of the files which did not build: In all files I have
+found a comment from "cmckeen": (1993/10/14)
+
+ For CR 7671, included <dce/std.h> for definition of TRUE and FALSE
+
+I think the following has happened : TRUE and FALSE were missing in a lot
+of systest files. The resp. engineer went to export/hp800/usr/include/dce
+and did a "grep TRUE *". He found that std.h has defined TRUE. So they
+included std.h.
+
+I think the quick and dirty fix is to export std.h again (it still defines
+TRUE and FALSE ....); a good fix would be to include dce/dce.h (or sys/types.h)
+instead of dce/std.h.
+
+It's your decision, systest guys.
+
+[2/23/94 public]
+Removed Norbert Marrek as assignee of this defect.  This defect contains
+problems which are scattered among a bunch of different components.  I
+recommend component-specific defects be opened and this be cancelled.
+
+[2/23/94 public]
+Before you cancel this defect I would like to mention that I have 
+fixed the problem of linking /test/directory/gds/ros/testenv/adrmgr and
+/test/directory/gds/ros/testenv/rostest: libdce is linked additionally. 
+The corrosponding files (/test/directory/gds/ros/testenv/Makefile
+and /test/directory/gds/ros/testenv/${TARGET_MACHINE}/machdep.mk)
+are submitted.
+
+[2/23/94 public]
+
+Transferred all non-GDS test modules to separate OTs.
+
+[5/6/94 public]
+This was fixed I believe by Paul. I'll mark it a fixed for now and check with
+him on Monday when he is back.
+
+
+
+CR Number                     : 9217
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : sinix
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : cma_signal.c won't compile
+Reported Date                 : 10/21/93
+Found in Baseline             : 1.0.3
+Found Date                    : 10/21/93
+Severity                      : A
+Priority                      : 0
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : cam_signal.c
+Sensitivity                   : public
+
+[10/21/93 public]
+
+cma_signal.c will no longer build on SVR4.
+
+[10/25/93 piublic]
+Fix submmited. Bug is closed.
+
+
+
+CR Number                     : 9051
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : cma_signal.c
+Short Description             : #elsE on line 1949
+Reported Date                 : 10/5/93
+Found in Baseline             : 1.0.3
+Found Date                    : 10/5/93
+Severity                      : A
+Priority                      : 0
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : threads/cma_signal.c
+Sensitivity                   : public
+
+[10/5/93 public]
+
+There is an "# elsE" on line 1949 of rev. 1.1.17.1 of threads/cma_signal.c
+
+This should undoubtedly be a "# else"; preprocessors will either (a) choke,
+or (b) do the wrong thing if they see the "# elsE".
+
+Moreover, the behavior in the case where the #if is true is probably not
+what's intended (it only calls kill if __r_sigaction fails).
+
+This was OK in the previous rev.
+
+# if _CMA_UNIX_TYPE == _CMA__SVR4
+    if (__r_sigaction (sig, &act, cma_c_null_ptr) == -1)
+# elsE
+    if (sigaction (sig, &act, cma_c_null_ptr) == -1)
+        cma__bugcheck ("sig_sync_kill:1");
+# endif
+
+    kill (getpid(), sig);
+
+[10/07/93 public]
+I think this got fixed by Abby on the 6th but she is having trouble with
+her mail so I didn't see a request. The code in the tree looks fixed and
+Abby has a comment in cma_signal.c indicating that she fixed it. I'll check
+today.
+
+[10/7/93 public]
+Abby still doesn't have mail access but this has been fixed so I'm updating
+it.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 8882
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 2926
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : pthread_mutex_init
+Short Description             : EINVAL is missing from pthread_mutex_init() returns discussion
+Reported Date                 : 9/30/93
+Found in Baseline             : 1.0.2
+Found Date                    : 9/30/93
+Severity                      : D
+Priority                      : 3
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : pthread_mutex_init.3thr
+Sensitivity                   : public
+
+[9/30/93 public]
+
+The refpage for pthread_mutex_init(3thr) is missing a mention of the
+return value EINVAL.  (It returned this for me).  CR 2926 says this was
+added (May 1992); see src/threads/cma_pthread.c.  The doc file is
+.../doc/.../app_ref/man3thr/pthread_mutex_init.3thr.
+
+[10/1/93 public]
+
+Assigned this CR to Doug Weir (OSF writer,
+"threads" doc component owner)
+
+[10/15/93 public]
+
+Fixed. Verified by inspection.
+
+[11/11/93 public]
+
+Verified change in latest doc build and closed this CR.
+
+
+
+CR Number                     : 8483
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 8277
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : OSF DCE 1.0.2 Application Development Reference
+Short Description             : the RETURN VALUEs for the pthread_set* functions are documented incorrectly
+Reported Date                 : 8/19/93
+Found in Baseline             : 1.0.3
+Found Date                    : 8/19/93
+Severity                      : C
+Priority                      : 3
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : app_ref/man3thr/pthread_set*.3thr
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : 
+Transarc Status               : 
+
+[8/19/93 public]
+The OSF DCE 1.0.2 Application Development Reference incorrectly 
+indicates a function return value of 0 (zero) corresponds to a 
+successful return for the several pthread_set* functions. These
+functions, according to POSIX P1003.4a/D4, return either the 
+old priority or old policy. A successful return is anything 
+other than -1. For detailed information on each function, refer 
+to the POSIX draft.
+
+[8/19/93 public]
+Changed Interest List CC from `jaffe@transarc.com' to `' 
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `' 
+Added field Transarc Status with value `'
+
+[08/19/93 public]
+Assigned to writer Doug Weir.
+
+[09/21/93 public]
+Made the change specified above in all the pthread_set reference pages.
+Note that I am still waiting on a query as to whether the same correction
+should be made to the pthread_attr_set reference pages.
+
+[09/21/93 public]
+All the necessary changes have been made. Roger explained...
+
+  Regarding the pthread_attr_set* question, ...
+
+  The POSIX draft does not specify the return value. The DCE implementation,
+  however, returns 0 (zero) for success, and -1 for failure for all of the
+  pthread_attr_set* functions.
+
+So the pthread_attr_set* reference pages don't need to be changed; they
+already say the correct thing.
+
+[11/11/93 public]
+
+Verified changes in latest doc build and closed this CR.
+
+
+
+CR Number                     : 8418
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : cma__assert_message() does not return a value causing a compiler warning.
+Reported Date                 : 8/6/93
+Found in Baseline             : 1.0.2
+Found Date                    : 8/6/93
+Severity                      : D
+Priority                      : 3
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : threads/cma_assert.c
+Sensitivity                   : public
+
+[8/6/93 public]
+
+In threads/cma_assert.c cma__assert_message() is declared as returning
+cma_t_integer yet it never returns any value causing a compiler warning.
+Add a return(0) statement at the end of the function or change the return
+type to void.
+
+[8/23/93 public]
+
+The requested change has been put in.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 8417
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : cma__undefer is declared as returning cma_t_integer but does not return any value causing a compiler warning.
+Reported Date                 : 8/6/93
+Found in Baseline             : 1.0.2
+Found Date                    : 8/6/93
+Severity                      : D
+Priority                      : 3
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : threads/cma_defer.c
+Sensitivity                   : public
+
+[8/6/93 public]
+
+In threads/cma_defer.c cma__undefer() is declared as returning
+cma_t_integer but does not return any value causing a compiler warning.
+Either add a return(0) statement at the end of the function or change the
+declaration to function returning void.
+
+[8/23/93 public]
+
+The requested change has been put in.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 8416
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : cma__enter_kern_record() zeroes eseq instead of xseq.
+Reported Date                 : 8/6/93
+Found in Baseline             : 1.0.2
+Found Date                    : 8/6/93
+Severity                      : C
+Priority                      : 3
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : threads/cma_kernel.c
+Sensitivity                   : public
+
+[8/6/93 public]
+
+In threads/cma_kernel.c cma__enter_kern_record() sets fields
+improperly:
+
+    cma___g_karray[cma___g_kidx].locked = cma_c_true;
+    cma___g_karray[cma___g_kidx].eline = line;
+    cma___g_karray[cma___g_kidx].efile = file;
+    cma___g_karray[cma___g_kidx].ethd = self;
+    cma___g_karray[cma___g_kidx].eseq = self->header.sequence;
+    cma___g_karray[cma___g_kidx].xline = 0;
+    cma___g_karray[cma___g_kidx].xfile = (char *)cma_c_null_ptr;
+    cma___g_karray[cma___g_kidx].xthd = (cma__t_int_tcb *)cma_c_null_ptr;
+>   cma___g_karray[cma___g_kidx].eseq = 0;
+    cma___g_karray[cma___g_kidx].tryenter = cma_c_false;
+    cma___g_karray[cma___g_kidx].unlock = cma_c_false;
+    cma___g_karray[cma___g_kidx].unset = cma_c_false;
+
+eseq should be changed to xseq.
+
+[8/23/93 public]
+
+The requested change has been put in.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 8410
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : thr
+Subcomponent Name             : app_ref
+Short Description             : Mismatch between
+pthread_attr_setprio doc and code
+Reported Date                 : 8/4/93
+Found in Baseline             : 1.0.2
+Found Date                    : 8/4/93
+Severity                      : D
+Priority                      : 3
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : app_ref/man3thr/pthread_attr_setprio.3thr
+Sensitivity                   : public
+
+[8/4/93 public]
+
+
+The pthread_attr_setprio man page says (in "Parameters" section):
+
+"...To specify a priority midway between the minimum and maximum...
+specify the following:
+
+pri_rr_mid = (PRI_RR_MIN + PRI_RR_MAX)\2"
+
+If this formula is used to get the default priority value from
+PRI_OTHER_MIN and PRI_OTHER_MAX, then it falls 1 short of the value used in
+the code. The correct formula is
+
+pri_rr_mid = (PRI_RR_MIN + PRI_RR_MAX + 1)\2
+
+[08/05/93 public]
+Assigned this CR to writer Doug Weir.
+
+[09/21/93 public]
+Formula corrected as specified above. Note that I also corrected the identical
+formula in the pthread_setprio.3thr reference page.
+
+[11/11/93 public]
+
+Verified changes in latest doc build and closed this CR.
+
+
+
+CR Number                     : 8409
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : in port_gd, the setup info for dcethrpc test is incomplete
+Reported Date                 : 8/4/93
+Found in Baseline             : 1.0.2
+Found Date                    : 8/4/93
+Severity                      : D
+Priority                      : 3
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : port_gd/11_systest.gpsml
+Sensitivity                   : public
+
+[8/4/93 public]
+
+In order to run the dcethrpc system test, the following setup is required:
+You must add the principal under which the test is to be run:
+rgy_edit << EOF
+domain principal
+add sally
+domain account
+add sally -g none -o none -pw sally -mp -dce-
+quit
+EOF
+The principal name and the password must be the same.  You must also add the
+principal to the keytab file on each machine at which this test is to be run.
+
+[08/04/93 public]
+
+Moved note under bertrand note header, originally was before it.
+
+[08/05/93 public]
+Assigned this CR to Porting Guide owner Doug Weir.
+
+[09/21/93 public]
+Added the specified information.
+
+[11/12/93 public]
+
+Verified change in latest doc build and closed this CR.
+
+
+
+CR Number                     : 8394
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : bad #if statements in cma_stdio.c
+Reported Date                 : 7/30/93
+Found in Baseline             : 1.0.2
+Found Date                    : 7/30/93
+Severity                      : B
+Priority                      : 1
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : threads/cma_stdio.c
+Sensitivity                   : public
+
+[7/30/93 public]
+
+Licensee reported the following:
+
+Full Description:
+
+ cma_stdio.c is riddled with bad #if statements that use the variable 
+ _CMA_REENTRANT_CLIB_ ; most of them are missing the trailing
+ underscore from the name.
+ 
+ There are also some long #ifs that should be including OSF as a
+ possible vendor.
+ 
+ 
+     *** /tmp/ci.21320..cma_stdio.c.21347.1	Thu Jul 15 14:17:04 1993
+     --- /tmp/cma_stdio.c.21347.2	Thu Jul 15 14:17:04 1993
+     ***************
+     *** 993,1003 ****
+       
+       /*
+        *  The rewind (stream) function is equivalent to fseek (stream, 0L, 0),
+        *  except that no value is returned.
+        */
+     ! #if _CMA_VENDOR_ == _CMA__APOLLO || _CMA_OSIMPL_ == _CMA__OS_AIX_ || _CMA_HARDWARE_ == _CMA__MIPS || _CMA_HARDWARE_ == _CMA__VAX || _CMA_HARDWARE_ == _CMA__ALPHA || _CMA_HARDWARE_ == _CMA__IBMR2 || _CMA_VENDOR_ == _CMA__HP || (_CMA_UNIX_TYPE == _CMA__SVR4)
+       extern void 
+       #else
+       extern int
+       #endif
+       cma_rewind 
+     --- 993,1003 ----
+       
+       /*
+        *  The rewind (stream) function is equivalent to fseek (stream, 0L, 0),
+        *  except that no value is returned.
+        */
+     ! #if _CMA_VENDOR_ == _CMA__APOLLO || _CMA_OSIMPL_ == _CMA__OS_AIX_ || _CMA_HARDWARE_ == _CMA__MIPS || _CMA_HARDWARE_ == _CMA__VAX || _CMA_HARDWARE_ == _CMA__ALPHA || _CMA_HARDWARE_ == _CMA__IBMR2 || _CMA_VENDOR_ == _CMA__HP || (_CMA_UNIX_TYPE == _CMA__SVR4 || _CMA_VENDOR_ == _CMA__OSF)
+       extern void 
+       #else
+       extern int
+       #endif
+       cma_rewind 
+     ***************
+     *** 1007,1017 ****
+       #else   /* no prototypes */
+       	(stream)
+       	FILE *stream;
+       #endif  /* prototype */
+           {
+     ! #if _CMA_VENDOR_ == _CMA__APOLLO || _CMA_OSIMPL_ == _CMA__OS_AIX_ || _CMA_HARDWARE_ == _CMA__MIPS || _CMA_HARDWARE_ == _CMA__VAX || _CMA_HARDWARE_ == _CMA__ALPHA || _CMA_HARDWARE_ == _CMA__IBMR2 || _CMA_VENDOR_ == _CMA__HP || (_CMA_UNIX_TYPE == _CMA__SVR4)
+           cma_stdio_void (rewind, (stream));
+       #else
+           cma_stdio_simple (int, rewind, (stream));
+       #endif
+           }
+     --- 1007,1017 ----
+       #else   /* no prototypes */
+       	(stream)
+       	FILE *stream;
+       #endif  /* prototype */
+           {
+     ! #if _CMA_VENDOR_ == _CMA__APOLLO || _CMA_OSIMPL_ == _CMA__OS_AIX_ || _CMA_HARDWARE_ == _CMA__MIPS || _CMA_HARDWARE_ == _CMA__VAX || _CMA_HARDWARE_ == _CMA__ALPHA || _CMA_HARDWARE_ == _CMA__IBMR2 || _CMA_VENDOR_ == _CMA__HP || (_CMA_UNIX_TYPE == _CMA__SVR4 || _CMA_VENDOR_ == _CMA__OSF)
+           cma_stdio_void (rewind, (stream));
+       #else
+           cma_stdio_simple (int, rewind, (stream));
+       #endif
+           }
+     ***************
+     *** 1074,1084 ****
+        *  big an array is needed:
+        *
+        *	char buf[BUFSIZ];
+        *
+        */
+     ! #if _CMA_VENDOR_ == _CMA__APOLLO || _CMA_OSIMPL_ == _CMA__OS_AIX_ || _CMA_HARDWARE_ == _CMA__MIPS || _CMA_HARDWARE_ == _CMA__VAX || _CMA_HARDWARE_ == _CMA__ALPHA || _CMA_HARDWARE_ == _CMA__IBMR2 || _CMA_VENDOR_ == _CMA__HP || (_CMA_UNIX_TYPE == _CMA__SVR4)
+       extern void
+       #else
+       extern int
+       #endif
+       cma_setbuf 
+     --- 1074,1084 ----
+        *  big an array is needed:
+        *
+        *	char buf[BUFSIZ];
+        *
+        */
+     ! #if _CMA_VENDOR_ == _CMA__APOLLO || _CMA_OSIMPL_ == _CMA__OS_AIX_ || _CMA_HARDWARE_ == _CMA__MIPS || _CMA_HARDWARE_ == _CMA__VAX || _CMA_HARDWARE_ == _CMA__ALPHA || _CMA_HARDWARE_ == _CMA__IBMR2 || _CMA_VENDOR_ == _CMA__HP || (_CMA_UNIX_TYPE == _CMA__SVR4 || _CMA_VENDOR_ == _CMA__OSF)
+       extern void
+       #else
+       extern int
+       #endif
+       cma_setbuf 
+     ***************
+     *** 1090,1100 ****
+       	(stream, buf)
+       	FILE	*stream;
+       	char	*buf;
+       #endif  /* prototype */
+           {
+     ! #if _CMA_VENDOR_ == _CMA__APOLLO || _CMA_OSIMPL_ == _CMA__OS_AIX_ || _CMA_HARDWARE_ == _CMA__MIPS || _CMA_HARDWARE_ == _CMA__VAX  || _CMA_HARDWARE_ == _CMA__ALPHA || _CMA_HARDWARE_ == _CMA__IBMR2 || _CMA_VENDOR_ == _CMA__HP || (_CMA_UNIX_TYPE == _CMA__SVR4)
+           cma_stdio_void (setbuf, (stream, buf));
+       #else
+           cma_stdio_simple (int, setbuf, (stream, buf));
+       #endif
+           }
+     --- 1090,1100 ----
+       	(stream, buf)
+       	FILE	*stream;
+       	char	*buf;
+       #endif  /* prototype */
+           {
+     ! #if _CMA_VENDOR_ == _CMA__APOLLO || _CMA_OSIMPL_ == _CMA__OS_AIX_ || _CMA_HARDWARE_ == _CMA__MIPS || _CMA_HARDWARE_ == _CMA__VAX  || _CMA_HARDWARE_ == _CMA__ALPHA || _CMA_HARDWARE_ == _CMA__IBMR2 || _CMA_VENDOR_ == _CMA__HP || (_CMA_UNIX_TYPE == _CMA__SVR4 || _CMA_VENDOR_ == _CMA__OSF)
+           cma_stdio_void (setbuf, (stream, buf));
+       #else
+           cma_stdio_simple (int, setbuf, (stream, buf));
+       #endif
+           }
+     ***************
+     *** 1661,1671 ****
+       # endif	/* prototype */
+       	{
+       	struct itimerval old, new;
+       	int rv;
+       
+     ! # if !_CMA_REENTRANT_CLIB
+           cma__int_init ();
+           cma_lock_global ();
+       # endif
+       	timerclear(&new.it_interval);
+       	timerclear(&new.it_value);
+     --- 1661,1671 ----
+       # endif	/* prototype */
+       	{
+       	struct itimerval old, new;
+       	int rv;
+       
+     ! # if !_CMA_REENTRANT_CLIB_
+           cma__int_init ();
+           cma_lock_global ();
+       # endif
+       	timerclear(&new.it_interval);
+       	timerclear(&new.it_value);
+     ***************
+     *** 1674,1692 ****
+       	rv = __ree_system(cmd);
+       # else
+       	rv = system(cmd);
+       # endif
+       	setitimer(ITIMER_VIRTUAL, &old, (struct itimerval *)0);
+     ! # if !_CMA_REENTRANT_CLIB
+           cma_unlock_global ();
+       # endif
+       	return (rv);
+       	}
+       
+       #endif	/* _CMA_VENDOR_ == _CMA__OSF || (_CMA_UNIX_TYPE == _CMA__SVR4) */
+       
+     ! #if _CMA_OS_ != _CMA__VMS && (!_CMA_REENTRANT_CLIB || _CMA_VENDOR_ == _CMA__OSF|| (_CMA_UNIX_TYPE == _CMA__SVR4))
+       
+       /*
+        * Popen(3) is now wrapped for two discrete reasons.  First,
+        * if there is no re-entrant libc present, it's wrapped on
+        * the same basis as other stdio functions.  However, on OSF/1
+     --- 1674,1692 ----
+       	rv = __ree_system(cmd);
+       # else
+       	rv = system(cmd);
+       # endif
+       	setitimer(ITIMER_VIRTUAL, &old, (struct itimerval *)0);
+     ! # if !_CMA_REENTRANT_CLIB_
+           cma_unlock_global ();
+       # endif
+       	return (rv);
+       	}
+       
+       #endif	/* _CMA_VENDOR_ == _CMA__OSF || (_CMA_UNIX_TYPE == _CMA__SVR4) */
+       
+     ! #if _CMA_OS_ != _CMA__VMS && (!_CMA_REENTRANT_CLIB_ || _CMA_VENDOR_ == _CMA__OSF|| (_CMA_UNIX_TYPE == _CMA__SVR4))
+       
+       /*
+        * Popen(3) is now wrapped for two discrete reasons.  First,
+        * if there is no re-entrant libc present, it's wrapped on
+        * the same basis as other stdio functions.  However, on OSF/1
+     ***************
+     *** 1715,1734 ****
+       # if	(_CMA_VENDOR_ == _CMA__OSF) || (_CMA_UNIX_TYPE == _CMA__SVR4)
+       	struct itimerval old, new;
+       # endif
+       	FILE *rv;
+       
+     ! # if	!_CMA_REENTRANT_CLIB
+           cma__int_init ();
+           cma_lock_global ();
+       # endif
+       # if	(_CMA_VENDOR_ == _CMA__OSF) || (_CMA_UNIX_TYPE == _CMA__SVR4)
+       	timerclear(&new.it_interval);
+       	timerclear(&new.it_value);
+       	setitimer(ITIMER_VIRTUAL, &new, &old);
+       # endif
+     ! # if (_CMA_UNIX_TYPE == _CMA__SVR4) && (_CMA_REENTRANT_CLIB)
+           rv = __ree_popen(command, type);
+       # else
+           rv = popen(command, type);
+       #if !_CMA_THREAD_SYNC_IO_
+       	if (rv) cma_import_fd (fileno(rv));
+     --- 1715,1734 ----
+       # if	(_CMA_VENDOR_ == _CMA__OSF) || (_CMA_UNIX_TYPE == _CMA__SVR4)
+       	struct itimerval old, new;
+       # endif
+       	FILE *rv;
+       
+     ! # if	!_CMA_REENTRANT_CLIB_
+           cma__int_init ();
+           cma_lock_global ();
+       # endif
+       # if	(_CMA_VENDOR_ == _CMA__OSF) || (_CMA_UNIX_TYPE == _CMA__SVR4)
+       	timerclear(&new.it_interval);
+       	timerclear(&new.it_value);
+       	setitimer(ITIMER_VIRTUAL, &new, &old);
+       # endif
+     ! # if (_CMA_UNIX_TYPE == _CMA__SVR4) && (_CMA_REENTRANT_CLIB_)
+           rv = __ree_popen(command, type);
+       # else
+           rv = popen(command, type);
+       #if !_CMA_THREAD_SYNC_IO_
+       	if (rv) cma_import_fd (fileno(rv));
+     ***************
+     *** 1735,1746 ****
+       #endif
+       # endif
+       # if	(_CMA_VENDOR_ == _CMA__OSF) || (_CMA_UNIX_TYPE == _CMA__SVR4)
+       	setitimer(ITIMER_VIRTUAL, &old, (struct itimerval *)0);
+       #endif
+     ! # if	!_CMA_REENTRANT_CLIB
+           cma_unlock_global ();
+       # endif
+       	return (rv);
+           }
+       
+     ! #endif	/* _CMA_OS_ != _CMA__VMS && (!_CMA_REENTRANT_CLIB || _CMA_VENDOR_ == _CMA__OSF || (_CMA_UNIX_TYPE == _CMA__SVR4)) */
+     --- 1735,1746 ----
+       #endif
+       # endif
+       # if	(_CMA_VENDOR_ == _CMA__OSF) || (_CMA_UNIX_TYPE == _CMA__SVR4)
+       	setitimer(ITIMER_VIRTUAL, &old, (struct itimerval *)0);
+       #endif
+     ! # if	!_CMA_REENTRANT_CLIB_
+           cma_unlock_global ();
+       # endif
+       	return (rv);
+           }
+       
+     ! #endif	/* _CMA_OS_ != _CMA__VMS && (!_CMA_REENTRANT_CLIB_ || _CMA_VENDOR_ == _CMA__OSF || (_CMA_UNIX_TYPE == _CMA__SVR4)) */
+
+[8/6/93 public]
+
+An inspection of cma_stdio.c shows the typo involving _CMA_REENTRANT_CLIB_ was fixed
+in rev. 1.2.14.3 (Initial 486 port).
+
+Fixing these #if's is already included as part of the DCE 1.1 cleanup. 
+Since they don't currently break anything, this work will be deffered 
+until then. No new CR is needed.
+
+
+
+CR Number                     : 8391
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : threads/cma_stack.c
+Short Description             : cma__get_stack can
+doubly-allocate big stacks
+Reported Date                 : 7/30/93
+Found in Baseline             : 1.0.2
+Found Date                    : 7/30/93
+Severity                      : B
+Priority                      : 1
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : threads/cma_stack.c
+Sensitivity                   : public
+
+[7/30/93 public]
+
+ In cma__get_stack, if chunks > cma__chunk_count, the while loop that
+ searches for a bigstack does not check the in_use bit of the stack
+ descriptor before attempting to use it.
+
+ This is line 1413 from 1.0.2 release cma_stack.c
+
+ Here is a suggested fix:
+
+     *** /tmp/ci.19566..cma_stack.c.19599.1     Wed Jul 14 17:34:54 1993
+     --- /tmp/cma_stack.c.19599.2       Wed Jul 14 17:34:54 1993
+     ***************
+     *** 1421,1431 ****
+
+        big = (cma___t_bigstack *)cma__list_next (&cma__g_stack_clusters);
+
+        while ((cma__t_list *)big != cma__c_null_list) {
+
+     !      if (big->desc.type == cma___c_bigstack && big->size >= big_size) {
+                found = cma_c_true;
+                big->in_use = cma_c_true;
+                cluster = (cma___t_cluster *)big;
+                break;
+                }
+     --- 1421,1432 ----
+
+        big = (cma___t_bigstack *)cma__list_next (&cma__g_stack_clusters);
+
+        while ((cma__t_list *)big != cma__c_null_list) {
+
+     !      if (big->in_use != cma_c_true &&
+     !          big->desc.type == cma___c_bigstack && big->size >= big_size) {
+                found = cma_c_true;
+                big->in_use = cma_c_true;
+                cluster = (cma___t_cluster *)big;
+                break;
+                }
+
+[8/13/93 public]
+Added the indicated check for in_use flag before returning a bigstack.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 8349
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : cma_stdio.c
+Short Description             : cma_sscanf does not return result
+Reported Date                 : 7/22/93
+Found in Baseline             : 1.0.2
+Found Date                    : 7/22/93
+Severity                      : B
+Priority                      : 3
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : threads/cma_stdio.c
+Sensitivity                   : public
+
+[7/22/93 public]
+
+cma_sscanf does not return the result that it gets from vsscanf - it
+just drops off the end.
+
+[8/5/93 public]
+
+The wrapper for sscanf calls vsscanf. cma_vsscanf  should 
+return whatever vsscanf returns. It does now.....
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 8323
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : cma_stdio.h incorrect prototypes
+Reported Date                 : 7/20/93
+Found in Baseline             : 1.0.2
+Found Date                    : 7/20/93
+Severity                      : C
+Priority                      : 2
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : threads/stdio.h
+Sensitivity                   : public
+
+[7/20/93 public]
+
+The prototypes appearing in cma_stdio.h are not consistent with the
+corresponding prototypes in stdio.h, with respect to the use of the
+const type qualifier.
+
+for example /usr/include/stdio.h has
+
+extern int      fputs(const char *s, FILE *stream);
+extern int      vfprintf(FILE *stream, const char *format, va_list arg);
+
+while src/threads/cma_stdio.h has
+
+extern int
+cma_fputs _CMA_PROTOTYPE_ ((
+	char	*s,
+	FILE	*stream));
+
+extern int
+cma_vfprintf _CMA_PROTOTYPE_ ((
+	FILE	*stream,
+	char	*format,
+	va_list	ap));
+
+As a result of these inconsistencies (and others of the same form),
+numerous compiler warning of the following form occur during the build.
+
+../../../../../src/security/krb5/kdc/main.c:144: warning: argument passing
+of non-const * pointer from const *
+
+[8/17/93 public]
+
+Made the requested changes by comparing cma_stdio.h prototypes with those
+in /usr/include/stdio.h on HP_UX and OSF/1. Output from diff -c follows:
+
+*** cma_stdio.h	Tue Aug 17 12:19:18 1993
+--- ../../link/src/threads/cma_stdio.h	Mon May 24 16:56:24 1993
+***************
+*** 345,351 ****
+  extern FILE *
+  cma_fdopen _CMA_PROTOTYPE_ ((
+  	int	fildes,
+! 	const char	*type));
+  
+  extern int
+  cma_fgetc _CMA_PROTOTYPE_ ((
+--- 345,351 ----
+  extern FILE *
+  cma_fdopen _CMA_PROTOTYPE_ ((
+  	int	fildes,
+! 	char	*type));
+  
+  extern int
+  cma_fgetc _CMA_PROTOTYPE_ ((
+***************
+*** 359,371 ****
+  
+  extern FILE *
+  cma_fopen _CMA_PROTOTYPE_ ((
+! 	const char	*filename,
+! 	const char	*type));
+  
+  extern int
+  cma_fprintf _CMA_PROTOTYPE_ ((
+  	FILE	*stream,
+! 	const char	*format,
+  	...));
+  
+  extern int
+--- 359,371 ----
+  
+  extern FILE *
+  cma_fopen _CMA_PROTOTYPE_ ((
+! 	char	*filename,
+! 	char	*type));
+  
+  extern int
+  cma_fprintf _CMA_PROTOTYPE_ ((
+  	FILE	*stream,
+! 	char	*format,
+  	...));
+  
+  extern int
+***************
+*** 375,394 ****
+  
+  extern int
+  cma_fputs _CMA_PROTOTYPE_ ((
+! 	const char	*s,
+  	FILE	*stream));
+  
+  extern int
+  cma_fread _CMA_PROTOTYPE_ ((
+! 	void *ptr,
+! 	size_t size,
+! 	size_t nitems,
+  	FILE	*stream));
+  
+  extern FILE *
+  cma_freopen _CMA_PROTOTYPE_ ((
+! 	const char	*filename,
+! 	const char	*type,
+  	FILE	*stream));
+  
+  #if _CMA_VSSCANF_
+--- 375,394 ----
+  
+  extern int
+  cma_fputs _CMA_PROTOTYPE_ ((
+! 	char	*s,
+  	FILE	*stream));
+  
+  extern int
+  cma_fread _CMA_PROTOTYPE_ ((
+! 	char	*ptr,
+! 	unsigned size,
+! 	unsigned nitems,
+  	FILE	*stream));
+  
+  extern FILE *
+  cma_freopen _CMA_PROTOTYPE_ ((
+! 	char	*filename,
+! 	char	*type,
+  	FILE	*stream));
+  
+  #if _CMA_VSSCANF_
+***************
+*** 395,401 ****
+  extern int
+  cma_fscanf _CMA_PROTOTYPE_ ((
+  	FILE	*stream,
+! 	const char	*format,
+  	...));
+  #endif
+  
+--- 395,401 ----
+  extern int
+  cma_fscanf _CMA_PROTOTYPE_ ((
+  	FILE	*stream,
+! 	char	*format,
+  	...));
+  #endif
+  
+***************
+*** 411,419 ****
+  
+  extern int
+  cma_fwrite _CMA_PROTOTYPE_ ((
+! 	const void *ptr,
+! 	size_t size,
+! 	size_t nitems,
+  	FILE	*stream));
+  
+  extern char *
+--- 411,419 ----
+  
+  extern int
+  cma_fwrite _CMA_PROTOTYPE_ ((
+! 	char	*ptr,
+! 	unsigned size,
+! 	unsigned nitems,
+  	FILE	*stream));
+  
+  extern char *
+***************
+*** 440,457 ****
+  
+  extern FILE *
+  cma_popen _CMA_PROTOTYPE_ ((
+! 	const char	*command,
+! 	const char	*type));
+  #endif
+  
+  extern int
+  cma_printf _CMA_PROTOTYPE_ ((
+! 	const char	*format,
+  	...));
+  
+  extern int
+  cma_puts _CMA_PROTOTYPE_ ((
+! 	const char	*s));
+  
+  extern int
+  cma_putw _CMA_PROTOTYPE_ ((
+--- 440,457 ----
+  
+  extern FILE *
+  cma_popen _CMA_PROTOTYPE_ ((
+! 	char	*command,
+! 	char	*type));
+  #endif
+  
+  extern int
+  cma_printf _CMA_PROTOTYPE_ ((
+! 	char	*format,
+  	...));
+  
+  extern int
+  cma_puts _CMA_PROTOTYPE_ ((
+! 	char	*s));
+  
+  extern int
+  cma_putw _CMA_PROTOTYPE_ ((
+***************
+*** 465,471 ****
+  #if _CMA_VSSCANF_
+  extern int
+  cma_scanf _CMA_PROTOTYPE_ ((
+! 	const char	*format,
+  	...));
+  #endif
+  
+--- 465,471 ----
+  #if _CMA_VSSCANF_
+  extern int
+  cma_scanf _CMA_PROTOTYPE_ ((
+! 	char	*format,
+  	...));
+  #endif
+  
+***************
+*** 505,518 ****
+  #endif
+  cma_sprintf _CMA_PROTOTYPE_ ((
+  	char	*s,
+! 	const char	*format,
+  	...));
+  
+  #if _CMA_VSSCANF_
+  extern int
+  cma_sscanf _CMA_PROTOTYPE_ ((
+! 	const char	*s,
+! 	const char	*format,
+  	...));
+  #endif
+  
+--- 505,518 ----
+  #endif
+  cma_sprintf _CMA_PROTOTYPE_ ((
+  	char	*s,
+! 	char	*format,
+  	...));
+  
+  #if _CMA_VSSCANF_
+  extern int
+  cma_sscanf _CMA_PROTOTYPE_ ((
+! 	char	*s,
+! 	char	*format,
+  	...));
+  #endif
+  
+***************
+*** 520,527 ****
+  /* tempnam does not exist on vms */
+  extern char *
+  cma_tempnam _CMA_PROTOTYPE_ ((
+! 	const char	*dir, 
+! 	const char	*pfx));
+  #endif
+  
+  extern FILE *
+--- 520,527 ----
+  /* tempnam does not exist on vms */
+  extern char *
+  cma_tempnam _CMA_PROTOTYPE_ ((
+! 	char	*dir, 
+! 	char	*pfx));
+  #endif
+  
+  extern FILE *
+***************
+*** 549,560 ****
+  extern int
+  cma_vfprintf _CMA_PROTOTYPE_ ((
+  	FILE	*stream,
+! 	const char	*format,
+  	va_list	ap));
+  
+  extern int
+  cma_vprintf _CMA_PROTOTYPE_ ((
+! 	const char	*format,
+  	va_list	ap));
+  
+  #if defined(SYSV) || (_CMA_UNIX_TYPE == _CMA__SVR4)
+--- 549,560 ----
+  extern int
+  cma_vfprintf _CMA_PROTOTYPE_ ((
+  	FILE	*stream,
+! 	char	*format,
+  	va_list	ap));
+  
+  extern int
+  cma_vprintf _CMA_PROTOTYPE_ ((
+! 	char	*format,
+  	va_list	ap));
+  
+  #if defined(SYSV) || (_CMA_UNIX_TYPE == _CMA__SVR4)
+***************
+*** 564,570 ****
+  #endif
+  cma_vsprintf _CMA_PROTOTYPE_ ((
+  	char	*s,
+! 	const char	*format,
+  	va_list	ap));
+  
+  #endif /* _CMA_REENTRANT_CLIB_ */
+--- 564,570 ----
+  #endif
+  cma_vsprintf _CMA_PROTOTYPE_ ((
+  	char	*s,
+! 	char	*format,
+  	va_list	ap));
+  
+  #endif /* _CMA_REENTRANT_CLIB_ */
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 8310
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : app_ref
+Short Description             : man page for
+pthread_attr_setstacksize() is incomplete
+Reported Date                 : 7/19/93
+Found in Baseline             : 1.0.2
+Found Date                    : 7/19/93
+Severity                      : C
+Priority                      : 2
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : app_ref/man3thr/pthread_attr_setstacksize.3thr
+Sensitivity                   : public
+
+[7/19/93 public]
+
+Full Description:
+
+        The man page for pthread_attr_setstacksize() does not include
+        the error code returned when pthread_attr_setstacksize() is called
+        with an invalid stacksize argument.
+
+
+Proposed Solution:
+
+        Add the following to the "RETURN VALUES" section of the
+        pthread_attr_setstacksize() man page:
+
+        Return  Error           Description
+        -----------------------------------
+        -1      EINVAL          The value specified by
+                                'attr' is invalid
+
+[07/22/93 public]
+Assigned to writer Doug Weir.
+
+[09/21/93 public]
+Made the changes specified above.
+
+[11/11/93 public]
+
+Verified change in latest doc build and closed this CR.
+
+
+
+CR Number                     : 8304
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : thr
+Subcomponent Name             : bosserver
+Short Description             : bosserver auto restart failed
+Reported Date                 : 7/19/93
+Found in Baseline             : 1.0.2a
+Found Date                    : 7/19/93
+Severity                      : B
+Priority                      : 1
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : threads/cma_thread_io.c
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : 
+Transarc Status               : 
+
+[7/19/93 public]
+2 of the 3 rios flserver machines failed to automatically restart the
+bosserver (at default Sunday 4am) with:
+(in orange BosLog)
+Sun Jul 18 02:40:20 1993: /opt/dcelocal/bin/bosserver: beginning logging
+Sun Jul 18 02:40:20 1993: Server directory access is okay
+flserver: Ubik init failed (/.../dfs_only_works_at_transarc/fs) with code 382312470
+repserver: no aggregates on this server
+Sun Jul 18 04:00:00 1993: reBossvrWatchThread: no error; simple restart exit
+Sun Jul 18 04:00:01 1993: /opt/dcelocal/bin/bosserver: application exit
+%Internal DCE Threads problem (version CMA BL10+), terminating execution.
+% Reason: cma__open_general: unexpected fstat error
+% See 'cma_dump.log' for state information.
+(in barge BosLog)
+Sun Jul 18 02:36:31 1993: /opt/dcelocal/bin/bosserver: beginning logging
+Sun Jul 18 02:36:32 1993: Server directory access is okay
+bakserver: Ubik init failed with code 382312470
+Bakserver: failed to start; communications failure (dce / rpc)
+Sun Jul 18 04:00:00 1993: reBossvrWatchThread: no error; simple restart exit
+Sun Jul 18 04:00:01 1993: /opt/dcelocal/bin/bosserver: application exit
+%Internal DCE Threads problem (version CMA BL10+), terminating execution.
+% Reason: cma__open_general: unexpected fstat error
+% See 'cma_dump.log' for state information.
+All 3 rios flservers had been manually rebooted at 2:30 am Sunday - the
+3rd rios flserver's BosLogs contain:
+(BosLog.old)
+Sun Jul 18 02:43:19 1993: /opt/dcelocal/bin/bosserver: beginning logging
+Sun Jul 18 02:43:20 1993: Server directory access is okay
+bakserver: Ubik init failed with code 382312470
+Bakserver: failed to start; communications failure (dce / rpc)
+Sun Jul 18 04:00:00 1993: reBossvrWatchThread: no error; simple restart exit
+Sun Jul 18 04:00:01 1993: /opt/dcelocal/bin/bosserver: application exit
+(BosLog)
+Sun Jul 18 04:00:05 1993: /opt/dcelocal/bin/bosserver: beginning logging
+Sun Jul 18 04:00:05 1993: Server directory access is okay
+bakserver: Ubik init failed with code 382312470
+Bakserver: failed to start; communications failure (dce / rpc)
+I was running dfs.lock at the time but I think this is irrelevant. There is
+nothing common to orange and barge that differs from cobbler except that
+orange and barge are on subnet 5 and cobbler is on subnet 201 (which also
+seems irrelevent). HOWEVER, orange and barge are new to dfs testing - and
+I recall there being "ulimit" type defaults that have to be changed - could
+this be a factor? Are these documented anywhere?
+It is important to note that cobbler did not find quorum with itself, the
+only flserver running after Sun. 4am.
+The cma_dump.logs contents look like this:
+%Internal DCE Threads problem (version CMA BL10+), terminating execution.
+% Reason: cma__open_general: unexpected fstat error
+The current thread is 1 (address 0x20085190)
+DECthreads scheduling database is locked.
+Current threads:
+Thread default thread (20085190) 1 : running
+  Current vp is 0
+  Join: mutex 2009e9c0 (21), cv 2009ea10 (2)
+  Sync. wait: mutex 2009ea60 (22), cv 2009eab0 (3)
+  Start function 0 (0)
+  Thread's last errno was 0
+  Scheduling: priority 12, policy throughput
+  Stack: 2ff7e5f0 (default stack) 
+  Alerts: none pending, general delivery enabled, asynch delivery disabled
+Thread null thread (200a3a88) 2 : ready
+  No current vp
+  Join: mutex 200a47f0 (23), cv 200a4840 (4)
+  Sync. wait: mutex 200a4890 (24), cv 200a48e0 (5)
+  Start function 20067498 (0)
+  Thread's last errno was 0
+  Scheduling: priority 0, policy idle
+  Stack: 200cbd94 (base = 200cc000, guard = 200c0fff) [<-SP]
+  Alerts: none pending, general delivery enabled, asynch delivery disabled
+Mutexes:
+Mutex default attr's mutex (200be330) 1, type fast, unlocked
+Mutex attr sequence object (2009e380) 2, type fast, unlocked
+Mutex known attr list (2009e3d0) 3, type fast, unlocked
+Mutex mutex sequence object (2009e420) 4, type fast, unlocked
+Mutex known mutex list (2009e470) 5, type fast, unlocked
+Mutex global lock (2009e4c0) 6, type recursive, unlocked
+Mutex global's internal lock (2009e510) 7, type fast, unlocked
+Mutex VM, small (2009e560) 8, type fast, unlocked
+Mutex VM, medium (2009e5b0) 9, type fast, unlocked
+Mutex VM, large (2009e600) 10, type fast, unlocked
+Mutex VM, pool (2009e650) 11, type fast, unlocked
+Mutex per-thread context (2009e6a0) 12, type fast, unlocked
+Mutex cond sequence object (2009e6f0) 13, type fast, unlocked
+Mutex known cond list (2009e740) 14, type fast, unlocked
+Mutex mutex for delay (2009e790) 15, type fast, unlocked
+Mutex atfork queue (2009e830) 16, type fast, unlocked
+Mutex one time init (2009e880) 17, type fast, unlocked
+Mutex stack mutex (2009e8d0) 18, type fast, unlocked
+Mutex stack sequence object (2009e920) 19, type fast, unlocked
+Mutex thread sequence object (2009e970) 20, type fast, unlocked
+Mutex for a TCB (2009e9c0) 21, type fast, unlocked
+Mutex for a TCB (2009ea60) 22, type fast, unlocked
+Mutex null thread (200a47f0) 23, type fast, unlocked
+Mutex for a TCB (200a4890) 24, type fast, unlocked
+Mutex io database (200a5738) 25, type fast, unlocked
+Mutex dynamic io init (200a5788) 26, type fast, unlocked
+Mutex file mutex (200f1388) 27, type fast, locked by 1
+Condition variables:
+Condition variable cond for delay (2009e7e0) 1
+Condition variable for a TCB (2009ea10) 2
+Condition variable for a TCB (2009eab0) 3
+Condition variable null thread (200a4840) 4
+Condition variable for a TCB (200a48e0) 5
+Condition variable file read cv (200f13d8) 6
+Condition variable file write cv (200f1428) 7
+DCE Threads internal VM manager statistics:
+ small (24 bytes): 1 allocated, 0 free
+ medium (72 bytes): 37 allocated, 0 free
+ large (3424 bytes): 3 allocated, 0 free
+ 2 things currently on general pool list
+ 2 zeroed allocations (88 bytes)
+ 3 syscalls for 466952 bytes (1 exact size), 0 attempts failed
+ 46 pool extractions; 43 split from larger packets
+ 2 pool returns; 0 merged with previous, 0 with next
+ Lookaside scrounging: 0 small, 0 medium, 0 large
+ 0 sbrk alignments
+
+[7/19/93 public]
+Its an interesting problem.  First, you noted that the flserver could not
+reach quorum.  This is correct, a 3 flserver cell needs at least 2 flservers
+to be running in order to reach any quorum.  A single flserver cannot work
+on its own.
+The problem here seems to be a failure in CMA, caused by an fstat error.
+The bosserver is attempting to restart itself, but the restart trips over
+the CMA error.  We will try and reproduce this here at Transarc.  The trick
+may be to set the restart time to once an hour, and have a debugger attached.
+I've downgraded this to a B2, since no data was lost, and the failure can be
+worked around by restarting the bosserver manually.  I hope that we can 
+correct this problem quickly, but I'm not sure that I would hold the 1.0.2a
+release for it.
+Changed Severity from `A' to `B' 
+Filled in Priority with `2' 
+Changed Responsible Engr. from `jaffe@transarc.com' to `comer@transarc.com' 
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `' 
+Added field Transarc Status with value `'
+
+[7/19/93 public]
+Dawn -- Is this the same problem that you folks saw at IBM?
+Changed Interest List CC from `jd' to `jd, dstokes%austin.ibm.com@transarc.com'
+
+[7/19/93 public]
+Yep, its a threads problem which we managed to get around in our testing.
+The threads defect is still open in orbit, I'll find out if there is an
+OT equivalent already, and how we worked around it.  Stay tuned...
+
+[7/26/93 public]
+Dawn,
+	I've assigned this to you since you seem to be tracking down the 
+threads defect.  When you find it, please assign this defect to threads.
+Changed Interest List CC from `jd, dstokes%austin.ibm.com@transarc.com' to `jd, 
+ comer@transarc.com, jaffe@transarc.com' 
+Changed Responsible Engr. from `comer@transarc.com' to 
+ `dstokes%austin.ibm.com@transarc.com' 
+Changed Resp. Engr's Company from `tarc' to `ibm'
+
+[7/26/93 public]
+Dawn had some trouble updating this defect.  Here's the mail she sent me:
+   Our PVT group was hitting this problem when they issued rc.dce, rc.dfs via
+   the rsh command rather than on the server itself.  When they started running
+   the scripts locally on each machine, the problem went away.  Here is output
+   from the defects which might help you determine why you are seeing it:
+   
+   >>The local rsh that starts the rc.dce/rc.dfs scripts remains active in
+   >>the background after the scripts have completed, so something on the
+   >>remote host is holding the connection open.  Based on the return code
+   >>from the dlog failure (22), Dave McCracken feels that bosserver's
+   >>stdin is open on the socket, which is valid, then at some point the
+   >>network becomes unavailable and the fstat of the socket is bad, so a 22
+   >>is returned.  And the cma code coredumps on a return code of 22.
+   >>
+   >>% Reason: cma__open_general: unexpected fstat error 22 on fd 0
+   >>
+   >>#define EINVAL  22      /* Invalid argument                     */
+   >>
+   >>The plan is to put in a check for return code 22 and close stdin if
+   >>it occurs.  Dave also suggested that bosserver close its stdin on start-up.
+   
+   This problem was also seen by Bob Whitehurst, running tests on the reference
+   platform when a testcase he was running passed file descriptors on to child
+   processes that then dce_logged as another user which didn't have permissions
+   in DFS to access the file.  He was attempting to run the security FVT tests
+   out of DFS.
+   
+   The threads side of the problem is really just that it doesn't handle
+   ENOENT.  Here is info from that defect:
+   
+   >>The culprit is cma__open_general() which does fstat(fd) on the open
+   >>file descriptor and on failure(ie return of -1), it proceeds to dump
+   >>core if the errno is set ENOENT. The problem can be fixed by handling
+   >>ENOENT error instead of dumping core.
+   
+   Hope this helps.  We haven't seen the problem in several months.'
+   
+Ron -- Could you assign this to the appropriate CMA person?
+Changed Interest List CC from `jd, comer@transarc.com, jaffe@transarc.com' to 
+ `jd, comer@transarc.com, jaffe@transarc.com, 
+ dstokes%austin.ibm.com@transarc.com, srivas@transarc.com' 
+Changed Responsible Engr. from `dstokes%austin.ibm.com@transarc.com' to 
+ `rsarbo' 
+Changed Resp. Engr's Company from `ibm' to `osf'
+
+[7/27/93 public]
+Re-assigning to John Dugas.  He believes additional info needs
+to be collected before a diagnosis can be made.  Also changing 
+fixby to 1.0.3 since my understanding is this problem occurs at 
+most once per week under default bosserver configuration.  If
+my understanding is incorrect, and this problem is blocking
+exit criteria for 1.0.2a, please re-adjust fixby field.
+
+[10/8/93 public]
+
+Aged relative to Aug 1.
+
+[10/14/93 public]
+Changing component to thd.
+
+[10/15/93 public]
+Added ENOENT check.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 8294
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : app_ref
+Short Description             : problem with man page for pthread_attr_setsched()
+Reported Date                 : 7/16/93
+Found in Baseline             : 1.0.2
+Found Date                    : 7/16/93
+Severity                      : C
+Priority                      : 2
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : app_ref/man3thr/pthread_attr_setsched.3thr
+Sensitivity                   : public
+
+[7/16/93 public]
+
+Full Description:
+
+        The man page for pthread_attr_setsched() claims that this function
+        sets errno to EPERM when
+
+                "The caller does not have the appropriate
+                 priviledges to set the priority of the
+                 specified thread"
+
+        This statement is false because pthread_attr_setsched() does not
+        modify a "specified thread"; it modifies an attribute object. In
+        addition, this function sets scheduling attribute -- not priority.
+
+
+        Also:  pthread_attr_setsched() sets errno to EINVAL when given an
+               invalid scheduling value.  This is omitted.
+
+Proposed Solution:
+
+        Specify the correct situation that will cause pthread_attr_setsched()
+        to set errno is EPERM.
+
+        List error code returned after passing an invalid scheduling value.
+
+[07/22/93 public]
+Assigned to writer Doug Weir.
+
+[09/21/93 public]
+Made the changes specified above.
+
+[11/11/93 public]
+
+Verified change in latest doc build and closed this CR.
+
+
+
+CR Number                     : 8287
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 8286
+Project Name                  : dce
+H/W Ref Platform              : mx300
+S/W Ref Platform              : sinix
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : need a cma wrapper for ioctl(...I_RECVFD...)
+Reported Date                 : 7/16/93
+Found in Baseline             : 1.0.2
+Found Date                    : 7/16/93
+Severity                      : B
+Priority                      : 1
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : ./threads/SVR4/SINIX/cma_io_redefs_2.h, ./threads/SVR4/SVR4V3/cma_io_redefs_2.h, ./threads/cma_thdio_2.c
+Sensitivity                   : public
+
+[7/16/93 public]
+
+In order to support the functionality needed by OT #8286 (acl_edit hangs 
+because the cdsadv never responds), it is necessary to provide a 
+cma wrapper for ioctl(), which when the I_RECVFD function is used, 
+does not block the whole process and imports the recieved file descriptor
+into the cma database.
+
+[Fri Jul 23 08:45:45 EDT 1993 public]
+
+These changes have been submitted.  Changing the status to fixed.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 8277
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : cma/pthread
+Short Description             : pthread_setscheduler return oldpolicy not oldprio
+Reported Date                 : 7/14/93
+Found in Baseline             : 1.0.2a
+Found Date                    : 7/14/93
+Severity                      : C
+Priority                      : 2
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.2a
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : cma_pthread.c
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : jaffe@transarc.com
+Transarc Status               : open
+
+[7/14/93 public]
+Also the DCE Threads documentation is at odds with the posix spec on the
+matter of the return code but also doesn't agree with the source code
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `jaffe@transarc.com' 
+Added field Transarc Status with value `open'
+
+[8/18/93 public]
+
+The POSIX P1003.4a/D4 draft does indeed specify that the old priority
+should be returned, not the old policy. It is interesting to note that
+draft 7 does not provide for this functionality. If DCE ever migrates
+to conformance with a later draft, applications will not be able to use 
+this functionality; they will have to call pthread_getprior (or its 
+equivalent) first.
+
+A short test program has been written to demonstrate this problem:
+
+ /*
+  * Test for CR 8277
+  */
+
+/*
+ *  INCLUDE FILES
+ */
+
+#include <pthread.h>
+#include <cts_test.h>
+#include <stdio.h>
+
+main ()
+    {
+    pthread_attr_t	attr;
+    unsigned int	i;
+    int			status;
+    int			prio;
+
+
+    cts_test ("cr_8277", "Test for pthread_getscheduler return value (old priority).");
+
+    prio = pthread_getprio(pthread_self ());
+    check (prio, "pthread_getprio");
+
+    status = pthread_setscheduler (pthread_self (), SCHED_FIFO, PRI_FIFO_MAX);
+
+    check (status, "pthread_setscheduler");
+    if (status != prio)
+	cts_failed ("pthread_setscheduler didn't return old priority.");
+
+    prio = pthread_setprio(pthread_self (), PRI_RR_MIN );
+    check (prio, "pthread_setprio");
+
+    status = pthread_setscheduler (pthread_self (), SCHED_FIFO, PRI_FIFO_MAX);
+
+    check (status, "pthread_setscheduler");
+    if (status != PRI_RR_MIN)
+	cts_failed ("pthread_setscheduler didn't return old priority.");
+
+    cts_result ();
+
+    }
+
+The output when it fails is:
+
+lobster 612 % cr_8277
+
+START,  Test "cr_8277": Test for pthread_getscheduler return value (old priority).
+FAILED, Test "cr_8277": pthread_setscheduler didn't return old priority.
+FAILED, Test "cr_8277": pthread_setscheduler didn't return old priority.
+lobster 613 %
+
+[8/18/93 public]
+
+Made the indicated changes to cma_pthread.c. The output from the test program 
+is:
+
+merckx 1068: cr_8277
+
+START,  Test "cr_8277": Test for pthread_getscheduler return value (old priority).
+PASSED, Test "cr_8277": Test ran successfully.
+merckx 1069:
+
+Test passed on hppa and i486.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 8269
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : illegal character #
+Reported Date                 : 7/13/93
+Found in Baseline             : 1.0.3
+Found Date                    : 7/13/93
+Severity                      : A
+Priority                      : 0
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : cma_signal.c
+Sensitivity                   : public
+
+[7/13/93 public]
+
+xlc -c     -O  -D_NO_PROTO -Dunix -D_ALL_SOURCE -D_CMA_NOWRAPPERS_ -D_ALL_SOURCE -DAIX32   -I. -I/usr/users/devobj/sb/nb103_rios/src/threads  -IRIOS -I/usr/users/devobj/sb/nb103_rios/src/threads/RIOS -I/usr/users/devobj/sb/nb103_rios/export/rios/usr/include   ../../../src/threads/cma_signal.c
+"../../../src/threads/cma_signal.c", line 526.32: 1506-191 (E) Illegal character #.
+"../../../src/threads/cma_signal.c", line 526.34: 1506-046 (S) Syntax error.
+"../../../src/threads/cma_signal.c", line 526.68: 1506-191 (E) Illegal character #.
+"../../../src/threads/cma_signal.c", line 526.70: 1506-046 (S) Syntax error.
+"../../../src/threads/cma_signal.c", line 526.85: 1506-191 (E) Illegal character #.
+"../../../src/threads/cma_signal.c", line 526.87: 1506-046 (S) Syntax error.
+"../../../src/threads/cma_signal.c", line 1833.1: 1506-132 (S) Function cma___sig_sync_kill cannot be redeclared.
+"../../../src/threads/cma_signal.c", line 1877.20: 1506-016 (E) Operands must be pointers to compatible types.
+*** Error code 1 (continuing
+
+[07/13/93 public]
+RIOS compiler won't accept conditionalized arguments within prototype
+argument lists - it emits the #if as an argument. Conditionalized
+the entire protype declaration.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 8219
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : mx300
+S/W Ref Platform              : sinix
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : CMA will not return EAGAIN for an inherited file descriptor
+Reported Date                 : 7/1/93
+Found in Baseline             : 1.0.2
+Found Date                    : 7/1/93
+Severity                      : B
+Priority                      : 3
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : ./threads/cma_thread_io.c
+Sensitivity                   : public
+
+[7/1/93 public]
+
+File descriptors inherited from a parent by a child process may have
+certain flags set on it by the parent, one of which includes the 
+O_NONBLOCK flag.  In this case, the child process should receive EAGAIN
+when a read(2) is performed on the file descriptor and no data is present.
+Unfortunately, CMA does not notice that the O_NONBLOCK flag is set 
+on inherited file descriptors and thus will not return the EAGAIN error
+to the caller of read(2).
+
+[Fri Jul 23 08:48:42 EDT 1993 public]
+
+Have cma__open_general() call fcntl() and set the non-blocking flags
+appropriately.
+
+These changes have been submitted.  Changing the status to fixed.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 8201
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : header files cts_test.h and
+cma.h are included from src directory
+Reported Date                 : 6/25/93
+Found in Baseline             : 1.0.3
+Found Date                    : 6/25/93
+Severity                      : C
+Priority                      : 1
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : 150 files, listed in mail to dce-drb
+Sensitivity                   : public
+
+[6/25/93 public]
+A bunch of files in the test/threads directory include the cma.h and
+cts_test.h header files by stuffing a relative path to the 'src' directory
+into the INCDIRS line.  This is a Bad Thing.  Both these header files are
+exported so the programs which include them should be changed to use:
+
+	#include <dce/cma.h>
+	#include <dce/cts_tests.h>
+
+Parenthetically, cts_tests.h includes cma.h so some cleanup work could be
+done as well.
+
+This is creating a problem for the HP port of the system tests because they
+are trying to build so threads functional tests via VPATHs, but that's a
+different story.
+
+Follow-ups to Cindy McKeen.
+
+[10/12/93 public]
+These simple changes to 150 files have been detailed in mail to dce-drb.
+Only 129 of those files are built and tested on the DCE reference platforms;
+the rest are changed for the sake of consistency.
+
+Cleanup work will be done in DCE 1.1
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 8197
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : app_ref
+Short Description             : man page for pthread_attr_create problems
+Reported Date                 : 6/23/93
+Found in Baseline             : 1.0.2
+Found Date                    : 6/23/93
+Severity                      : C
+Priority                      : 3
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : app_ref/man3thr/pthread_attr_create.3thr
+Sensitivity                   : public
+
+[6/23/93 public]
+
+The man page for pthread_attr_create describes it as returning
+EINVAL if the value specified by attr is invalid. But there is
+no way to check the validity of the parameter (it's a pointer
+through which the routine returns an attributes structure) and
+indeed the code never returns EINVAL.
+
+[7/7/93 public]
+
+Another reported problem with pthread_attr_create DESCRIPTION part:
+
+        pthread_attr_create man page says (in DESCRIPTION section):
+
+        "... When an attribute object is used to create a thread, the values
+        of the individual attributes determine the characteristics of the
+        new object.... Changing individual attributes does not affect  any
+        ^^^^^^^^^^
+	objects that were previously created using the attributes object."
+	^^^^^^^
+
+        It should be "the new thread" instead of "the new object" at the end
+        of the statement above. And "any threads" instead of "any objects".
+
+[7/7/93 public]
+
+One more reported problem with this man page:
+
+        Man page for pthread_attr_create(3thr) states
+        "...The attributes object
+          created by this routine is only used in calls to
+          pthread_create()."
+
+        I have seen from pthread.h that this gets used
+        in other places - in calls like
+        pthread_attr_getinheritsched ( and more ).
+        So "only" in the quoted sentence is not entirely
+        accurate.
+
+[09/21/93 public]
+Made the changes specified above.
+
+[11/11/93 public]
+
+Verified changes in latest doc build and closed this CR.
+
+
+
+CR Number                     : 8179
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : app_ref
+Short Description             : The SYNOPSIS for
+pthread_equal() man page defined incorrectly
+Reported Date                 : 6/18/93
+Found in Baseline             : 1.0.2
+Found Date                    : 6/18/93
+Severity                      : C
+Priority                      : 2
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : app_ref/man3thr/pthread_equal.3thr
+Sensitivity                   : public
+
+[6/18/93 public]
+
+Full Description:
+
+        pthread_equal() man page defines the SYNOPSIS as follows:
+
+          #include <pthread.h>
+
+          equal = pthread_equal(
+               pthread_t *thread1,
+               pthread_t thread2);
+
+Proposed Solution:
+
+        Change to:
+
+          boolean32 pthread_equal(
+               pthread_t thread1,
+               pthread_t thread2);
+
+        Note two changes: 1) change 'equal =' to 'boolean32' and
+                          2) change 'pthread_t *thread1' to 'pthread_t thread1'
+
+[6/22/93 public]
+Reassigned this CR to writer Doug Weir.
+
+[09/21/93 public]
+Made the changes specified above.
+
+[11/11/93 public]
+
+Verified change in latest doc build and closed this CR.
+
+
+
+CR Number                     : 8178
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : app_ref
+Short Description             : The RETURN VALUES for pthread_attr_setinheritsched
+Reported Date                 : 6/18/93
+Found in Baseline             : 1.0.2
+Found Date                    : 6/18/93
+Severity                      : D
+Priority                      : 3
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : app_ref/man3thr/pthread_attr_setinheritsched.3thr
+Sensitivity                   : public
+
+[6/18/93 public]
+
+One Line Description:
+
+        The RETURN VALUES section incompletely specifies when EINVAL is set.
+
+Full Description:
+
+        The current man page says that the errno is set to EINVAL when the
+        value specified by attr is invalid. Looking at the code, this error
+        code is also set when the 'inherit' attribute is invalid.
+
+[6/22/93 public]
+Reassigned this CR to writer Doug Weir.
+
+[09/21/93 public]
+Corrected RETURN VALUES as specified above.
+
+[11/11/93 public]
+
+Verified change in latest doc build and closed this CR.
+
+
+
+CR Number                     : 8155
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : cma__set_nonblocking() may use fcntl() in an inconsistent way
+Reported Date                 : 6/15/93
+Found in Baseline             : 1.0.2a
+Found Date                    : 6/15/93
+Severity                      : C
+Priority                      : 2
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : ./threads/cma_thdio_3.c, ./threads/cma_thread_io.c, ./threads/cma_thread_io.h
+Sensitivity                   : public
+
+[6/15/93 public]
+
+The function cma__set_nonblocking() calls fcntl() in the following way:
+
+    if (fcntl (fd, F_SETFL, cma___c_non_blocking_flag) == -1)
+
+This use of fcntl() wipes out any other flag that had been set on the file
+(e.g. O_SYNC, O_APPEND...).  The correct way to call this might be:
+
+    if ( fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) & cma___c_non_blocking_flag) == -1 )
+
+I will take responsibility for this bug and make the necessary changes.
+
+[Fri Jul 23 08:47:14 EDT 1993 public]
+
+These changes have been submitted.  Changing the status to fixed.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 8141
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : thr
+Subcomponent Name             : port_gd
+Short Description             : Threads-aware dbx command doc
+additions identified in the DCE 1.0.2 Release Notes, Section 1.10.5.1,
+should be added to the DCE Porting Guide.
+Reported Date                 : 6/11/93
+Found in Baseline             : 1.0.2
+Found Date                    : 6/11/93
+Severity                      : C
+Priority                      : 2
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.2a
+Fixed In Baseline             : 1.0.2a
+Affected File(s)              : port_gd/2_threads.gpsml
+Sensitivity                   : public
+
+[6/11/93 public]
+
+[6/23/93 public]
+Reassigning this CR to Doug Weir at his request.
+
+[6/28/93 public]
+This material has now been moved into Chapter 2 of the Porting Guide.
+
+[08/19/93 public]
+Closed bug.
+
+
+
+CR Number                     : 8050
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : cma_popen calls import_fd and
+cma_pclose doesn't call unimport_fd.
+Reported Date                 : 5/24/93
+Found in Baseline             : 1.0.2
+Found Date                    : 5/24/93
+Severity                      : B
+Priority                      : 2
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : threads/cma_stdio.c
+Sensitivity                   : public
+
+[5/24/93 public]
+The result is an already open failure on susequent popens.
+
+[8/17/93 public]
+
+This bug was demonstrated by running the short test program given below.
+
+lobster 451 % cat cr_8050.c
+#include <pthread.h>
+#include <stdio.h>
+
+main()
+{
+        FILE *  fp;
+
+        if (!(fp = popen("ls", "r")))
+                printf("Failed %d\n", errno), exit(1);
+
+        pclose(fp);
+
+        open("/dev/tty", 0);
+
+
+        printf("Done\n");
+}
+
+The output looks like this when it fails:
+lobster 452 % cr_8050 
+**** Assertion warning. cma__open_general: file descriptor is already open
+     at line 2309 in /project/dce/build/dce1.0.3i/src/threads/cma_thread_io.c 
+Done
+
+The output looks like this when it passes:
+lobster 462 % cr_8050
+Done
+
+The diffs (diff -c ) are:
+
+*** cma_stdio.c	Tue Aug 17 11:43:11 1993
+--- ../../link/src/threads/cma_stdio.c	Thu Aug  5 14:38:30 1993
+***************
+*** 901,917 ****
+  	FILE	*stream;
+  # endif  /* prototype */
+      {
+!     int		result;
+! 
+!     cma__int_init ();
+!     cma_lock_global ();
+! #if !_CMA_THREAD_SYNC_IO_
+!     cma_unimport_fd (fileno(stream));
+! #endif
+!     result = pclose (stream);
+!     cma_unlock_global ();
+! 
+!     return result;
+      }
+  #endif					/* _CMA_OS_ != _CMA__VMS */
+  
+--- 901,907 ----
+  	FILE	*stream;
+  # endif  /* prototype */
+      {
+!     cma_stdio_simple (int, pclose, (stream));
+      }
+  #endif					/* _CMA_OS_ != _CMA__VMS */
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 7955
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : thr
+Short Description             : read() blocks when open(..,..,O_NDELAY) is used
+Reported Date                 : 5/7/93
+Found in Baseline             : 1.0.2
+Found Date                    : 5/7/93
+Severity                      : B
+Priority                      : 2
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : ./threads/cma_thread_io.c
+Sensitivity                   : public
+
+[5/7/93 public]
+
+If open(2) is called with the O_NONBLOCK flag set, a subsequent
+read(2) call may block even though the user has specified 
+non-blocking behavior.
+
+If you put an fcntl(2) call, which sets the O_NONBLOCK between the 
+open() and read(), then the read(2) will return with EAGAIN, as
+expected.
+
+In order to fix this problem, code needs to be added to cma__open_general
+so that the CMA I/O database is updated to the fact that the user
+has set the stream to non-blocking mode.
+
+[Tue Jun 15 11:33:49 EDT 1993 public]
+
+The SVR4 reference port really needs this fix in order to get some
+DCE functionality working.  I have talked to John Dugas and he has agreed
+that I can take over responsibility for this bug and submit the changes.
+
+[Fri Jul 23 08:49:58 EDT 1993 public]
+
+Have cma__open_general() call fcntl() and set the non-blocking flags
+appropriately.  
+
+These changes have been submitted.  Changing the status to fixed.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 7645
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : cma__execute_thread does not initialize the stack correctly
+Reported Date                 : 4/2/93
+Found in Baseline             : 1.0.2b20
+Found Date                    : 4/2/93
+Severity                      : B
+Priority                      : 1
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : threads/RIOS/cma_assem.s
+Sensitivity                   : public
+
+[4/2/93 public]
+The cma__execute_thread assembler routine does not iniitialize the
+stack correctly in order to allow a traceback in dbx. A "diff -c"
+shows the following changes to be made:
+
+***************
+*** 411,418 ****
+        l       r4,4(r1)
+        l       r5,8(r1)
+        stu     r1,-56(r1)
+-       cal     r6,9(0)         # initialize the top of stack
+-       st      r6,0(r1)        # to NULL for traceback
+        b       ENTRY(cma__thread_base)
+        .extern ENTRY(cma__thread_base)
+  
+--- 411,416 ----
+
+[04//07/93 public]
+Assigned to myself. I have the fix in place and built and I'm
+trying to get a free RIOS to test it on.
+
+[4/7/93 public]
+I made one little typo.
+
+	cal     r6,0(0)
+		   ^
+
+I have built a version of this and tested this. It does provide the
+correct trace of the current thread. However, I was only able to examine
+the current thread for the process. You may not have the correct
+dbx. I believe your machine needs to be up to AIX 3.2.3. I have the
+version if you find that you are not at the correct level.
+
+[04/14/93 public]
+The above change will be shipped in the no-support tree. It will be
+integrated into 1.0.3 as soon as the tree thaws.
+
+[10/20/93 public]
+Applied fix shown above.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 7626
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : Functional test prpb_cvx_001.c uses wrong type for mutex
+Reported Date                 : 3/31/93
+Found in Baseline             : 1.0.2
+Found Date                    : 3/31/93
+Severity                      : E
+Priority                      : 1
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : test/threads/prpb_cvx_001.c
+Sensitivity                   : public
+
+[3/31/93 public]
+This functional test declares a mutex as a "pthread_attr_t" rather than
+a "pthread_mutex_t".  This is acceptable (though wrong) in normal use,
+because the types are equivalent.  However, this declaration fails if
+one redefines pthread_mutex_t and expects all application mutex
+declarations to use the new type.
+
+(In case anyone's wondering, I didn't find this by randomly reading
+through the threads functional tests, but in testing a prototype of a
+mutex deadlock detection package for CMA that redefines
+pthread_mutex_t.)
+
+[8/11/93 public]
+changed pthread_attr_t declaration to pthread_mutex_t
+for "mutex" field in structure.
+Checked its use as a parameter in all function calls - ok.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 7625
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : Remove outdated statement on unhandled-exception behavior
+Reported Date                 : 3/31/93
+Found in Baseline             : 1.0.2
+Found Date                    : 3/31/93
+Severity                      : C
+Priority                      : 2
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : 1
+Sensitivity                   : public
+
+[3/31/93 public]
+Chapter 7 of the App Dev Guide contains a statement about unhandled
+exceptions that (as of 1.0.1, in fact) is no longer true.  The second
+paragraph of 7.3.2, Raising an Exception, states:  "If an exception is
+unhandled, the thread is terminated.  This provides increased
+manageability by confining an error to a well-defined portion of a
+program."  I'm not sure the second sentence was ever true, but the
+first is definitely outdated.  This should read, "If an exception is
+unhandled, the entire application process is terminated.  Aborting the
+process, rather than just the faulting thread, provides clean
+termination at the point of error, rather than allowing the
+disappearance of the faulting thread to cause problems at some later
+point."
+
+[5/27/93 public]
+Assigned to myself.
+
+[07/13/93 public]
+Changed to "verified".  Made the requested change in the file
+
+	app_gd/threads/4_exceptions.gpsml
+
+[08/19/93 public]
+Closed bug.
+
+
+
+CR Number                     : 7546
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : mx300
+S/W Ref Platform              : sinix
+Component Name                : thr
+Subcomponent Name             : threads
+Short Description             : Devices that do not have a
+poll function cause CMA to core dump
+Reported Date                 : 3/19/93
+Found in Baseline             : 1.0.2b10
+Found Date                    : 3/19/93
+Severity                      : C
+Priority                      : 1
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : cma_thread_io.c, SVR4/SINIX/cma_host.h, SVR4/SVR4V3/cma_host.h, cma_thread_io.h, cma_thdio_defs.h
+Sensitivity                   : public
+
+[3/19/93 public]
+
+Full Description:
+
+Devices that do not have a poll function cause CMA to core dump.
+Read or write calls on devices that do not have a poll function cause CMA 
+to core dump because the CMA threading uses poll
+unless at open time the device is found to be non-blocking.
+
+This is a problem for SVR4 is because
+select(2)(poll(2)) returns ENODEV if the device being
+polled is not a stream and does not have a polling function
+associated with it.  Since a select(2) is performed on all files,
+except FIFO files, before every read(2) or write(2), CMA will 
+core dump with a threads exception because ENODEV is an unknown error
+being returned from select(2) in cma__io_available().
+Although select(2) returns ENODEV is the case cited above,
+it is not possible to assume, from that information, that
+the device supports non-blocking I/O.
+
+Repeat By:
+
+	<A description of how to reproduce the problem (optional)>
+
+Proposed Solution:
+
+If poll==ENODEV does imply non-blocking I/O,
+call poll in cma__open_general and set
+cma__g_file[fd]->non_blocking if it returns ENODEV.
+
+If it is not possible to assume that a device supports non-blocking
+I/O just because poll returns ENODEV,
+initialize a set which contains the major device numbers
+of those character devices which do not support polling, but that
+we know are non blocking.  If a file associated with one of these devices
+is opened, set non-blocking mode on the file cma__g_file[fd]->non_blocking.
+This will make sure that a select(2) is not
+performed on the file, for every read(2) or write(2).        *
+
+[Fri Mar 19 11:41:23 EST 1993 public]
+
+This problem has been fixed here.  When a file is opened, we check to
+see if a poll() function will succeed on it.  If so, we set 
+the 'pollable' bit (a new field for SVR4).  On every I/O, this
+bit is checked and if 'pollable' is false, then the I/O operation
+is always issued (even if non-blocking mode was not turned on).
+This means that an I/O operation on this type of device may block
+the process forever.  For example, an I/O operation on /dev/tty
+may block forever if there is no I/O ready on the tty.  This is
+because on many SVR4 implementations /dev/tty does not support 
+polling.
+
+We will submit these changes probably next month.
+
+[7/6/93 public]
+
+This fix went in with the last SVR4 submission.  Changing the
+status to fix.
+
+[9/24/93 public]
+
+closed.
+
+
+
+CR Number                     : 7544
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : In dce/stubbase.h #include <dce/pthread_exc.h> should be #include <pthread_exc.h>
+Reported Date                 : 3/18/93
+Found in Baseline             : 1.0.2b18
+Found Date                    : 3/18/93
+Severity                      : B
+Priority                      : 2
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : app_ref/man3thr/exceptions.3thr
+Sensitivity                   : public
+
+[3/18/93 public]
+Full Description:
+
+        In dce/stubbase.h
+
+                #include <dce/pthread_exc.h>
+
+        should be changed to:
+
+                #include <pthread_exc.h>
+
+        This problem causes the idl compiler to fail.
+        Note: this bug doesn't cause a problem during the dce build
+        because pthread_exc.h is exported to /usr/include/dce while it
+        is installed (correctly) in /usr/include.
+
+[3/18/93 public]
+
+I think this is backwards.
+
+pthread_exc.h is a DCE-only sort of thing, unlike pthread.h
+
+It should be installed in /usr/include/dce as a result.
+
+The export tree is correct, the install tree isn't.
+
+[3/18/93 public]
+Sounds reasonable to me. If this is the case then the documentation
+needs to be changed as well since the man page exceptions.3thr states
+that "to use the exception-returning interface, replace #include
+<pthread.h> with the following include statement: #include
+<pthread_exc.h>". Also I suspect that quite a few other instances of this
+exist throughout the code.
+
+[3/18/93 public]
+
+changed to doc bug, area changed to threads.
+
+I'm not sure what you're referring to by "other instances"; different
+header files?
+
+[3/19/93 public]
+
+The original intention was to put both pthread_exc.h and exc_handling.h into 
+/usr/include.  They aren't DCE-only things, they're CMA-only things.
+
+On Domain/OS, we gave the /src/nosupport/pthreads-exts directory to the group
+providing pthreads support.  Naturally, they put these include files into /usr/include
+since they are now useable by all applications, not just DCE applications.
+
+This is what we hoped would happen on other platforms.
+
+[5/27/93 public]
+Assigned to writer Doug Weir.
+
+[06/08/93 public]
+Changed "Fix By Baseline" field from 1.0.2 to 1.0.3.
+
+[09/21/93 public]
+Made the specified change in the exceptions.3thr reference page.
+
+[11/11/93 public]
+
+Verified change in latest doc build and closed this CR.
+
+
+
+CR Number                     : 7430
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : doc
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : app_ref
+Short Description             : Error in pthread_keycreate/destructor
+Reported Date                 : 3/5/93
+Found in Baseline             : 1.0.1
+Found Date                    : 3/5/93
+Severity                      : B
+Priority                      : 2
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : app_ref/man3thr/pthread_keycreate.3thr
+Sensitivity                   : public
+
+[3/5/93 public]
+
+In the description of the pthread_keycreate function, the destructor
+function parameter is declared to be of type pthread_destructor_t.
+
+I grepped the doc source and could not find a definition of
+pthread_destructor_t.
+
+We have two choices: 1) Show definition of that data type, or 2) show the
+function as in the Posix P1003.4a/D4 spec:
+
+	int pthread_keycreate (pthread_key_t *key,
+		void (*destructor) (void *value));
+
+[06/08/93 public]
+Changed "Fix By Baseline" field from 1.0.2 to 1.0.3.
+
+[07/06/93 public]
+Reassigned this CR to writer Doug Weir.
+
+[09/21/93 public]
+I changed the function synopsis as indicated above (i.e., I chose the
+second of the alternatives).
+
+[11/11/93 public]
+
+Verified change in latest doc build and closed this bug.
+
+
+
+CR Number                     : 7335
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : mx300
+S/W Ref Platform              : sinix
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : strange XVR4 wrapping in cma_ux.h
+Reported Date                 : 2/23/93
+Found in Baseline             : 1.0.2
+Found Date                    : 2/23/93
+Severity                      : D
+Priority                      : 1
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : src/threads/cma_ux.h
+Sensitivity                   : public
+
+[2/23/93 public]
+I found the following in cma_ux.h:
+
+#if !_CMA_THREAD_SYNC_IO_
+# if !defined(_CMA_NOWRAPPERS_) && _CMA_UNIPROCESSOR_ 
+
+#  if (_CMA_UNIX_TYPE == _CMA__SVR4)
+#   define sleep        pthread_delay_unsigned_np
+#   define _sleep        pthread_delay_unsigned_np
+#  else /* (_CMA_UNIX_TYPE == _CMA__SVR4) */ 
+/*
+ * U*ix I/O System Call Wrappers
+ */
+#  define accept	cma_accept
+#  define close		cma_close
+#  define connect	cma_connect
+#  define creat		cma_creat
+#  define dup		cma_dup
+#  define dup2		cma_dup2
+#  define fcntl		cma_fcntl
+#  define open		cma_open
+#  define pipe		cma_pipe
+#  define recv		cma_recv
+#  define recvmsg	cma_recvmsg
+#  define recvfrom	cma_recvfrom
+#  define read		cma_read
+#  define readv		cma_readv
+#  define select	cma_select
+#  define send		cma_send
+#  define sendmsg	cma_sendmsg
+#  define sendto	cma_sendto
+#  define socket	cma_socket
+#  define socketpair	cma_socketpair
+#  define write		cma_write
+#  define writev	cma_writev
+#  endif /* (_CMA_UNIX_TYPE == _CMA__SVR4) */ 
+# endif
+/*
+ * U*ix process control wrappers
+ */
+# if !defined(_CMA_NOWRAPPERS_)
+#  if (_CMA_UNIX_TYPE != _CMA__SVR4)
+#  define fork		cma_fork
+#  endif  /* (_CMA_UNIX_TYPE != _CMA__SVR4) */
+#  define atfork	cma_atfork
+#  if !_CMA_UNIPROCESSOR_
+#   define cma_import_fd(fd)
+#  endif
+# endif
+
+#endif
+
+I find it odd in the first section that on SVR4 sleep is wrapped but the
+U*ix I/O system calls are not.  Also we should probably wrap sleep, Mark
+Hickey had problems recently that turned out to be caused by sleep not
+being wrapped.  Also similarly at the bottom, both fork and atfork should
+probably be wrapped for all platforms.
+
+Ben, I assigned this to you since you took the last bug, if this is
+incorrect, please change this and accept my humblest appologies.
+
+[07/16/93 public]
+
+A note about the strange wrapping for SVR4.  The basic idea is that
+SVR4 will not perform any redefines, since we provide reentrant and
+thread-synchronous functions under the original names, rather than
+cma*.  Unfortunately, we have not done that for all functions yet, like
+sleep, which is why we are still performing the redefinition for sleep.
+
+This will be fixed though.
+
+[08/09/93 public]
+
+The redefinition of sleep is now removed from cma_ux.h on SVR4. Note that 
+this is SVR4 specific code change (see Ben's comment above) and a wrapper 
+for sleep may be needed on other platforms.
+
+[8/10/93 public]
+I'm glad the SVR4 is now correct, now should sleep() be wrapped on the
+other platforms?  What about fork() and atfork()?
+
+[08/11/93 public]
+
+Contrary to the implication that this change has been submitted, we have
+yet to submit it.
+
+After we submit this change, we would like to close this bug report, so,
+is it possible that other ot's could be opened about issues relating to 
+other platforms?
+
+[8/11/93 public]
+Can't we just change the resp engineer?
+
+[8/16/93 public]
+
+This was fixed by maher@sni-usa.com and the bsubmit was done 8/12/93. 
+
+lobster 200 % bdiff -r1.1.6.3 -r1.1.3.4 cma_ux.h
+
+ [ ./threads/cma_ux.h ]
+===================================================================
+RCS file: ./threads/cma_ux.h,v
+retrieving revision 1.1.6.3
+retrieving revision 1.1.3.4
+diff -r1.1.6.3 -r1.1.3.4
+14,23d13
+<  * Revision 1.1.6.3  1993/08/12  19:31:03  maher
+<  *    CR# 7335 remove redefinition of sleep on SVR4
+<  *    [1993/08/12  14:42:17  maher]
+<  *
+<  *    CR# 7335 remove redefinition of sleep on SVR4
+<  *    [1993/08/12  14:42:17  maher]
+<  *
+<  * Revision 1.1.6.2  1993/08/12  19:27:28  maher
+<  *    *** empty log message ***
+<  * 
+27c17
+<  * 
+---
+>  *
+30c20
+<  * 
+---
+>  *
+176c166,169
+< #  if (_CMA_UNIX_TYPE != _CMA__SVR4)
+---
+> #  if (_CMA_UNIX_TYPE == _CMA__SVR4)
+> #   define sleep        pthread_delay_unsigned_np
+> #   define _sleep        pthread_delay_unsigned_np
+> #  else /* (_CMA_UNIX_TYPE == _CMA__SVR4) */ 
+202c195
+< #  endif /* (_CMA_UNIX_TYPE != _CMA__SVR4) */ 
+---
+> #  endif /* (_CMA_UNIX_TYPE == _CMA__SVR4) */
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 7327
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : thr
+Subcomponent Name             : Makefile
+Short Description             : use of gencat in threads/Makefile
+Reported Date                 : 2/23/93
+Found in Baseline             : 1.0.2b16
+Found Date                    : 2/23/93
+Severity                      : E
+Priority                      : 1
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : threads/Makefile
+Sensitivity                   : public
+
+[2/23/93 public]
+
+Description:
+
+        use of gencat in threads/Makefile should be changed to 
+	${GENCAT}
+	Note: the use of gencat instead of ${GENCAT} makes porting 
+    	using cross tools more cumbersome.
+
+[8/16/93 public]
+
+made the requested change.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 5151
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : 
+Short Description             : thread not awakened from
+sigwait even though signal delivered
+Reported Date                 : 8/20/92
+Found in Baseline             : 1.0.1
+Found Date                    : 8/20/92
+Severity                      : A
+Priority                      : 1
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : thread/cma_defer.c
+                                             thread/cma_signal.c
+                                             thread/cma_thread_io.c
+Sensitivity                   : public
+
+[8/20/92 public]
+Note: this defect was actually reported by Dale Tonogai, HP.
+There are two causes of this problem:
+
+(1) If the signal should arrive just before the null thread blocks on
+    select(), with no I/O expected and infinite timeout, then the
+    signalling of the sigwait'ing thread will never occur because the
+    process will not get a chance to perform the deferred action.
+
+(2) cma__int_signal_int() can be called at interrupt and non-interrupt
+    time.  Hence, it is possible for the entry at the head of the signal
+    deferral queue to be overwritten.
+
+Problem has been discussed with Dave Butenhof at DEC.
+
+[keane public]
+
+(entered on behalf of Webb Scales)
+
+This defect report actually reports two bugs:  one in the CMA null thread, and 
+one regarding use of cma__int_signal_int() without being called from an 
+interrupt routine (signal handler).
+
+The problem with cma__int_signal_int() is that if a call to this routine is
+made from an interrupt routine during a window in which a call to it is
+already in progress at non-interrupt level, then the information from the
+non-interrupt level call may be overwritten by the information from the
+interrupt call and lost, resulting in a missed condition variable wake-up.
+
+At Digital we have recently worked around the problem with
+cma__int_signal_int() by redesigning the mechanism used to "defer"
+condition variable signals.  This work was done as a part of a larger
+effort on streamlining condition variables.  However, this "work-around" is
+not something that could be easily retrofitted to the existing DCE threads
+code.
+
+So, our recommendation for DCE is to restrict client code use of
+cma_cond_signal_int() to within interrupt routines, and to withdraw support
+for its use from non-interrupt code, where cma_cond_signal() should be used
+instead.  [cma_cond_signal_int() is the external interface to
+cma__int_signal_int().]  This will prevent wake-ups of client condition
+variables from being missed due to interference from U*ix signals.
+
+However, there are instances where cma__int_signal_int() is used within CMA
+at non-interrupt level.  Each of these occurs in a call to
+cma__io_available() to signal threads which are waiting to perform an I/O.
+It is not critical if any of these wake-ups are missed, because they will
+be reissued on the next call to cma__io_available (e.g. on the next
+timeslice or I/O operation), so they are not "lost forever".  Nevertheless,
+if occasionally delaying a wake-up in this manner is deemed unacceptable,
+cma__io_available() could be modified to include a parameter, indicating
+whether the call is being made at interrupt level or not, which would be
+used to determine whether to call cma__int_signal_int() or
+cma__int_signal().  [This is a much lower impact fix than incorporating the
+new condition variable code or retrofitting the new deferral mechanism.]
+
+Our proposed solution to the problem in the null thread is somewhat more
+involved.  The problem is that there is no way for the current signal
+handling code to prevent a subsequent call to select() from blocking the
+process.  So, if the signal arrives after the check for deferred items has
+been performed, but before the call to select(), then it's deferred item
+goes unnoticed, and the process blocks, possibly indefinitely.
+
+Our proposal is to have CMA open a pipe during its initialization which
+cma__io_available() would always select for read.  Thus, when a call to
+cma__int_signal_int() is made, the code can prevent a subsequent select()
+call from blocking by writing into this pipe.  The select() call will
+return immediately indicating that the "special fd" is available for read,
+at which point the code will clear the pipe, perform the deferred actions,
+and possibly perform a re-schedule as appropriate.  This, while being a
+fairly complex mechanism, should be pretty straightforward to implement.
+
+[10/20/92 public]
+
+OT cleanup 1 : Severity = unchanged (A) ;  Priority = unchanged (0)
+               Assigned to keane.
+
+[10/22/92 public]
+
+I have reviewed the above solution and the fix is acceptable one for 1.0.2.
+For the record, here are the issues/concerns which I raised and the
+resolutions.
+
+1. Issue: Is there code which calls cma_cond_signal_int() ( and 
+             pthread_cond_signal_np()  which in turn calls cma_cond_signal_int()
+             but *not* at 'interrupt' level (i.e. from within AST or signal )
+
+   Resolution: [from me]
+
+             I have searched through the entire DCE source tree for all
+             the calls to cma_cond_signal_int() and found that this was called
+             only at interrupt 
+
+                 File                          Interrupt function
+
+             ./test/threads/crvb_cvx_002.c -     interrupt()
+             ./test/threads/cvpb_cvx_001.c -     ast_time()
+             ./test/threads/cvvb_cvx_001.c -     ast_time()
+             ./threads/cma_ptd_exc.c       -     ptdexc_cond_signal_int_np
+             ./threads/cma_pthread.c       -     pthread_cond_signal_int_np
+
+             All the calls to cma_cond_signal_int() were at the 'interrupt'
+             level.
+
+             I searched for pthread_cond_signal_int_np() and found only the
+             following references:
+
+                  File
+
+             ./threads/pthread.h
+             ./threads/pthread_exc.h
+             ./threads/cma_pthread.c
+
+2. Issue : [excerpt from the above proposed solution] 
+           > However, there are instances where cma__int_signal_int() is used 
+           > within CMA at non-interrupt level.  Each of these occurs in a 
+           > call to cma__io_available() to signal threads which are waiting 
+           > to perform an I/O.  It is not critical if any of these wake-ups 
+           > are missed, because they will be reissued on the next call to 
+           > cma__io_available (e.g. on the next timeslice or I/O operation), 
+           > so they are not "lost forever". 
+
+    Resolution: [from me]
+           It is ok to occasionally to delay the wakeup (since I can't think 
+           of a scenario where this is not acceptable).
+
+3. Issue :  Writing to a pipe would fix the problem in the null thread. But 
+            obviously this would increase the time it takes to signal a 
+            condition from the interrupt level. What is the performance impact
+            of this ? 
+
+   Resolution : [ from Webb Scales ]
+            I expect it would probably be pretty small relative to all of the
+            activity required to deliver and clean-up after a signal. 
+            Furthermore, I expect that this function is pretty lightly used 
+            overall, so changing it should have a negligible impact on overall 
+            performance.
+
+4. Issue : Something which was not clear to me from the reading of the code was
+           the handling of multiple signals i.e. a signal is being handled
+           in cma__int_signal_int() and another signal occurs (I know this has
+           nothing to do with the current A0 defect - but it is a similar 
+           problem). In such a case how is access to the deferral queue 
+           synchronized ? The comment at the top of cma__int_signal_int() makes
+           the following assumptions. 
+
+               *      ASSUMPTIONS:
+               *          1) This routine is only called by an AST or Signal.
+               *          2) Only one thread of execution is active at a time.
+
+           How is it guranteed that there is only one thread of execution 
+           at a given time in this function ?
+
+    Resolution : [from Webb Scales]
+
+           The signal handlers which are established by CMA are extablished 
+           with a signal mask that blocks (almost) all signals.  Thus, a CMA 
+           signal handler cannot be interrupted by (almost) any other signal.
+           (Obviously, SIGSTOP and SIGKILL cannot be blocked; I believe that 
+           CMA doesn't block SIGTRAP either, to help avoid problems with 
+           debugging.)  However, there would be a problem if some other 
+           component were to establish a signal handler without a signal mask 
+           which blocks the other signals -- perhaps this should be documented 
+           in the same place as the restriction on the use of 
+           cma_cond_signal_int().
+
+           > how is [...] access to the deferral queue synchronized ? 
+
+           It is not.  (And, bascially it cannot be synchronized at a 
+           reasonable cost without explicit hardware support, which is not 
+           available on the R2000/R3000 platform).  This is why that routine 
+           code is documented with those assumptions.
+
+           Since the process signal mask blocks (almost) all other signals 
+           during the execution of the CMA signal handler, then no 
+           interruptions or asynchronous context switches can occur during the
+           execution of cma__int_signal_int(), so the assumptions will be 
+           maintained if we impose the proposed restrictions, and the function
+           should work.
+
+5. Issue : What is the advantage of the redesigned mechansim used at DEC
+           over the current solution being proposed for OSF ? i.e. what
+           What problems does the DEC mechanism solve that cannot be solved 
+           with the mechanism for OSF ? If the DEC mechansim is more general 
+           but cannot make it into 1.0.2 because of the risk and/or the amount
+           of the work involved, then maybe it can be scheduled for a later 
+           release.
+
+   Resolution : We (OSF) will adopt the proposal outlined above not the current
+           DEC solution because of the high risk for 1.0.2.
+
+           [from Webb Scales]
+            
+           The principal problem which the new design solves is that the 
+           assumptions questioned above (this refers to issue
+           4) cannot be maintained when CMA is integrated with kernel threads,
+           such as on OSF/1. Therefore, a new mechanism was required.  The 
+           secondary, but still very real, benefit is that the new design no 
+           longer uses a queue of "requests", so it cannot overflow in an 
+           application with a high interrupt rate.  (When the queue overflows,
+           it is hard for end users or client code developers to diagnose and 
+           understand the real cause of the problem, and it is even harder for
+           them to fix it:  getting rid of the queues is a real plus.)
+
+           The change requires significant work, and should be regarded as a
+           significant risk.  I can't see how it could be included into 1.0.2.
+
+[03/16/93 public]
+We have a solution in hand for this problem but there is insufficient 
+time to convince ourselves that there are no undesirable side affects.
+The code will go in the unsupported tree for 1.0.2. It will get tested
+and integrated early in the next release.
+
+[10/20/93 public]
+Took solution from HP.
+
+[11/12/93 public]
+fixed->closed.
+
+
+
+CR Number                     : 2283
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : thr
+Subcomponent Name             : functional tests
+Short Description             : prvb_thd_006 and crvb_thd_006 find bad thread scheduling
+Reported Date                 : 3/12/92
+Found in Baseline             : 1.0.1b4
+Found Date                    : 3/12/92
+Severity                      : B
+Priority                      : 1
+Status                        : closed
+Duplicate Of                  : 
+Fix By Baseline               : 1.0.3
+Fixed In Baseline             : 1.0.3
+Affected File(s)              : prvb_thd_006.c, crvb_thd_006.c
+Sensitivity                   : public
+
+[3/12/92 public]
+This test fails on the RIOS only in the standard (shared-library)
+build.  The test works on the RIOS in a local build with a non-
+shared libcma.a, and on the PMAX.  The failure is "semantic":  the
+test measures the degree of fairness in thread scheduling, and
+consistently finds very unfair scheduling when run from this
+build.  Typical output:
+    
+    START,  Test "PRVB_THD_006":    Test for timeslicing fairness.
+    Starting......done.
+    
+         Thread          Iterations
+            0               068321
+            1               078776
+            2               104511
+            3               078021
+            4               074162
+            5               075550
+            6               069533
+            7               078130
+            8               083630
+            9               074274
+    
+    For 10 threads, running for 100 seconds:
+            Average: 78489
+            Maximum: 104511
+            Minimum: 68321
+    Deviation: 33%  (Threshold: 10%)
+    
+    FAILED, Test "PRVB_THD_006":    Unequal distribution of execution.
+
+[03/19/92 public]
+Assign to Jim Wade pending appropriate re-assignment,
+presumably to IBM developer.
+
+[05/08/92 public]
+This is a test, not a code defect.
+
+[05/15/92 public]
+There's no problem specific to the RIOS here.  Still some general
+question about the usefulness of this test, for which I'll be
+opening a new defect.
+
+[05/18/92 public]
+Well, er... Hmmm... Extensive testing on both ref platforms
+*does* seem to indicate that a RIOS-specific problem exists.
+Specifically, 500+ runs of prvb_thd_006 and crvb_thd_006 on
+a PMAX netted *no* failures, while on a RIOS 800+ runs of
+the same two tests failed about 20% of the time.  Though I
+know the test occasionally fails on the PMAX (I've seen it),
+this difference seems too big to ignore.
+
+So I guess we can't just nuke the test.  Too bad...
+
+[05/28/92 public]
+There's continuing debate on the validity of this test, as
+well as new data (that I collected yesterday) that seem to
+indicate the problem may be related to the virtual interval
+timer on the RIOS, rather than to CMA timeslicing.
+
+On balance, this test does not seem to indicate a problem
+of sufficient certainty or gravity to warrant a "1" priority,
+so I'm reducing it.  Work on it may continue, as circumstances
+permit.
+
+[02/05/93 public]
+Assigned this to myself and defered it. Don't think anyone
+at IBM is working it. Need to get enough data to determine 
+if this is pointing to a generic threads problem that doesn't
+present itself on the pmax for some reason or if there is 
+something funny about the rios timing functions that the 
+cma package is exercising. Will come back to this after the
+release.
+
+[05/07/93 public]
+
+This also happens on the SVR4 SINIX intel platforms.  We have
+noticed it to be performance related in that if there is a
+moderate load on the machine, then this test will indicate failure.
+If there is nothing else happening on the machine, it will usually
+indicate success.
+
+By the way, this test used to fail more often in previous builds. 
+It does not fail so much anymore.
+
+[10/12/93 public]
+
+Examination of the code reveals workaounds have been put into prvb_thd006.c and
+crvb_thd006.c for rs6000 and hppa by increasing the min_iterations value to 50000
+from 10000. No such changes have been made for the i486/osf1 reference platform.
+Recent testing on rios, hppa, and i486 shows (several hundred runs on each 
+platform):
+	rios		always passes, Deviation 0-2%
+	hppa		always passes, Deviation 0-2%
+	i486/osf1	1 in 40 runs fail, Deviation up to 12%. 
+
+Once the change passes testing for the i486/osf1 platform, this bug could be 
+changed from a defect to an enhancement, to be further analyzed during the 
+DCE 1.1 cleanup. We need to find out if the scheduling algorithm is really
+a fair one.
+
+Note: changing this and testing for SNI_SVR4 will be left up to SNI.
+
+[10/12/93 public]
+
+Increased min_iterations to 50000 for i486/osf1. This lowers the
+Deviation to 0-2%.
+
+[11/12/93 public]
+fixed->closed.
+
+
+

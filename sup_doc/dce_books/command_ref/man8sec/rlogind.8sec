@@ -1,0 +1,198 @@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+...\" ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+...\" src directory for the full copyright text. 
+...\" 
+...\" HISTORY
+...\" $Log: rlogind.8sec,v $
+...\" Revision 1.1.2.2  1996/12/17  20:49:16  damon
+...\" 	Expanded OSF C O P Y R I G H T   N O T I C E
+...\" 	[1996/12/17  20:46:36  damon]
+...\"
+...\" Revision 1.1.2.1  1996/09/13  16:06:14  millett
+...\" 	{enh,13626,R1.2.2}
+...\" 	 Adding for krb5 interoperability
+...\" 	[1996/09/13  16:05:42  millett]
+...\" 
+...\" $EndLog$
+...\" 
+...\" 
+...\" Copyright (c) 1983, 1990, 1993
+...\"     The Regents of the University of California.  All rights reserved.
+...\"
+...\" Redistribution and use in source and binary forms, with or without
+...\" modification, are permitted provided that the following conditions
+...\" are met:
+...\" 1. Redistributions of source code must retain the above copyright
+...\"    notice, this list of conditions and the following disclaimer.
+...\" 2. Redistributions in binary form must reproduce the above copyright
+...\"    notice, this list of conditions and the following disclaimer in the
+...\"    documentation and/or other materials provided with the distribution.
+...\" 3. All advertising materials mentioning features or use of this software
+...\"    must display the following acknowledgement:
+...\"     This product includes software developed by the University of
+...\"     California, Berkeley and its contributors.
+...\" 4. Neither the name of the University nor the names of its contributors
+...\"    may be used to endorse or promote products derived from this software
+...\"    without specific prior written permission.
+...\"
+...\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+...\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+...\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+...\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+...\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+...\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+...\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+...\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+...\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+...\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+...\" SUCH DAMAGE.
+...\"
+...\" (C)Copyright 1995, 1996 by the Massachusetts Institute of Technology.
+...\"
+...\"
+...\" Permission to use, copy, modify, and distribute this software and
+...\" its documentation for any purpose and without fee is hereby
+...\" granted, provided that the above copyright notice appear in all
+...\" copies and that both that copyright notice and this permission
+...\" notice appear in supporting documentation, and that the name of
+...\" M.I.T. not be used in advertising or publicity pertaining to
+...\" distribution of the software without specific, written prior
+...\" permission.  M.I.T. makes no representations about the suitability
+...\" of this software for any purpose.  It is provided "as is" without
+...\" express or implied warranty.
+...\"
+.TH rlogind "8sec" "" "" ""
+.iX "\*Lrlogind\*O command"
+.iX "Security Service commands" "\*Lrlogind\*O"
+.SH "NAME" 
+.PP
+\*Lrlogind\*O \- Remote login server
+.zA "enh,13626,R1.2.2,new for krb5 interop"
+.SH "SYNOPSIS" 
+.PP
+.sS
+\*Lrlogind [-aknx]\*O
+.sE
+.SH "OPTIONS"
+.VL 1i
+.LI "\*L-k\*O"	     
+Allow Kerberos V5 with the \*L.k5login\*O access control file to be 
+trusted.  If this authentication system is used by the client 
+and the authorization check passes, the user is allowed to log in.
+.LI "\*L-n\*O"      
+Disable keep-alive messages.
+.LI "\*L-x\*O" 	     
+Create an encrypted session. 
+This option is subject to export control.
+.LE
+.SH "DESCRIPTION"
+The \*Lrlogind\*O server is the server for the \*Lrlogin(8sec)\*O program.  It is 
+based on \*Lrlogind(8sec)\*O, but uses Kerberos authentication.  \*Lrlogind\*O is configured by command line arguments 
+passed by \*Linetd\*O.  
+.PP
+The \*Lrlogind\*O server is invoked by \*Linetd(8c)\*O when \*Linetd\*O 
+receives a connection on the port indicated in \*L/etc/inetd.conf\*O.  
+A typical \*L/etc/inetd.conf\*O configuration line for \*Lrlogind\*O 
+might be as follows:
+.oS
+klogin stream tcp  nowait root /opt/dcelocal/etc/rlogind rlogind -k
+.oE
+To prevent non-secure access, comment out the entry for \*Llogin\*O in \*L/etc/inetd.conf\*O to 
+deny non-Kerberos access.
+.PP
+When \*Lrlogind\*O  receives a service request, it 
+first checks Kerberos authentication and then checks 
+authorization via the access-control file \*L.k5login\*O 
+in the user's home directory.  
+If the authentication and authorization succeeds, \*Lrlogind\*O
+.ML
+.LI
+Allocates 
+a pseudo terminal (see \*Lpty(4)\*O)
+.LI 
+Manipulates 
+file descriptors so that the slave half of the pseudo terminal 
+becomes the \*Lstdin\*O, \*Lstdout\*O, and \*Lstderr\*O 
+for a \*Llogin\*O process
+.LI
+Invokes \*Llogin(1)\*O program with the \*L-f\*O option 
+.LE
+If automatic authentication fails, the user is prompted to log in 
+as if on a standard terminal line. 
+.PP
+If ticket forwarding is requested by the \*Lrlogin\*O client, 
+\*Lk5dcelogin(8sec)\*O is invoked by \*Lrlogind\*O to promote 
+the forwarded Kerberos credentials to DCE credentials. 
+The \*Llogin\*O process is then invoked by \*Lk5dcelogin\*O.  
+.PP
+The parent of the \*Llogin\*O process manipulates 
+the master side of the pseudo terminal, operating as an 
+intermediary between the login process and the client instance 
+of the \*Lrlogin\*O program.  
+.PP
+In normal operation, the packet protocol described in \*Lpty(4)\*O 
+is invoked to provide \*L^S/^Q\*O type facilities 
+and to propagate interrupt signals to the remote programs.  
+The \*Llogin\*O process propagates the client terminal baud rate 
+and terminal type (found in the environment variable, \*LTERM\*O).  
+See \*Lenviron(7)\*O.  The screen or window size of the terminal 
+is requested from the client, and the window size changes 
+from the client are propagated to the pseudo terminal.
+.PP
+Transport-level keepalive messages are enabled unless the \*L-n\*O 
+option is specified.  
+The use of keepalive messages allows sessions to be timed out 
+if the client crashes or becomes unreachable.
+.SH "DIAGNOSTICS"
+All initial diagnostic messages are indicated by a leading byte with a 
+value of 1, after which any network connections are closed.  
+If there are no errors before \*Llogin\*O is invoked, a
+null byte is returned to indicate success.
+.VL
+.LI "\*LTry again\*O
+A fork by the server failed.
+.LI "\*L fork:  No more processes\*O"
+The server was unable to fork a process to handle the incoming connection.
+.PP
+Wait a period of time and try again.  If this 
+message persists, the server's host may have runaway 
+processes that are using all the entries in the process table.
+.LI "\*L Out of ptys\*O"
+The server was unable to obtain a pseudo-terminal for use with the login process.  
+Either all pseudo-terminals were in use or the pty driver has not been properly set up. 
+.PP
+Check the \*Lpty\*O configuration of the host where \*Lrlogind executes\*O.
+.LI "\*L Permission denied\*O"
+The server denied access because the client was not using a reserved port.  
+This should only happen to interlopers trying to break into the system.
+.LI "\*L \*Vsystem call\*L: \*Vcause_of_failure\*O"
+An error in executing a system call.  A message specifying the cause of the failure 
+is appended to this error.
+.LI "\*L/usr/bin/login: \*Vreason\*O"
+The login program could not be started via \*Lexec(2)\*O for the reason indicated.
+.PP
+Try to correct the condition causing the problem.  
+If this message persists, contact your system administrator.
+.LI "\*L rcmd: connect : \*Vhostname\*L: Connection refused.\*O"
+This generic message could be due to a number of reasons.  
+One of the reasons is that the entry for \*Llogin\*O is not present in \*L/etc/inetd.conf\*O.  
+The entry may have been removed or commented out to prevent non-secure access.
+.LI "\*LKerberos authentication failed\*O"
+An error occurred during Kerberos authentication.  
+The Kerberos-specific error message will be appended to the error message.
+.LI "\*L User \*Vremote username\*L is not authorized to login to account \*Vlocal username\*O\*O"
+An error occurred during Kerberos authorization.  
+The Kerberos-specific error message will be appended to the error message.
+.LE
+.SH "RELATED INFORMATION"
+.PP
+.ad l
+Commands:
+\*Lrlogind(8sec)\*O, 
+\*Lrlogin(8sec)\*O.
+.nL
+Files:
+\*L.k5login\*O
+.ad b
+.zZ "enh,13626,R1.2.2,new for krb5 interop"

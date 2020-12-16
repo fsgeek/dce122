@@ -1,0 +1,158 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: FTSERVER_Forward.3dfs,v $
+...\" Revision 1.1.2.3  1994/08/30  00:27:42  jeff
+...\" 	{defect, 11947, R1.1}
+...\" 	Correct/clarify some DFS APIs.
+...\" 	[1994/08/30  00:27:01  jeff]
+...\"
+...\" Revision 1.1.2.2  1994/06/10  21:12:23  devobj
+...\" 	cr10872 - fixed copyright
+...\" 	[1994/06/10  20:51:48  devobj]
+...\" 
+...\" Revision 1.1.2.1  1994/04/05  15:17:19  rom
+...\" 	{enh, 10283, R1.1}
+...\" 	Moved from dce_books/app_ref/man3dfs/FTSERVER_Forward.3dfs to
+...\" 	supp_docs/redistrib/dfs_app_gdref/man3dfs/FTSERVER_Forward.3dfs.
+...\" 	[1994/04/04  22:05:39  rom]
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc. ALL RIGHTS RESERVED
+.TH "FTSERVER_Forward" "3dfs" "" "" ""
+...\'wH NOT_HANDLED{hspace{.15 in}}
+...\" .iX "functions"  "in DFS"  "\*LFTSERVER_Forward(\|)\*O"
+...\" .iX "\*LFTSERVER_Forward(\|)\*O"
+.iX "dump forwarding to fileset server (DFS)"
+.SH "NAME"
+.PP
+\*LFTSERVER_Forward\*O - Dumps a fileset from one File Server and restore it to another (DCE LFS filesets only)
+.SH "SYNOPSIS"
+.PP
+.sS
+...\'wH NOT_HANDLED{hspace{.15 in}}
+\*Lerror_status_t FTSERVER_Forward(
+.nL
+\*Lhandle_t \*VRpcBinding\*L,
+.nL
+\*Lunsigned32 \*VfromTrans\*L,
+.nL
+\*Lftserver_Date \*V*fromDate\*L,
+.nL
+\*Lftserver_dest \*V*destAddress\*L,
+.nL
+\*Lunsigned32 \*VrestoreFlags\*L)
+.nL
+\*Lunsigned32 \*VdestTrans\*L)
+.sE
+.br
+.ne 1.5i
+.SH "PARAMETERS"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.SS Input
+.VL 8m
+...\'wH UNDEFINED{tightenlist}
+.LI "\*VRpcBinding\*O"
+The RPC handle.
+.LI "\*VfromTrans\*O"
+The transaction for the source fileset.
+.LI "\*VfromDate\*O"
+The type and reference date for the dump.
+This \*Vstruct\*O consists of three active and three spare (unused) fields,
+namely \*VfromDate\->mask\*O (of type \*Lunsigned32\*O),
+\*VfromDate\->fromDate\*O (an \*LafsHyper\*O 64-bit counter),
+and \*VfromDate\->fromVersion\*O.
+.LI "\*VdestAddress\*O"
+The address of the destination machine.
+.LI "\*VrestoreFlags\*O"
+Flags having to do with restoration.
+.LI "\*VdestTrans\*O"
+The transaction for the destination fileset.
+.LE
+.br
+.ne 1.5i
+.SH "DESCRIPTION"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.iX "\*Lftserver_dest\*O structure (DFS)"
+.PP
+\*LFTSERVER_Forward(\|)\*O
+dumps the fileset associated with transaction
+\*VfromTrans\*O and currently residing on the File Server machine specified
+in \*VRpcBinding\*O, and then restores the fileset
+on the File Server machine specified in \*VdestAddress\*O, where transaction
+\*VdestTrans\*O has been established.
+The dump may be full (if both fields in \*VfromDate\->fromDate\*O are 0
+(zero)) or incremental (if \*VfromDate\->fromDate\*O represents a number of seconds
+since 1 January 1970).
+\*VfromDate\->fromVersion\*O can also be used as a reference point for the
+incremental dump. \*VfromDate\->mask\*O determines which field to use as a
+reference.
+.PP
+The destination fileset must exist before carrying out this operation,
+and the invoking process must start transactions on both of
+the participating filesets first.
+.PP
+The same effect can be achieved by calling \*LFTSERVER_Dump(\|)\*O and
+\*LFTSERVER_Restore(\|)\*O, except that the data is transferred
+through the calling machine, which may be considerably slower than a
+direct point-to-point transfer.
+.PP
+The \*Lftserver_Date\*O structure definition is given under
+\*LFTSERVER_Dump(\|)\*O.
+The \*Lftserver_dest\*O structure is defined as follows:
+...\'wH UNDEFINED{footnotesize}
+.iS
+struct ftserver_dest {
+\&    struct afsNetAddr address;
+\&    unsigned32 destSSID;
+\&    unsigned32 spare1;
+\&    unsigned32 spare2;
+\&    unsigned32 spare3;
+\&    unsigned char prinName[FTSERVER_MAXPRINNAME];
+};
+.iE
+.PP
+Use 1 for the value of \*LdestSSID\*O.
+.PP
+The \*VrestoreFlags\*O argument indicates other flags that should be applied.
+The values \*LFTSERVER_RESTORE_FORCE_PRESERVE\*O and 
+\*LFTSERVER_RESTORE_DISJOINT_OK\*O may be used via bitwise OR.
+\*LFTSERVER_RESTORE_FORCE_PRESERVE\*O indicates that iterator offsets of 
+directory entries must be preserved, and that restorations that cannot 
+preserve these offsets must fail.
+\*LFTSERVER_RESTORE_DISJOINT_OK\*O overrides the \*Lftserver\*O's checks for
+whether an incremental dump can be restored correctly -- in other words,
+whether the incremental dump correctly begins before the end date/version of
+the most recently restored dump.
+.PP
+This function applies only to DCE LFS filesets.
+.br
+.ne 1.5i
+.SH "ERRORS"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.VL 17m
+...\'wH UNDEFINED{tightenlist}
+.LI "\*LFTSERVER_ERR_NOTRANS\*O"
+The transaction was not found.
+.LI "\*LFTSERVER_ERR_IO\*O"
+The operation cannot write to the disk.
+.LI "\*LFTSERVER_ERR_BADDUMP\*O"
+The dump is incorrectly formatted.
+.LI "\*LDAUT_ERROR_ACCESS_DENIED\*O"
+Access was denied.
+.LE
+.br
+.ne 1.0i
+.SH "RELATED INFORMATION"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.ad l
+.PP
+Functions:
+\*LFTSERVER_Dump(3dfs), FTSERVER_Restore(3dfs)\*O.
+.ad b

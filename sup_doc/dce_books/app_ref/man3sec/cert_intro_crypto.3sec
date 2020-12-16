@@ -1,0 +1,533 @@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+...\" ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+...\" src directory for the full copyright text. 
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: cert_intro_crypto.3sec,v $
+...\" Revision 1.1.2.6  1996/12/21  22:53:18  weir
+...\" 	Final corrections
+...\" 	[1996/12/21  22:53:00  weir]
+...\"
+...\" Revision 1.1.2.5  1996/12/20  21:59:26  weir
+...\" 	Final updates
+...\" 	[1996/12/20  21:57:59  weir]
+...\" 
+...\" Revision 1.1.2.4  1996/12/17  20:10:52  damon
+...\" 	Expanded OSF C O P Y R I G H T   N O T I C E
+...\" 	[1996/12/17  20:08:04  damon]
+...\" 
+...\" Revision 1.1.2.3  1996/11/19  18:55:21  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/19  18:48:25  wardr]
+...\" 
+...\" Revision 1.1.2.2  1996/11/18  19:57:00  weir
+...\" 	No change
+...\" 	[1996/11/18  19:55:01  weir]
+...\" 
+...\" Revision 1.1.2.1  1996/10/15  21:10:20  weir
+...\" 	Initial submission
+...\" 	[1996/10/15  21:09:03  weir]
+...\" 
+...\" $EndLog$
+...\" 
+...\" ----------------------------------------------------------------------
+...\" 
+...\" 
+...\" 
+.TH crypto_intro 3sec
+.SH "Name"
+\*Lcrypto_intro\*O - Introduction to the signature algorithm API registration
+facility
+...\" 
+...\" 
+...\" Cryptographic Module Data Types
+...\" 
+...\" 
+.SH "Description"
+.PP
+This reference page describes the data types used by the signature algorithm API
+(or ``cryptographic'') module registration API.
+...\" 
+...\" 
+.SS "Accessing and Using Cryptographic Modules"
+.PP
+Cryptographic implementations (also known as ``algorithms'') are identified
+by OIDs (object identifiers).
+.PP
+Policy implementors are recommended to access cryptographic modules mainly
+through the following routines, which perform all locking necessary to make the
+calls thread safe, and also transparently handle any context information that a
+given cryptographic implementation may need.
+
+.ML
+.LI
+\*Lpkc_crypto_get_registered_algorithms(3sec)\*O
+.P
+Call this routine to get an OID set describing the currently registered
+algorithm implementations.
+...\" 
+.LI
+\*Lpkc_crypto_sign(3sec)\*O
+.P
+Call this routine to get data signed.
+...\" 
+.LI
+\*Lpkc_crypto_verify_signature(3sec)\*O
+.P
+Call this routine to verify signed data.
+...\" 
+.LI
+\*Lpkc_crypto_generate_keypair(3sec)\*O
+.P
+Call this routine to generate a pair of public/private keys.
+...\" 
+.LE
+...\" 
+.PP
+Information about a cryptographic module may be obtained by calling
+\*Lpkc_crypto_lookup_algorithm(3sec)\*O.
+.PP
+Data can also be signed and verified by looking up the desired algorithm 
+(with \*Lpkc_crypto_lookup_algorithm(3sec)\*O) and then explicitly calling
+the module's \*L(sign)(\|)\*O or \*Lverify(\|)\*O routine, although in this
+case the calling application must take care to avoid multi-threading
+problems, and is also responsible for opening the crypto module prior to use, and
+closing it afterwards.
+...\" 
+...\" 
+...\" 
+.SH "Implementing Cryptographic Modules"
+...\" 
+...\" 
+.PP
+Every cryptographic module must export a \*Lpkc_signature_algorithm_t\*O
+object.
+.PP
+The \*Lpkc_signature_algorithm_t\*O data type is used to register a new
+cryptographic module with the certification API. It fully describes
+a specific implemented cryptographic algorithm, and provides entry
+points to its \*Lsign(\|)\*O and \*Lverify(\|)\*O functions. It is defined as
+follows:
+...\" 
+.sS
+\*Ltypedef struct {\*O
+.nL
+	\*LOM_uint32 \*Vversion\*L;
+.nL
+	\*Lgss_OID_desc \*Valg_id\*L;
+.nL
+	\*Lpkc_alg_flags_t \*Vflags\*L;
+.nL
+	\*Lchar reserved[32 - sizeof(pkc_alg_flags_t)];
+.nL	
+	\*Lchar * (* name)(void);
+.nL
+	\*Lunsigned32 (*open) (void** \*Vcontext\*L);
+.nL
+	\*Lunsigned32 (*close) (void** \*Vcontext\*L);
+.nL
+	\*Lunsigned32 (*verify) (void ** \*Vcontext\*L,
+.nL
+				\*Lsec_pk_gen_data_t * \*Vdata\*L,
+.nL
+				\*Lsec_pk_data_t * \*Vpublic_key\*L,
+.nL
+				\*Lsec_pk_data_t * \*Vsignature\*L);
+.nL
+	\*Lunsigned32 (*sign) (void ** \*Vcontext\*L,
+.nL
+				\*Lsec_pk_gen_data_t * \*Vdata\*L,
+.nL
+				\*Lsec_pk_data_t * \*Vprivate_key\*L,
+.nL
+				\*Lsec_pk_data_t * \*Vsignature\*L);
+.nL
+	\*Lunsigned32 (*generate_keypair) (void ** \*Vcontext\*L,
+.nL
+				\*Lunsigned32 \*Vsize\*L,
+.nL
+				\*Lvoid * \*Valg_info\*L,
+.nL
+				\*Lsec_pk_data_t * \*Vprivate_key\*L,
+.nL
+				\*Lsec_pk_data_t * \*Vpublic_key\*L);
+.nL
+\*L} pkc_signature_algorithm_t;
+.sE
+...\" 
+.PP
+The \*L(name)(\|)\*O, \*L(open)(\|)\*O, \*L(close)(\|)\*O, \*L(verify)(\|)\*O,
+\*L(sign)(\|)\*O and \*L(generate_keypair)(\|)\*O routines must be implemented by
+the application implementing the algorithm and registered by calling the
+\*Lpkc_crypto_register_signature_alg(3sec)\*O routine. Note, however, that all the
+routines except for \*L(verify)(\|)\*O and \*L(name)(\|)\*O are optional.
+...\" 
+Explanations of all the fields in \*Lpkc_signature_algorithm_t\*O are contained
+in the following subsections.
+...\" 
+...\" 
+...\" 
+.SS "Cryptographic Module Data Fields"
+.PP
+The structure contains the following data fields:
+...\" 
+.VL 1i
+.LI "\*Lversion\*O"
+Identifies the version of the certification API for which the module is
+implemented. The value of this field is always \*Lpkc_V1\*O for DCE 1.2.
+...\" 
+.LI "\*Lalg_id\*O"
+An object identifier that identifies the algorithm; the OID that appears
+in certificates signed by the algorithm.
+...\" 
+.LI "\*Lflags\*O"
+Describes whether the module's \*L(sign)(\|)\*O and \*L(verify)(\|)\*O
+functions are threadsafe, and whether the module supports simultaneous
+crypto sessions.
+...\" 
+.LE
+...\" 
+.PP
+The \*Lversion\*O and \*Lalg_id\*O fields are required for all versions of this
+data structure. Other fields may be version dependent.
+...\" 
+...\" 
+.SS "Cryptographic Module Functions"
+.PP
+\*LNULL\*O may be supplied as the address of the \*L(name)(\|)\*O, \*L(open)(\|)\*O,
+\*L(close)(\|)\*O, \*L(sign)(\|)\*O, or \*L(generate_keypair)(\|)\*O routines, if
+the cryptographic module does not provide or require the corresponding feature; the
+presence of these functions in a cryptographic module is optional. However, all
+cryptographic modules must provide \*L(verify)(\|)\*O and \*L(name)(\|)\*O functions.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+.SS "Algorithm Flags Data Type"
+.PP
+The \*Lpkc_alg_flags_t\*O data type is used to record various information about
+a cryptographic module. It is defined as follows:
+...\" 
+.sS
+\*Ltypedef struct {\*O
+.nL
+	\*Lchar threadsafe;\*O
+.nL
+	\*Lchar multi_session;\*O
+.nL
+\*L} pkc_alg_flags_t;\*O
+.sE
+...\" 
+.PP
+The structure contains two fields which have the following meanings:
+...\" 
+.VL
+.LI "\*Lthreadsafe\*O"
+Has a non-zero (TRUE) value if the module's \*L(sign)(\|)\*O and \*L(verify)(\|)\*O
+routines may be safely called simultaneously (within a single crypto session) by
+multiple threads.
+...\" 
+.LI "\*Lmulti_session\*O"
+Has a non-zero (TRUE) value if the module implementation supports multiple
+simultaneous crypto sessions.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(name)(\|)\*O - Returns the algorithm name as a string for use in diagnostic
+or auditing messages
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lchar * (* name)(void);\*O
+.sE
+...\" 
+...\" 
+...\" 
+.SH "Description"
+.PP
+The name should be returned in storage allocated using the \*Lpkc_alloc(\|)\*O
+function defined in \*Lpkc_base.h\*O. Note that this is the only cryptographic
+module routine that may be called without first calling the \*L(open)(\|)\*O routine.
+.PP
+This routine is optional.
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(open)(\|)\*O - Opens and initializes the cryptpgraphic module
+.PP
+\*L(close)(\|)\*O - Closes the cryptographic module
+.PP
+Both routines are optional.
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lunsigned32 (*open) (void** \*Vcontext\*L);
+.nL
+\*Lunsigned32 (*close) (void** \*Vcontext\*L);\*O
+.sE
+...\" 
+.SH "Parameters"
+...\" 
+.SS "Output"
+.VL
+.LI "\*Vcontext\*O"
+An opaque (to the caller) data structure containing any state information
+required by the module across calls.
+.LE
+...\" 
+.SH "Description"
+.PP
+Before invoking any of the module's encryption routines (e.g., \*L(sign)(\|)\*O or
+\*L(verify)(\|)\*O, the certification API will invoke the module's \*L(open)(\|)\*O function.
+Once the module's \*L(close)(\|)\*O routine has been invoked, the certification facility
+will invoke \*L(open)(\|)\*O again before making any further calls to the module.
+...\" 
+...\" 
+...\" 
+.PP
+Both the \*L(open)(\|)\*O and the \*L(close)(\|)\*O routines require only one argument,
+\*Vcontext\*O. If the cryptographic module requires state information to be maintained
+between calls, it may use the \*Vcontext\*O parameter to do this. The information is
+initialized by the \*L(open)(\|)\*O routine and returned as an opaque object to the
+caller, who then passes the parameter to subsequent \*L(sign)(\|)\*O, \*L(verify)(\|)\*O,
+\*L(generate_keypair)(\|)\*O, or \*L(close)(\|)\*O calls.
+.PP
+Note that if the \*L(open)(\|)\*O routine stores any state in the \*Vcontext\*O
+parameter, the \*L(close)(\|)\*O routine should free this storage.
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(sign)(\|)\*O - Calculates a signature over the supplied data using the
+specified key
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lunsigned32 (*sign) (void ** \*Vcontext\*L,
+.nL
+			\*Lsec_pk_gen_data_t * \*Vdata\*L,
+.nL
+			\*Lsec_pk_data_t * \*Vprivate_key\*L,
+.nL
+			\*Lsec_pk_data_t ** \*Vsignature\*L)
+.sE
+...\" 
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vcontext\*O"
+An opaque (to the caller) data structure containing any state information
+required by the module across calls.
+...\" 
+.LI "\*Vdata\*O"
+The certificate data that is to be signed.
+...\" 
+.LI "\*Vprivate_key\*O"
+Key to use to generate the signature, provided as a BER-encoded
+\*LPrivateKeyInfo\*O object, as defined in PKCS#8, as appropriate
+for the algorithm.
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+.SS "Output"
+.VL
+...\" 
+...\" .LI "\*Vparameters\*O"
+...\" Data as specified in the certificate. If the algorithm does not require parameters,
+...\" certificates signed with the algorithm may contain either an ASN.1 \*LNULL\*O value,
+...\" or simply omit the certificate parameters field; in both cases, \*Lvoid\*O shall be
+...\" passed as the \*Vparameters\*O argument to the function. May be encoded in BER. Storage
+...\" allocation should be performed by calling the \*Lpkc_alloc(\|)\*O and \*Lpkc_free(\|)\*O
+...\" functions defined in \*Lpkc_base.h\*O.
+...\" 
+...\" .LI "\*Vparameter_length\*O"
+...\" Length of the parameters.
+...\" .PP
+...\" This argument will contain 0 if the value was omitted from the certificate, or a
+...\" non-zero value if an ASN.1 \*LNULL\*O value was supplied, although it is expected
+...\" that a verify function should not need to distinguish between these two
+...\" possibilities.
+...\" 
+.LI "\*Vsignature\*O"
+The signature generated on the data passed. Storage allocation should be performed
+by calling the \*Lpkc_alloc(\|)\*O and \*Lpkc_free(\|)\*O functions defined in \*Lpkc_base.h\*O.
+...\" 
+...\" .LI "\*Vsignature_length\*O"
+...\" The length of the returned signature.
+...\" 
+.LE
+...\" 
+...\" 
+.SH "Description"
+.PP
+The \*L(sign)(\|)\*O routine calculates a signature over the supplied data,
+using the specified key. The \*Vprivate_key\*O parameter will be a BER-encoded
+\*LPrivateKeyInfo\*O data object.
+...\" , as defined in PKCS #7.
+...\" ?????????????????????????????????????????????????????????????
+The \*Vsignature\*O should be returned by the function; storage allocation
+should be performed by calling the \*Lpkc_alloc(\|)\*O and \*Lpkc_free(\|)\*O
+functions defined in \*Lpkc_base.h\*O.
+.PP
+This routine is optional.
+...\" 
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(verify)(\|)\*O - Checks the supplied signature against the supplied data,
+thus verifying the certificate in which the data and the signature appear
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lunsigned32 (*verify) (void ** \*Vcontext\*L,
+.nL
+			\*Lsec_pk_gen_data_t * \*Vdata\*L,
+.nL
+			\*Lsec_pk_data_t * \*Vpublic_key\*L,
+.nL
+			\*Lsec_pk_data_t * \*Vsignature\*L,
+.sE
+...\" 
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vcontext\*O"
+An opaque (to the caller) data structure containing any state information required
+by the module across calls.
+...\" 
+.LI "\*Vdata\*O"
+The entire \*LcertificateInfo\*O.
+...\" 
+.LI "\*Vpublic_key\*O"
+The public key to use on the signature.
+...\" 
+...\" .LI "\*Vparameters\*O"
+...\" Data as specified in the certificate. If the algorithm does not require parameters,
+...\" certificates signed with the algorithm may contain either an ASN.1 \*LNULL\*O value, or
+...\" simply omit the certificate \*Vparameters\*O field; in both cases, \*Lvoid\*O shall be passed
+...\" as the \*Vparameters\*O argument to the function. May be encoded in BER. 
+...\" 
+...\" .LI "\*Vparameter_length\*O"
+...\" The length of the parameters.
+...\" .PP
+...\" This argument will contain 0 if the value was omitted from the certificate, or
+...\" a non-zero value if an ASN.1 \*LNULL\*O value was supplied, although it is expected
+...\" that a verify function should not need to distinguish between these two possibilities.
+...\" 
+.LI "\*Vsignature\*O"
+The signature to be verified.
+...\" 
+...\" 
+.LE
+...\" 
+...\" 
+.SH "Description"
+The \*L(verify)(\|)\*O routine checks the supplied signature against the
+supplied data. \*Vpublic_key\*O is a \*LSubjectPublicKeyInfo\*O data
+structure, encoded in BER, as found within an X.509 certificate.
+.PP
+The routine should return 0 for a correct signature, \*Lpkc_invalid_signature\*O
+for an incorrect signature, or another DCE-defined error status to indicate any
+other errors.
+.PP
+This routine must be implemented in any cryptographic module.
+...\" 
+...\" 
+...\" 
+.nP
+...\" ----------------------------------------------------------------------
+.SH "Name"
+\*L(generate_keypair)(\|)\*O - Generates a pair of public and private keys
+...\" 
+...\" 
+...\" 
+.SH "Synopsis"
+.sS
+\*Lunsigned32 (*generate_keypair) (void ** \*Vcontext\*L,
+.nL
+			\*Lunsigned32 \*Vsize\*L,
+.nL
+			\*Lvoid * \*Valg_info\*L,
+.nL
+			\*Lsec_pk_data_t * \*Vpublic_key\*L,
+.nL
+			\*Lsec_pk_data_t * \*Vprivate_key\*L,
+.sE
+...\" 
+...\" 
+...\" 
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vcontext\*O"
+An opaque (to the caller) data structure containing any state
+information required by the module across calls.
+.LI "\*Vsize\*O"
+Specifies the key size.
+.LI "\*Valg_info\*O"
+Specifies the crypto module.
+.LE
+...\" 
+.SS "Output"
+.VL
+.LI "\*Vprivate_key\*O"
+The generated private key.
+.LI "\*Vpublic_key\*O"
+The generated public key.
+.LE
+...\" 
+.SH "Description"
+The \*L(generate_keypair)(\|)\*O routine generates a pair of private and
+public keys. The \*Vsize\*O parameter should be used by the routine to
+determine the key size in some way (for the RSA algorithm, for example, it
+should be treated as the number of bits in the key modulus). The
+\*Vprivate_key\*O and \*Vpublic_key\*O parameters should return BER-encoded
+\*LPrivateKeyInfo\*O and \*LSubjectPublicKeyInfo\*O data objects respectively.
+The \*Valg_info\*O parameter can be used for algorithm-specific information
+to modify the key generation process. However, all crypto modules that offer
+this function should be prepared to operate when NULL is provided for this
+parameter.
+.PP
+This routine is optional.
+...\" 
+.ne 1.5i
+...\" 
+...\" 
+.SH "Related Information"
+.PP
+.ad l
+Functions:
+\*Lpkc_crypto_generate_keypair(3sec)\*O,
+\*Lpkc_crypto_get_registered_algorithms(3sec)\*O,
+\*Lpkc_crypto_lookup_algorithm(3sec)\*O,
+\*Lpkc_crypto_register_signature_alg(3sec)\*O,
+\*Lpkc_crypto_sign(3sec)\*O,
+\*Lpkc_crypto_verify_signature(3sec)\*O.
+.ad b 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------

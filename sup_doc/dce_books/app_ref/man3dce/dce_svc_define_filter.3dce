@@ -1,0 +1,214 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE 
+...\" for the full copyright text.
+...\" HISTORY
+...\" $Log: dce_svc_define_filter.3dce,v $
+...\" Revision 1.1.4.1  1996/11/18  17:00:30  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  16:56:59  wardr]
+...\"
+...\" Revision 1.1.2.10  1995/06/21  13:19:44  buckler
+...\" 	More 1.1 edits.
+...\" 	[1995/06/19  15:36:40  buckler]
+...\" 
+...\" Revision 1.1.2.9  1995/05/31  17:05:50  buckler
+...\" 	1.1 edits.
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/05/30  22:53:21  buckler]
+...\" 
+...\" Revision 1.1.2.8  1994/10/18  23:01:38  buckler
+...\" 	{enh, 8441, R1.1}
+...\" 	A few last technical comments.
+...\" 	[1994/10/18  23:01:20  buckler]
+...\" 
+...\" Revision 1.1.2.7  1994/10/17  21:15:13  buckler
+...\" 	{enh, 8441, R1.1}
+...\" 	Incorporated technical review.
+...\" 	[1994/10/17  21:14:10  buckler]
+...\" 
+...\" Revision 1.1.2.6  1994/09/14  14:52:36  weir
+...\" 	Updates
+...\" 	[1994/09/14  14:51:27  weir]
+...\" 
+...\" Revision 1.1.2.5  1994/09/13  21:30:53  weir
+...\" 	Updates
+...\" 	[1994/09/13  21:29:15  weir]
+...\" 
+...\" Revision 1.1.2.4  1994/09/08  19:31:51  weir
+...\" 	Reorganized reference pages
+...\" 	[1994/09/08  19:30:31  weir]
+...\" 
+...\" Revision 1.1.2.3  1994/05/10  05:08:07  willie
+...\" 	{R1.1, beta}
+...\" 	Incorporated beta reviews.  Split up dce_svc_routing(3dce)
+...\" 	into separate reference pages which point back to it and
+...\" 	to dce_svc_register(3dce) for combination use.
+...\" 	[1994/05/10  05:01:41  willie]
+...\" 
+...\" Revision 1.1.2.2  1993/08/12  20:48:39  buckler
+...\" 	{enh, 8441, R1.1}
+...\" 	Created new reference page.
+...\" 	[1993/08/12  20:24:29  buckler]
+...\" 
+...\" $EndLog$
+.TH dce_svc_define_filter 3dce
+.SH "Name"
+\*Ldce_svc_define_filter\*O \- DCE serviceability filtering routines
+.SH "Synopsis"
+...\" ----------------------------------------------------------------------
+.sS
+\*L#include <stdarg.h>\*O
+.nL
+\*L#include <dce/dce.h>\*O
+.nL
+\*L#include <pthread.h>\*O
+.nL
+\*L#include <dce/svcfilter.h>\*O
+.sp .4v
+\*Lvoid dce_svc_define_filter(
+.nL
+	\*Ldce_svc_handle_t \*Vhandle\*L,
+.nL
+	\*Ldce_svc_filter_proc_t \*Vfilter_function\*L,
+.nL
+	\*Ldce_svc_filterctl_proc_t \*Vfilter_ctl_function\*L,
+.nL
+	\*Lerror_status_t *\*Vstatus\*L);
+.sE
+.SH "Description"
+...\" ----------------------------------------------------------------------
+...\" 
+.PP
+The serviceability interface provides a hook into the message-output
+mechanism that allows applications to decide at the time of messaging whether
+the given message should be output or not.  The application defines its own
+routine to perform whatever checking is desired, and installs the routine
+(the \*Vfilter_function\*O parameter) with a call to \*Ldce_svc_define_filter(\|)\*O.
+.PP
+The filter routine to be installed must have the signature defined by the
+\*Ldce_svc_filter_proc_t\*O typedef.  Once installed, the routine will be
+automatically invoked every time a serviceability routine is called to output
+a message.  The filter receives a \*Vprolog\*O argument which contains all the
+pertinent information about the message.  If the filter returns TRUE, the
+message is output per the original serviceability call.  If the filter returns
+FALSE, the message is not output.  The information in the \*Vprolog\*O
+allows such decisions to be made on the basis of severity level, subcomponent,
+message index, and so on.  For details, see the header file \*Ldce/svcfilter.h\*O.
+...\" 
+.PP
+.ne 11
+In addition, an application that installs a message-filtering routine must
+also define a routine that can be called remotely to alter the
+operation of the filter routine.  This procedure must have the signature
+defined by the \*Ldce_svc_filterctl_proc_t\*O typedef.  The routine will be
+invoked with an opaque byte array parameter (and its length), which it is
+free to interpret in an appropriate manner.  The remote-control routine is
+installed by the same call to \*Ldce_svc_define_filter(\|)\*O (as the
+\*Vfilter_ctl_function\*O parameter) in which the filter itself is installed.
+See \*Ldce_svc_filter(3dce)\*O.
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.SH "Examples"
+...\" ----------------------------------------------------------------------
+...\" 
+.PP
+The following code fragment consists of example versions of an application's
+routines to filter serviceability messages, alter the behavior of the filter
+routine, and install the two routines.
+...\" 
+.ps 11
+.vs 13
+.oS
+/*****
+* Filter routine-- this is the routine that's hooked into 
+*	the serviceability mechanism when you install 
+*	it by calling dce_svc_define_filter().
+*****/
+boolean \*Vapp\*C_filter(prolog, args)
+dce_svc_prolog_t prolog;
+va_list args;
+{
+    if (filter_setting) {
+        printf("The value of filter_setting is TRUE\en");
+        printf("The progname is %s\en", prolog->progname);
+        if (prolog->attributes & svc_c_sev_notice)
+            printf("This is a Notice-type message\en");
+
+        switch (prolog->table_index) {
+            case \*Vapp\*C_s_server:
+                printf("Server subcomponent\en");
+                break;
+            case \*Vapp\*C_s_refmon:
+                printf("Refmon subcomponent\en");
+                break;
+            case \*Vapp\*C_s_manager:
+                printf("Manager subcomponent\en");
+                break;
+		}
+    }
+    return 1;
+}
+.nL
+.ne 6
+/*****
+* Filter Control routine-- this is the entry point for 
+*	the remote-control call to modify the filter 
+*	routine's behavior.
+*****/
+void \*Vapp\*C_filter_control(arg_size, arg, status)
+idl_long_int arg_size;
+idl_byte *arg;
+error_status_t *status;
+{
+
+	if (strncmp(arg, "Toggle", arg_size) != 0)
+		return;
+	else {
+    	filter_setting = (filter_setting == FALSE) ? TRUE : FALSE;
+    	if (filter_setting)
+		printf("     FILTER IS TURNED ON\en");
+    	else
+		printf("     FILTER IS TURNED OFF\en");
+	}
+	return;
+}
+
+
+/*****
+* install_filters-- calls dce_svc_define_filter() 
+*	to install the above 2 routines.
+*****/
+void install_filters()
+{
+	unsigned32 status;
+
+	filter_setting = TRUE;
+	dce_svc_define_filter(\*Vapp\*C_svc_handle, \*Vapp\*C_filter,
+        dce_svc_filterctl_proc_t)\*Vapp\*C_filter_control, &status);
+}
+.oE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.SH "Errors"
+.PP
+The following describes a partial list of errors that might be returned.
+Refer to the \*(Tg for complete descriptions of all error
+messages.
+...\" ----------------------------------------------------------------------
+...\" 
+.PP
+See \*Ldce_svc_register(3dce)\*O.
+.SH "Related Information
+.ad l
+Functions:  \*Ldce_svc_register(3dce)\*O, \*LDCE_SVC_DEFINE_HANDLE(3dce)\*O.
+.ad b

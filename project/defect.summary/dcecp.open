@@ -1,0 +1,1678 @@
+CR Number                     : 13656
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : tcl
+Short Description             : libtcl.a contains procedure named 'main'
+Reported Date                 : 10/17/96
+Found in Baseline             : 1.2.2
+Found Date                    : 10/17/96
+Severity                      : D
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : nextrel
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/17/96 public]
+
+When building libtcl.a the file tclMain.o is included in the process. 
+The file tclMain.o contains the procedure main() in it. Therefore the 
+libtcl.a contains the procedure main whereas it should not. This is a 
+loader dependent problem and does not cause a build error on the reference 
+machine.
+
+
+
+CR Number                     : 13554
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : host
+Short Description             : 'host unconfigure' can remove extra principals
+Reported Date                 : 6/27/96
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 6/27/96
+Severity                      : B
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : scripts/host.dcp
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[6/27/96 public]
+
+A support customer reported the following:
+-----------------------------------------
+
+> In DCE 1.1, the "dcecp host unconfigure" command has a bug that will remove
+> principals for all hosts with names that start with a substring that is the 
+> same as the host name that you want to unconfigure. For example if you have
+> several hosts named
+> 
+>     hosts/dce
+>     hosts/dce1
+>     hosts/dce2
+> 
+> then unconfiguring hosts/dce will remove the principals for hosts/dce1 and 
+> hosts/dce2 as well. If these machines are your servers, then you will be in
+> big truble. I have seen this problem in DCE 2.1 for AIX and DCE 1.1 for
+> Solaris from Transarc.
+> 
+> The bug is in the /opt/dcelocal/dcecp/host.dcp script in function 
+> _dcp_host_unconfigure. It loops over all principals and removes any that
+> start with the host_name substring. What is should realy do is simply add 
+> "/self" to the host_name to get the principal name.
+> 
+> This is provided as an advisory to keep you from shooting yourselves in
+> the foot.  
+>
+
+[6/28/96 public]
+
+   The funniest thing about this bug is that this exact behavior is specified
+   in the manpage.  In the 'unconfig' section of the dcecp_host manpage:
+
+        To unconfigure a cell, the operation deletes:
+                   :
+                   :
+           * All principal names beginning with hosts/hostname, but not
+             accounts with the same names.
+
+   So the user is being told exactly what's going to happen during the
+   'unconfigure'.  At least this is a very well documented bug.  Sigh.
+   (Of course, when the principal is deleted, the account goes with it,
+   so the second part of the above note is misleading, at the least).
+
+   So when host.dcp is fixed, the manpage should be fixed as well.
+
+[6/28/96 public]
+Not exactly. The behavior is designed to do 'rm host/<hostname>/*'. The
+current behavior is (I believe) 'rm host/<hostname>*/*'. That's the bug.
+The documentation should be fixed to remove the silliness about not
+removing accounts.
+
+[6/28/96 public]
+
+   The manpage says all principals beginning with hosts/hostname are
+   deleted, and that's exactly what happens.  It doesn't matter where
+   the '/' comes after 'hostname'.  As John says, the code should do:
+
+      rm hosts/<hostname>/*
+
+   but what it does is
+
+      rm hosts/<hostname>*
+
+   So just appending 'self' isn't quite enough, since there often exists
+   principals such as hosts/<hostname>/dfs-server that should also be
+   deleted.
+
+
+
+CR Number                     : 13399
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : server
+Short Description             : server enable/disable requires 'interface' option
+Reported Date                 : 3/21/96
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 3/21/96
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[3/21/96 public]
+
+The customer reported:
+
+"       The manual tells that the commands "server disable" and 
+"server enable" without the "-interface" option mean that all 
+the server interfaces are disabled and enabled respectively.
+Command Reference: server(8dce) gives the following example:
+  
+       dcecp> server disable /.:/hosts/foster/config/bckp_sec.dcp
+       dcecp>
+  
+       However, actually, the same command input ends up with the
+following error message:
+  
+       dcecp> server disable /.:/hosts/foster/config/bckp_sec.dcp
+       Error: Required option 'interface' not entered.
+       dcecp>
+  
+       We cannot change all the interfaces with a single operation 
+of the commands.  We would like see the commands work as defined 
+in the manual.
+"
+
+[3/25/96 public]
+
+   The dcecp_server manpage (the synopsis and text) clearly states
+that the -interface option is optional.  But the code is equally
+clear that if you don't use the -interface option, you'll get an
+error.  First glance, the code is wrong, but I'll have to play with
+it a little bit.
+
+[10/22/96 public]
+
+   The 1.2.2 version of the server manpage shows in the synopsis
+and in the text that the '-interface' option is required for the
+server 'disable' and 'enable' commands.  So the documentation and
+code match.  Still must look into whether the 'disable' and 'enable'
+commands should work without the '-interface' option, so this bug
+stays open.
+
+
+
+CR Number                     : 13395
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : account
+Short Description             : add option to 'account modify' for random keys
+Reported Date                 : 3/19/96
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 3/19/96
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : nextrel
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[3/19/96 public]
+
+The keytab object has a -random option for generating a random key to be
+set, but the account (specifically the modify command) does not have such
+an option.  We need this option because secd does not currently have a way
+to update it's architectural identity keys (eg dce-ptgt) to a new random
+value.
+
+[3/25/96 public]
+
+At first I thought it might be that 'account generate' was what Mike is
+looking for, but it isn't.  Mike would like to generate random keys using
+sec_key_mgmt_gen_rand_key().  As Sean pointed out, '-random' is a little
+too generic, so maybe -randkey or -randdeskey instead.
+
+
+
+CR Number                     : 13370
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : 
+Short Description             : Odd spacing in acl entry lists
+leads to undesirable results
+Reported Date                 : 2/24/96
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 2/24/96
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[2/24/96 public]
+
+A support customer reported the following problem:
+--------------------------------------------------
+
+Component Name:         dcecp
+ 
+Date of First Occurrence: Jan 15, 1996
+
+One Line Description: Odd spacing in acl entry lists yield undesirable results.
+ 
+Full Description:
+ 
+        For example, attempting to modify a cds directory acl:
+            dcecp> acl modify /.:/x -change {any_other  rwdtcia}
+            dcecp> # Note the two spaces here --------^^
+            dcecp> acl show /.:/x
+            {unauthenticated r--t---}
+            {user cell_admin rwdtcia}
+            {user hosts/crock/cds-server rwdtcia}
+            {group subsys/dce/cds-admin rwdtcia}
+            {group subsys/dce/cds-server rwdtcia}
+            {any_other -------}
+
+[2/26/96 public]
+
+Verified in dcecp 1.2...
+
+      dcecp> acl show /.:/hosts/blech
+      {unauthenticated r--t---}
+      {user cell_admin rwdtcia}
+      {user hosts/bagomon/cds-server rwdtcia}
+      {user hosts/blech/self rwdtcia}
+      {group subsys/dce/cds-admin rwdtcia}
+      {group subsys/dce/cds-server rwdtcia}
+      {any_other r--t---}
+      dcecp>
+      dcecp> acl modify /.:/hosts/blech -change {any_other  rwdtcia}
+      dcecp>
+      dcecp> acl show /.:/hosts/blech
+      {unauthenticated r--t---}
+      {user cell_admin rwdtcia}
+      {user hosts/bagomon/cds-server rwdtcia}
+      {user hosts/blech/self rwdtcia}
+      {group subsys/dce/cds-admin rwdtcia}
+      {group subsys/dce/cds-server rwdtcia}
+      {any_other -------}
+      dcecp>
+
+
+
+CR Number                     : 13325
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : 
+Short Description             : "dcecp [-s] script_name" syntax doesn't work
+Reported Date                 : 2/16/96
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 2/16/96
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+Transarc Deltas               : 16691
+Transarc Status               : open
+
+[2/16/96 public]
+The dcecp ref page lists "dcecp [-s] script_name" as one of the
+possibilities in the Synopsis.  This syntax will not work; the Tcl
+code looks for the script name as the first argument on the command
+line.  If it doesn't find a script, it assumes the rest of the command
+line includes only switches and it enters interactive mode rather than
+running the script.  The correct syntax is "dcecp script_name [-s]"
+and the ref page should be corrected to reflect this.
+Added field Transarc Deltas with value `16691' 
+Added field Transarc Status with value `open'
+
+[2/20/96 public]
+
+Good catch, but off the mark.  The syntax *should* work.  There
+is some problem in the parsing code that is not allowing this.
+
+Reassigned as a code bug.
+
+
+
+CR Number                     : 13321
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : 
+Short Description             : Return name field in account and pgo 'show' command
+Reported Date                 : 2/16/96
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 2/16/96
+Severity                      : D
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : nextrel
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[2/16/96 public]
+
+I pretty much remember the reasons behind not returning the 'name'
+parameter of an account, principal, group, and organization during
+the 'show' operation.
+
+We're being hit with a number of requests to do so, however.  There
+is precedence... The 'registry show' command gives the registry name
+(and I *know* why, since you don't always know for sure which replica
+is answering the request).  The 'server show' command returns the
+server name.  There are a couple other obscure commands that do also
+(cdscache show -clearinghouse).
+
+Users looking for a real short cut want to do
+
+   dcecp> principal show [principal catalog]
+           :
+           :
+   dcecp>
+
+which works fine, but the output is just a concatenated list of 
+principal info without the names, making it impossible to tell
+which info belongs to which principal.
+
+Yes, you can write a quick, easy tcl script which will do just
+what the users want, thus, the 'D' (minor) severity.
+
+My question mainly is, are there reasons not to do this as
+an enhancement to the account and pgo 'show' commands?
+
+[2/16/96 public]
+It was consistency, we weren't doing it for all so we didn't do it for any.  
+The fact that it snuck in for a few doesn't surprise me.  Since you had to 
+know the name to get the info it seems redundant and a waste of space to 
+return it to the user.  As you say, it's a simple script.  Make the trade 
+off between what needs to be in the reference source and what users can 
+easily add.   In another sense, what needs to be done in C code versus what
+could be done in Tcl.  If you can do it in Tcl, do so.  
+
+Maybe the better answer is to provide the script with the reference code as 
+a task script.
+
+
+
+CR Number                     : 13320
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : 
+Short Description             : Add on-line usage
+Reported Date                 : 2/16/96
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 2/16/96
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : nextrel
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[2/16/96 public]
+
+   We've had a number of requests to support 'on-line' usage
+for dcecp.  There are a number of ways to do it, so I'd
+like to get some feedback (by friday 2/23, please).
+
+A. The first school of thought is, on-line usage is aready
+   supported, as long as $MANPATH is set correctly...
+
+      dcecp> man dcecp_principal
+      Reformatting entry.  Wait...
+                :
+                :
+      dcecp>
+
+   In the SYNOPSIS section IS the usage for all the operations
+   of the specified command.
+
+   I'm happy with this, but it isn't what some of the
+   customers have in mind.
+
+B. For general dcecp usage, a new option on the command
+   line would be easy...
+
+      # dcecp -usage
+      dcecp [-s] [-local] [-c command | scriptname]
+      #
+
+C. Using the 'help' operation, the main question is, should
+   there be support for usage at the 'command' level or the
+   'operation' level, or both.
+
+   At the command level, for example:
+
+      dcecp> principal help -usage
+      principal catalog [cell_name] [-simplename]
+      principal create princ_name_list [-attribute attribute_list | -attribute value]
+      principal delete princ_name_list
+            :
+            :
+      dcecp>
+
+   At the operation level, for example:
+
+      dcecp> principal help modify -usage
+      principal modify princ_name_list
+         {-add attribute_list |
+          -remove attribute_list [-types] |
+          -change attribute_list | -attribute value}
+      dcecp>
+
+D. We can bypass 'help' completely and make usage available directly
+   at the 'command' level or the 'operation' level, or both.
+
+   At the command level, for example:
+
+      dcecp> principal -usage
+      principal catalog [cell_name] [-simplename]
+      principal create princ_name_list [-attribute attr_list | -attribute value]
+      principal delete princ_name_list
+                 :
+                 :
+      dcecp>
+
+   At the operation level, for example:
+
+      dcecp> principal modify -usage
+      principal modify princ_name_list
+         {-add attribute_list |
+          -remove attribute_list [-types] |
+          -change attribute_list | -attribute value}
+      dcecp>
+
+Below, '2' or '5' more closely matches what people seem to be looking
+for (So, how do I use 'server create' again?), but the thought of adding
+'-usage' to *every* operation (5), as opposed to just at the 'help operations'
+level (2) makes me queezy:
+
+      1. principal help [operation | -verbose | -usage]
+
+      2. principal help [operation [-usage] | -verbose]
+
+      3. principal help [operation [-usage] | -verbose | -usage]
+
+      4. principal [-usage]
+
+      5. principal operation [-usage]...
+
+      6. principal {-usage | operation [-usage]...}
+
+Now that I think about it, another way to do this would be
+to create a new 'usage' operation, which would be similar
+to help, but return the usage information instead:
+
+      dcecp> principal usage
+      principal catalog [cell_name] [-simplename]
+      principal create princ_name_list [-attribute attr_list | -attribute value]
+      principal delete princ_name_list
+                 :
+                 :
+      dcecp>
+
+      and
+
+      dcecp> principal usage modify
+      principal modify princ_name_list
+         {-add attribute_list |
+          -remove attribute_list [-types] |
+          -change attribute_list | -attribute value}
+      dcecp>
+
+Such choices.
+
+[2/16/96 public]
+Burati has been asking for this, so you might check with him to see what
+he would like.
+
+A.  Agree with you completely.
+B.  dcecp at least used to support getopt style options.  That is 
+    single character only where the order doesn't matter.  I don't
+    think a usage message for this is that necessary.  Maybe a -h or
+    if bad args are given...
+C.  I would do it at the operation level only.  Users could do:
+
+       dcecp> foreach o in [principal operations]
+       > puts principal help $o -usage
+
+    if they wanted usage for every object operation pair.  I would suspect
+    that if they don't know what the object does they'd rather have
+    help or help -verbose info rather than usage for each operation.
+D.  
+    1. Okay, but is it useful?
+    2. Seems the best
+    3. Same as 1.
+    4. Bad, after objects comes an operation not an option.
+    5. I agree with your queesyness
+    6. principal {-usage | operation [-usage]...}
+
+I like the idea of a usage operation on each object just like a help
+operation.  I would make the operation argument required.
+
+    principal usage modify
+
+Another thing to consider is how easy it is to both implement it for 
+yourself and how easy is it to build a system that when people extend 
+it will continue to use your conventions.  When people write task objects
+how easy is it for them to include a help command (don't we provide some
+framework for them to use/follow?)  Could we duplicate that for a usage
+operation.  Could we do it easier by incorporating a -usage option on
+the help operation?
+
+
+
+CR Number                     : 13303
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : dcecp
+Subcomponent Name             : 
+Short Description             : core dump when env setting as root
+Reported Date                 : 2/6/96
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 2/6/96
+Severity                      : A
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[2/6/96 public]
+Do the following AS ROOT:
+
+    # dcecp
+    Warning: couldn't find HOME environment variable to expand "~/.dcecprc"
+    dcecp> set env(a) {aaaaaaaaaa}
+    aaaaaaaaaa
+    dcecp> set env(b) {aaaaaaaaaa} 
+    aaaaaaaaaa
+    dcecp> set env(c) {aaaaaaaaaa} 
+    aaaaaaaaaa
+    dcecp> set env(d) {aaaaaaaaaa} 
+    Segmentation fault
+
+[2/7/96 public]
+
+Sigh.  Haven't looked closely yet, but the traceback on HP is:
+
+> trace
+ 0 ltostr@libc.1 + 0x0000012c (0x7b03afe2, 0x7b03b500, 0x4000b030, 0x7b03a348)
+ 1 free@libc.1 + 0x000001fc (0x7b03afe0, 0x7b03b43c, 0x4007d860, 0x12778)
+ 2 TclSetEnv (name = 0x7b03afe0, value = 0x4007d888)
+      [/vob/dce/src/admin/tcl_dce/tclEnv.c: 277]
+ 3 EnvTraceProc (clientData =   00000000, interp = 0x4002cf70, name1 = 0x7b03afdc,
+                 name2 = 0x7b03afe0, flags = 32)
+      [/vob/dce/src/admin/tcl_dce/tclEnv.c: 508]
+ 4 CallTraces (iPtr = 0x4002cf70, arrayPtr = 0x4002f5d0, varPtr = 0x4007d860,
+               part1 = 0xfb03afdc, part2 = 0x7b03afe0, flags = 32)
+      [/vob/dce/src/admin/tcl_dce/tclVar.c: 2057]
+ 5 Tcl_SetVar2 (interp = 0x4002cf70, part1 = 0x7b03afdc, part2 = 0x7b03afe0,
+                newValue = 0x7b03afe3, flags = 512)
+      [/vob/dce/src/admin/tcl_dce/tclVar.c: 614]
+ 6 Tcl_SetVar (interp = 0x4002cf70, varName = 0x7b03afdc, newValue = 0x7b03afe3,
+               flags = 512)
+      [/vob/dce/src/admin/tcl_dce/tclVar.c: 453]
+ 7 Tcl_SetCmd (dummy =   00000000, interp = 0x4002cf70, argc = 3, argv = 0x7b03b0b8)
+      [vob/dce/src/admin/tcl_dce/tclVar.c: 1289]
+ 8 Tcl_Eval (interp = 0x4002cf70, cmd = 0x7b03a3c0)
+      [/vob/dce/src/admin/tcl_dce/tclBasic.c: 1103]
+ 9 Tcl_RecordAndEval (interp = 0x4002cf70, cmd = 0x7b03a3c0, flags = 0)
+      [/vob/dce/src/admin/tcl_dce/tclHistory.c: 282]
+10 main (argc = 1, argv = 0x7b03a264)
+      [/vob/dce/src/admin/dcecp/main.c: 682]
+>
+
+
+
+CR Number                     : 13201
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : audit
+Short Description             : support rewind of non-central trail file in 'aud rewind' command
+Reported Date                 : 11/14/95
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 11/14/95
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : nextrel
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[11/14/95 public]
+I have noticed some problems related to dcecp aud rewind command
+in DCE1.1:
+
+  1) It only works for central_trail once auditd is up and running.
+     This is because when auditd is started, it called dce_aud_open()
+     to open the trail file and reset all the fields in dce_aud_trail_t
+     to the central trail accordingly.  Therefore, if user wants to
+     rewind the other trails such as security trail, it could not be done.
+
+     My suggestion for this problem is:
+
+       if the remote_trail_name is omitted from dcecp aud rewind, i.e
+       dcecp> aud rewind is entered, rewind the central trail
+       else
+         call dce_aud_open() to open the remote_trail_name
+         lock the mutex
+         call dce_aud_rewind to rewind it
+         unlock the mutex
+
+  2) The syntax for dcecp aud rewind in DCE command ref. should change from
+
+       aud rewind [remote_audit_daemon_name] to
+       aud rewind [remote_audit_trail_name]
+
+[11/14/95 public]
+This is not possible. Due to 'limitations' in the design of the audit
+subsystem, working with a non-central trail isn't possible.
+
+Please explain how you can lock a mutex in another process.
+
+This functionality would have been added into dcecp upon it's creation had
+audit been able to support this.
+
+[11/14/95 public]
+Here is what I used to test it. The dce_aud_clean() is a better version of
+dce_aud_rewind().  Inside my main program, I used dce_aud_open() to open the
+trail file, which is predefined, and call dce_aud_clean() to reset and rewind 
+the file. Therefore, if remote_audit_trail_file is entered, aud_ops.c could
+do the same to rewind a file. 
+I am planning to replace the content of dce_aud_rewind() with the content of
+of dce_aud_clean().  
+
+
+void            dce_aud_clean
+                (
+                                 dce_aud_trail_t at,
+                                 unsigned32 * stp
+) {
+
+    /* lock the mutex */
+    pthread_mutex_lock(&at->mutex);
+
+    /* clean the audit trail file */
+    if (ftruncate(at->trail_fd, 0) == -1) {
+    /*  dce_svc_printf(AUD_S_CLEAR_TRAIL_FILE_MSG, at->trail_file);
+        *stp = aud_s_clear_trail_file_rc; */
+        pthread_mutex_unlock(&at->mutex);
+        return;
+    }
+
+    /* clean the audit index file */
+    if (ftruncate(at->md_index_fd, 0) == -1) {
+    /*  dce_svc_printf(AUD_S_CLEAR_INDEX_FILE_MSG, at->index_file);
+        *stp = aud_s_clear_index_file_rc; */
+        pthread_mutex_unlock(&at->mutex);
+        return;
+    }
+
+    at->trail_cursor = 0;
+    at->index_cursor = 0;
+    fseek(at->trail_fp, 0, SEEK_SET);
+    fseek(at->md_index_fp, 0, SEEK_SET);
+
+    /* unlock the mutex */
+    pthread_mutex_unlock(&at->mutex);
+    return;
+
+}
+
+   ....
+   ....
+
+   printf("testing dce_aud_clean.....\n\n");
+
+   dce_aud_open(aud_c_trl_open_read,
+                SEC_AUDIT_FILE,
+                0,
+                0,
+                &Trail, &Status);
+
+   if (Status != aud_s_ok)
+   {
+      printf("   failed to open %s. Status = %ld\n", SEC_AUDIT_FILE, Status);
+      return;
+   }
+
+   dce_aud_clean(Trail, &Status);
+   if (Status != aud_s_ok)
+   {
+      printf("   failed to clean %s. Status = %ld\n", SEC_AUDIT_FILE, Status);
+      dce_aud_close(Trail, &St);
+      return;
+   }
+
+   stat(SEC_AUDIT_FILE, &stbuf1);
+   stat(SEC_INDEX_FILE, &stbuf2);
+
+   if (stbuf1.st_size == 0 && stbuf2.st_size == 0) {
+      printf("   Audit API, dce_aud_clean(), passed successfully\n\n");
+   } else {
+      printf("   Audit API, dce_aud_clean(), failed\n\n");
+   } /* endif */
+
+   dce_aud_close(Trail, &Status);
+
+
+
+CR Number                     : 13194
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : audit
+Short Description             : add/change 'audevents' command
+Reported Date                 : 11/9/95
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 11/9/95
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : nextrel
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[11/9/95 public]
+As suggested by HP, I have implemented the following APIs in
+../src/security/audit/libaudit/evt_classes.c to make audevents
+command more friendly:
+
+  1) get_event_name_from_number: Get the event name
+  2) get_event_number_from_name: Get the event number
+  3) input_e_table: parse the event classes (event class name,
+                    event number, event name, and event description)
+                    and store into a linked list.
+  4) free_e_table:  free the e_table
+  5) add_evt_to_e_table: insert an event into a linked list.
+
+It would be nice if dcecp can add/change audevents as below to
+take advantages of the above APIs
+
+  o dcecp -c audevents show <event class1 event class2 ..>
+  o dcecp -c audevents list 
+  o dcecp -c audevents query <event number or name>
+
+For the first command, the application program can use e_table
+to retrieve the event numbers and events names within event classes.
+Suggestion format:
+
+  event class      event number  event name   event desciption
+  -----------      ------------  ----------  ----------------
+  event class1     evt1(hex&dec) evt1_name    evt1 description
+                   evt2(hex&dec) evt2_name    evt2 description     
+                   evt3(hex&dec) evt2_name    evt3 descritpion
+  event class2     evt1(hex&dec) evt1_name    evt1 description
+                   evt2(hex&dec) evt2_name    evt2 description
+
+See print_e_table() for reference. 
+
+For the second command, the application can call print_e_table() 
+to dsiplay the complete list.
+
+For the last one, the application program again can use e_table 
+to retrieve and display its event class name, event number if
+event name is given or event name if event number is given, and
+event description.
+
+
+
+CR Number                     : 13192
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : audit
+Short Description             : add search options to 'audtrail show' command
+Reported Date                 : 11/9/95
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 11/9/95
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : nextrel
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[11/9/95 public]
+DCE Administrator sometime is interested in a particular event or
+events are logged after or before certain dates.  It would be nice
+if we can support the following options in audtrail show command:
+
+  o dcecp -c audtrail show <trail> -event <event number>
+  o dcecp -c audtrail show <trail> -before <date>
+  o dcecp -c audtrail show <trail> -after <date>
+
+The application program can use the second parameter, predicate, of 	
+dce_aud_next() or dce_aud_prev() to match the searching criteria.
+
+
+
+CR Number                     : 13181
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 11175
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : audit
+Short Description             : add '-reverse' option to 'audtrail show' command
+Reported Date                 : 10/31/95
+Found in Baseline             : 1.2.1
+Found Date                    : 10/31/95
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : nextrel
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/31/95 public]
+
+To make the audit enhancement done in OT11175 available to the user add
+to dcecp:
+
+	audittrail show -reverse
+
+[2/2/96 public]
+you're off the hook John. (for now :-)
+
+[2/7/96 public]
+Move from bug to enhancement.
+
+
+
+CR Number                     : 12982
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : 
+Short Description             : 'endpoint delete' deletes more than requested
+Reported Date                 : 8/1/95
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 8/1/95
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[8/1/95 public]
+
+ rpccp and dcecp in 1.1 remove all endpoints for an interface
+ id when -i and -b options are specified. Customer identified
+ problem was with rpccp. I verified that the same happens
+ with dcecp endpoint commands. Here is the command line log
+ that illustrates.
+ 
+Script command is started on Tue Aug  1 17:19:26 EDT 1995.
+# dcecp
+dcecp> endpoint create -i c48c1194-cc3a-11ce-9a52-08005a4746ec,1.0 -b ncadg_ip_udp:130.105.1.182\[7777\]
+dcecp> endpoint create -i c48c1194-cc3a-11ce-9a52-08005a4746ec,1.0 -b ncacn_ip_tcp:130.105.1.182\[7777\]
+dcecp> endpoint show -i c48c1194-cc3a-11ce-9a52-08005a4746ec,1.0
+{{interface {c48c1194-cc3a-11ce-9a52-08005a4746ec 1.0}}
+ {binding {ncadg_ip_udp 130.105.1.182 7777}}}
+
+{{interface {c48c1194-cc3a-11ce-9a52-08005a4746ec 1.0}}
+ {binding {ncacn_ip_tcp 130.105.1.182 7777}}}
+dcecp> endpoint delete -i c48c1194-cc3a-11ce-9a52-08005a4746ec,1.0 -b ncadg_ip_udp:130.105.1.182\[7777\]
+dcecp> endpoint show -i c48c1194-cc3a-11ce-9a52-08005a4746ec,1.0
+dcecp> exit
+Script command is complete on Tue Aug  1 17:22:29 EDT 1995.
+
+ CUSTOMER REPORT BELOW
+
+From yas@tyrolia.yk.fujitsu.co.jp  Tue Jul 25 04:35:09 1995
+Received: from postman.osf.org by osf.osf.org (5.65/OSF 1.0)
+	id AA27810; Tue, 25 Jul 1995 04:35:09 -0400
+Received: from fgwmail.fujitsu.co.jp (fgwmail.fujitsu.co.jp [164.71.1.133]) by postman.osf.org (8.6.9/8.6.x) with ESMTP
+	id EAA26645 for <dce-defect@osf.org>; Tue, 25 Jul 1995 04:34:54 -0400
+Received: from fdmmail.fujitsu.co.jp by fgwmail.fujitsu.co.jp (8.6.12+2.5Wb4/3.3W5-MX950612-Fujitsu Mail Gateway)
+	id RAA17935; Tue, 25 Jul 1995 17:34:40 +0900
+Received: from ace.yk.fujitsu.co.jp by fdmmail.fujitsu.co.jp (8.6.12+2.5Wb4/3.3W5-MX950612-Fujitsu Domain Mail Master)
+	id RAA19224; Tue, 25 Jul 1995 17:34:09 +0900
+Received: from tyrolia.yk.fujitsu.co.jp (tyrolia.yk.fujitsu.co.jp [133.162.42.77]) by ace.yk.fujitsu.co.jp (8.6.12+2.5Wb7/3.3W9-95030309) with SMTP id RAA13868; Tue, 25 Jul 1995 17:35:06 +0900
+Received: by tyrolia.yk.fujitsu.co.jp (4.1/6.4J.5)
+	id AA12024; Tue, 25 Jul 95 08:33:53 GMT
+Message-Id: <9507250833.AA12024@tyrolia.yk.fujitsu.co.jp>
+To: dce-defect@osf.org
+Reply-To: yas@ace.yk.fujitsu.co.jp
+Subject: rpccp remove mapping for well-known endpoint
+Date: Tue, 25 Jul 1995 17:33:52 +0900
+From: Yasushi Watanabe <yas@tyrolia.yk.fujitsu.co.jp>
+
+Hello I'm Yasushi Watanabe a member of Fujitsu DCE porting group.
+
+Now, I use DCE V1.0.3 and V1.1 running on Fujitsu WS based on SVR4.
+
+I made a sample program using well-known endpoint.
+
+After I started server, I used rpccp command as follows.
+I tried both DCE 1.0.3 and DCE 1.1 .
+
+1. rpccp show mapping [RET]
+  ... 
+
+  <object>         nil
+  <interface id>   b489f960-c644-11ce-a426-00000e220501,1.0
+  <string binding> ncacn_ip_tcp:133.162.42.77[4268]
+  <annotation>     test server
+
+  <object>         nil
+  <interface id>   b489f960-c644-11ce-a426-00000e220501,1.0
+  <string binding> ncadg_ip_udp:133.162.42.77[4268]
+  <annotation>     test server
+
+   ...
+
+2. I tried rpccp remove mapping only udp.
+
+   rpccp remove mapping -i b489f960-c644-11ce-a426-00000e220501,1.0
+   -b ncadg_ip_udp:133.162.42.77[4268] [RET]
+
+3. I executed rpccp show mapping again.
+   I was surprised that both mapping information (for TCP and UDP) are
+   removed. Why? Because of using well-known endpoint?
+   I expected only information for ncacn_ip_tcp still printed.
+
+Could you give me any reasons as soon as possible?
+I would like to know whether this is bug , specification , or our porting miss.
+
+I added my sample program.
+
+Thanks and Regards!
+
+
+----- test.idl -----
+[
+uuid(b489f960-c644-11ce-a426-00000e220501),
+version(1.0),
+endpoint("ncacn_ip_tcp:[4268]","ncadg_ip_udp:[4268]")
+]
+interface test
+{
+ void func([in,ref,string] char *str);
+}
+----------------------------------------------------------------
+
+----- test.acf -----
+interface test
+{
+        [explicit_handle] func();
+}
+----------------------------------------------------------------
+
+----- client.c -----
+#include<stdio.h>
+#include<stdlib.h>
+#include<sys/time.h>
+#include<string.h>
+#include"test.h"
+
+main(argc,argv)
+     int  argc;
+     char *argv[];
+{
+  unsigned32           status;
+  rpc_binding_handle_t binding_h;
+  unsigned char        *str=(unsigned char *)"abc";
+
+  rpc_binding_from_string_binding((unsigned_char_t *)argv[1], &binding_h, 
+				  &status);
+  func(binding_h, str);
+
+}
+---------------------------------------------------------------------------
+
+----- server.c -----
+#include<stdio.h>
+#include"test.h"
+
+#define IF_HANDLE test_v1_0_s_ifspec
+
+main(argc,argv)
+     int  argc;
+     char *argv[];
+{
+  int                         i;
+  unsigned32                  status;          
+  rpc_binding_vector_t        *binding_vector; 
+  char                        *annotation = "test server";
+  
+  rpc_server_use_all_protseqs_if(rpc_c_protseq_max_reqs_default, IF_HANDLE,
+				 &status);
+
+  rpc_server_inq_bindings(&binding_vector, &status);
+
+  for (i = 0; i < binding_vector->count; i++)
+    {
+      unsigned_char_p_t sb;
+      
+      rpc_binding_to_string_binding(binding_vector->binding_h[i], &sb, &status);
+      CHECK_STATUS(status, "rpc_binding_to_string_binding failed",ABORT);
+      printf("Got binding: %s \n", sb);
+      fflush(stdout);
+      rpc_string_free(&sb, &status);
+    }
+
+  rpc_ep_register(IF_HANDLE, binding_vector, NULL, 
+		  (unsigned_char_t *)annotation, &status);
+
+  printf("Server Listen start... \n");
+  rpc_server_listen(rpc_c_listen_max_calls_default, &status); 
+}
+
+
+void func(handle_t binding_h, unsigned char *str)
+{
+  printf("Server get %s from client\n",str);
+  return;
+}
+------------------------------------------------------------------
+
+----------------------------------------------------------------------------
+  Fujitsu Limited              OPEN SOFTWARE DIVISION 5th DEVELOPMENT DEPT.
+  Yasushi Watanabe             TEL:+81-45-474-1926  FAX:+81-45-473-3709
+  NIFTY-Serve ID:HHA02574      E-mail:yas@ace.yk.fujitsu.co.jp
+----------------------------------------------------------------------------
+
+
+
+CR Number                     : 12917
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 12864
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : 
+Short Description             : cellalias set and cdsalias set are disabled
+Reported Date                 : 6/15/95
+Found in Baseline             : 1.1wp, 1.2
+Found Date                    : 6/15/95
+Severity                      : A
+Priority                      : 0
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : nextrel
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[6/15/95 public]
+While testing for H Cells it was noted that the cellalias set command in
+dcecp is disabled for this release.  According to the documentation in the
+Admin Guide (Chap. 21) this is required for H Cells.  Without this command
+it does not seem possible to get H Cells to work properly.
+
+[06/15/95 public]
+See the release notes; it's disabled because the underlying security
+support isn't reliable.  "cellalias set" isn't strictly necessary for
+configuring hierarchical cells, only for "moving" an existing cell
+into another.
+
+[01/22/96 public]
+
+This has been changed to an enhancement from a defect with the PM team's
+agreement.
+
+[3/1/96 public]
+
+Oh, the 'cdsalias set' command has been disabled as well as the
+'cellalias set' command.  Both can be put back as soon as the
+underlying security work is complete.
+
+
+
+CR Number                     : 12916
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : 
+Short Description             : host start/stop don't work
+Reported Date                 : 6/15/95
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 6/15/95
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[6/15/95 public]
+While testing for H Cells we noticed that the "dcecp -c host start" and the
+"dcecp -c host stop" commands do not work.  According to the documetation in
+the Admin Guide these commands are supposed to be used to start and stop the
+DCE daemons.  John Rousseau has also noted that these commands do not work.
+
+[7/27/95 public]
+Notes from IBM (relocated to proper place):
+
+The workaround for the documentation problem in the H Cells config
+is for us to use rc.dce (to start the daemons) and dce.clean (to stop
+the daemons).  For the OSF code this would be using dce_config to
+start and stop the daemons.
+
+[3/1/96 [public]
+The original host show/start/stop commands rely on the dce
+servers on the node being represented by srvrconf and srvrexec
+objects.  The show, start, and stop commands do not work because
+the dce core daemons cannot be started AND controlled by dced.
+The 'fork' nature of the daemons causes dced to lose control
+when the daemon forks off the child (which stays up as the daemon)
+and then dies.  dced knows it started the daemon, but it thinks
+it died, so no srvrexec object is created.
+
+This, plus the new acl and functionality changes that went into
+dced late in the development cycle really hosed the 'host' command.
+
+
+
+CR Number                     : 12847
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : tcl
+Short Description             : dce-lized tcl is not thread safe,
+does not include pthread.h
+Reported Date                 : 4/25/95
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 4/25/95
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[4/25/95 public]
+
+1.1 dce-lizes tcl7.3 to make it to work in the multi-threaded environment.
+Changes are put in the tcl_dce directory.
+
+But I just found a couple of problems there:
+
+1. DCE's pthread.h is NOT included in building tcl. Extra dce headers included
+are <dce/dce.h>, <dce/dce_msg.h>, and <dce/dcetclmsg.h>. None of them really
+include pthread.h.
+
+TCL uses file operations and it actually redefines open/read/write/waitpid to
+its own defintions in tclUnix.h. So simply including <pthread.h> at the 
+beginning of tcl.h will not work. When I ported tcl, I changed the calls to
+open/read/write/waitpid in the files which include tclUnix.h to their real
+calls (TclOpen/TclRead/TclWrite/TclWaitpid) to avooid further definition
+conflict.
+
+2. Making tcl thread-safe 
+
+There are global variables (non-static and static) in tcl.
+
+In a multi-threaded application where only one interpreter is used, cares
+must be made to use mutex to guard the global variable modification;
+
+In a multi-threaded application where more than one interpreters are used 
+(like dcecp), those global variables should be made to be per-interpreter 
+based, and mutexes should be used to guard the modification to them.
+
+3. Using it in a thread-safe way
+
+If making 2 is not done yet, then when using tcl in a multi-threaded 
+application shouldbe extremmely careful. Need to use lock for interpreter
+access if more than one thread is using the same interpreter.
+
+
+For dcecp, since it does not create any thread explicitly and all the use
+of interpreters (3 of them) are all in the main thread, it avoids the 
+problem of 2 and 3. So making 1 happen will probably solve the current dcecp
+problem.
+
+But if dcecp ever in the future to create new threads and use the interpreter(s)
+in more than 2 threads, we better fix problem 2 first.
+
+[4/25/95 public]
+
+FYI: Watch out the deadlock (or assertion failure) bug in cma_dup2(1,1)...
+(Rambling, rambling, TET API in VTS lacked pthread.h...)
+
+
+
+CR Number                     : 12816
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : other
+S/W Ref Platform              : osf1
+Component Name                : dcecp
+Subcomponent Name             : 
+Short Description             : 64-bit incompatibility in is_number() function
+Reported Date                 : 3/9/95
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 3/9/95
+Severity                      : D
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : rgy_utils.c
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[3/9/95 public]
+
+is_number checks the range of a supplied (supposed) 32-bit attribute value
+using strtol(3).  On a 64-bit system (DEC Alpha), strtol(3) accepts and
+converts 64-bit values without complaint (long == 64 bits).  Some architecture-
+independent mechanism should be used here to ensure that the supplied value
+is within a 32-bit range.
+
+
+
+CR Number                     : 12523
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : 
+Short Description             : need command to reset the
+disable field of login activity
+Reported Date                 : 10/5/94
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 10/5/94
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : nextrel
+Fixed In Baseline             : 
+Affected File(s)              : 
+unintegrated/src/nosupport/security/login_reset/login_reset.c 
+unintegrated/src/nosupport/security/login_reset/Makefile
+unintegrated/src/nosupport/security/login_reset/glob.h
+unintegrated/src/nosupport/security/login_reset/types.h
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/5/94 public]
+
+Supply an admin command (login_reset) that will reset the disable field of
+the login record in case an error is made in setting the disable
+time interval and the account gets locked.
+
+[10/12/94 public]
+
+Removed from unintegrated list.
+
+[11/23/94 public]
+
+This functionality was supplied in the unintegrated tree.
+
+[12/19/95 public]
+Fixed in DCE 1.2.1
+
+[12/19/95 public]
+
+There is still some work involved to remove the login_reset
+command from the nosupport tree and integrate it as part of
+dcecp. I am reopening the defect to address that additional
+work, but have downgraded the severity to B.
+
+[7/24/96 public]
+Close, but not quite correct.  This is not a bug in existing code (it's
+new functionality that we wanted but wasn't committed to any schedule
+so it never got done).  As such, it should be an enhancement request (and
+an enhancement request for dcecp, not security itself).
+
+
+
+CR Number                     : 12217
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : 
+Short Description             : accept wildcards for names
+Reported Date                 : 9/15/94
+Found in Baseline             : 1.1b17, 1.2
+Found Date                    : 9/15/94
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : nextrel
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[9/15/94 public]
+In various places dcecp should allow wildcards to be entered to filter the
+output.  The filtering must happen on the server side.  For example, using
+wild cards as cdscp allows.  This would be very useful in the security
+space, e.g., "principal catalog z*" to show all principals begining with z.
+
+This isn't easy as not all services currently provide API's that allow
+this.  But there is another difficult point:  THE WILDCARDING SHOULD BEHAVE
+THE SAME WAY ACROSS SERVICES.  The method and limitations of wildcards
+should be the same for cds directories and registry principals.
+
+[6/5/96 public]
+Moved from 'defer' to 'open'.  Still an enhancement, though,
+not a bug.
+
+
+
+CR Number                     : 10546
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : acl
+Short Description             : allow uuid's in acl entry keys
+Reported Date                 : 5/5/94
+Found in Baseline             : 1.1b8, 1.2
+Found Date                    : 5/5/94
+Severity                      : D
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : nextrel
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[5/5/94 public]
+There is a CR open against acl_edit about this, this one is for dcecp.
+
+If a principal is deleted from the registry, you can't remove any ACL
+entries that refer to that principal.  E.g.
+
+   dcecp> princ del melman
+   dcecp> acl mod /.:/foo -remove {user melman}
+
+will not work since the registry can't translate "melman" into melman's
+uuid.  "acl show" displays the ACL with a UUID instead of the name.  It
+would be nice if we could do this on input as well as output.  Could be
+done with a -uuid but better if done without.  Would require that
+principals not be named with UUID's that don't match the principals UUID.
+Not that anyone would try (probably), but they are legal principal names.
+
+Also applies to groups.
+
+[8/26/94 public]
+Hmmm, this is what adopting is for.  You are supposed to create a principal
+with the old UUID and then you can delete it.
+
+Yes it would still be nice for us to accept UUID's on input.  A -uuid
+option is not going to happen for 1.1 though.  Mostly for the doc impact.
+
+[2/7/96 public]
+For now HP is just going to put a line or two into the 'acl' manpage
+going over the procedure for adopting.  As an enhancement, we'll
+think about accepting a UUID as an ACL key.  As Howard has stated,
+it will be important to check the registry for principals or groups
+named with a UUID, and once sure it truly isn't a registry object,
+then treating it as a UUID.
+
+So re-open.
+
+
+
+CR Number                     : 10442
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : 
+Short Description             : enabling DCE privacy, etc
+Reported Date                 : 4/22/94
+Found in Baseline             : 1.1b7, 1.2
+Found Date                    : 4/22/94
+Severity                      : C
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[4/22/94 public]
+It would be nice to let dcecp users do things using DCE privacy, etc.
+To do this, every time dcecp creates a binding handle it would have to
+know when to call rpc_binding_set_auth_info (or dced_binding_set_auth_info)
+(and, presumably, rpc_mgmt_inq_server_princ_name first).
+
+Here is an idea on how to do it.  Create global variables in dcecp
+C that start out as rpc_c_protect_level_none and rpc_c_autn_none.
+Every dcecp source code that creates a binding looks at those variables
+and, if not set to non, does the set_auth_info.  You could encapsulate
+this in a call, of course
+	rpc_ns_binding_import_next(..., &bh, ...);
+	rpc_ns_binding_import_done(...);
+	dcecp_binding_set_auth_info(bh, &st);
+Where dcecp_binding_set_auth_info does the work mentioned in the first
+paragraph.  Or whatever seems right -- the dcecp folks can figure it out.
+
+The next question is how to bubble this up to the user.  There are two
+ways.  Either create new global variables that the user can set (and
+use a TCL write trace) or create a new command that the user can call.
+That is, either
+	set binding_auth_info { pkt_privacy authn_default }
+or
+	dcecp binding_auth -modify { pkt_privacy authn_default }
+You'd also need a "get" switch here, whereas you wouldn't if you just
+used a variable.  I'm not sure which is better for users; I expect that
+use TCL write traces will make catching bad values harder for the dcecp
+code.
+
+[7/11/94 public]
+Now a defect.  dced's keytab operations (and therefore dcecp's keytab
+object) will need this functionality.  See dced code CR 11201.
+
+[7/11/94 public]
+Currently dcecp's keytab code calls dced_binding_set_auth_info to set 
+the protect level to pkt_privacy if user is dce_login-ed, otherwise it
+assumes unauthenticated access.  This also means that unauthenticated 
+access is only allowed to a dced which is started with '-c' option.
+
+[9/1/94 public]
+We will not solve this generically in DCE 1.1.  There is a section of RFC
+42.3 that describes choices to make to implement an _a convenience variable
+for a generic mechanism.  In the mean time, only keytab *needs* this for
+DCE 1.1.  Here is the updated spec:
+
+  Key tables store server keys which is sensitive information.  It would be a
+  security hole for unauthorized users to obtain this information.  As such,
+  the RPC calls used for these operations uses RPC Privacy (i.e., DES
+  encryption) for all the data by default.  This is not always possible
+  (e.g., due to encryption export and use laws in various countries).  All of
+  the following commands accept a "-noprivacy" option to use the default
+  protection level instead.  This option will probably be deprecated in
+  future releases in favor of a more general mechanism that allows control of
+  all binding handles used by "dcecp".  See the "Changes for Future Versions"
+  section for a description of the "_a" convenience variable.
+
+This be implemented for all keytab commands.
+
+[9/6/94 public]
+Submitted the fix for 1.1 and defer this ot to 1.2 for the generic fix.
+
+[6/5/96 public]
+Moved from 'defer' to 'open', but severity and priority lowered
+to reflect the fact that it's been sitting here for quite a while
+as 'defer', and nobody cared.
+
+
+
+CR Number                     : 10093
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dcecp
+Subcomponent Name             : tcl
+Short Description             : implement -x in Tcl_Eval()
+Reported Date                 : 3/8/94
+Found in Baseline             : 1.1, 1.2
+Found Date                    : 3/8/94
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : nextrel
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[3/8/94 public]
+In order to make "dcecp -x" work like "sh -x" the right thing to do is to
+put the functionality in Tcl_Eval() itself and create a new Tcl API to turn
+it on or off.  Have to check if all the Tcl_Eval* family of routines call
+Tcl_Eval.  Create a function:
+
+  void Tcl_EvalEcho(Interp *interp, int boolean)
+  {
+     global_print_commands = boolean
+  }
+
+that sets a global variable and triggers printf("%s",cmd); in Tcl_Eval()
+before the command is executed.  Think about thread-safety.
+
+Priority is high since functional testing could use this functionality.
+
+[6/5/96 public]
+Changed from 'defer' to 'open'.  Still an enhancement.
+
+
+

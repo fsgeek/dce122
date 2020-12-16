@@ -1,0 +1,258 @@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+...\" ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+...\" src directory for the full copyright text. 
+...\" HISTORY
+...\" $Log: dce_db_intro.3dce,v $
+...\" Revision 1.1.4.2  1996/12/17  20:10:49  damon
+...\" 	Expanded OSF C O P Y R I G H T   N O T I C E
+...\" 	[1996/12/17  20:08:01  damon]
+...\"
+...\" Revision 1.1.4.1  1996/11/18  16:59:34  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  16:56:20  wardr]
+...\" 
+...\" Revision 1.1.2.4  1995/06/21  19:16:35  buckler
+...\" 	More 1.1 edits.
+...\" 	[1995/06/21  18:34:19  buckler]
+...\" 
+...\" Revision 1.1.2.3  1995/06/21  13:19:41  buckler
+...\" 	More 1.1 edits.
+...\" 	[1995/06/19  15:18:26  buckler]
+...\" 
+...\" Revision 1.1.2.2  1995/05/31  17:05:15  buckler
+...\" 	1.1 edits.
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/05/30  22:45:31  buckler]
+...\" 
+...\" Revision 1.1.2.1  1994/09/30  22:04:58  buckler
+...\" 	{enh, 12204, R1.1}
+...\" 	Created this new intro page.
+...\" 	[1994/09/30  22:04:31  buckler]
+...\" 
+...\" $EndLog$
+...\" 
+.TH dce_db_intro 3dce
+.SH "Name"
+\*Ldce_db_intro\*O - Introduction to the DCE backing store interface
+.SH "Description"
+The DCE backing store interface allows you to maintain typed data 
+between program invocations.  For example, you might store 
+application-specific configuration data in a backing store, and 
+then retrieve it from the backing store when the application 
+restarts.  The backing store routines can be used in servers, in
+clients or in standalone programs that do not involve remote procedure
+calls (RPCs).  A program can have more than one backing store open 
+at the same time.
+.PP
+Sometimes the backing store is called a database.  For instance, the
+associated IDL file is \*Ldce/database.idl\*O, and the name of the
+backing store routines begin with \*Ldce_db_\*O.  The backing store
+is, however, not a full-fledged database in the conventional sense,
+and it has no support for SQL or for any other query system.
+.SS "Backing Store Data"
+.PP
+The backing store interface provides for the tagged storage and 
+retrieval of typed data.  The tag (or retrieval key) can be either 
+a UUID or a standard C string.  For a specific backing store, the 
+data type must be specified at compile time, and is established 
+through the IDL encoding services.  Each backing store can contain 
+only a single data type.
+.P
+Each data item (also called a data object or data record)
+consists of the data stored by a single call to a storage routine 
+(\*Ldce_db_store(\|)\*O, \*Ldce_db_store_by_name(\|)\*O, or 
+\*Ldce_db_store_by_uuid(\|)\*O).  Optionally, data items can 
+have headers.  If a backing store has been
+created to use headers, then every data item must have a header. 
+For a description of the data item header, see the section
+in this reference page entitled \*LData Types and Structures\*O.
+.SS "Encoding and Decoding in the Backing Store"
+.P
+When an RPC sends data between a client and a server, it
+serializes the user's data structures by using the IDL encoding
+services (ES), described in the \*(Dg.
+.P
+The backing store uses this same serialization scheme for
+encoding and decoding, informally called \*Epickling\*O, when storing data
+structures to disk.  The IDL compiler, \*Lidl\*O, writes the routine
+that encodes and decodes the data.  
+.PP
+.ne 7
+This routine is passed to
+\*Ldce_db_open(\|)\*O, remembered in the handle, and used by the store
+and fetch routines:
+.ad l
+.ML
+.LI
+\*Ldce_db_fetch(\|)\*O
+.LI
+\*Ldce_db_fetch_by_name(\|)\*O
+.LI
+\*Ldce_db_fetch_by_uuid(\|)\*O
+.LI
+\*Ldce_db_header_fetch(\|)\*O
+.LI
+\*Ldce_db_store(\|)\*O
+.LI
+\*Ldce_db_store_by_name(\|)\*O
+.LI
+\*Ldce_db_store_by_uuid(\|)\*O
+.LE
+.ad b
+.SS "Memory Allocation"
+.P
+When fetching data, the encoding services allocate memory for the
+data structures that are returned.  These services accept a structure,
+and use \*Lrpc_sm_allocate(\|)\*O to provide additional memory needed
+to hold the data.
+.P
+The backing store library does not know what memory has been allocated, and
+therefore cannot free it.  For fetch calls that are made from a server
+stub, this is not a problem, since the memory is freed automatically
+when the server call terminates.  For fetch calls that are made from a
+nonserver, the programmer is responsible for freeing the memory.
+.P
+Programs that call the fetch or store routines, such as \*Ldce_db_fetch(\|)\*O,
+outside of a server operation (for instance, if a server does some
+backing store initialization, or in a standalone program) must call
+\*Lrpc_sm_enable_allocate(\|)\*O first.
+.SS "The Backing Store Routines"
+.P
+Many of the backing store routines appear in three versions: plain, by
+name, and by UUID.  The plain version will work with backing
+stores that were created to be indexed either by name, or by UUID,
+while the restricted versions accept only the matching type.  It is
+advantageous to use the restricted versions when they are appropriate,
+because they provide type checking by the compiler, as well as
+visual clarity of purpose.
+.P
+The backing store routines are as follows, listed in alphabetical order:
+.P
+.VL
+.LI "\*Ldce_db_close(\|)\*O"
+Frees the handle returned by \*Ldce_db_open(\|)\*O.  It closes any
+open files and releases all other resources associated with the
+backing store.
+.LI "\*Ldce_db_delete(\|)\*O"
+Deletes an item from a backing store that is indexed by
+name or by UUID.  The key's type must match the flag that was used in
+\*Ldce_db_open(\|)\*O.
+.LI "\*Ldce_db_delete_by_name(\|)\*O"
+Deletes an item only from a backing store that is indexed by
+name.
+.LI "\*Ldce_db_delete_by_uuid(\|)\*O"
+Deletes an item only from a backing store that is indexed by
+UUID.
+.LI "\*Ldce_db_fetch(\|)\*O"
+Retrieves data from a backing store that is indexed by
+name or by UUID.  The key's type must match the flag that was used in
+\*Ldce_db_open(\|)\*O.
+.LI "\*Ldce_db_fetch_by_name(\|)\*O"
+Retrieves data only from a backing store that is indexed 
+by name.
+.LI "\*Ldce_db_fetch_by_uuid(\|)\*O"
+Retrieves data only from a backing store that is indexed 
+by UUID.
+.LI "\*Ldce_db_free(\|)\*O"
+Releases the data supplied from a backing store.
+.LI "\*Ldce_db_header_fetch(\|)\*O
+Retrieves a header from a backing store.
+.LI "\*Ldce_db_inq_count(\|)\*O"
+Returns the number of items in a backing store.
+.LI "\*Ldce_db_iter_done(\|)\*O"
+Terminates and iteration operation initiated by \*Ldce_\%db_\%iter_\%start(\|)\*O.  
+It should be called when iteration is done.
+.LI "\*Ldce_db_iter_next(\|)\*O"
+Returns the key for the next item from a backing store
+that is indexed by name or by UUID.  The \*Ldb_s_no_more\*O return 
+value indicates that there are no more items.
+.LI "\*Ldce_db_iter_next_by_name(\|)\*O"
+Returns the key for the next item only from a backing store
+that is indexed by name.  The \*Ldb_s_no_more\*O return 
+value indicates that there are no more items.
+.nL
+.ne 6
+.LI "\*Ldce_db_iter_next_by_uuid(\|)\*O"
+Returns the key for the next item only from a backing store
+that is indexed by UUID.  The \*Ldb_s_no_more\*O return 
+value indicates that there are no more items.
+.LI "\*Ldce_db_iter_start(\|)\*O"
+Prepares for the start of iteration.
+.LI "\*Ldce_db_lock(\|)\*O"
+Locks a backing store.  A lock is associated
+with an open backing store's handle.  The storage routines,
+\*Ldce_db_store(\|)\*O, \*Ldce_db_store_by_name(\|)\*O, and
+\*Ldce_db_store_by_uuid(\|)\*O, all acquire the lock before updating.
+.LI "\*Ldce_db_open(\|)\*O"
+Creates a new backing store or opens an existing one.  The 
+backing store is identified by a filename.  Flags allow you to
+.ad l
+.ML
+.LI
+Create a new backing store, or open an existing one.
+.LI
+Create a new backing store indexed by name, or indexed by UUID.
+.LI
+Open an existing backing store read/write, or read-only.
+.LI
+Use the standard data item header, or not.
+.LE
+.ad b
+.P
+The routine returns a handle by which subsequent routines can reference 
+the opened backing store.
+.LI "\*Ldce_db_std_header_init(\|)\*O
+Initializes a standard backing store header retrieved by 
+\*Ldce_db_header_fetch(\|)\*O.  It only places the values 
+into the header, and does not write into the backing store.
+.LI "\*Ldce_db_store(\|)\*O"
+Stores a data item into a backing store that is indexed by name or
+by UUID.  The key's type must match the flag that was used in
+\*Ldce_db_open(\|)\*O.
+.LI "\*Ldce_db_store_by_name(\|)\*O"
+Stores a data item only into a backing store that is indexed 
+by name.
+.LI "\*Ldce_db_store_by_uuid(\|)\*O"
+Stores a data item only into a backing store that is indexed 
+by UUID.
+.LI "\*Ldce_db_unlock(\|)\*O"
+Unlocks a backing store.
+.LE
+.SS "Data Types and Structures"
+.P
+.VL
+.LI "\*Ldce_db_handle_t\*O"
+An opaque handle to a backing store.  Use \*Ldce_db_open(\|)\*O 
+to acquire the handle.
+.LI "\*Ldce_db_header_t\*O"
+The data structure that defines a standard backing 
+store header for data items.  Use \*Ldce_db_header_fetch(\|)\*O to 
+retrieve it from a backing store and \*Ldce_db_std_header_init(\|)\*O
+to initialize it.
+.LI "\*Ldce_db_convert_func_t\*O"
+An opaque pointer to the data conversion function to be used when 
+storing or retrieving data.  This function is specified as an argument 
+to \*Ldce_db_open(\|)\*O at open time.  It converts between native format 
+and on-disk (serialized) format.  It is generated from the IDL file 
+by the IDL compiler.
+.LE
+.SH "Cautions"
+You can not use conformant arrays in objects stored to a backing store.
+This is because the idl-generated code that encodes (pickles) the structure
+has no way to predict or detect the size of the array.  When the
+object is fetched, there will likely be insufficient space provided
+for the structure, and the array's data will destroy whatever is
+in memory after the structure.
+.SH "Files"
+.VL
+.LI "\*Ldatabase.idl\*O"
+.LI "\*Ldatabase.h\*O"
+.LI "\*Ldb.h\*O"
+.LI "\*Ldbif.h\*O"
+.LE
+.SH "Related Information"
+.PP
+Books:
+\*(Dg

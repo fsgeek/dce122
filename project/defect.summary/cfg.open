@@ -1,0 +1,2780 @@
+CR Number                     : 13636
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_shutdown
+Short Description             : pkssd shutdown not logged and incorrect
+Reported Date                 : 10/1/96
+Found in Baseline             : 1.2.2
+Found Date                    : 10/1/96
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[10/1/96 public]
+
+When running dce_shutdown with no pkssd daemon running, the following
+cruft is displayed to the terminal:
+usage: kill [ -signo ] pid ...
+
+This is because the shutdown command for pkssd is incorrect:
+
+	#
+	# Shutdown PKSSD
+	#
+
+	ps -ef | grep pkssd | grep -v grep | awk '{print $2}'\; | xargs kill
+
+Not only does this attempt to kill a non-existent process, but
+it also does not follow dce_config standards for logging actions.
+
+Suggested fix:
+
+1. Remove above lines
+2. Modify:
+if [ $llbd_running -eq 1 ]
+then
+	# dced is not being used by any NCS application
+       	DAEMONS1="${PWD_MGMT} dtsd dtstimed dts_.* gdad auditd cdsadv cdsd secd $EPMAP"
+else
+	# dced is being used by NCS
+	log_msg SUMMARY "Daemon dced is being used by NCS.  It will be restarted \
+as rpcd."
+	DAEMONS1="${PWD_MGMT} dtsd dtstimed dts_.* gdad auditd cdsadv cdsd secd $EPMAP"
+	restart_rpcd=1
+fi
+
+To:
+DAEMONS1="${PWD_MGMT} dtsd dtstimed dts_.* gdad auditd cdsadv cdsd secd $EPMAP pkssd"
+if [ $llbd_running -ne 1 ]
+then
+	# dced is being used by NCS
+	log_msg SUMMARY "Daemon dced is being used by NCS.  It will be restarted \
+as rpcd."
+	restart_rpcd=1
+fi
+
+pkssd will then be killed along with all other DCE daemons using functions
+that correctly log the actions.
+
+
+
+CR Number                     : 13217
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : dce_config and/or rm.dce need to delete 
+                                             files for audit
+Reported Date                 : 12/5/95
+Found in Baseline             : 1.1
+Found Date                    : 12/5/95
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : dce_config and/or rm.dce
+Sensitivity                   : public
+
+[12/5/95 public]
+I have discovered that once a configured cell is unconfigured, the
+following files need to be removed in order for audit to work properly.
+This is because once a cell is unconfigured and re-configured, the 
+existing audit ACL file is no longer valid in the new DCE database.  My
+proposed solution is to delete them when configuration (dce_config) is  
+called.  This will insure that the files are going to be deleted if 
+exists regardless rm.dce run successfully or not. 
+
+ 1) /opt/dcelocal/var/audit/adm/acl
+ 2) /opt/dcelocal/var/audit/daemon_binding
+ 3) /opt/dcelocal/var/audit/daemon_identity
+
+[12/6/95 public]
+Corrected the abstract.
+
+
+
+CR Number                     : 13214
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : if /usr/include/dce does not exist, it does not do a symbolic link.
+Reported Date                 : 11/29/95
+Found in Baseline             : 1.1
+Found Date                    : 11/29/95
+Severity                      : D
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[11/29/95 public]
+
+*** dce/src/config/dce_config	Mon May  8 10:40:07 1995
+--- /tmp/dce_config	Mon Dec  4 16:57:19 1995
+***************
+*** 3297,3303 ****
+  	# Be nice and make sure they don't already have a directory
+  	issymlink /usr/include/dce
+  	temp=$?
+! 	if [ $? -eq 2 ]		# does not exists
+  	then
+  		ln -s $DCELOCAL/share/include/dce /usr/include/dce
+  	elif [ $temp -eq 1 ] 	# exists and not a symlink
+--- 3297,3303 ----
+  	# Be nice and make sure they don't already have a directory
+  	issymlink /usr/include/dce
+  	temp=$?
+! 	if [ $temp -eq 2 ]		# does not exists
+  	then
+  		ln -s $DCELOCAL/share/include/dce /usr/include/dce
+  	elif [ $temp -eq 1 ] 	# exists and not a symlink
+
+
+
+CR Number                     : 13104
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : config_client() does not test
+for symlink install of dce
+Reported Date                 : 9/7/95
+Found in Baseline             : 1.1
+Found Date                    : 9/7/95
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/7/95 public]
+
+client_config() fails to detect dce installation if it
+was installed by symlink.  The fix consist in testing
+for the symlink and was included in the customer's report.
+
+The problem is still present in the 1.2 dce_config.
+
+> 
+>  
+>      *** /tmp/ci.8416..dce_config.8459.1	Wed Jul  5 17:05:41 1995
+>      --- /tmp/dce_config.8459.2	Wed Jul  5 17:05:41 1995
+>      ***************
+>      *** 7328,7338 ****
+>        config_client()
+>        {
+>           log_msg DEBUG "Executing: config_client()"
+>           # Ensure libdce.a is installed on this node. If it
+>           # isn't, force the user to do an install_common()
+>      !    if [ ! -f $DCELOCAL/$SHLIB_RDN/libdce${SHLIB_SUF} -a ! -f
+> $DCELOCAL/lib/libdce.a ]
+>           then
+>        	err_exit "The DCE Client installation must be run prior to client
+> configuration. "
+>        	return
+>           else
+>        
+>      --- 7328,7338 ----
+>        config_client()
+>        {
+>           log_msg DEBUG "Executing: config_client()"
+>           # Ensure libdce.a is installed on this node. If it
+>           # isn't, force the user to do an install_common()
+>      !    if [ ! -f $DCELOCAL/$SHLIB_RDN/libdce${SHLIB_SUF} -a ! -f
+> $DCELOCAL/lib/libdce.a -a ! -L $DCELOCAL/lib/libdce.a ]  #hitm
+>           then
+>        	err_exit "The DCE Client installation must be run prior to client
+> configuration. "
+>        	return
+>           else
+>
+
+
+
+CR Number                     : 12901
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 13135
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : Need to allow initial cell config with 4.0 directory version
+Reported Date                 : 6/2/95
+Found in Baseline             : 1.1
+Found Date                    : 6/2/95
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.1maint
+Affected File(s)              : dce_config, dce_config_env, config.env
+Sensitivity                   : public
+
+[6/2/95 public]
+
+Although it is possible to set the default directory version for
+new directories to 4.0 by starting cdsd with the -v option, it is
+not currently possible to do this within dce_config during an
+initial cell configuration.  As this is one situation where one
+could safely set the default to this level (since the initial set
+of directories and all directories created thereafter would be at
+4.0), it seems reasonable to provide a mechanism within dce_config
+to allow this.
+
+Accomplishing this would require a modification to the config_cds
+function to check for a default directory version and pass it to
+cdsd via the -v option during initialization.  It would also
+require some way of restricting the use of a 4.0 default to the
+initial CDS configuration (there are many ways this could be done, 
+e.g., environment variables, user dialogs, etc.).
+
+[10/2/95 public]
+
+Changing this from an enhancement to a defect and raising the
+severity to B.  Further investigation of other issues related to
+upgrading CDS directory versions has revealed that there is
+currently no way to upgrade the CDS_DirectoryVersion attribute
+for a clearinghouse and hence the default CDS_DirectoryVersion 
+for any new directory created with its master replica in that 
+particular clearinghouse (see CR #13135 for further details).
+While it would not totally eliminate the problem, modifying
+dce_config to allow a default CDS_DirectoryVersion of 4.0 would
+alleviate many of the instances where this issue might arise.
+
+[11/03/95 public]
+
+Fix (contributed by Spike White of HaL Software Systems) prompts for 
+entry of default directory version during CDS config:
+
+> *** /project/dce/build/dce1.1-maint/src/config/dce_config       Mon Jun  5 17:39
+> :09 1995
+> --- config/dce_config   Fri Oct  6 19:24:34 1995
+> ***************
+> *** 4441,4447 ****
+>   #         the security server.
+>   #     Perform config_basecds() routine (which is the same 
+>   #           whether this is the 1st or Nth CDS server)
+> ! #       Start cdsd -a
+>   #     Configure the GDA
+>   #     Ensure the user is in the cds-admin group, re-authenticating
+>   #         if necessary.
+> --- 4441,4447 ----
+>   #         the security server.
+>   #     Perform config_basecds() routine (which is the same 
+>   #           whether this is the 1st or Nth CDS server)
+> ! #       Start cdsd -a -v $CDSD_DIRECTORY_VERSION
+>   #     Configure the GDA
+>   #     Ensure the user is in the cds-admin group, re-authenticating
+>   #         if necessary.
+> ***************
+> *** 4487,4492 ****
+> --- 4487,4494 ----
+>   
+>         config_basecds
+>   
+> +       get_cds_default_dir_version
+> + 
+>         # Start the cdsd daemon (with -a option)
+>         log_msg SUMMARY "Starting cdsd..."
+>         ps ${PSARGS} | grep -q cdsd
+> ***************
+> *** 4496,4504 ****
+>                 return
+>         fi
+>   
+> !       log_msg DETAIL "Executing: cdsd -a"
+> !         cdsd -a || { err_exit "cdsd failed to start"; } 
+> !       modify_rcfile cdsd
+>         verify_cds              # make sure cds is up and running
+>   
+>         # Set BIND_PE_SITE back for further config
+> --- 4498,4506 ----
+>                 return
+>         fi
+>   
+> !       log_msg DETAIL "Executing: cdsd -a -v ${CDSD_DIRECTORY_VERSION}"
+> !         cdsd -a -v ${CDSD_DIRECTORY_VERSION} || { err_exit "cdsd failed to sta
+> rt"; } 
+> !       modify_rcfile cdsd " -v ${CDSD_DIRECTORY_VERSION}"
+>         verify_cds              # make sure cds is up and running
+>   
+>         # Set BIND_PE_SITE back for further config
+> ***************
+> *** 4525,4530 ****
+> --- 4527,4587 ----
+>   }
+>   
+>   #------------------------------------------------------
+> + # get_cds_default_dir_version
+> + #
+> + # Accepts input from user for the default directory version to use with
+> + # the cdsd process we're about to start.  Sets the appropriate environment
+> + # variable ($CDSD_DIRECTORY_VERSION) to this value.
+> + #
+> + #------------------------------------------------------
+> + #
+> + get_cds_default_dir_version() {
+> + 
+> + log_msg WARNING "
+> + DCE V1.1 CDS servers support two different directory versions: 
+> +    version 3.0, which is compatible with existing DCE V1.0 cells, and
+> +    version 4.0, which supports new V1.1 features such as cell aliasing,
+> +       hierarchical cells and delegation ACLs.
+> + 
+> + If you are configuring this CDS server into an existing pre-1.1 cell, you 
+> + should start this CDS server with a default directory version of 3.0. Also, 
+> + if you intend to replicate any of this server's directories onto a pre-1.1 
+> + CDS server, you should start this CDS server with a default directory version 
+> + of 3.0.
+> + 
+> + Otherwise you should start up this CDS server (cdsd) with a default directory 
+> + version of 4.0, in order to utilize the new V1.1 features.
+> + " 
+> + 
+> + x_exit
+> +  
+> + if [ "$do_checks" = "y" ]; then
+> +    log_msg VERBOSE "User query: Enter the default directory version for this
+> + CDS server ($CDSD_DIRECTORY_VERSION)" 
+> + 
+> +    VERSION_LIST="3.0 4.0"
+> +    while [ : ]; do
+> +       echon "\tEnter the default directory version for this CDS server
+> + ($CDSD_DIRECTORY_VERSION) " 
+> +       read string
+> +       if [ -z "${string}" ]; then
+> +         string=$CDSD_DIRECTORY_VERSION
+> +       fi
+> +       case $string in
+> +          [34].0) break;;
+> +          *)
+> +             echo "\t\t An invalid value was entered."
+> +             echo "\t\t Valid values are: $VERSION_LIST"
+> +             ;;
+> +       esac
+> +    done
+> +    CDSD_DIRECTORY_VERSION=$string
+> +    log_msg VERBOSE "User entry: $CDSD_DIRECTORY_VERSION"
+> +    echo "User entry: $CDSD_DIRECTORY_VERSION"
+> + fi
+> + }
+> + 
+> + #------------------------------------------------------
+>   # verify_cds()
+>   #
+>   # Checks to make sure cds is up and running
+> ***************
+> *** 5750,5755 ****
+> --- 5807,5814 ----
+>                 chk_cdscp "cdscp - \"define cached server\" command."
+>         fi
+>   
+> +       get_cds_default_dir_version
+> + 
+>         # Start cdsd (withOUT the -a)
+>         log_msg SUMMARY "Starting cdsd..."
+>           ps ${PSARGS} | grep -q cdsd
+> ***************
+> *** 5767,5775 ****
+>   
+>           #
+>           #
+> !       log_msg DETAIL "Executing: cdsd"
+> !         cdsd  || { err_exit "cdsd failed to start"; }
+> !       modify_rcfile cdsd
+>   
+>           cds_replicate
+>   
+> --- 5826,5834 ----
+>   
+>           #
+>           #
+> !       log_msg DETAIL "Executing: cdsd -v ${CDSD_DIRECTORY_VERSION}"
+> !         cdsd -v ${CDSD_DIRECTORY_VERSION} || { err_exit "cdsd failed to start"
+> ; }
+> !       modify_rcfile cdsd " -v ${CDSD_DIRECTORY_VERSION}"
+>   
+>           cds_replicate
+  
+Fix submitted to dce1.1-maint.
+
+[01/24/96 public]
+
+Revised version of fix which adds the ability to set the CDS directory
+version via an environment variable.  Also sets a default level of
+3.0 which must be explicitly changed (interactively or via environment
+variable) during configuration.
+
+> ./config/config.env
+> Comparing revision 1.1.8.1 with revision 1.1.8.3.
+> *** 1.1.8.1     1995/02/16 22:00:59
+> --- 1.1.8.3     1996/01/19 21:40:56
+> ***************
+> *** 139,145 ****
+>   #CACHE_CDS_SERVER_IP="<ip_address>" # fallback if getip program doesn't work
+>   MULTIPLE_LAN=n                        # y/n do you have multiple lans
+>   #LAN_NAME="<name>"            # Name of lan if MULTIPLE_LAN=y
+> ! 
+>   #REP_CLEARINGHOUSE="<name_ch>"        # Name for new replica clearing house
+>   #DIR_REPLICATE="n"            # y/n manually type in more directories 
+>                                 # to replicate.
+> --- 143,149 ----
+>   #CACHE_CDS_SERVER_IP="<ip_address>" # fallback if getip program doesn't work
+>   MULTIPLE_LAN=n                        # y/n do you have multiple lans
+>   #LAN_NAME="<name>"            # Name of lan if MULTIPLE_LAN=y
+> ! CDSD_DIRECTORY_VERSION="4.0"  # Default directory version level
+>   #REP_CLEARINGHOUSE="<name_ch>"        # Name for new replica clearing house
+>   #DIR_REPLICATE="n"            # y/n manually type in more directories 
+>                                 # to replicate.
+
+> ./config/dce_config_env
+> Comparing revision 1.1.11.6 with revision 1.1.15.1.
+> *** 1.1.11.6    1994/08/29 19:45:15
+> --- 1.1.15.1    1996/01/19 21:47:30
+> ***************
+> *** 119,125 ****
+>         UNCONFIG_HOST_PRESET    CELL_NAME       CACHE_CDS_SERVER
+>         CACHE_CDS_SERVER_IP     HOSTNAME_IP     REP_CLEARINGHOUSE
+>         NTP_HOST                MULTIPLE_LAN    LAN_NAME
+> !       CELL_ADMIN      TOLERANCE_SEC
+>         check_time              DEFAULT_MAX_ID  UID_GAP
+>         LOW_UID                 GID_GAP         LOW_GID
+>         SYNC_CLOCKS             HPDCE_DEBUG     FILESYSTEM
+> --- 123,129 ----
+>         UNCONFIG_HOST_PRESET    CELL_NAME       CACHE_CDS_SERVER
+>         CACHE_CDS_SERVER_IP     HOSTNAME_IP     REP_CLEARINGHOUSE
+>         NTP_HOST                MULTIPLE_LAN    LAN_NAME
+> !       CDSD_DIRECTORY_VERSION  CELL_ADMIN      TOLERANCE_SEC
+>         check_time              DEFAULT_MAX_ID  UID_GAP
+>         LOW_UID                 GID_GAP         LOW_GID
+>         SYNC_CLOCKS             HPDCE_DEBUG     FILESYSTEM
+> ***************
+> *** 239,244 ****
+> --- 243,254 ----
+>   export LAN_NAME
+>   # LAN_NAME: internal name of the lan (for use in the lan profile) when
+>   # a user wishes to use multiple lans.  Used when configuring a cds server.
+> + 
+> + export CDSD_DIRECTORY_VERSION
+> + # CDSD_DIRECTORY_VERSION: default directory version level to be used when 
+> + # setting the CDS_DirectoryVersion attribute for a new clearinghouse.
+> + # This attribute, in turn, sets the default directory version level for
+> + # new directories created in that clearinghouse.
+>   
+>   celladmin=${CELL_ADMIN:="NULL"}
+>   export CELL_ADMIN
+
+> ./config/dce_config
+> Comparing revision 1.2.63.2 with revision 1.2.63.4.
+> *** 1.2.63.2    1995/06/05 21:52:36
+> --- 1.2.63.4    1996/01/22 21:00:06
+> ***************
+> *** 4441,4447 ****
+>   #         the security server.
+>   #     Perform config_basecds() routine (which is the same 
+>   #           whether this is the 1st or Nth CDS server)
+> ! #       Start cdsd -a
+>   #     Configure the GDA
+>   #     Ensure the user is in the cds-admin group, re-authenticating
+>   #         if necessary.
+> --- 4449,4455 ----
+>   #         the security server.
+>   #     Perform config_basecds() routine (which is the same 
+>   #           whether this is the 1st or Nth CDS server)
+> ! #       Start cdsd -a -v $CDSD_DIRECTORY_VERSION
+>   #     Configure the GDA
+>   #     Ensure the user is in the cds-admin group, re-authenticating
+>   #         if necessary.
+> ***************
+> *** 4487,4492 ****
+> --- 4495,4502 ----
+>   
+>         config_basecds
+>   
+> +       get_cds_default_dir_version
+> + 
+>         # Start the cdsd daemon (with -a option)
+>         log_msg SUMMARY "Starting cdsd..."
+>         ps ${PSARGS} | grep -q cdsd
+> ***************
+> *** 4496,4504 ****
+>                 return
+>         fi
+>   
+> !       log_msg DETAIL "Executing: cdsd -a"
+> !         cdsd -a || { err_exit "cdsd failed to start"; } 
+> !       modify_rcfile cdsd
+>         verify_cds              # make sure cds is up and running
+>   
+>         # Set BIND_PE_SITE back for further config
+> --- 4506,4514 ----
+>                 return
+>         fi
+>   
+> !       log_msg DETAIL "Executing: cdsd -a -v ${CDSD_DIRECTORY_VERSION}"
+> !         cdsd -a -v ${CDSD_DIRECTORY_VERSION} || { err_exit "cdsd failed to sta
+> rt"; } 
+> !       modify_rcfile cdsd " -v ${CDSD_DIRECTORY_VERSION}"
+>         verify_cds              # make sure cds is up and running
+>   
+>         # Set BIND_PE_SITE back for further config
+> ***************
+> *** 4525,4530 ****
+> --- 4535,4614 ----
+>   }
+>   
+>   #------------------------------------------------------
+> + # get_cds_default_dir_version
+> + #
+> + # Accepts input from user for the default directory version to use with
+> + # the cdsd process we're about to start.  Sets the appropriate environment
+> + # variable ($CDSD_DIRECTORY_VERSION) to this value.
+> + #
+> + #------------------------------------------------------
+> + #
+> + get_cds_default_dir_version()
+> + {
+> +     if [ "$do_checks" = "y" ]; then
+> +         log_msg WARNING "
+> +     DCE V1.1 CDS servers support two different directory versions: 
+> +     version 3.0, which is compatible with existing DCE V1.0 cells, and
+> +     version 4.0, which supports new V1.1 features such as cell aliasing,
+> +     hierarchical cells and delegation ACLs.
+> + 
+> +     If you are configuring this CDS server into an existing pre-1.1 cell, 
+> +     you should start this CDS server with a default directory version of 
+> +     3.0.  Also, if you intend to replicate any of this server's directories 
+> +     onto a pre-1.1 CDS server, you should start this CDS server with a 
+> +     default directory version of 3.0.
+> + 
+> +     Otherwise you should start up this CDS server (cdsd) with a default 
+> +     directory version of 4.0, in order to utilize the new V1.1 features.
+> + " 
+> + 
+> +     x_exit
+> +     fi
+> +  
+> +     VERSION_LIST="3.0 4.0"
+> + 
+> +     CDSD_DIRECTORY_VERSION=${CDSD_DIRECTORY_VERSION:="NULL"}
+> + 
+> +     case $CDSD_DIRECTORY_VERSION in
+> +         [34].0)
+> +             break;;
+> +         *)
+> +             if [ "${CDSD_DIRECTORY_VERSION}" != "NULL" ]
+> +             then
+> +                 echo "\n\t Environment variable CDSD_DIRECTORY_VERSION is set 
+> to an invalid value."
+> +                 echo "\t Valid values are: $VERSION_LIST"
+> +                 CDSD_DIRECTORY_VERSION="NULL"
+> +             fi
+> + 
+> +             while [ "${CDSD_DIRECTORY_VERSION}" = "NULL" ]
+> +             do
+> +                 TEMP_CDSD_DIRECTORY_VERSION="3.0"
+> +                 log_msg VERBOSE "User query: Enter the default directory versi
+> on for this CDS server ($TEMP_CDSD_DIRECTORY_VERSION)" 
+> +                 echon "\n\tEnter the default directory version for this CDS se
+> rver ($TEMP_CDSD_DIRECTORY_VERSION)" 
+> +                 read string
+> +     
+> +                 if [ -z "${string}" ]
+> +                 then
+> +                     string=$TEMP_CDSD_DIRECTORY_VERSION
+> +                 fi
+> + 
+> +                 case $string in
+> +                     [34].0)
+> +                         CDSD_DIRECTORY_VERSION=$string
+> +                         break;;
+> +                     *)
+> +                         echo "\n\t An invalid value was entered."
+> +                         echo "\t Valid values are: $VERSION_LIST";;
+> +                 esac
+> + 
+> +             done;;
+> +     esac
+> + 
+> +     log_msg VERBOSE "User entry: $CDSD_DIRECTORY_VERSION"
+> +     echo "\n\tUser entry: $CDSD_DIRECTORY_VERSION\n"
+> + }
+> + 
+> + #------------------------------------------------------
+>   # verify_cds()
+>   #
+>   # Checks to make sure cds is up and running
+> ***************
+> *** 5750,5755 ****
+> --- 5834,5841 ----
+>                 chk_cdscp "cdscp - \"define cached server\" command."
+>         fi
+>   
+> +       get_cds_default_dir_version
+> + 
+>         # Start cdsd (withOUT the -a)
+>         log_msg SUMMARY "Starting cdsd..."
+>           ps ${PSARGS} | grep -q cdsd
+> ***************
+> *** 5767,5775 ****
+>   
+>           #
+>           #
+> !       log_msg DETAIL "Executing: cdsd"
+> !         cdsd  || { err_exit "cdsd failed to start"; }
+> !       modify_rcfile cdsd
+>   
+>           cds_replicate
+>   
+> --- 5853,5861 ----
+>   
+>           #
+>           #
+> !       log_msg DETAIL "Executing: cdsd -v ${CDSD_DIRECTORY_VERSION}"
+> !         cdsd -v ${CDSD_DIRECTORY_VERSION} || { err_exit "cdsd failed to start"
+> ; }
+> !       modify_rcfile cdsd " -v ${CDSD_DIRECTORY_VERSION}"
+>   
+>           cds_replicate
+>   
+
+Update to original fix submitted to dce1.1-maint.
+
+
+
+CR Number                     : 12843
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : dce_config doesn't prompt for cell_admin's passwd
+Reported Date                 : 4/18/95
+Found in Baseline             : 1.1
+Found Date                    : 2/15/95
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[4/18/95 public]
+
+Customer reported:
+
+     If dce_config is run when dce_logged in as cell_admin, dce_config doesn't 
+     prompt for cell_admin's passwd, but it should -- it needs that password.
+
+     Configure sec and CDS.  Get out of dce_config.  dce_login as cell_admin.
+     Do the "rgy_edit cell" command as the first step in configuring cross
+     cell communication.
+
+     Start dce_config (still as cell_admin).  Choose CONFIGURE ->
+     Additional Servers -> gda to start gdad (second step of configuring
+     cross cell communication).
+
+     The config_gda() function will fail, in the following rgy_edit line:
+
+     rgy_edit -update <<EOF
+     ...
+     add hosts/$HOSTNAME/gda ... -pw $cellpw -mp $cellpw
+     ...                             ^^^^^^^     ^^^^^^^
+     EOF
+
+     There are plenty of other failure paths also, this is just one.
+
+Proposed Solution:
+
+     See context diff below for the necessary changes to verify_auth():
+
+*** dce_config	Fri Mar 31 13:25:27 1995
+--- /etc/dce_config	Thu Apr 13 16:51:19 1995
+***************
+*** 1877,1882 ****
+--- 1877,1904 ----
+  		if [ $? -ne 0 ]; then
+  			menu0
+  		fi
++ # HaL@BUG-16681@19950413
++ #       If dce_config is run when dce_logged in as cell_admin, dce_config
++ #       doesn't prompt for cell_admin's passwd.  It leaves $cellpw == NULL,
++ #       which is cellpw's initial value.  However, $cellpw is used in 
++ #       beaucoup cases, because of the way dce_config uses the "-mp $cellpw"
++ #       "-pw $cellpw" command-line options of acl_edit and rgy_edit.
++ #       These commands will fail.
++ # Approach: Prompt for cell_admin's passwd in this case.
++ 
++         else
++ 	   # They're logged in, but we may not have the cell passwd.
++ 	   if [ "${cellpw:="NULL"}" = "NULL" ]
++ 	   then
++ 		# We don't have the password, prompt for it.
++ 		log_msg VERBOSE "User query: Enter password for the Cell Administrator: "
++ 		echon "\tEnter password for the Cell Administrator: "
++ 		stty -echo 2>/dev/null
++ 		read cellpw
++ 		stty echo 2>/dev/null
++ 		echo "\n"
++ 		log_msg VERBOSE "User entry: <not shown>"
++ 	   fi
+          fi
+  }
+
+
+
+CR Number                     : 12810
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : [un]config scripts
+Short Description             : ps|grep not used correctly
+Reported Date                 : 3/1/95
+Found in Baseline             : 1.1
+Found Date                    : 3/1/95
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 1.1maint
+Affected File(s)              : dce_config
+Sensitivity                   : public
+
+[3/1/95 public]
+
+Various shell scripts for configuring and unconfiguring dce/dfs use the
+following command to check if a process is present:
+
+	ps ${PSARGS} | grep -q PROCESSNAME
+
+If $? is 0, they assume a success. If $0 is not 0, they assume nothing there.
+
+The problem is that you need to get rid the grep process itself to be sure
+to only grep the meaningful process information:
+
+	ps ${PSARGS} | grep -v grep | grep -q PROCESSNAME
+
+[01/22/96 public]
+
+Lowered from A1 to B2 with team agreement
+
+[01/24/96 public]
+
+Applied proposed fix (with slight variations) to dce_config.
+
+> ./config/dce_config
+> Comparing revision 1.2.63.4 with revision 1.2.63.5.
+> *** 1.2.63.4    1996/01/22 21:00:06
+> --- 1.2.63.5    1996/01/22 21:45:21
+> ***************
+> *** 1064,1070 ****
+>   
+>       # Don't allow STOP before UNCONFIG: check that endpoint map is
+>       # running, and if not, report error and return to menu.
+> !     ps ${PSARGS} | grep -q $EPMAP
+>       if [ $? -ne 0 ]; then
+>         x_exit "DCE daemons must be running to unconfigure from the cell.  \
+>   Run CONFIGURE or START.  Continuing will return to DCE Main Menu."
+> --- 1068,1074 ----
+>   
+>       # Don't allow STOP before UNCONFIG: check that endpoint map is
+>       # running, and if not, report error and return to menu.
+> !     ps ${PSARGS} | grep $EPMAP | grep -v -q grep
+>       if [ $? -ne 0 ]; then
+>         x_exit "DCE daemons must be running to unconfigure from the cell.  \
+>   Run CONFIGURE or START.  Continuing will return to DCE Main Menu."
+> ***************
+> *** 3460,3466 ****
+>   
+>     if [ "$sec_client_service" = "sec_clientd" ]
+>     then
+> !     ps ${PSARGS} | grep -q sec_clientd
+>       if [ $? -eq 0 ]
+>       then
+>         return 1
+> --- 3464,3470 ----
+>   
+>     if [ "$sec_client_service" = "sec_clientd" ]
+>     then
+> !     ps ${PSARGS} | grep sec_clientd | grep -v -q grep
+>       if [ $? -eq 0 ]
+>       then
+>         return 1
+> ***************
+> *** 3716,3727 ****
+>   {
+>         log_msg DEBUG "Executing: config_epmap()"
+>   
+> !       ps ${PSARGS} | grep -q $EPMAP
+>         if [ $? -ne 0 ]; then
+>   
+>                 # detect whether glbd is running.  Stop it if it is.
+>                 glbd_running=0
+> !               ps ${PSARGS} | grep -q glbd
+>                 if [ $? -eq 0 ]; then
+>                         glbd_running=1
+>                         log_msg SUMMARY "Stopping glbd..."
+> --- 3720,3731 ----
+>   {
+>         log_msg DEBUG "Executing: config_epmap()"
+>   
+> !       ps ${PSARGS} | grep $EPMAP | grep -v -q grep
+>         if [ $? -ne 0 ]; then
+>   
+>                 # detect whether glbd is running.  Stop it if it is.
+>                 glbd_running=0
+> !               ps ${PSARGS} | grep glbd | grep -v -q grep
+>                 if [ $? -eq 0 ]; then
+>                         glbd_running=1
+>                         log_msg SUMMARY "Stopping glbd..."
+> ***************
+> *** 3730,3736 ****
+>                 fi
+>   
+>                 # detect whether llbd is running and stop it if it is
+> !               ps ${PSARGS} | grep -q llbd
+>                 if [ $? -eq 0 ]; then
+>                         log_msg SUMMARY "Stopping llbd..."
+>                         log_msg DETAIL "Executing: get_pid \"llbd\" | xargs kill
+>  >/dev/null 2>&1"
+> --- 3734,3740 ----
+>                 fi
+>   
+>                 # detect whether llbd is running and stop it if it is
+> !               ps ${PSARGS} | grep llbd | grep -v -q grep
+>                 if [ $? -eq 0 ]; then
+>                         log_msg SUMMARY "Stopping llbd..."
+>                         log_msg DETAIL "Executing: get_pid \"llbd\" | xargs kill
+>  >/dev/null 2>&1"
+> ***************
+> *** 3891,3897 ****
+>   config_sec()
+>   {
+>         log_msg DEBUG "Executing: config_sec()"
+> !       ps ${PSARGS} | grep -q secd
+>         if [ $? -eq 0 ]
+>         then
+>             err_exit "Security server is already running on this node.  \
+> --- 3895,3901 ----
+>   config_sec()
+>   {
+>         log_msg DEBUG "Executing: config_sec()"
+> !       ps ${PSARGS} | grep secd | grep -v -q grep
+>         if [ $? -eq 0 ]
+>         then
+>             err_exit "Security server is already running on this node.  \
+> ***************
+> *** 4375,4381 ****
+>       # If cdsadv is already running, it implies that this node may
+>       # have been configured as a DCE client node.  In this case,
+>       # we don't need to add CDS registry entries again.
+> !     ps $PSARGS | grep -q cdsadv
+>       if [ $? -ne 0 ]
+>       then
+>         log_msg VERBOSE "Adding entries for CDS to the registry database."
+> --- 4379,4385 ----
+>       # If cdsadv is already running, it implies that this node may
+>       # have been configured as a DCE client node.  In this case,
+>       # we don't need to add CDS registry entries again.
+> !     ps $PSARGS | grep cdsadv | grep -v -q grep
+>       if [ $? -ne 0 ]
+>       then
+>         log_msg VERBOSE "Adding entries for CDS to the registry database."
+> ***************
+> *** 4427,4433 ****
+>         echo "cds.*.security.admin_group_name: $SUBSYSDIR/cds-admin" >> $DCELOCA
+> L/etc/cds.conf
+>   
+>         # Start the CDS advertiser
+> !       ps ${PSARGS} | grep -q cdsadv
+>         if [ $? -eq 0 ]
+>         then
+>                 log_msg DEBUG "config_basecds: cdsadv is already running."
+> --- 4431,4437 ----
+>         echo "cds.*.security.admin_group_name: $SUBSYSDIR/cds-admin" >> $DCELOCA
+> L/etc/cds.conf
+>   
+>         # Start the CDS advertiser
+> !       ps ${PSARGS} | grep cdsadv | grep -v -q grep
+>         if [ $? -eq 0 ]
+>         then
+>                 log_msg DEBUG "config_basecds: cdsadv is already running."
+> ***************
+> *** 4458,4464 ****
+>   config_cds()
+>   {
+>         log_msg DEBUG "Executing: config_cds()"
+> !       ps ${PSARGS} | grep -q cdsd
+>         if [ $? -eq 0 ]
+>         then
+>             err_exit "CDS Server is already running on this node.  \
+> --- 4462,4468 ----
+>   config_cds()
+>   {
+>         log_msg DEBUG "Executing: config_cds()"
+> !       ps ${PSARGS} | grep cdsd | grep -v -q grep
+>         if [ $? -eq 0 ]
+>         then
+>             err_exit "CDS Server is already running on this node.  \
+> ***************
+> *** 4499,4505 ****
+>   
+>         # Start the cdsd daemon (with -a option)
+>         log_msg SUMMARY "Starting cdsd..."
+> !       ps ${PSARGS} | grep -q cdsd
+>         if [ $? -eq 0 ]
+>         then
+>                 err_exit "cdsd is already running."
+> --- 4503,4509 ----
+>   
+>         # Start the cdsd daemon (with -a option)
+>         log_msg SUMMARY "Starting cdsd..."
+> !       ps ${PSARGS} | grep cdsd | grep -v -q grep
+>         if [ $? -eq 0 ]
+>         then
+>                 err_exit "cdsd is already running."
+> ***************
+> *** 5721,5727 ****
+>         config_cdsclient
+>   
+>         # verify that node is now a CDS client
+> !         ps ${PSARGS} | grep -q cdsadv
+>         if [ $? -ne 0 ]
+>         then
+>                 err_exit "Failed to configure node as a CDS client.  This node \
+> --- 5725,5731 ----
+>         config_cdsclient
+>   
+>         # verify that node is now a CDS client
+> !         ps ${PSARGS} | grep cdsadv | grep -v -q grep
+>         if [ $? -ne 0 ]
+>         then
+>                 err_exit "Failed to configure node as a CDS client.  This node \
+> ***************
+> *** 5838,5844 ****
+>   
+>         # Start cdsd (withOUT the -a)
+>         log_msg SUMMARY "Starting cdsd..."
+> !         ps ${PSARGS} | grep -q cdsd
+>         if [ $? = 0 ]
+>         then
+>                 err_exit "cdsd is already running.  \
+> --- 5842,5848 ----
+>   
+>         # Start cdsd (withOUT the -a)
+>         log_msg SUMMARY "Starting cdsd..."
+> !         ps ${PSARGS} | grep cdsd | grep -v -q grep
+>         if [ $? = 0 ]
+>         then
+>                 err_exit "cdsd is already running.  \
+> ***************
+> *** 5986,5992 ****
+>         log_msg DEBUG "Executing: config_gda()"
+>   
+>         # verify gdad is not already running
+> !       ps ${PSARGS} | grep -q gdad
+>         if [ $? -eq 0 ]
+>         then
+>                 err_exit "gdad is already running."
+> --- 5990,5996 ----
+>         log_msg DEBUG "Executing: config_gda()"
+>   
+>         # verify gdad is not already running
+> !       ps ${PSARGS} | grep gdad  | grep -v -q grep
+>         if [ $? -eq 0 ]
+>         then
+>                 err_exit "gdad is already running."
+> ***************
+> *** 6013,6019 ****
+>         fi
+>   
+>         # Ensure cds client has been enabled
+> !       ps ${PSARGS} | grep -q cdsclerk
+>         if [ $? -ne 0 ]
+>         then
+>                 err_exit "Node must be configured as a client before installing 
+> a GDA server.  \
+> --- 6017,6023 ----
+>         fi
+>   
+>         # Ensure cds client has been enabled
+> !       ps ${PSARGS} | grep cdsclerk  | grep -v -q grep
+>         if [ $? -ne 0 ]
+>         then
+>                 err_exit "Node must be configured as a client before installing 
+> a GDA server.  \
+> ***************
+> *** 6219,6225 ****
+>   #------------------------------------------------------
+>   config_cdsclient()
+>   {
+> !       ps ${PSARGS} | grep -q cdsadv
+>         if [ $? -eq 0 ]
+>         then
+>                 return 1
+> --- 6223,6229 ----
+>   #------------------------------------------------------
+>   config_cdsclient()
+>   {
+> !       ps ${PSARGS} | grep cdsadv  | grep -v -q grep
+>         if [ $? -eq 0 ]
+>         then
+>                 return 1
+> ***************
+> *** 6242,6248 ****
+>                 echo "cds.*.security.admin_group_name: $SUBSYSDIR/cds-admin" >> 
+> $DCELOCAL/etc/cds.conf
+>         fi
+>   
+> !       ps ${PSARGS} | grep -q cdsadv
+>         if [ $? -eq 0 ]
+>         then
+>                 err_exit "cdsadv is already running."
+> --- 6246,6252 ----
+>                 echo "cds.*.security.admin_group_name: $SUBSYSDIR/cds-admin" >> 
+> $DCELOCAL/etc/cds.conf
+>         fi
+>   
+> !       ps ${PSARGS} | grep cdsadv  | grep -v -q grep
+>         if [ $? -eq 0 ]
+>         then
+>                 err_exit "cdsadv is already running."
+> ***************
+> *** 6670,6676 ****
+>                   { err_exit "sec_create_db may have failed to create security s
+> lave"; }
+>   
+>         log_msg SUMMARY "Starting slave security server (secd) ..."
+> !       ps ${PSARGS} | grep -q secd 
+>         if [ $? -eq 0 ]
+>         then
+>                 err_exit "secd is already running."
+> --- 6674,6680 ----
+>                   { err_exit "sec_create_db may have failed to create security s
+> lave"; }
+>   
+>         log_msg SUMMARY "Starting slave security server (secd) ..."
+> !       ps ${PSARGS} | grep secd  | grep -v -q grep
+>         if [ $? -eq 0 ]
+>         then
+>                 err_exit "secd is already running."
+> ***************
+> *** 6921,6927 ****
+>         log_msg DEBUG "Executing: config_nulltimeprovider()"
+>   
+>           # Is a time provider already running on this node?
+> !         ps ${PSARGS} | grep -q -e dts_null -e dts_ntp
+>           if [ $? != 0 ]; then
+>                 log_msg SUMMARY "Starting dts_null_provider..."
+>                 log_msg DETAIL "Executing: dts_null_provider -p 60 -i 100"
+> --- 6925,6931 ----
+>         log_msg DEBUG "Executing: config_nulltimeprovider()"
+>   
+>           # Is a time provider already running on this node?
+> !         ps ${PSARGS} | grep -e dts_null -e dts_ntp | grep -v -q grep
+>           if [ $? != 0 ]; then
+>                 log_msg SUMMARY "Starting dts_null_provider..."
+>                 log_msg DETAIL "Executing: dts_null_provider -p 60 -i 100"
+> ***************
+> *** 6947,6953 ****
+>         log_msg DEBUG "Executing: config_ntptimeprovider()"
+>   
+>           # Is a time provider already running on this node?
+> !         ps ${PSARGS} | grep -q -e dts_null -e dts_ntp
+>           if [ $? != 0 ]; then
+>                 ntp_host=${NTP_HOST:="NULL"}
+>                 until [ ${ntp_host:="NULL"} != "NULL" ]; do
+> --- 6951,6957 ----
+>         log_msg DEBUG "Executing: config_ntptimeprovider()"
+>   
+>           # Is a time provider already running on this node?
+> !         ps ${PSARGS} | grep -e dts_null -e dts_ntp | grep -v -q grep
+>           if [ $? != 0 ]; then
+>                 ntp_host=${NTP_HOST:="NULL"}
+>                 until [ ${ntp_host:="NULL"} != "NULL" ]; do
+> ***************
+> *** 6992,6998 ****
+>         log_msg DEBUG "Executing: config_dtslocal()"
+>   
+>           # Is DTS already running?
+> !         ps ${PSARGS} | grep -q dtsd
+>           if [ $? != 0 ]; then
+>                 dts_rgyinit
+>   
+> --- 6996,7002 ----
+>         log_msg DEBUG "Executing: config_dtslocal()"
+>   
+>           # Is DTS already running?
+> !         ps ${PSARGS} | grep dtsd | grep -v -q grep
+>           if [ $? != 0 ]; then
+>                 dts_rgyinit
+>   
+> ***************
+> *** 7019,7025 ****
+>         log_msg DEBUG "Executing: config_dtsglobal()"
+>   
+>           # Is DTS already running?
+> !         ps ${PSARGS} | grep -q dtsd
+>           if [ $? != 0 ]; then
+>                 dts_rgyinit
+>   
+> --- 7023,7029 ----
+>         log_msg DEBUG "Executing: config_dtsglobal()"
+>   
+>           # Is DTS already running?
+> !         ps ${PSARGS} | grep dtsd  | grep -v -q grep
+>           if [ $? != 0 ]; then
+>                 dts_rgyinit
+>   
+> ***************
+> *** 7044,7050 ****
+>         log_msg DEBUG "Executing: config_dtsclerk()"
+>   
+>           # Is DTS already running?
+> !         ps ${PSARGS} | grep -q dtsd
+>           if [ $? != 0 ]; then
+>                 start_dtsd clerk
+>   
+> --- 7048,7054 ----
+>         log_msg DEBUG "Executing: config_dtsclerk()"
+>   
+>           # Is DTS already running?
+> !         ps ${PSARGS} | grep dtsd | grep -v -q grep
+>           if [ $? != 0 ]; then
+>                 start_dtsd clerk
+>   
+> ***************
+> *** 7078,7084 ****
+>      else
+>   
+>         # Is this a security server?
+> !       ps ${PSARGS} | grep -q secd
+>         if [ $? != 0 ]
+>         then
+>                 # This configuration is needed because this node
+> --- 7082,7088 ----
+>      else
+>   
+>         # Is this a security server?
+> !       ps ${PSARGS} | grep secd | grep -v -q grep
+>         if [ $? != 0 ]
+>         then
+>                 # This configuration is needed because this node
+> ***************
+> *** 7103,7109 ****
+>         fi
+>   
+>         # Is this a CDS server?
+> !       ps ${PSARGS} | grep -q cdsd
+>         if [ $? != 0 ]
+>         then
+>                 # Configure this node as a CDS client if cdsadv isn't running
+> --- 7107,7113 ----
+>         fi
+>   
+>         # Is this a CDS server?
+> !       ps ${PSARGS} | grep cdsd | grep -v -q grep
+>         if [ $? != 0 ]
+>         then
+>                 # Configure this node as a CDS client if cdsadv isn't running
+> ***************
+> *** 7118,7124 ****
+>         fi
+>   
+>         # Has DTS been configured?
+> !       ps ${PSARGS} | grep -q dtsd
+>         if [ $? -ne 0 ]
+>         then
+>                 if [ -z "$DTS_CONFIG" ]
+> --- 7122,7128 ----
+>         fi
+>   
+>         # Has DTS been configured?
+> !       ps ${PSARGS} | grep dtsd | grep -v -q grep
+>         if [ $? -ne 0 ]
+>         then
+>                 if [ -z "$DTS_CONFIG" ]
+> ***************
+> *** 7188,7194 ****
+>         else
+>   
+>                 # Is this a security server?
+> !               ps ${PSARGS} | grep -q secd
+>                 if [ $? != 0 ]; then
+>                         # This configuration is needed because this machine is
+>                         # not running the secd daemon, so isn't a sec server
+> --- 7192,7198 ----
+>         else
+>   
+>                 # Is this a security server?
+> !               ps ${PSARGS} | grep secd | grep -v -q grep
+>                 if [ $? != 0 ]; then
+>                         # This configuration is needed because this machine is
+>                         # not running the secd daemon, so isn't a sec server
+> ***************
+> *** 7210,7216 ****
+>                 fi
+>   
+>                 # Is this a CDS server?
+> !               ps ${PSARGS} | grep -q cdsd
+>                 if [ $? != 0 ]; then
+>                         # Configure this machine as a CDS client
+>                         # if cdsadv isn't running
+> --- 7214,7220 ----
+>                 fi
+>   
+>                 # Is this a CDS server?
+> !               ps ${PSARGS} | grep cdsd | grep -v -q grep
+>                 if [ $? != 0 ]; then
+>                         # Configure this machine as a CDS client
+>                         # if cdsadv isn't running
+> ***************
+> *** 7337,7343 ****
+>   {
+>         log_msg DEBUG "Executing: config_audit()"
+>   
+> !       ps ${PSARGS} | grep -q auditd
+>         if [ $? -eq 0 ]
+>         then
+>                 err_exit "Audit daemon is already running on this node. \
+> --- 7341,7347 ----
+>   {
+>         log_msg DEBUG "Executing: config_audit()"
+>   
+> !       ps ${PSARGS} | grep auditd  | grep -v -q grep
+>         if [ $? -eq 0 ]
+>         then
+>                 err_exit "Audit daemon is already running on this node. \
+> ***************
+> *** 7411,7417 ****
+>       log_msg DEBUG "Executing: config_pwd_mgmt(${option})"
+>   
+>       if [ -z "${option}" ]; then
+> !         ps ${PSARGS} | grep -q `basename ${PWD_MGMT_SVR}`
+>           if [ $? -eq 0 ]
+>           then
+>               err_exit "Password Management Server is already running on this node.  \
+> --- 7415,7421 ----
+>       log_msg DEBUG "Executing: config_pwd_mgmt(${option})"
+>   
+>       if [ -z "${option}" ]; then
+> !         ps ${PSARGS} | grep `basename ${PWD_MGMT_SVR}` | grep -v -q grep
+>           if [ $? -eq 0 ]
+>           then
+>               err_exit "Password Management Server is already running on this node.  \
+ 
+Fix submitted to dce1.1-maint.
+
+
+
+CR Number                     : 12796
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : dce_config prepends "/.:" to directory replicas
+Reported Date                 : 2/13/95
+Found in Baseline             : 1.1
+Found Date                    : 2/13/95
+Severity                      : B
+Priority                      : 1
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1maint
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[2/13/95 public]
+
+The dce_config script prepends a "/.:/" to directories which the user has
+listed to replicate. The doc (Admin Guide - Intro) says that the user
+should use "the full pathname (including the /.:/)". The result is that the
+dce_config fails with the error:
+         Enter the list of directories to be replicated, separated by spaces,
+         and terminated by <RETURN>: 
+ /.:/hosts 
+ ERROR:   Failed to create replica /.://.:/hosts clearinghouse /.:/ra_ch
+
+Solution: Don't prepend "/.:" to replicas (conform to documentation).
+ 
+     *** /tmp/ci.21595..dce_config.21630.1      Wed Feb  1 16:12:32 1995
+     --- /tmp/dce_config.21630.2        Wed Feb  1 16:12:33 1995
+     ***************
+     *** 6170,6180 ****
+        log_msg VERBOSE "User entry: $LIST"
+        for i in $LIST
+        do
+                log_msg VERBOSE "Replicating $i."
+                log_msg DETAIL "Executing: cdscp create replica /.:/$i clearinghouse /.:/$newchname"
+     !          cdscp create replica /.:/$i clearinghouse /.:/$newchname >/dev/null 2>&1
+                if [ $? -ne 0 ]; then
+                        err_exit "Failed to create replica /.:/$i clearinghouse /.:/$newchname"
+                fi
+        done
+       }
+     --- 5468,5478 ----
+        log_msg VERBOSE "User entry: $LIST"
+        for i in $LIST
+        do
+                log_msg VERBOSE "Replicating $i."
+                log_msg DETAIL "Executing: cdscp create replica /.:/$i clearinghouse /.:/$newchname"
+     !          cdscp create replica $i clearinghouse /.:/$newchname >/dev/null 2>&1
+                if [ $? -ne 0 ]; then
+                        err_exit "Failed to create replica /.:/$i clearinghouse /.:/$newchname"
+                fi
+        done
+       }
+
+[10/10/96 public]
+
+Fixed in 1.1 maintenance.
+
+
+
+CR Number                     : 12698
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : dce_config waits on UID error
+Reported Date                 : 10/21/94
+Found in Baseline             : 1.1b22
+Found Date                    : 10/21/94
+Severity                      : B
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/21/94 public]
+
+When running the gds functional tests the gdssetup_all test is hung.
+Here is the process running from that session:
+
+    root 17982 18459   0 17:05:40  pts/0  0:00 ksh /ufs/test/tet/functional/dire
+ctory/gds/ts/gdssetup/gdssetup_all 
+    root 18459  9996   0 14:34:38  pts/0  0:01 /dcetest/dcelocal/test/tet/bin/tc
+c -e functional/directory/gds all 
+    root 19164 20880   0 17:08:39  pts/0  0:01 gdscp -c x500obj bind -dirid 5 -d
+sa /C=de/O=dbp/OU=dap11/CN=dsa/CN=dsa-m5; ?  x5
+    root 19337 17982   0 17:05:48  pts/0  0:00 ksh /ufs/test/tet/functional/dire
+ctory/gds/ts/gdssetup/gdssetup_all 
+    root 20880 19337   0 17:05:49  pts/0  0:00 ksh lib/valid/begin.setup 
+
+The tet_xres file in ts/gdssetup contains the following:
+
+15|5 1.10 2|TCM Start
+520|5 0 20810 1 1|GDSSETUP TEST START
+400|5 1 1 17:05:47|IC Start
+200|5 1 17:05:48|TP Start
+520|5 1 20810 1 2|GDSSETUP: TEST CASE lib/valid/begin.setup
+
+
+The following tests have already been run without any failures:
+
+CACHE-ADMIN TEST
+DSA ADMIN TEST
+SHADOW TEST
+SUBTREE_ADMIN TEST
+SCHEME TEST
+
+[10/25/94 public]
+The bind seems to hang.
+(
+    root 19164 20880   0 17:08:39  pts/0  0:01 gdscp -c x500obj bind -dirid 5 -d
+sa /C=de/O=dbp/OU=dap11/CN=dsa/CN=dsa-m5; ?  x5
+)
+
+Can you reproduce this? Could you send me the output of
+"gdsdirinfo"? If any process is missing I'd need the logfile of
+this process.
+
+[10/25/94 public]
+I was able to run the gdssetup test without the process hanging. I
+reinstalled gds and then tried to run gds_sec. This has not proceeded past
+the configuration stage. I believe the problem is related to the user id
+in /etc/passwd. Here is the contents of /etc/dce_config.log:
+
+...
+lines deleted
+...
+D:         Executing: rm -f /usr/tmp/krb5kdc_rcache
+V:         Creating /krb5/krb.conf file.
+D:         Executing: echo c=ie/o=digital  > /krb5/krb.conf
+D:         Executing: echo c=ie/o=digital dfswizard >> /krb5/krb.conf
+V:         Adding kerberos5 entry to /etc/services.
+V:         Ensuring dced is running.
+DEBUG:     Executing: config_epmap()
+S:****** Starting dced...
+S:****** Initializing dced...
+D:         Executing: dced -i || { err_exit "dced -i failed to start."; }
+D:         Executing: dced -b || { err_exit "dced -b failed to start."; }
+DEBUG:     Executing: modify_rcfile(dced)
+V:         Successfully modified rcfile /etc/rc.dce for "dced"
+S:****** The current highest UNIX ID for persons on this node is 32767.
+WARNING: The current highest UNIX ID for persons on this node is close to or abo
+ve the maximum value supported for this cell (32767).  The suggested starting po
+int for UNIX ID's that are automatically generated by the Security Service is be
+ing set to 100. You should be aware that this will probably conflict with UID's
+currently in use on your node.  If you continue, you will have the option of set
+ting the starting point to a value other than that suggested.  You may also use
+any value less than 32767 now, and use the "rgy_edit> properties" command to rai
+se the maximum id and reset the starting point after the initial Security Server
+ is configured.
+DEBUG:     Executing: x_exit()
+V:         User query: Press <RETURN> to continue, CTRL-C to exit:
+
+
+The /etc/passwd file on this machine is as follows:
+
+# cat /etc/passwd
+root:!:0:0::/:/bin/ksh
+daemon:!:1:1::/etc:
+bin:!:2:2::/bin:
+sys:!:3:3::/usr/sys:
+adm:!:4:4::/usr/adm:
+uucp:!:5:5::/usr/lib/uucp:  
+dce-ptgt:!:20:12::/:
+dce-rgy:!:21:12::/:
+guest:!:100:100::/usr/guest:
+lpd:!:104:9::/:
+tserver:!:163:12::/:
+tclient:!:164:12::/:
+pvtest:*:200:1:dcedfacl TESTER:/u/pvtest:/bin/ksh
+tstmlr1:*:901:1:Test Mailer User 1:/tmp:/bin/ksh
+tstmlr2:*:902:1:Test Mailer User 2:/tmp:/bin/ksh
+tstmlr3:*:903:1:Test Mailer User 1:/tmp:/bin/ksh
+tstmlr4:*:904:1:Test Mailer User 1:/tmp:/bin/ksh
+testit:*:999:1:test loging:/u/testit:/bin/ksh -c /u/testit/.start
+jean:!:1022:12::/:
+felps:!:2679:1:Robert Felps:/u/felps:/bin/ksh
+testor:*:2999:1:Test User for DFS:/u/testor:/bin/ksh
+aclgu::32763:32765:Acl Test User:/tmp:/bin/sh
+acluu::32764:32767:Acl Test User:/tmp:/bin/sh
+acloou::32765:32767:Acl Test User:/tmp:/bin/sh
+aclgou::32766:32766:Acl Test User:/tmp:/bin/sh
+acluou::32767:32766:Acl Test User:/tmp:/bin/sh
+nobody:!:4294967294:4294967294::/:
+lhughes:!:1040:1:Liz Hughes:/home/lhughes:/bin/ksh
+
+
+The problem appears to be with dce_config itself in that it cannot
+handle an entry in the /etc/passwd which is greater than or equal to
+32767. I am going to try to run this on another machine.
+
+[10/25/94 public]
+Re-assigning this to 'cfg' because this is clearly a problem with
+dce_config.  To re-state the problem:
+
+The GDS FVTs run dce_config in batch mode.  dce_config runs into a problem
+with the UID and prompts the user to hit <return> or <ctrl-c>.
+Unfortunately, in batch mode the prompt goes into /tmp/dce_config.log but
+the script hangs waiting for keyboard input.
+
+It appears to the GDS tester that the test has hung.  (In actuality, one
+could simply hit return.)
+
+The correct behaviour in batch mode would be for dce_config to abort.
+
+[10/26/94 public]
+The simple work around (for the time being) is to remove the entries
+which (as dce_config said) are at or near 32767 from /etc/passwd.
+
+Or you could set DEFAULT_MAX_ID to something higher than
+the default 32767.  See dce_config_env for details.
+
+Rich is correct that dce_config should probably abort in this case
+The fix is to use 'err_exit' instead of 'x_exit'.
+Err_exit will exit if the variable EXIT_ON_ERROR is set to 'y'.
+
+
+
+CR Number                     : 12132
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 12032
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : support pre-configured machine principals
+Reported Date                 : 9/12/94
+Found in Baseline             : 1.1
+Found Date                    : 9/12/94
+Severity                      : A
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/12/94 public]
+
+There is more backgrond in OT CR 12032, but I will give a summary here
+in order to be self-contained.
+
+dced has a "hostdata" service that lets you use DCE to (remotely) create
+files on the local host.  This is, of course, ACL-controlled.  Imagine
+what could happen if someone created a hostdata object that was a dummy
+passwd_override file:  they could create entries so that they were able
+to log in as root on that machine.
+
+The problem is how should dced create its ACL's?  The only practical model
+(that is worth embedding in code) is that the machine principal should have
+all rights.  Unfortunately, when DCE is first configured on a host, the
+machine principal hasn't been created yet.  So it must give unauth all rights,
+and then go and patch the ACL's later.  OT CR 12032 fixed this for the
+"bootstrap" (first host in a cell) case.  We can definitively close the bug
+for subsequent hosts by having DCE config scripts allow for the possibility
+that the machine principal for the host being installed *has already been
+created.*  If so the install should ask for the current password and then
+create a machine keytab.  Then dced can come up, set its ACL's right, and
+there is no hole.
+
+It might not be necessary for OSF to close this bug for DCE 1.1.  It IS
+necessary, however, that licensees understand the situation.
+
+[9/12/94 public]
+Just a clarification; the dced change to address OT 12032 applies to dced's
+running on either on the initial machine in a cell as well as any
+additional machines added on.  
+
+The dced on a given machine will now not register its services until BOTH a
+host principal (self) and machine keytab exist for the machine.  Once these
+objects exist, dced can do its ACL patching thing and then safely register
+the services for external use.
+
+This CR is still valid in that the dce_config on a client machine should
+not fail if the machine prinicpal and machine keytab already exist
+(dce_config routine config_secclient)
+
+[9/15/94 public]
+It is unclear from the notes here and in 12032, so let me ask bluntly:
+Will I be able to install DCE and start dced on several machines, then sit
+at one machine and completely configure my cell?
+
+[09/15/94 public]
+I belive the infrastructure is 99.99999% of the way there.  You need
+to get the machine keytab over on the new machine, and then start dced.
+keytabs are binary so they must be generated on the right machine.
+They also contain the machine principal name, so you probably cannot create
+a generic one.  (Oh, hey, why not?  Just stop/start secval when you change
+the name in the keytab file.)  So I think the answer is yes, but you
+got config/install script work to do.
+
+[9/15/94 public]
+I would say 99.99997%, but who's counting?  I agree with Rich and will
+add a  couple of comments:
+
+  . I think the current dced can deal with the generic keytab idea above 
+    if it is started with -b (-b at this point essentially says to dced
+    to not do things related to secure operations right away 
+    (register_auth_info, make available sensitive dced services).  
+    Caveat: I haven't actually attempted to run  with a "bad" or generic 
+      machine keytab and -b.
+
+  . The secval stop/start wouldn't be necc. because secval wouldn't even
+    start until teh correct keytab is in place.
+
+  . All the bootstrapping "rules" currently ordered by dce_config & /etc/rc.dce
+    would still have to be implemented somewhere (this is a big part of the
+    config/install work Rich mentions)
+
+[09/23/94 public]
+Not a requirement for OSF's use of dce_config and since only one vendor
+uses OSF's dce_config, lowering the priority to below the "required for
+1.1" cutline.
+
+
+
+CR Number                     : 11878
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : rc.dce should not set all those env variables
+Reported Date                 : 8/25/94
+Found in Baseline             : 1.1b14
+Found Date                    : 8/25/94
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/25/94 public]
+/etc/rc.dce (indirectly) sets 30+ environment variables.  Most of these
+are appropriate only for dce_config.  Every server run from there will
+have all these set, as will servers started by DCED.  Probably none of
+these should be set at all.
+
+[8/25/94 public]
+Actually, due to the way in which dce_com_utils is used in rc.dce,
+a good number of these variables *are* used.
+
+For instance log_msg needs several variables set, and $DCELOCAL is
+used extensively.
+
+There is no harm in having these variables set, why do we care?
+
+[08/26/94 public]
+I think that daemonrunning in rc.dce should be written like this:
+	if [ $? -ne 0 ] ; then
+	    [ -x $1 ] || return 0
+	    echo "\t$*"
+	    ARGS=$* ; export ARGS
+	    # This assignment should probably really be in dce_config_env
+	    # I believe, sigh, it is not complete.
+	    CRUFT="${DCE_VAR_LIST} ${DCE_PASS_LIST}
+		exit_on_err do_checks sec_client_service celladmin
+		cellpw tol_sec default_max_id hpdce_debug default_pw"
+	    (
+		unset ${CRUFT}
+		$*
+	    )
+	fi
+
+Or if "typeset" is in the Posix sh, then do this:
+	typeset +x ${CRUFT}
+	$*
+	typeset -x ${CRUFT}
+and avoid the subshell.
+
+Now, why should this be done?  Well since the cleanliness argument
+doesn't sway you (and it should) how about the variables in DCE_PASS_LIST;
+should all DCE servers really have them in their environment?  No.
+
+[8/29/94 public]
+No need to get so complex, how about using the 'env -i' command
+to exec the command without the inherited environment?
+
+This is much simpler and will accomplish what you want.
+It also avoids hacking the config scripts this late in the game.
+
+[08/29/94 public]
+No env -i won't work because any SVC environ settings will have
+been lost.  I thought about it and this seemed the only way to strip
+out the gunk dce_config added.
+
+
+
+CR Number                     : 11420
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : lib_admin and building the index
+Reported Date                 : 7/25/94
+Found in Baseline             : 1.1b12
+Found Date                    : 7/25/94
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/25/94 public]
+dce_config calls dcecp to to "auto_mkindex"  I think that should be
+moved to rc.dce, instead.  I didn't want to install a new libdce
+(since I'm about to reboot anyway) and I got a warning message.
+Also rebuilding the index makes sense at reboot time.
+
+
+
+CR Number                     : 9902
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dfs_config
+Short Description             : need a menu option for configuring an fdb without a file server
+Reported Date                 : 2/7/94
+Found in Baseline             : 1.1
+Found Date                    : 2/7/94
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[2/7/94 public]
+
+It would be nice if we could configure an fldb server without
+automatically configuring a file server with it.  I would settle
+for dfs_config's asking me if I want to configure the file server
+after it has configured the fldb under the "Fileset Location Server"
+configuration option.
+
+[2/6/96 public]
+Would Transarc respond to this? If this is more like an enhancement
+or not a bug then please update the OT appropriately. Thanks!
+
+
+
+CR Number                     : 9661
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : some dce bindings need better management
+Reported Date                 : 12/28/93
+Found in Baseline             : 1.0.3
+Found Date                    : 12/28/93
+Severity                      : E
+Priority                      : 4
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[12/28/93 public]
+
+There are certain cds objects which are created at config time
+which contain ip addresses of servers.   When the ip address
+of a machine changes, one has to first find all of these and
+then manually unexport them and then re-export them with the
+new ip address.  It would be nice if the servers associated
+with these would check upon restart that these bindings are
+accurate, thus making the process a little more automatic.
+
+This is a list of the offending objects:
+
+/.:/hosts/<machine>/self  
+/.:/hosts/<machine>/cds-server  
+/.:/hosts/<machine>/cds-clerk
+
+
+There are probably more but I don't know what they are
+yet.
+
+This is very painful to have to manually find all of these
+and then go through the unexport/export process to fix them.
+I'd like to see this require less manual intervention.
+
+[12/29/93 public]
+Good point.  I think this falls more under the 1.1 namespace work being
+done by Dick and Rajendra, so I made Dick the responsible engineer and put
+Rajendra on the CC list.  (Should I have put this into the cfg component?)
+
+[01/14/94 public]
+Nothing needs to be done to RPC under this bug.
+
+[01/17/94 public]
+Each component responsible for the namespace entries that need to be
+updated when a cell is changed must be modified to update the entries
+automatically.
+
+On boot (or upon request), CDS, gda, dced, secd, sec_clientd, dfs
+daemons, and GDS, must export  the binding information to the namespace
+and/or appropriate config files.
+
+dce_config must be modified to reflect the fact that the namespace entries
+and config files will be maintained automatically by the respective
+daemons. 
+
+OT reports should be entered for each of the above mentioned components to
+reflect the need for changes described here.
+
+[8/12/94 public]
+Certain progress was made for this in 1.1 under individual component
+defects.  However dce_config is not going to be srtipped of its
+rpccp and cdscp commands.
+Canceled.
+
+[8/12/94 public]
+Well at least not for 1.1, maybe in 1.2...
+
+[8/12/94 public]
+Well, certainly not with *MY* name on it.
+This should be canceled.  Whats done is done, and this
+is such a non-specific thing as to be a useless OT.
+
+[08/13/94 public]
+There is benefit in having an OT that tracks "issues" as well as detailed
+things like compile-time errors.
+
+
+
+CR Number                     : 9562
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : provide flexibility in protocol sequence use of dce_config.
+Reported Date                 : 11/30/93
+Found in Baseline             : 1.0.2a
+Found Date                    : 11/30/93
+Severity                      : D
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[11/30/93 public]
+
+dce_config hardwires the use of the ncadg_ip_udp protocol sequence. It
+would be nice if this was made configurable (e.g. by consulting the
+RPC_SUPPORTED_PROTSEQS environment variable).
+
+[12/01/93 public]
+I just want to point out that RPC_SUPPORTED_PROTSEQS is a debugging
+and porting aide and was never intended to exist in a production
+environment.  (Someone will now comment that they same can be said
+for dce_config :-)
+
+[12/03/93 public]
+By the way, shouldn't dce_config automatically use all supported protocols
+instead of just the one (ncadg_ip_udp)? 
+
+For example, in ns_init() when exporting the "server DACL manager UUID,"
+shouldn't it be exported for all valid protocols?  I would expect each
+hardcoded reference to ncadg_ip_udp to be replaced with a loop through
+each of the protocols (currently ncadg_ip_udp and ncacn_ip_tcp).
+(The one exception is the DFS endpoint mapper, which only operates using 
+ncadg_ip_udp.)
+
+Then, just as a nicety for testers, you should allow them to override
+the hardcoded list of supported protocols using the RPC_SUPPORTED_PROTSEQS
+variable...
+
+
+
+CR Number                     : 9417
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dfs_config
+Short Description             : restriction in dfs_config on UFS exports
+Reported Date                 : 11/9/93
+Found in Baseline             : 1.0.3
+Found Date                    : 11/9/93
+Severity                      : C
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[11/9/93 public]
+By using the $AGGNAME for the fileset name in the crfldbentry in
+config_dfsfs(), we introduce the restriction that only one
+machine in a cell can export a UFS partition with a given mount
+path (unless one is the root.dfs in which case the restriction
+becomes only 2 machines in a cell).  The solution is to add a
+prompt for a cell-wide unique fileset name.  This solution has 
+its own downside (yet another prompt).
+
+
+
+CR Number                     : 9413
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dfs_config
+Short Description             : improvements to fileset config
+Reported Date                 : 11/9/93
+Found in Baseline             : 1.0.3
+Found Date                    : 11/9/93
+Severity                      : C
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[11/9/93 public]
+bruce-b@apollo.hp.com asked me about populating the dfstab file
+for native fs partitions in config_dfsfldb() and config_dfsfs().  
+I sent him the following reply:
+
+> OK, I've looked at both config_dfsfldb() and config_dfsfs().
+> Both work, but they could be improved :^>.  In config_dfsfldb(),
+> we prompt for:
+> 
+> DEVNAME
+> AGGNAME
+> AGGID
+> 
+> and automatically figure out the mount path and assign it to DIRNAME.
+> Then, we populate the dfstab as follows:
+> 
+> blkdev          aggname         aggtype         aggid   (fsid-for-UFS)
+> $DEVNAME        $AGGNAME        ufs             $AGGID  0,,$FS_ID
+> 
+> ($FS_ID is returned from the fts crfldbentry command)
+> 
+> The bug here is that we should use the automatically determined
+> $DIRNAME in the second field of dfstab instead of prompting for
+> an $AGGNAME.  The current code does work, however, if the user is
+> smart enough to enter the mount path for the aggregate name.
+> 
+> In config_dfsfs(), we prompt for:
+> 
+> DEVNAME
+> MNTPATH
+> AGGNAME
+> AGGID
+> 
+> and populate the dfstab as follows:
+> 
+> blkdev          aggname         aggtype         aggid   (fsid-for-UFS)
+> $DEVNAME        $MNTPATH        ufs             $AGGID  0,,$FS_ID
+> 
+> We are nice enough to tell the user to enter the mount path
+> for the aggregate name.  However, we could go one step further
+> and figure it out automatically for him as done above in
+> config_dfsfldb() (assuming it works :^>).
+> 
+>
+
+
+
+CR Number                     : 8429
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dfs_config
+Short Description             : System Control Machine installation
+installs the universe
+Reported Date                 : 8/10/93
+Found in Baseline             : 1.0.3
+Found Date                    : 8/10/93
+Severity                      : E
+Priority                      : 4
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/10/93 public]
+
+The System Control machine installs many more dfs binaries than it needs
+to ; it is only using bos* and upclient/upserver, why install everything
+else if we don't have to.  It also loads kernel extensions - does
+the system control machine need kernel extentions to run?
+
+
+
+CR Number                     : 8407
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : msgcats installed with too many permissions
+Reported Date                 : 8/3/93
+Found in Baseline             : 1.0.3
+Found Date                    : 8/3/93
+Severity                      : E
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/3/93 public]
+All the message catalogs in the install tree (and therefore on an installed
+system) have permissions: -rwxr-xr-x  They should only have -r--r--r--.
+This happens on the HP and 486 so I assume that it happens on all
+platforms, although I haven't checked.
+
+[8/24/94 public]
+Here is the current (non-DFS) state of things in 1.1:
+surf>ls -l /opt/dcelocal/nls/msg/en_US.ASCII/
+total 968
+-rwxr-xr-x   1 bin      bin                6640 Aug 22 19:44 dceaud.cat*
+-r--r--r--   1 bin      bin               30690 Aug 22 19:44 dcecds.cat
+-rwxr-xr-x   1 bin      bin                 660 Aug 22 19:43 dcecsr.cat*
+-rwxr-xr-x   1 bin      bin               45831 Aug 22 19:44 dcedcp.cat*
+-r--r--r--   1 bin      bin                2477 Aug 22 19:44 dcedhd.cat
+-r--r--r--   1 bin      bin                9526 Aug 22 19:44 dcedts.cat
+-rwxr-xr-x   1 bin      bin               64895 Aug 22 19:43 dcegds.cat*
+-rwxr-xr-x   1 bin      bin               22487 Aug 22 20:07 dcegss.cat*
+-rwxr-xr-x   1 bin      bin                 871 Aug 23 00:04 dcekdb.cat*
+-rwxr-xr-x   1 bin      bin                  93 Aug 23 00:04 dcekdc.cat*
+-rwxr-xr-x   1 bin      bin                8085 Aug 23 00:04 dcekrb.cat*
+-r--r--r--   1 bin      bin                1695 Aug 23 01:25 dcelib.cat
+-r--r--r--   1 bin      bin               12549 Aug 22 19:43 dcerpc.cat
+-rwxr-xr-x   1 bin      bin               13251 Aug 22 19:44 dcesad.cat*
+-rwxr-xr-x   1 bin      bin               24240 Aug 22 19:44 dcesec.cat*
+-r--r--r--   1 bin      bin                 744 Aug 23 01:20 dcesvc.cat
+-rwxr-xr-x   1 bin      bin               19261 Aug 23 01:28 dcetcl.cat*
+-r--r--r--   1 bin      bin                2284 Aug 22 23:41 dcethd.cat
+-r--r--r--   1 bin      bin                 645 Aug 22 23:41 dceuid.cat
+-rwxr-xr-x   1 bin      bin                 454 Aug 23 00:11 gdsclhelp.cat*
+-rwxr-xr-x   1 bin      bin               53040 Aug 23 00:11 gdsditadm.cat*
+-rwxr-xr-x   1 bin      bin              112102 Aug 23 00:11 gdsdithelp.cat*
+-rwxr-xr-x   1 bin      bin                 723 Aug 23 00:11 gdsproc.cat*
+-rwxr-xr-x   1 bin      bin                8694 Aug 23 00:11 gdssysadm.cat*
+-rwxr-xr-x   1 bin      bin                7150 Aug 23 00:11 gdssyshelp.cat*
+-rwxr-xr-x   1 bin      bin               22343 Aug 22 19:38 idl.cat*
+-rwxr-xr-x   1 bin      bin                3748 Aug 23 00:58 xoserr.cat*
+
+I am assigning to Howard to he can either:
+	- fix it (change IMODES in all component makefiles that install
+		  message catalogs)
+
+	- cancel it (accept the fact that no vendor uses our dce_config
+		     install scripts)
+
+	- defer it (entrtain some vain hope that there will be someone
+		    who will care enough to fix these makefile for 1.2)
+
+
+
+CR Number                     : 7956
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : Enhance rc.dfs to log salvager errors
+Reported Date                 : 5/7/93
+Found in Baseline             : 1.0.2
+Found Date                    : 5/7/93
+Severity                      : C
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : mason@transarc.com
+Transarc Status               : open
+
+[5/7/93 public]
+It would be nice if rc.dfs tried a little harder to salvage episode 
+aggregates, and kept a log of the output should things fail.  I have attached
+a version of rc.dfs that does this.
+--------------------------- Updated rc.dfs ----------------------------------
+DCELOCAL=/opt/dcelocal
+#
+# These lines auto-enabled by dce_config for RIOS
+# platform only.
+#
+$DCELOCAL/ext/cfgexport -a $DCELOCAL/ext/export.ext
+$DCELOCAL/ext/cfgdfs -a $DCELOCAL/ext/dfscore.ext
+$DCELOCAL/ext/cfgdfs -a $DCELOCAL/ext/dfscmfx.ext
+$DCELOCAL/ext/cfglfs -a $DCELOCAL/ext/dcelfs.ext
+echo "\tStarting epidaemon"
+$DCELOCAL/bin/epidaemon 1
+#LFSINIT=$DCELOCAL/bin/epiinit
+if [ $LFSINIT ]; then
+        echo "Initializing DCE/LFS"
+        $LFSINIT
+fi
+/bin/rm -f $DCELOCAL/var/dfs/dfsatab
+DFSEXPORT=$DCELOCAL/bin/dfsexport
+#
+# Handle correctly salvaging LFS aggregates; note that this is not run unless
+# the above line is uncommented (which it is by dce_config).
+#
+if [ $DFSEXPORT ]
+then
+    echo "Running dfsexport..."
+    dfsexportLog="/tmp/dfsexport.$$.log"
+    dfsErrorLog="/tmp/rc.dfs.error.$$"
+    dfsErrorFlag=0
+    LFSAGGRS=`awk ' substr($1,1,1) != "#" && \
+        $3 == "lfs" { print $1 }' $DCELOCAL/var/dfs/dfstab`
+    EXPORTABLE_AGGRS=`awk ' substr($1,1,1) != "#" && \
+        $3 != "lfs" { print $1 }' $DCELOCAL/var/dfs/dfstab`
+    echo "Exporting aggregates, $LFSAGGRS" >> $dfsErrorLog
+    for lfsaggr in $LFSAGGRS
+    do
+        $DFSEXPORT $lfsaggr 2>> $dfsexportLog
+        /bin/cat $dfsexportLog >> $dfsErrorLog
+        if [ $? -ne 0 ]
+        then
+            #
+            # Obviously, we'd prefer to check the return
+            # value rather than grep the error string,
+            # but until dfsexport returns meaningful
+            # error codes, we've got no choice
+            #
+            grep "need to be recovered" $dfsexportLog
+            if [ $? -eq 0 ]
+            then
+                salvageErrorLog="/tmp/salvage.error.$$"
+                echo "Recovering aggregate $lfsaggr... " | tee -a $dfsErrorLog
+                $DCELOCAL/bin/salvage -rec -verify $lfsaggr > $salvageErrorLog
+                if [ $? -eq 0 ]
+                then
+                    EXPORTABLE_AGGRS="$EXPORTABLE_AGGRS $lfsaggr"
+                    /bin/rm -f $salvageErrorLog
+                else
+                    dfsErrorFlag=1
+                    /bin/cat $salvageErrorLog >> $dfsErrorLog
+                    /bin/rm -f $salvageErrorLog
+                    echo "WARNING: Salvage of $lfsaggr FAILED!" | tee -a $dfsErr
+orLog
+                    echo "  Error output is in: $dfsErrorLog"
+                    echo "  You need to run the salvager with no options on"
+                    echo "  this aggregate, and then export it with dfsexport."
+                fi
+            else
+                dfsErrorFlag=1
+                echo "WARNING: Export of aggregate, $lfsaggr, FAILED!" | tee -a
+$dfsErrorLog
+                echo "  Error output is in: $dfsErrorLog"
+            fi
+        fi
+        /bin/rm -f $dfsexportLog > /dev/null 2>&1
+    done
+    #
+    # Now export all non-lfs aggregates and those lfs aggregates that
+    # salvaged successfully.
+    #
+    for expaggr in $EXPORTABLE_AGGRS
+    do
+        echo "Exporting aggregate, $expaggr" >> $dfsErrorLog
+        $DFSEXPORT $expaggr 2>> $dfsErrorLog
+        if [ $? -ne 0 ]
+        then
+            dfsErrorFlag=1
+            echo "WARNING: export of aggregate, $expaggr, FAILED!" | tee -a $dfs
+ErrorLog
+            echo "  Error output is in: $dfsErrorLog"
+        fi
+    done
+    #
+    # Remove error log if all went well.
+    #
+    if [ $dfsErrorFlag -eq 0 ]
+    then
+        /bin/rm -f $dfsErrorLog 2> /dev/null
+    fi
+fi
+echo "  running bosserver: be patient..."
+$DCELOCAL/bin/bosserver
+echo "  running dfsbind: be patient..."
+$DCELOCAL/bin/dfsbind
+echo "  running fxd..."
+$DCELOCAL/bin/fxd -mainprocs 7 -admingroup subsys/dce/dfs-admin
+echo "  running dfsd..."
+$DCELOCAL/bin/dfsd
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `mason@transarc.com' 
+Added field Transarc Status with value `open'
+
+
+
+CR Number                     : 7931
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : Use /.:/fs list to restart flservers, not subsys/dce/dfs-fs/servers
+Reported Date                 : 5/4/93
+Found in Baseline             : 1.0.2b22
+Found Date                    : 5/4/93
+Severity                      : D
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/4/93 public]
+The code added to dce_config that restarts the flservers uses the list
+of members in the Security group subsys/dce/dfs-fs-servers to determine
+who the flservers are.  flserver itself uses the list of members in the
+RPC group /.:/fs, and so should dce_config.  It is very possible that
+administrators will tear down an flserver machine and forget to remove
+it from the Security group.
+
+Because of the way the code is written (never checking the udebug return 
+code, just grep'ing for one of two specific messages), I don't think the
+code will fail in this situation.  It will just be trying to contact
+flservers that do not exist.
+
+Vijay at Transarc agrees that /.:/fs should be used.
+
+(Note: Make sure you use the -u option in the 'rpccp show group' command...)
+
+[10/25/93 public]
+You're going to have to give me a little better rationale for
+making this change.  You said yourself, the code already works.
+"If it ain't broken, don't fix it".  Besides, if administrators
+use the dce_config provided way of deconfiguring an flserver 
+machine we will not run into the inconsistent state you mention
+above (once the dfs.unconfig script is fixed in OT9123).  This
+is a non-trivial change since if you do it for the flservers, you
+should also do it for the bak servers to be consistent.  If
+you don't respond with better rationale for making this somewhat
+gratuitous change in the next day or so, I'll be cancelling
+this defect.
+
+[10/25/93 public]
+Oh, sure, change the rules... ;-)  Yes, dce_config has recently been enhanced to
+perform unconfiguration (and will be fixed to run correctly bo OT9123).
+
+However, I still suggest the change.  Being a member of the security group only
+states that you MAY serve as an flserver at some point in time.  Being a member
+of the RPC group states that you ARE serving as an flserver NOW.  DFS does not
+use subsys/dce/dfs-fs-servers to determine who to query--it uses /.:/fs.  As a
+point of correctness, I think dce_config should be changed.
+
+And once you've done this for one service, I don't think changing a second
+service (bakserver) will make this effort "non-trivial."  Probably one
+function could serve the purpose for both cases...
+
+[10/26/93 public]
+I agree that this change is nice to have "as a point of correctness",
+but since the current code works just fine, I'm moving this to
+an enhancement.
+
+
+
+CR Number                     : 7619
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : DCE header files C++ unfriendly
+Reported Date                 : 3/31/93
+Found in Baseline             : 1.0.2b19
+Found Date                    : 3/31/93
+Severity                      : D
+Priority                      : 4
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[3/31/93 public]
+All DCE header files, and .idl files from which exported headers are
+generated, need to add tags to the structures tye typedef, e.g. in 
+idlbase.h
+
+  typedef struct {
+    unsigned short data_offset;
+  } *handle_t;
+
+should be something like
+
+  typedef struct _handle_t {
+    unsigned short data_offset;
+  } *handle_t;
+
+Without the structure tag it is impossible to use the defined type in
+a C++ class that provides a user defined type conversion from the class
+to the type, e.g.
+
+  class Binding {
+  public:
+    ...
+    Binding(rpc_binding_handle_t);      // compiler barf!
+    ...
+    operator rpc_binding_handle_t();
+    ...
+  }
+
+The following list contains the names of the files that need to be
+examined as of 1.0.2b19:
+
+/usr/include/dce/aclbase.h
+/usr/include/dce/binding.h
+/usr/include/dce/cdsclerk.h
+/usr/include/dce/cma.h
+/usr/include/dce/cma_defs.h
+/usr/include/dce/cma_host.h
+/usr/include/dce/cma_px.h
+/usr/include/dce/cma_queue.h
+/usr/include/dce/conv.h
+/usr/include/dce/convc.h
+/usr/include/dce/daclif.h
+/usr/include/dce/dtsprovider.h
+/usr/include/dce/ep.h
+/usr/include/dce/exc_handling.h
+/usr/include/dce/glb.h
+/usr/include/dce/id_base.h
+/usr/include/dce/idlbase.h
+/usr/include/dce/iovector.h
+/usr/include/dce/lbase.h
+/usr/include/dce/llb.h
+/usr/include/dce/mgmt.h
+/usr/include/dce/nbase.h
+/usr/include/dce/ndrold.h
+/usr/include/dce/passwd.h
+/usr/include/dce/prvnbase.h
+/usr/include/dce/rdaclif.h
+/usr/include/dce/rgynbase.h
+/usr/include/dce/rpcbase.h
+/usr/include/dce/rpctypes.h
+/usr/include/dce/rrpc.h
+/usr/include/dce/sec_authn.h
+/usr/include/dce/sec_base.h
+/usr/include/dce/sec_login.h
+/usr/include/dce/sockbase.h
+/usr/include/dce/stubbase.h
+/usr/include/dce/utc.h
+/usr/include/dce/utctypes.h
+/usr/include/dce/uuid.h
+
+/usr/include/dce/aclbase.idl
+/usr/include/dce/dtsprovider.idl
+/usr/include/dce/ep.idl
+/usr/include/dce/id_base.idl
+/usr/include/dce/iovector.idl
+/usr/include/dce/lbase.idl
+/usr/include/dce/nbase.idl
+/usr/include/dce/ndrold.idl
+/usr/include/dce/prvnbase.idl
+/usr/include/dce/rgynbase.idl
+/usr/include/dce/rpcbase.idl
+/usr/include/dce/rpctypes.idl
+/usr/include/dce/sec_authn.idl
+/usr/include/dce/sec_base.idl
+/usr/include/dce/sec_login.idl
+/usr/include/dce/utctypes.idl
+/usr/include/dce/uuid.idl
+
+[10/01/93 public]
+This is an enhancement, and is not going to get fixed for 1.0.3
+Changing to a D4 enhancement, defered to 1.1
+
+
+
+CR Number                     : 7508
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : dce_config does not handle DFS admin lists well
+Reported Date                 : 3/16/93
+Found in Baseline             : 1.0.2
+Found Date                    : 3/16/93
+Severity                      : C
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Diff supplied by              : 
+Diff release                  : 
+Sensitivity                   : public
+
+[3/16/93 public]
+dce_config does not implement DFS admin list administration well.
+The main problems are:
+ 
+1 'bos addadmin' requests are always directed to server /.:/hosts/$HOSTNAME
+  (the local machine), but there is no guarantee that this machine is the SCM.
+ 
+2 Some admin lists are set up before upclient is configured.  So when
+  upclient begins pulling updated lists over, the list updates done before
+  upclient was configured are overwritten.
+ 
+3 Most admin lists are treated the same.  admin.fl, admin.ft, and
+  admin.up (and admin.bak looks like it will eventually be handled
+  the same way) all get two entries added:  user hosts/<scm_machine>/dfs-server
+  and group subsys/dce/dfs-admin.  (This latter gets added over and
+  over again as each new machine is configured.)  But the DFS docs
+  say that admin.up and admin.ft should have entries for the servers
+  that will be performing certain actions.
+ 
+I think these sections of dce_config need to be rewritten as such:
+ 
+- If upclient is one of the daemons to be configured, do it first.
+  Then, direct each admin list update request to the SCM you just
+  configured upclient for.
+ 
+- When configuring ftserver or upclient, add the local machine's 
+  principal to admin.ft or admin.up.
+ 
+- Only the SCM has to add group subsys/dce/dfs-admin to the lists.
+
+[05/10/93 public]
+Additional info.  Our experience recently has shown:
+ 
+- Any machine running upclient does not need a copy of admin.up.  It should
+  be added to the admin.up list, but should not pull that list across the wire.
+ 
+- When adding a new member to any of the lists, add it both on the System
+  Control Machine and the local machine.  (It could take the upclient up to
+  5 minutes to grab a new copy of the list during which you won't be allowed
+  to do the things you want to.  Adding it locally allows you to survive until
+  you get the new copy of the official list.)  The exception here is admin.up--
+  see the first point in this note.
+
+[4/27/94 public]
+ 
+I would like to fix these problems by removing the automatic config of the
+upserver/upclient from the fileserver and fldb config steps.  By default I
+would have the fl and ft server configuration routines only initialize a
+basic, local admin list.  I would also expand the "DFS System Control
+Machine" menu option option to allow the configuration of either an upserver or
+upclient.  Thoughts?  If I don't hear any objections by 5/1 I will proceed
+with this.
+
+[4/28/94 public]
+My gut reaction would be to NOT do that.  My assumption is that most people
+would use the distributed lists, so why make them go through multiple steps
+to set it up (especially when your first releases had the steps combined)?
+ 
+By the way, before making such a major change, are you checking with 
+Transarc first?
+
+[mckeen 4/28/94 public] 
+Thanks for your comments Ken, I have added Craig at Transarc to the cc
+list.  Are most people using the distributed lists?  I would think that if
+they are they are already using something other then dfs_config to set them
+up.  As you pointed out when you filed this defect, the list setup in
+dfs_config is broken almost to the point of being useless.  My intent was
+to setup basic local lists on each of the server machines with the group
+dfs-admin in them.  Membership in dfs-admin could then be handled with
+rgy_edit and in effect the changes would be seen globaly.  Obviously there
+are more complex setups that would necessitate seting up upserver and
+upclient, but dfs_config does not handle this now so I would not be taking
+any functionality away, just simplifying the base configuration.
+
+[mckeen 8/24/94 public] 
+
+Downgraded to C2.  Since concensus was not reached on the proposed fix
+and I have moved onto other higher priority tasks, this will be
+defered to 1.2.
+
+[psn 2/6/96 public] 
+Transarc should update this OT with appropriate feedback and change
+the severity/priority and/or status depending upon what decision they
+make.
+
+
+
+CR Number                     : 7396
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : cfg
+Subcomponent Name             : 
+Short Description             : dce_config should sanity check /.:/sec being populated.
+Reported Date                 : 3/2/93
+Found in Baseline             : 1.0.2
+Found Date                    : 3/2/93
+Severity                      : E
+Priority                      : 4
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[3/2/93 public]
+
+note that this is an *enhancement* request.
+
+I've noticed that dce_config doesn't require /.:/sec (which is created by
+secd) to be populated.
+
+This means that errors may not be detected until well after a cell config
+is complete.
+
+After the cds server config is complete, it should run a rpccp import -i
+<xxx> /.:/sec and sanity check the output to make sure that the name is
+registered correctly and can be imported.
+
+
+
+CR Number                     : 6076
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : pmax
+S/W Ref Platform              : osf1
+Component Name                : cfg
+Subcomponent Name             : /etc/rc.dce
+Short Description             : Using rsh to execute /etc/rc.dce remotely hangs
+Reported Date                 : 11/13/92
+Found in Baseline             : 1.0.2
+Found Date                    : 11/13/92
+Severity                      : B
+Priority                      : 2
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : cfg
+Sensitivity                   : public
+
+[11/13/92 public]
+
+Trying to start DCE on a remote machine using rsh hangs.  I tried to start
+DCE remotely using "rsh dce7 /etc/rc.dce" and found that /etc/rc.dce
+executes correctly but the script never exits.  Using rsh and trying to
+start each server (i.e. rpcd, secd, sec_clientd, dtsd, etc.) also hangs.
+The workaround is to use "expect" but this is inappropriate for system
+tests since expect may not be available on all platforms.
+
+[11/30/92 public]
+I'm not sure what exactly would be causing a problem like this.
+Do you suspect /etc/rc.dce or rsh?  More info would be appreciated.
+
+[11/30/92 public]
+
+I suspect all the servers (i.e. cdsd, dtsd, secd, sec_clientd, etc.) because
+you can not even do a "rsh dce7 /opt/dcelocal/bin/rpcd" without hanging.  I
+thought that the problem had to do with the servers not detaching correctly
+from the tty because the "ioctl(fd, TIOCNOTTY, 0)" and "close" never get done.
+I found that the ioctl is only done if /dev/tty can be opened r/w, if /dev/tty
+cannot be opened r/w, which is what happens, then the ioctl is not done. Don
+Bolinger told me that he tracked the problem down further and it has some-
+thing to do with the way each server forks the process, you may want to talk
+to him.
+
+[12/19/95 public]
+Fixed in DCE 1.2.1
+Closed
+
+[1/6/96 public]
+
+What is the outcome of this OT.  It does not seem to have any code changed
+in it.  What code was changed?  Why was it closed?  Is it fixed under a
+different OT?  If so what OT number.
+
+[2/2/96 public]
+
+I have seen such hangs in rsh dce_config when I try to config all of the
+servers remotely. I have also noticed that dce_config process gets into
+defunct state after the script exits. Both rshd and defuncted dce_config
+processes sticks around. However, I have known cases where if you config
+secd and cdsd in different rsh invocation with appropriate rsh flags
+it works, i.e., returns without hanging. Reopened so that further 
+investigation can be made. Please note that dce_config install does not
+hang nor dce_unconfig. I'm not sure about rc.dce.
+
+
+
+CR Number                     : 4214
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : cfg
+Subcomponent Name             : dce_config
+Short Description             : Don't cut domain info off of hostname!
+Reported Date                 : 6/11/92
+Found in Baseline             : 1.0.1b18
+Found Date                    : 6/11/92
+Severity                      : C
+Priority                      : 3
+Status                        : open
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/11/92 public]
+A recent change to dce_config now cuts all domain info off of the end of the
+hostname (i.e., 'snoopy.osf.org' is cut down to 'snoopy').  I presume this
+was done so /.:/hosts/<hostname>/self, etc., would not be so bulky to
+type.
+
+BUT:  We went around about this right at the end of 1.0--this is not the
+right solution!  Cells could contain machines from multiple domains so my
+cell might want to have 'snoopy.osf.org' and 'snoopy.austin.ibm.com', but
+dce_config won't let it.
+
+How about this solution?  Use the fully qualified name for the real CDS
+directory, then create a soft link to that one using the shortened name.
+Then if there is a short-name conflict, you can prompt for another alias
+that he/she might want to use.  (Or worst case, report the error and have
+him/her do the appropriate cdscp command after dce_config finishes.)
+
+[6/12/92 public]
+This was a problem in dce_config well before the change to cut the 
+domain off.  $HOSTNAME was always set as the output of the hostname
+command which does not report domain info (at least on OSF1).
+
+The recent change to strip domain info really was to prevent hostname 
+comparisions done in DFS config from failing simply because one hostname 
+had domain info attached.  The only solution I see to the problem you 
+point out is to add yet another prompt to dce_config for the local 
+machine's hostname, and to tell the user to enter a fully "domained"
+name.
+
+Changing to an enhancement.
+
+[8/24/94 public]
+Its been around for 2 years, we aren't going to resolve this for 1.1.
+Sounds like something less that a P1 to me...
+
+[8/26/94 public]
+You can define the priority as you wish, since we have already implemented
+workarounds in our products that satisfy us.  Just realize that this is 
+something that can limit the scalability of DCE...
+
+[melman 8/26/94 public] 
+Yeah, but dce_config is really just an example.  While the current version
+is very usable in our development environment, it certainly is not the
+end-all of DCE configuration.  We absolutely expect licensees to use
+dce_config when doing their port and when starting to use the code.  We
+also expect them to probably provide much more advanced integrated
+functions in their product versions.
+
+If you were administering a large cell, would you really want to use
+dce_config? 
+
+The names under /.:/hosts/ should be well defined by the namespace
+conventions work that was originally scheduled for DCE 1.1, but will
+probably happen in DCE 1.2.
+
+[8/25/94 public]
+I know, I know, it's just an example.  However, it is very nice when
+examples "work correctly," or at least document the issues that we
+"experts" know exist so "novice" porters don't have to find out after
+they ship their products and have customers start calling...
+
+
+

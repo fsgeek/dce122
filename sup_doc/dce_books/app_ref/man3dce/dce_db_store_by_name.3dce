@@ -1,0 +1,143 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: dce_db_store_by_name.3dce,v $
+...\" Revision 1.1.4.1  1996/11/18  16:59:46  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  16:56:29  wardr]
+...\"
+...\" Revision 1.1.2.8  1995/05/31  17:05:23  buckler
+...\" 	1.1 edits.
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/05/30  22:47:29  buckler]
+...\" 
+...\" Revision 1.1.2.7  1994/09/08  20:21:42  neilson
+...\" 	CR 12043 - Added db_s_iter_not_allowed error.
+...\" 	[1994/09/08  20:12:11  neilson]
+...\" 
+...\" Revision 1.1.2.6  1994/08/30  15:58:43  neilson
+...\" 	CR 10886 - improve wording
+...\" 	[1994/08/30  15:58:15  neilson]
+...\" 
+...\" Revision 1.1.2.5  1994/08/18  00:09:56  neilson
+...\" 	CR 10886 - Note to call rpc_sm_allocate() beforehand.
+...\" 	[1994/08/18  00:09:25  neilson]
+...\" 
+...\" Revision 1.1.2.4  1994/06/13  17:01:57  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  16:46:23  devobj]
+...\" 
+...\" Revision 1.1.2.3  1994/05/13  17:50:18  neilson
+...\" 	Engineering change.
+...\" 	[1994/05/13  17:49:47  neilson]
+...\" 
+...\" Revision 1.1.2.2  1994/05/06  13:32:49  neilson
+...\" 	Incorporate first review comments
+...\" 	[1994/05/06  13:31:35  neilson]
+...\" 
+...\" Revision 1.1.2.1  1994/02/22  22:18:25  neilson
+...\" 	Initial material.
+...\" 	[1994/02/22  20:00:38  neilson]
+...\" 
+...\" $EndLog$
+.TH dce_db_store_by_name 3dce
+.SH "Name"
+\*Ldce_db_store_by_name\*O - Stores data into a string-indexed backing store
+.SH "Synopsis"
+.sS
+\*L#include <dce/dce.h>
+.nL
+\*L#include <dce/dbif.h>
+.sp .4v
+\*Lvoid dce_db_store_by_name(
+.nL
+    \*Ldce_db_handle_t \*Vhandle\*L,
+.nL
+    \*Lchar *\*Vkey\*L,
+.nL
+    \*Lvoid *\*Vdata\*L,
+.nL
+    \*Lerror_status_t *\*Vstatus\*L);
+.sE
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vhandle\*O"
+A handle, returned from \*Ldce_db_open(\|)\*O, that identifies the
+backing store being used.
+.LI "\*Vkey\*O"
+A null-terminated string that is the backing store key.
+.LI "\*Vdata\*O"
+A pointer to the data structure to be stored.
+.LE
+.SS "Output"
+.VL
+.LI "\*Vstatus\*O"
+A pointer to the completion status.  On successful completion, the
+routine returns \*Lerror_status_ok\*O.  Otherwise, it returns an error.
+.LE
+.SH "Description"
+The \*Ldce_db_store_by_name(\|)\*O routine stores the data structure pointed
+to by \*Vdata\*O into the backing store.  The
+conversion function that was specified in the call to
+\*Ldce_db_open(\|)\*O serializes the structure so that it can be
+written to disk.
+.PP
+This routine is specialized for storage into backing stores that are
+indexed by string, as selected by the \*Ldb_c_index_by_name\*O bit in
+the \*Vflags\*O parameter to \*Ldce_db_open(\|)\*O when the backing
+store was created.
+.PP
+.ne 6
+If the \*Vkey\*O value is the same as a key already stored, the new
+\*Vdata\*O replaces the previously stored data associated with that key.
+.SH "Notes"
+Because the \*Ldce_db_store_by_name(\|)\*O routine uses the encoding services,
+and they in turn use \*Lrpc_sm_allocate(\|)\*O, all programs that call
+\*Ldce_db_store_by_name(\|)\*O outside of a server operation (for instance, if
+a server does some backing store initialization, or in a standalone
+program) must call \*Lrpc_sm_enable_allocate(\|)\*O first.  Indeed,
+every thread that calls \*Ldce_db_store_by_name(\|)\*O must do
+\*Lrpc_sm_enable_allocate(\|)\*O, but in the server side of an RPC,
+this is already done.
+...\" .SH "FILES"
+...\" .VL
+...\" .LI
+...\" .LE
+...\" .SH "EXAMPLES"
+...\" .PP
+.SH "Errors"
+.PP
+The following describes a partial list of errors that might be returned.
+Refer to the \*(Tg for complete descriptions of all error
+messages.
+.VL
+.LI "\*Ldb_s_bad_index_type\*O"
+The backing store is not indexed by name.
+.LI "\*Ldb_s_readonly\*O"
+The backing store was opened with the \*Ldb_c_readonly\*O flag, and
+cannot be written to.
+.LI "\*Ldb_s_store_failed\*O"
+The data could not be stored into the backing store for some reason.
+The global variable \*Lerrno\*O may contain more information about the
+error.
+.LI "\*Ldb_s_iter_not_allowed\*O"
+The function was called while an iteration, begun by
+\*Ldce_db_iter_start(\|)\*O, was in progress.  Storing is not allowed
+during iteration.
+.LI "\*Lerror_status_ok\*O"
+The call was successful.
+.LE
+.SH "Related Information"
+.ad l
+Functions:
+\*Ldce_db_open(3dce)\*O,
+\*Ldce_db_store(3dce)\*O,
+\*Ldce_db_store_by_uuid(3dce)\*O.
+.ad b

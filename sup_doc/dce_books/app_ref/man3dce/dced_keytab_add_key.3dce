@@ -1,0 +1,181 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: dced_keytab_add_key.3dce,v $
+...\" Revision 1.1.4.1  1996/11/18  17:01:04  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  16:57:26  wardr]
+...\"
+...\" Revision 1.1.2.7  1995/05/31  17:06:16  buckler
+...\" 	1.1 edits.
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/05/30  22:58:37  buckler]
+...\" 
+...\" Revision 1.1.2.6  1994/10/20  03:06:16  jshirley
+...\" 	Final edits.
+...\" 	[1994/10/20  03:04:15  jshirley]
+...\" 
+...\" Revision 1.1.2.5  1994/10/18  21:50:53  jshirley
+...\" 	Updated for final.
+...\" 	[1994/10/18  21:50:07  jshirley]
+...\" 
+...\" Revision 1.1.2.4  1994/10/14  18:11:09  hileman
+...\" 	Added status codes.
+...\" 	[1994/10/14  18:10:53  hileman]
+...\" 
+...\" Revision 1.1.2.3  1994/06/13  17:02:45  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  16:46:49  devobj]
+...\" 
+...\" Revision 1.1.2.2  1994/05/26  13:02:47  jshirley
+...\" 	{def,9830,R1.1}
+...\" 	Incorporated first draft reviews.
+...\" 	[1994/05/26  13:01:37  jshirley]
+...\" 
+...\" Revision 1.1.2.1  1994/05/04  00:34:37  jshirley
+...\" 	Created fle.
+...\" 	[1994/05/04  00:33:43  jshirley]
+...\" 
+...\" $EndLog$
+.TH dced_keytab_add_key 3dce 
+...\".iX "\*Ldced_keytab_add_key(\|)\*O"
+.SH "Name"
+\*Ldced_keytab_add_key\*O - 
+Adds a key (server password) to a specified key table on a specific host
+.SH "Synopsis"
+.sS
+\*L#include <dce/dced.h>
+.sp .4v
+\*Lvoid dced_keytab_add_key(
+.nL
+	\*Ldced_binding_handle_t \*Vdced_bh\*L,
+.nL
+	\*Luuid_t *\*Vkeytab_uuid\*L,
+.nL
+	\*Ldced_key_t *\*Vkey\*L,
+.nL
+	\*Lerror_status_t *\*Vstatus\*L);
+.sE
+.nL
+.ne 1.5i
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vdced_bh\*O"
+Specifies the \*Ldced\*O binding handle for the \*Lkeytab\*O service on a
+specific host.
+.LI "\*Vkeytab_uuid\*O"
+Specifies the UUID that \*Ldced\*O uses to identify the key table to
+which the key is to be added.
+.LE
+.SS "Input/Output"
+.VL
+.LI "\*Vkey\*O"
+Specifies the key to be added.  Some fields are completed by \*Ldced\*O.
+See \*Ldced_intro(3dce)\*O.
+.LE
+.SS "Output"
+.VL
+.LI "\*Vstatus\*O"
+Returns the status code from this routine.  This status code
+indicates whether the routine completed successfully or, if not, why not.
+.LE
+.nL
+.ne 1.5i
+.SH "Description"
+The \*Ldced_keytab_add_key(\|)\*O routine adds a key to a server's key
+table (file) on a specific host, 
+without changing the key in the security registry. 
+(Servers use \*Lsec_key_mgmt_set_key(3sec)\*O to do this for their own
+local key table.)
+.PP
+Most management applications use the \*Ldced_keytab_change_key(\|)\*O
+routine to remotely change a key because it also changes the key in the
+security registry.  
+.PP
+Managing the same key in multiple key tables is a more complex process.
+The security registry needs a copy of a server's
+key, so that during the authentication process, 
+it can encrypt tickets that only a server with that key can later decrypt.
+Part of updating a key in the security registry also includes automatic
+version number updating.
+When servers share the same principle identity they use the same key.
+If these servers are on different hosts, then the key must be in more
+than one key table.  (Even if the servers are on the same host, 
+it is possible for their keys to be in different key tables, 
+although this is not a recommended key management practice.)
+When the same keys in different tables need changing, one (perhaps the
+master server or busiest one) is changed using \*Ldced_keytab_change_key(\|)\*O
+which also causes an automatic version update.
+However, all other copies of the key must be changed using the
+\*Ldced_keytab_add_key(\|)\*O routine so that the version number does
+not change again.
+.PP
+Prior to calling \*Ldced_keytab_add_key(\|)\*O
+the application must have established a valid \*Ldced\*O binding handle to
+the \*Lkeytab\*O service by calling either the 
+\*Ldced_binding_create(\|)\*O or 
+\*Ldced_binding_from_rpc_binding(\|)\*O routine.
+...\".nL
+...\".ne 1.5i
+...\".SH "EXAMPLES"
+...\".PP
+...\"<<To Be described>>
+...\".nL
+...\"\*L<<Is the following in the correct order?  sec_key_mgmt_set_key() decribes
+...\"updating slaves first then master last>>\*O
+...\".oS
+...\"dced_binding_create("keytab@somehost",...); /*or dced_binding_from_rpc_binding( )*/
+...\"sec_key_mgmt_gen_rand_key(...);
+...\"dced_keytab_change_key(...);
+...\"dced_binding_free(...);
+...\"for( <<all others>> ) {
+...\"   dced_binding_create("keytab@otherhosts",...);
+...\"   dced_keytab_add_key(...);
+...\"   dced_binding_free(...);
+...\"}
+...\".oE
+...\".PP
+.SH "Errors"
+.PP
+The following describes a partial list of errors that might be returned.
+Refer to the \*(Tg for complete descriptions of all error
+messages.
+.VL
+.LI "\*Lerror_status_ok\*O"
+.LI "\*Ldb_s_bad_index_type\*O"
+.LI "\*Ldb_s_key_not_found\*O"
+.LI "\*Ldced_s_bad_binding\*O"
+.LI "\*Ldced_s_key_v0_not_allowe\*O"
+.LI "\*Ldced_s_key_version_mismatch\*O"
+.LI "\*Ldced_s_need_privacy\*O"
+.LI "\*Ldced_s_random_key_not_allowed\*O"
+.LI "\*Lrpc_s_binding_has_no_auth\*O"
+.LI "\*Lrpc_s_invalid_binding\*O"
+.LI "\*Lrpc_s_wrong_kind_of_binding\*O"
+.LI "\*Lsec_acl_invalid_permission\*O"
+.LI "\*Lsec_key_mgmt_e_authn_invalid\*O"
+.LI "\*Lsec_key_mgmt_e_key_unavailable\*O"
+.LI "\*Lsec_key_mgmt_e_key_unsupported\*O"
+.LI "\*Lsec_key_mgmt_e_key_version_exists\*O"
+.LI "\*Lsec_key_mgmt_e_unauthorized\*O"
+.LE
+.nL
+.ne 1.5i
+.SH "Related Information"
+.ad l
+Functions:
+\*Ldced_binding_create(3dce)\*O,
+\*Ldced_binding_from_rpc_binding(3dce)\*O,
+\*Ldced_keytab_change_key(3dce)\*O,
+\*Lsec_key_mgmt_set_key(3sec)\*O.
+.ad b
+.PP
+Books:
+\*(Dg.

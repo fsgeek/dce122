@@ -1,0 +1,2075 @@
+CR Number                     : 12922
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : hostdata forking
+Short Description             : race conditions when forking
+Reported Date                 : 6/18/95
+Found in Baseline             : 1.1
+Found Date                    : 6/18/95
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 12837
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/18/95 public]
+
+1) The first condition
+
+> The first problem is that the information returned by dced_waitpid
+> could be wrong.  The reason is that the parent calls dced_fork, then
+> almost immediately calls dced_waitpid.  If several threads are doing
+> this, the first child that exits will awaken all the threads, which
+> will all find entries for themselves in the table, but only one of
+> them will have had status filled in.  Nevertheless, all will return.
+ 
+would happen when multiple hostdata_create or hostdata_set requests
+come in at the same time.
+
+2) The second condition is in the server exec
+
+> The second problem is that if one thread calls dced_fork successfully,
+> the child could terminate before the parent has added the child's pid
+> to the sx_pids.pids.list.  If the signal_catcher thread then runs, it
+> won't find the child in the list and thus won't be able to store its
+> return status.  It also won't do the broadcast on the condition, so
+> the dced_waitpid would sit forever.
+
+   and would be only likely to happen if the execed server dies right
+   away (which is a bit unlikely).
+
+3) I am adding this of my own.  The postprocs list needs to be protected
+   by a lock (or mutex), otherwise concurrent hd_read_postprocessors
+   will manipulate it at the same time.
+   This could happen for instance when servicing simultaneous hostdata
+   create or write calls.  Of course it is a matter of timing, and probably
+   unlikely on most machines.  
+
+
+
+My last comment to the following mail message is matter of aesthetics.
+I would call the .valid field something like .valid_status as it only
+refers to the .status field.
+
+
+
+
+---------------------------------------------------------------------
+
+From osd.dce@hi.com  Thu Apr 27 09:47:38 1995
+Received: from postman.osf.org by osf.osf.org (5.65/OSF 1.0)
+	id AA02582; Thu, 27 Apr 1995 09:47:38 -0400
+Received: from loki.hi.com (loki.Hi.COM [140.243.30.55]) by postman.osf.org
+(8.6.9/8.6.x) with SMTP
+	id JAA26956 for <dce-defect@osf.org>; Thu, 27 Apr 1995 09:47:34
+-0400
+Received: from OSDpts.hi.com by loki.hi.com (4.1/SMI-4.1.hi-2)
+	id AA22905; Thu, 27 Apr 95 09:51:09 EDT
+From: osd.dce@hi.com (DCE Defect)
+Received: by OSDpts.hi.com (1.38.193.4/Spike-2.0)
+	id AA17967; Thu, 27 Apr 1995 09:53:40 -0400
+Date: Thu, 27 Apr 1995 09:53:40 -0400
+Message-Id: <9504271353.AA17967@OSDpts.hi.com>
+To: dce-defect@osf.org
+
+                          DCE Problem Report
+                  =================================
+
+
+Submitter Information 
+----------------------
+
+Submitter Name:           wright
+Organization:             Hitachi Computer Products (America), Inc. 
+Email Address:            osd.dce@hi.com wright@hi.com 
+Phone:                    617-890-0444 
+DCE License Number:       1616-MDCE-92
+Licensee's Defect Number: OSDqa10910
+
+
+Hardware/Software Configuration
+--------------------------------
+
+Offering and Version:   DCER1.1 
+Component (Module):     sximpl.h, sxops.c 
+Client Hardware:        see below 
+Client Software:        see below 
+Server Hardware:        see below 
+Server Software:        see below 
+Compiler:               n/a
+
+Problem Description
+--------------------
+
+Severity Level: Severe
+
+Date of First Occurrence: 03/16/95
+
+One Line Description:
+   OSDqa10910 sneaky potential deadlock in hostdata forking
+
+Full Description:
+
+Related-file:::: Problem
+ DESCRIPTION:  Via code inspection, I discovered two problems in the
+ dced_fork management.  
+ 
+ The first problem is that the information returned by dced_waitpid
+ could be wrong.  The reason is that the parent calls dced_fork, then
+ almost immediately calls dced_waitpid.  If several threads are doing
+ this, the first child that exits will awaken all the threads, which
+ will all find entries for themselves in the table, but only one of
+ them will have had status filled in.  Nevertheless, all will return.
+ 
+ The second problem is that if one thread calls dced_fork successfully,
+ the child could terminate before the parent has added the child's pid
+ to the sx_pids.pids.list.  If the signal_catcher thread then runs, it
+ won't find the child in the list and thus won't be able to store its
+ return status.  It also won't do the broadcast on the condition, so
+ the dced_waitpid would sit forever.
+ 
+ 
+ REPRODUCIBLE:  Not without great difficulty.
+ 
+ 
+ TEST SOFTWARE DESCRIPTION:
+ 
+ 
+ DESCRIPTION OF HARDWARE WHERE BUG OCCURRED:
+ 
+ 
+ DESCRIPTION OF WHERE TEST SUCCESSFULLY RAN:
+ 
+Related-file::Added 950316 by wright::
+/build/hiosfm/RCS/dce1.1/src/admin/dced/server/./sximpl.h,v 8.2
+ /build/hiosfm/RCS/dce1.1/src/admin/dced/server/./sximpl.h,v 8.2
+ wright 1995/03/16 22:44:37 +3 -2
+ Reason:  OSDqa10910 sneaky potential deadlock in hostdata forking
+ Revise locking and add "valid" field to sx_pid_status_s_t struct
+ to avoid deadlocks and bogus return values.
+ 
+     *** /tmp/ci.24437..sximpl.h.24471.1	Thu Mar 16 17:44:40 1995
+     --- /tmp/sximpl.h.24471.2	Thu Mar 16 17:44:40 1995
+     ***************
+     *** 45,54 ****
+     --- 45,55 ----
+       #include <scimpl.h>
+       
+       typedef struct sx_pid_status_s_t {
+           pid_t		pid;
+           int			status;
+     +     int                 valid;
+       } sx_pid_status_t;
+       
+       typedef struct sx_pid_status_list_s_t {
+           unsigned32		count;
+           sx_pid_status_t	*list;
+ 
+Related-file::Added 950316 by wright::
+/build/hiosfm/RCS/dce1.1/src/admin/dced/server/./sxops.c,v 8.3
+ /build/hiosfm/RCS/dce1.1/src/admin/dced/server/./sxops.c,v 8.3
+ wright 1995/03/16 22:44:44 +15 -7
+ Reason:  OSDqa10910 sneaky potential deadlock in hostdata forking
+ Revise locking and add "valid" field to sx_pid_status_s_t struct
+ to avoid deadlocks and bogus return values.
+ 
+     *** /tmp/ci.24437..sxops.c.24497.1	Thu Mar 16 17:44:46 1995
+     --- /tmp/sxops.c.24497.2	Thu Mar 16 17:44:46 1995
+     ***************
+     *** 194,224 ****
+       {
+           extern char         **environ;
+           pid_t		p;
+           int			i;
+       
+           p = fork();
+           if (p == -1) {
+       	*st = dced_s_postprocessor_spawn_fail;
+       	return;
+           }
+           if (p == 0) {
+       	execve(av[0], av, environ);
+       	_exit(1);
+           }
+       
+           /* Add this PID to our process table. */
+     -     dce_lock_justwrite(sx_pids.lock, st);
+           for (i = 0; i < sx_pids.pids.count; i++)
+       	if (sx_pids.pids.list[i].pid == 0)
+       	    break;
+           if (i == sx_pids.pids.count) {
+       	sx_pids.pids.count += 20;
+       	sx_pids.pids.list = realloc(sx_pids.pids.list,
+       		sx_pids.pids.count * sizeof *sx_pids.pids.list);
+           }
+           sx_pids.pids.list[i].pid = *pp = p;
+           dce_lock_unlock(sx_pids.lock, st);
+           *st = error_status_ok;
+       }
+       
+       void
+     --- 194,228 ----
+       {
+           extern char         **environ;
+           pid_t		p;
+           int			i;
+       
+     +     dce_lock_justwrite(sx_pids.lock, st);
+     + 
+           p = fork();
+           if (p == -1) {
+     +         dce_lock_unlock(sx_pids.lock, st);
+       	*st = dced_s_postprocessor_spawn_fail;
+       	return;
+           }
+           if (p == 0) {
+     +         dce_lock_unlock(sx_pids.lock, st);
+       	execve(av[0], av, environ);
+       	_exit(1);
+           }
+       
+           /* Add this PID to our process table. */
+           for (i = 0; i < sx_pids.pids.count; i++)
+       	if (sx_pids.pids.list[i].pid == 0)
+       	    break;
+           if (i == sx_pids.pids.count) {
+       	sx_pids.pids.count += 20;
+       	sx_pids.pids.list = realloc(sx_pids.pids.list,
+       		sx_pids.pids.count * sizeof *sx_pids.pids.list);
+           }
+           sx_pids.pids.list[i].pid = *pp = p;
+     +     sx_pids.pids.list[i].valid = 0;
+           dce_lock_unlock(sx_pids.lock, st);
+           *st = error_status_ok;
+       }
+       
+       void
+     ***************
+     *** 228,251 ****
+           error_status_t	*st
+       )
+       {
+           unsigned32		i;
+       
+           for ( ; ; ) {
+     - 	pthread_mutex_lock(&sx_pids.m);
+     - 	pthread_cond_wait(&sx_pids.cv, &sx_pids.m);
+       	dce_lock_justwrite(sx_pids.lock, st);
+       	for (i = 0; i < sx_pids.pids.count; i++)
+     ! 	    if (sx_pids.pids.list[i].pid == pid) {
+       		*status = sx_pids.pids.list[i].status;
+       		sx_pids.pids.list[i].pid = 0;
+       		dce_lock_unlock(sx_pids.lock, st);
+       		pthread_mutex_unlock(&sx_pids.m);
+       		return;
+       	    }
+       	dce_lock_unlock(sx_pids.lock, st);
+     ! 	pthread_mutex_unlock(&sx_pids.m);
+           }
+       }
+       
+       
+       /*
+______________________________________________________________________ */
+     --- 232,256 ----
+           error_status_t	*st
+       )
+       {
+           unsigned32		i;
+       
+     +     pthread_mutex_lock(&sx_pids.m);
+     + 
+           for ( ; ; ) {
+       	dce_lock_justwrite(sx_pids.lock, st);
+       	for (i = 0; i < sx_pids.pids.count; i++)
+     ! 	    if (sx_pids.pids.list[i].pid == pid &&
+     !                 sx_pids.pids.list[i].valid) {
+       		*status = sx_pids.pids.list[i].status;
+       		sx_pids.pids.list[i].pid = 0;
+       		dce_lock_unlock(sx_pids.lock, st);
+       		pthread_mutex_unlock(&sx_pids.m);
+       		return;
+       	    }
+       	dce_lock_unlock(sx_pids.lock, st);
+     ! 	pthread_cond_wait(&sx_pids.cv, &sx_pids.m);
+           }
+       }
+       
+       
+       /*
+______________________________________________________________________ */
+     ***************
+     *** 314,331 ****
+     --- 319,339 ----
+       		break;
+       
+       	if (i == 0) {
+       	    /* Must be a hostdata postprocessor. */
+       	    dce_lock_unlock(sx_table.lock, &st);
+     +             pthread_mutex_lock(&sx_pids.m);
+       	    dce_lock_justwrite(sx_pids.lock, &st);
+       	    for (i = 0; i < sx_pids.pids.count; i++)
+       		if (sx_pids.pids.list[i].pid == pid) {
+       		    sx_pids.pids.list[i].status = wait_stat;
+     + 		    sx_pids.pids.list[i].valid = 1;
+       		    pthread_cond_broadcast(&sx_pids.cv);
+       		    break;
+       		}
+       	    dce_lock_unlock(sx_pids.lock, &st);
+     +             pthread_mutex_unlock(&sx_pids.m);
+       	    continue;
+       	}
+       
+       	/* We were asked to shut this guy down, so do so. */
+       	if (sp->flags & server_c_exec__exiting) {
+ 
+Related-file:::: Resolution 
+ DESCRIPTION OF BUG FIX:  First, added "valid" field to
+ sx_pid_status_s_t struct.  This is zeroed when a pid is added to the
+ entry, and set to 1 when a waitpid return status is added to the
+ entry.  Second, changed locking in dced_fork to take the lock before
+ doing the fork, so the signal_catcher thread can't sneak in ahead of
+ adding the entry to the table.  Third, changed locking in dced_waitpid
+ to check the table before sleeping.  Finally, changed locking in
+ srvrexec__reap to acquire sx_pids.m before accessing the table, so the
+ cond_signal will interlock properly with dced_waitpid.
+  
+  
+ REGRESSION TEST SCENARIO:
+  
+  
+ RCSDIFFS (either inserted manually or via Fci):
+
+[6/18/95 public]
+
+I had forgotten to fill the CC list.  Done
+
+[8/1/95 public]
+
+This is a duplicate of OT 12837.
+
+
+
+CR Number                     : 12833
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : hostdata / db
+Short Description             : control api: client frees data twice
+Reported Date                 : 3/31/95
+Found in Baseline             : 1.1
+Found Date                    : 3/31/95
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 12828
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[3/31/95 public]
+Thanks to Purify for yelling about this one...
+
+This problem may be dced or the backing database.
+
+In admin/dced/server/hdops.c:hostdata_get_list(), dce_db_fetch() returns a
+structure that can (and often does) have the data.storage_tag and data.name
+members pointing to the same piece of memory. The client has no way of
+knowing this and always frees these members individually, resulting in
+multiple frees of the same memory. This structure is free'd in
+admin/dced/api/dced_util.c:entry_list_free_ptrs().
+
+This problem can be easily reproduced by doing a 'dcecp> hostdata catalog'.
+
+Below shows the contents of id_d.data immediately after a dce_db_fetch() in
+hostdata_get_list in dced.
+
+>p id_d.data
+data = struct dced_entry_s_t {
+    id = struct uuid_t {
+        time_low = 1527660;
+        time_mid = 28362;
+        time_hi_and_version = 7530;
+        clock_seq_hi_and_reserved = 191;
+        clock_seq_low = 144;
+        node = 0x40320bf2;
+    };
+    name = 0x403c9a40;
+    description = 0x403c9a70;
+    storage_tag = 0x403c9a40;
+}
+
+Note that the .name and .storage_tag members point to the same memory. RPC,
+helpful as ever, preserves this over the wire and the client frees the data
+twice.
+
+[04/04/95 public]
+Is this a dup of 12828?
+
+[04/04/95 public]
+Yep. The fix that you put in CR12828... will this catch all occurances of
+where aliasing pointers are going to bite us? ie. Do you do this elsewhere
+that we may get into trouble with?
+
+[04/05/95 public]
+Possible.  storage_tag aliasing is the most likely culprit, but I
+can't guarantee that there is no other pointer-copying going on.
+
+
+
+CR Number                     : 12674
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 12061, 12714
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : dcdrel002 fails
+Reported Date                 : 10/19/94
+Found in Baseline             : 1.1b23
+Found Date                    : 10/19/94
+Severity                      : B
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 12714
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/19/94 public]
+
+The system test dcdrel002 fails. It happens with BL-22 and
+BL-23. The errors are:
+
+1- From the journal file
+
+ bronze(hpux)    dcdrel002:             pass = 0, fail = 1
+ "run.dced -l 1 -m bronze dcdrel002" completed at 10/19/94-17:31:44
+/opt/dcelocal/bin complete: Oct 19 02:58 Failures under
+/dcetest/dcelocal/status/system/dcdrel002.bronze.941019172353
+There were 2 ERRORs and/or FAILures total in the 1 failed iterations.  
+Here's the breakdown:
+    1 - FAIL
+    1 - results: dcdrel002: FATAL: Command failed
+when it should not have. (Directory must be empty to be deleted)
+
+2- from /tmp/dcdrel002.results
+
+root@bronze> more dcdrel002.results
+FATAL messages in /tmp/dcdrel002.bronze.log:
+dcdrel002: FATAL: Server not stopped according to "server show"
+dcdrel002: FATAL: Server not stopped according to "server show"
+dcdrel002: FATAL: dcdrel002_client:
+rpc_ns_binding_import_next(/.:/hosts/bronze/systest/dcdrel002_server.26049-req-restart):
+No more bindings
+dcdrel002: FATAL: dcdrel002_client:
+rpc_ns_binding_import_next(/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc-restart):
+No more bindings
+dcdrel002: FATAL: server ping
+/.:/hosts/bronze/systest/dcdrel002_server.26049-req-restart
+dcdrel002: FATAL: Command returned 0 when 1 was expected
+dcdrel002: FATAL: server ping
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc-restart
+dcdrel002: FATAL: Command returned 0 when 1 was expected
+dcdrel002: FATAL: Cannot find a matching object.
+dcdrel002: FATAL: Cannot find a matching object.
+dcdrel002: FATAL: server ping
+/.:/hosts/bronze/systest/dcdrel002_server.26049-req
+dcdrel002: FATAL: Command returned 1 when 0 was expected
+dcdrel002: FATAL: server ping
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc
+dcdrel002: FATAL: Command returned 1 when 0 was expected
+dcdrel002: FATAL: directory delete /.:/hosts/bronze/systest
+dcdrel002: FATAL: Command failed when it should not have. (Directory must
+be empty to be deleted)
+
+3. from /tmp/dcdrel002.bronze.log
+
+root@bronze> more dcdrel002.bronze.log
+dcdrel002: Starting Test
+dcdrel002: Executing directory create /.:/hosts/bronze/systest
+dcdrel002: Executing acl modify /.:/hosts/bronze/systest -change
+{{any_other rwdtcia}}
+dcdrel002: Executing server create
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-req -attribute { 
+        {program
+/dcetest/dcelocal/test/tet/system/dced/ts/rel/dcdrel002_server}  
+        {arguments /.:/hosts/bronze/systest/dcdrel002_server.26049-req} 
+        {starton explicit} 
+        {entryname /.:/hosts/bronze/systest/dcdrel002_server.26049-req}
+        { services 
+            {interface 00032b04-f3f0-1e0e-9ea7-0000c0dc0d4b,1.0}}
+        }
+dcdrel002: Executing server create
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc -attribute { 
+        {program
+/dcetest/dcelocal/test/tet/system/dced/ts/rel/dcdrel002_server}  
+        {arguments /.:/hosts/bronze/systest/dcdrel002_server.26049-rpc} 
+        {starton auto explicit} 
+        {entryname /.:/hosts/bronze/systest/dcdrel002_server.26049-rpc} 
+        { services 
+            {interface 00032b04-f3f0-1e0e-9ea7-0000c0dc0d4b,1.0}}
+        }
+dcdrel002: Executing server create
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-req-restart
+-attribute { 
+        {program
+/dcetest/dcelocal/test/tet/system/dced/ts/rel/dcdrel002_server}  
+        {arguments
+/.:/hosts/bronze/systest/dcdrel002_server.26049-req-restart} 
+        {starton {explicit failure} } 
+        {entryname
+/.:/hosts/bronze/systest/dcdrel002_server.26049-req-restart} 
+        { services 
+            {interface 00032b04-f3f0-1e0e-9ea7-0000c0dc0d4b,1.0}}
+        }
+dcdrel002: Executing server create
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc-restart
+-attribute { 
+        {program
+/dcetest/dcelocal/test/tet/system/dced/ts/rel/dcdrel002_server}  
+        {arguments
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc-restart} 
+        {starton {auto failure explicit} } 
+        {entryname
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc-restart} 
+        { services 
+             {interface 00032b04-f3f0-1e0e-9ea7-0000c0dc0d4b,1.0}} 
+        }
+dcdrel002: Executing server start
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-req
+dcdrel002: Executing server start
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc
+dcdrel002: Executing server start
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-req-restart
+dcdrel002: Executing server start
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc-restart
+dcdrel002: Executing server ping
+/.:/hosts/bronze/systest/dcdrel002_server.26049-req
+dcdrel002: Executing server ping
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc
+dcdrel002: Executing server ping
+/.:/hosts/bronze/systest/dcdrel002_server.26049-req-restart
+dcdrel002: Executing server ping
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc-restart
+dcdrel002: Executing exec
+/dcetest/dcelocal/test/tet/system/dced/ts/rel/dcdrel002_client ping_op
+/.:/hosts/bronze/systest/dcdrel002_server.26049-req
+dcdrel002: Executing exec
+/dcetest/dcelocal/test/tet/system/dced/ts/rel/dcdrel002_client ping_op
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc
+dcdrel002: Executing exec
+/dcetest/dcelocal/test/tet/system/dced/ts/rel/dcdrel002_client ping_op
+/.:/hosts/bronze/systest/dcdrel002_server.26049-req-restart
+dcdrel002: Executing exec
+/dcetest/dcelocal/test/tet/system/dced/ts/rel/dcdrel002_client ping_op
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc-restart
+dcdrel002: Executing server stop
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc
+dcdrel002: Executing server stop
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc-restart
+dcdrel002: Executing server show
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc -exec
+dcdrel002: FATAL: Server not stopped according to "server show"
+dcdrel002: Executing server show
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc-restart -exec
+dcdrel002: FATAL: Server not stopped according to "server show"
+dcdrel002: Executing exec
+/dcetest/dcelocal/test/tet/system/dced/ts/rel/dcdrel002_client ping_op
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc
+dcdrel002: Executing exec
+/dcetest/dcelocal/test/tet/system/dced/ts/rel/dcdrel002_client ping_op 
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc-restart
+dcdrel002: Executing server show
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc -exec
+dcdrel002: Executing server show
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc-restart -exec
+dcdrel002: Executing exec
+/dcetest/dcelocal/test/tet/system/dced/ts/rel/dcdrel002_client stop_bad_op
+/.:/hosts/bronze/systest/dcdrel002_server.26049-req-restart
+dcdrel002: Executing exec
+/dcetest/dcelocal/test/tet/system/dced/ts/rel/dcdrel002_client stop_bad_op
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc-restart
+dcdrel002: Executing exec
+/dcetest/dcelocal/test/tet/system/dced/ts/rel/dcdrel002_client ping_op
+/.:/hosts/bronze/systest/dcdrel002_server.26049-req-restart
+dcdrel002: FATAL: dcdrel002_client:
+rpc_ns_binding_import_next(/.:/hosts/bronze/systest/dcdrel002_server.26049-req-restart):
+No more bindings
+dcdrel002_client failed
+dcdrel002: Executing exec
+/dcetest/dcelocal/test/tet/system/dced/ts/rel/dcdrel002_client ping_op
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc-restart
+dcdrel002: FATAL: dcdrel002_client:
+rpc_ns_binding_import_next(/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc-restart):
+No more bindings
+dcdrel002_client failed
+dcdrel002: Executing server ping
+/.:/hosts/bronze/systest/dcdrel002_server.26049-req-restart
+dcdrel002: FATAL: server ping
+/.:/hosts/bronze/systest/dcdrel002_server.26049-req-restart
+dcdrel002: FATAL: Command returned 0 when 1 was expected
+dcdrel002: Executing server ping
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc-restart
+dcdrel002: FATAL: server ping
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc-restart
+dcdrel002: FATAL: Command returned 0 when 1 was expected
+dcdrel002: Executing server stop
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-req
+dcdrel002: Executing server stop
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc
+dcdrel002: Executing server stop
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-req-restart
+dcdrel002: FATAL: Cannot find a matching object.
+dcdrel002: Executing server delete
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-req
+dcdrel002: Executing server delete
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc
+dcdrel002: Executing server delete
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-req-restart
+dcdrel002: Executing server delete
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc-restart
+dcdrel002: Executing directory delete /.:/hosts/bronze/systest
+dcdrel002: FATAL: directory delete /.:/hosts/bronze/systest
+dcdrel002: FATAL: Command failed when it should not have. (Directory must
+be empty to be deleted)dcdrel002: Executing systest cleanup procedure
+dcdrel002: Executing server stop
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-req -method hard
+dcdrel002: Executing server delete
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-req
+dcdrel002: Returned Error: Cannot find a matching object.
+dcdrel002: cleanup: Could not remove
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-req
+dcdrel002: Executing object delete
+/.:/hosts/bronze/systest/dcdrel002_server.26049-req
+dcdrel002: Executing server stop
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc -method hard
+dcdrel002: Executing server delete
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc
+dcdrel002: Returned Error: Cannot find a matching object.
+dcdrel002: cleanup: Could not remove
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc
+dcdrel002: Executing object delete
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc
+dcdrel002: Executing server stop
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-req-restart -method
+hard
+dcdrel002: Returned Error: Cannot find a matching object.
+dcdrel002: cleanup: Could not stop
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-req-restart (may not
+be running)
+dcdrel002: Executing server delete
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc-restart
+dcdrel002: Returned Error: Cannot find a matching object.
+dcdrel002: cleanup: Could not remove
+/.:/hosts/bronze/config/server/dcdrel002_server.26049-rpc-restart
+dcdrel002: Executing object delete
+/.:/hosts/bronze/systest/dcdrel002_server.26049-rpc-restart
+dcdrel002: Executing directory delete /.:/hosts/bronze/systest
+
+[10/24/94 public]
+
+While there may be some remaining problems with the test, the basic
+problems are dced problems. There are actually several separate
+problems occuring here. I've split out one of them to OT #12714. 
+Rich has indicated that some will be fixed when he completes his
+fixes to OT #12061. It is possible that other problems will surface
+in this test once those are fixed. I'm switching this from a test
+CR to a code CR.
+
+[10/25/94 public]
+
+To clarify the situation w.r.t. dcdrel002 testing and srvrconf
+and srvrexec, I'm duping this to CRs 12061 and 12714 (and also 12061,
+but the system doesn't allow multiple entries in the "Duplicate
+of" field). If it becomes clear that there is an additional problem 
+not covered by those CRs, a new CR will be opened to identify it.
+
+
+
+CR Number                     : 12648
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : dced
+Subcomponent Name             : dced
+Short Description             : Smoketest failed to start dced in dce_config
+Reported Date                 : 10/18/94
+Found in Baseline             : 1.1
+Found Date                    : 10/18/94
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 12647
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[10/18/94 public]
+
+S:****** Initializing dced...
+1994-10-18-08:34:08.727+00:00I----- dced FATAL dhd general main.c 476 0xa44de9fc
+Initialization (initialize secval data) failed, status=0x113db0ed.
+ERROR:   dced -i failed to start.
+1994-10-18-08:34:09.947+00:00I----- dced ERROR dhd general main.c 781 0xa44de9fc
+Process (pid 671) exited with status 0400
+ERROR:    failed to start.
+S:****** The current highest UNIX ID for persons on this node is 12351.
+
+
+
+CR Number                     : 12606
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 12805
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : dcdrel001 core dumps dced
+Reported Date                 : 10/12/94
+Found in Baseline             : 1.1b21
+Found Date                    : 10/12/94
+Severity                      : B
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 12805
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.2.1
+Affected File(s)              : dced
+Sensitivity                   : public
+
+[10/12/94 public]
+
+BL-21
+CONFIG:
+HPUX: secd, dtsd, NTP provider	
+OSF1: cdsd, dtsd		
+OSF1: client, dtsd		
+OSF1: client, secd replica		
+HPUX: client, secd replica
+
+
+I ran dcdrel001 on 4 nodes and found that on one of the OSF1 machines
+dced core dumped. I have the core dump if someone wants to take a look.
+I have not had time to do it myself. (We are running the test again)
+
+The were other erros, here is the output of the log (which needs more
+investigation)
+
+root@needle> run_summary.ksh dcdrel001.needle.941011183302
+  needle(hpux)    dcdrel001:             pass = 1, fail = 42
+ "run.dced -t 15 -m west dce3 alan needle dcdrel001"
+  completed at 10/12/94-09:43:29
+  /opt/dcelocal/bin complete: Oct 7 02:58
+  Failures under
+	/dcetest/dcelocal/results/system/dcdrel001.needle.941011183302
+  There were 189 ERRORs and/or FAILures total in the 42 failed iterations.
+  Here's the breakdown:
+  42 - FAIL
+   1 - results: FATAL 00:12:08: Communicationsfailure (dce / rpc)
+   1 - results: FATAL 00:42:58: Communications failure (dce / rpc)
+   1 - results: FATAL 00:55:26: Communications failure (dce / rpc)
+   1 - results: FATAL 01:48:34: Attempt to setup server failed
+   1 - results: FATAL 02:40:24: Communications failure (dce / rpc)
+   1 - results: FATAL 03:02:52: Communications failure (dce / rpc)
+   1 - results: FATAL 03:47:49: Communications failure (dce / rpc)
+   1 - results: FATAL 04:05:51: Communications failure (dce / rpc)
+   1 - results: FATAL 04:29:13: Communications failure (dce / rpc)
+   1 - results: FATAL 04:31:52: Communications failure (dce / rpc)
+   1 - results: FATAL 04:32:13: Communications failure (dce / rpc)
+   1 - results: FATAL 04:52:10: Communications failure (dce / rpc)
+   1 - results: FATAL 05:36:01: Communications failure (dce / rpc)
+   1 - results: FATAL 05:39:25: Communications failure (dce / rpc)
+   2 - results: FATAL 05:45:05: RPC daemon communications failure (dce / rpc)
+   1 - results: FATAL 07:50:43: Attempt to setup server failed
+   1 - results: FATAL 09:35:19: Communications failure (dce / rpc)
+   1 - results: FATAL 18:37:19: Communications failure (dce / rpc)
+   1 - results: FATAL 19:59:12: Attempt to setup server failed
+   1 - results: FATAL 20:44:43: Communications failure (dce / rpc)
+   1 - results: FATAL 20:44:56: Communications failure (dce / rpc)
+   1 - results: FATAL 20:45:00: Communications failure (dce / rpc)
+   1 - results: FATAL 21:06:14: Communications failure (dce / rpc)
+   1 - results: FATAL 21:23:45: Attempt to setup server failed
+   1 - results: FATAL 21:46:21: Communications failure (dce / rpc)
+   1 - results: FATAL 22:10:09: Communications failure (dce / rpc)
+   1 - results: FATAL 22:25:02: Attempt to setup server failed
+ 118 - results: FATAL: certified login failed
+
+[10/13/94 public]
+Yeah, I'd like to know what else was running on that host (could someone
+have eaten all the swap space?) and I want to look at the core file to get
+a backtrace.
+
+[10/13/94 public]
+
+I recreated the problem running the dcdrel001 tests overnight on the following
+cell:
+
+BUILD: BL21
+
+HP-UX: secd dtsd
+OSF/1: cdsd dtsd
+OSF/1: client dtsd ntp_provider
+
+The tests were run from the HP, the dced core occurred on the OSF/1 machine
+that was running the cds server.
+
+[10/14/94 public]
+
+Rich had me run dced in the debugger on the OSF/1 nodes, so of course we
+got a dced core dump on the HP. 
+
+The following is the trace:
+
+ 0 memcpy@libc + 0x00000008 (hp-ux export stub)
+ 1 rpc__naf_tower_flrs_to_addr@li + 0x00000050 (0x4, 0x400f75a0, 0x400f74ac, 0x404d9ec0)
+ 2 rpc_tower_to_binding@libdce + 0x00000088 (0x4, 0x400f7518, 0x400f74ac, 0x400f74ac)
+ 3 ping_server (ep = 0x405420d8, timeout = 3, status = 0x400f74ac)    [/project/dce/build/dce1.1-snap/src/admin/dced/server/oeops.c: 398]
+ 4 ep_ping1 (arg = 0x40015590)    [/project/dce/build/dce1.1-snap/src/admin/dced/server/oeops.c: 466]
+ 5 cma__thread_base@libdce + 0x0000021c (0x40033c18, 0, 0, 0)
+ 6 cma__thread_start1@libdce + 0x0000004c (0x40033c18, 0, 0, 0)
+ 7 cma__thread_start0@libdce + 0x00000008 (0x40033c18, 0, 0, 0)
+
+[10/20/94 public]
+It's always the same backstrace, but I don't see any bugs in ping_server.
+I'm still looking but am not optimistic.
+
+[4/5/95 public]
+
+CR 12805 apparently deals with the same problem.  A fix from HP is posted
+there.
+
+[11/27/95 public]
+
+Marked as dup as indicated in the notes here and in OT 12805.
+
+[12/19/95 public]
+Fixed in DCE 1.2.1 - along with 12805
+Closed
+
+
+
+CR Number                     : 12448
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : servers created with {starton failure} aren't restarted after failure exit
+Reported Date                 : 9/30/94
+Found in Baseline             : 1.1b20
+Found Date                    : 9/30/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 12442
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/30/94 public]
+
+DCDREL002 specifies 2 servers with the {starton failure} attribute,
+starts them via dced, and then causes them to exit with failure
+status. It waits 60 seconds and then tries to access them via
+dcecp "server ping" and via an rpc call. Both attempts to access
+them fail.
+
+[9/3/94 public]
+Reported and (partially) fixed today.
+
+(Rick: Check the CR (12442) to be sure I'm right.)
+
+[10/02/94 public]
+You're right -- believed fixed as of Friday night's build.
+
+
+
+CR Number                     : 12294
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : dced
+Subcomponent Name             : serverexec FVT
+Short Description             : Server Exec FVT (HP only) sometimes hang or FAIL inappropriately
+Reported Date                 : 9/21/94
+Found in Baseline             : 1.1b18
+Found Date                    : 9/21/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 12393
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/21/94 public]
+
+Happens on HP only,  sometimes tests report FAIL when it looks like they
+should have succeeded.  Sometimes they hang (Does not look like they are
+in the daemon).  All dced opersations conitnue to work.
+
+[9/21/94 public]
+srvrexec test Failures are due to a typo in my TET tetexec.cfg file, they
+have now been running in loop for 10 minutes.
+
+srvrconf test still hanging after first test completes successfully, will
+remove TET calls and see if that helps.
+
+[9/30/94 public]
+Duped to 12393
+
+
+
+CR Number                     : 12287
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : sx
+Short Description             : dced core dumped when a server stops
+Reported Date                 : 9/21/94
+Found in Baseline             : 1.1b18
+Found Date                    : 9/21/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 12102
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1b19
+Affected File(s)              : sxops.c
+Sensitivity                   : public
+
+[9/21/94 public]
+
+Using the nightly build from 9/20-21 (todays).
+
+I was running a dtsd via srvrconf on a 486, I did a dts stop
+from dcecp and dced core dumped.
+
+Trace isn't too helpfull:
+Core was generated by `dced'.
+Program terminated with signal 11, Segmentation fault.
+#0  0xa40408b5 in acl_db ()
+
+[main/run stuff]
+
+(gdb) where
+#0  0xa40408b5 in strcmp ()
+Cannot access memory at address 0xc603ed40.
+
+[9/21/94 public]
+This is more general.  When you stop any server "server stop xxx",
+dced dumps core.  And it didn't even stop the thing.
+(I just saw this today and was narrowing it down.)
+
+[9/21/94 public]
+Just FYI, "server stop xxx" means stoping a server by "rpc" which,
+as far as I know, doesn't work yet (OT#12061). To kill a server,
+you can do "server stop xxx -method hard" and it should work.
+
+[9/21/94 public]
+Just for another datapoint, Tom Jordahl and I have been using "server stop 
+xxx -method soft" often over the past several days, and it works fine.
+
+[9/21/94 public]
+it isn't the command that is killing dced.
+I used 'dts stop' to shut it down, I would guess that something
+went bad when the process exited without going through dced...
+
+[9/21/94 public]
+
+Another data point: I had no trouble with "server stop xxx -method
+soft" last week when I was testing with "dummy" servers: the processes
+stopped, and the servers disappeared from
+/.:/hosts/<host>/config/srvrexec, just as they're supposed to. (I
+think this even worked if I killed the server processes by hand.) But
+the last couple of days, I've been trying this with a real dtsd and
+cdsadv on a client machine, and dced died somewhere during the
+sequence (I didn't have my eyes glued to the window where I'd started
+dced, so I don't know exactly what caused it to die).
+
+[9/21/94 public]
+Submitted potential fix for NB.  Retry and update.
+
+
+
+CR Number                     : 12284
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : srvrconf
+Short Description             : server delete core dumps on 486
+Reported Date                 : 9/21/94
+Found in Baseline             : 1.1b18
+Found Date                    : 9/21/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 12102
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1b19
+Affected File(s)              : scops.c scimpl.h
+Sensitivity                   : public
+
+[9/21/94 public]
+
+server delete core dumps in serverconf FVT's (486).  Noticed while
+investogated server start core dump OT.  Am investigating for more
+info....
+
+[9/21/94 public]
+Submitted potential fix for NB.
+
+
+
+CR Number                     : 12124
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : dced
+Subcomponent Name             : server
+Short Description             : dced core dumps during
+srvrconf_create() on hpux
+Reported Date                 : 9/9/94
+Found in Baseline             : 1.1b17
+Found Date                    : 9/9/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 12102
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1b19
+Affected File(s)              : scops.c scimpl.h
+Sensitivity                   : public
+
+[9/9/94 public]
+
+during execution of test assertion for dced_server_create() api,
+dced core dumps with the following trace.
+No problems on 486/osf.
+
+
+ 0 strlen@libc + 0x00000008 (hp-ux export stub)
+ 1 TMEM@libdce + 0x00221e74 (0x4023a284, 0x48, 0x40239bbc, 0x4000a2fc)
+ 2 TMEM@libdce + 0x0021bcb8 (0x40009764, 0x48, 0x40239bbc, 0x4000a2fc)
+ 3 TMEM@libdce + 0x0021a254 (0xf, 0x19c, 0x40239bbc, 0x402fbf58)
+ 4 TMEM@libdce + 0x00214be8 (0x2, 0xe8, 0x40239e30, 0x402fbf58)
+ 5 dced_server_convert (h = 0x402fbbf0, data = 0x40239bbc, st = 0x40239970)    [dced_convert_cstub.c: 2618]
+ 6 TMEM@libdce + 0x002319ac (0x4009aa88, 0x40239c50, 0x10, 0x40239bbc)
+ 7 TMEM@libdce + 0x00231d48 (0x4009aa88, 0x40239c50, 0x40239bbc, 0x40239970)
+ 8 srvrconf_create (h = 0x402f87c0, server = 0x402398f8, st = 0x40239970)    [/project/dce/build/dce1.1-snap/src/admin/dced/server/scops.c: 162]
+ 9 op2_ssr (h = 0x402f87c0, IDL_call_h = 0x402f2e70, IDL_elt_p = 0x4023953c, IDL_drep_p = 0x40239520, IDL_transfer_syntax_p = 0x7af3ab60, IDL_mgr_epv = 0x4000f110, IDL_status_p = 0x40239528)    [srvrconf_sstub.c: 2010]
+
+[9/14/94 public]
+
+I was surprised when i could create the server entry with last night's
+build. I was elated when I could do it again. Then third time - dced
+crashes with the ususal stack - what a pain in the neck it is to bring up
+a cell, particularly when dced crashes!
+
+[9/21/94 public]
+Prasad, the file in question has changed several times in the past week.
+Would it be easy of you to try to duplicate this with last night's build?
+
+(Yesterday, I could create and start a server, but I used very few params
+or args...)
+
+[9/21/94 public]
+Rob, can you try and let John know the results.
+
+[9/21/94 public]
+Submitted potential fix for NB.
+
+
+
+CR Number                     : 12080
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : test/api
+Short Description             : dced_binding_set_auth_info
+(#1) fails.
+Reported Date                 : 9/7/94
+Found in Baseline             : 1.1b17
+Found Date                    : 9/7/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 12071
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : binding_set_auth.c
+Sensitivity                   : public
+
+[9/7/94 public]
+
+assertion 1 for dced_bind_set_auth_info fails.
+assertion 3 for dced_binding_from_rpc_binding fails.
+
+[9/11/94 public]
+May be caused by same problem as 12071 which will be fixed in tonights NB,
+retry on Tuesday and mark dup if problem goes away.
+
+[9/7/94 public]
+
+Verified with the latest nightly build - this problem does not
+happen. Making this a dup to 12071.
+
+Still I want to submit to minor fix to a test function.
+
+
+
+CR Number                     : 12031
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : All RPC endpoints for an interface are deleted even though only 1 string binding is specified.
+Reported Date                 : 9/2/94
+Found in Baseline             : 1.1b16
+Found Date                    : 9/2/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 12075
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[9/2/94 public]
+
+I only wanted to delete the RPC endpoint for a connection-oriented
+protocol sequence.  Note that the interface used supported both the
+connection-oriented and the connectionless protocols.
+
+However, when I invoked the following command, all RPC endpoints
+for the interface were deleted! 
+
+dcecp> endpoint delete -i <interface> -b {ncacn_ip_tcp netaddr endpoint}
+
+[9/2/94 public]
+I can't reproduce this:
+
+dcecp> endp cr -i {afbcceec-6c33-11cd-b7ca-080009251352 1.0} -b {ncadg_ip_udp 130.105.4.33 1234}
+dcecp> endp cr -i {afbcceec-6c33-11cd-b7ca-080009251352 1.0} -b {ncacn_ip_tcp 130.105.4.33 5678}
+dcecp> endp show -i {afbcceec-6c33-11cd-b7ca-080009251352 1.0}
+{{interface {afbcceec-6c33-11cd-b7ca-080009251352 1.0}}
+ {binding {ncadg_ip_udp 130.105.4.33 1234}}}
+
+{{interface {afbcceec-6c33-11cd-b7ca-080009251352 1.0}}
+ {binding {ncacn_ip_tcp 130.105.4.33 5678}}}
+dcecp> endp del -i {afbcceec-6c33-11cd-b7ca-080009251352 1.0} -b {ncacn_ip_tcp 130.105.4.33 5678}
+dcecp> endp show -i {afbcceec-6c33-11cd-b7ca-080009251352 1.0}
+{{interface {afbcceec-6c33-11cd-b7ca-080009251352 1.0}}
+ {binding {ncadg_ip_udp 130.105.4.33 1234}}}
+
+Could you try to reconfirm this, and cancel it if you can't? I'm
+running last night's build, but I'm not aware that anything in this
+area has changed recently.
+
+[9/2/94 public]
+Try it with an endpoint for dced (port 135).  If the problem occurs with
+that, then reassign to dced.
+
+[9/2/94 public]
+
+I tried the same steps as Robert and it worked.  However, I tried
+this on dced and on a DCE user registry and all RPC endpoints were
+deleted. So it's not just related to "dced".
+
+I take that back. I just tried it on a DCE user registry again and
+it worked. Try it on dced.
+
+[9/2/94 public]
+
+Well, all I can tell (using gdb) is that endpoint_delete is making a
+single call to rpc_mgmt_ep_unregister(), passing it the binding handle
+for the one specified binding (as returned by
+rpc_binding_from_string_binding()), and that one call is removing the
+endpoints for both bindings. I don't know if this is dced's fault or
+rpc's.
+
+[9/2/94 public]
+sounds like dced's.  Particularly since it is only for the endpoints to
+dced itself and not for other servers.  Rich...
+
+[09/12/94 public]
+If I understand this correctly, dced is killing its own endpoints?
+If not, please un-mark this as a dup.
+
+
+
+CR Number                     : 11836
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : xattr
+Short Description             : dced dies when renaming an era is tried
+Reported Date                 : 8/23/94
+Found in Baseline             : 1.1b16
+Found Date                    : 8/23/94
+Severity                      : B
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 11840
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/23/94 public]
+
+I was trying to rename an era in the generic schema, when dced seemed
+to have core-dumped. The core file in /opt/dcelocal/var/dced when examined
+by xdb gives the following traceback: 
+
+Copyright Hewlett-Packard Co. 1985,1987-1992. All Rights Reserved.
+<<<< XDB Version A.09.01 HP-UX >>>>
+Core file from:  dced
+Child died due to: segmentation violation
+Procedures:    315
+Files: 32
+>t
+ 0 strcpy@libc + 0x00000008 (hp-ux export stub)
+ 1 TMEM@libdce + 0x0023bfec (0, 0x400ac0b8, 0x7b0338c0, 0x7b033828)
+ 2 name_cache_schema_init (db = 0x400ac098, cache = 0x40123008, st = 0x7b033828)    [/project/dce/build/dc
+1.1-snap/src/admin/dced/server/misc.c: 472]
+ 3 init_caches (st = 0x7b033828)    [/project/dce/build/dce1.1-snap/src/admin/dced/server/misc.c: 683]
+ 4 main (ac = 1, av = 0x7b03363c)    [/project/dce/build/dce1.1-snap/src/admin/dced/server/main.c: 319]
+ 
+==========================
+The command that I was trying was:
+
+dcecp> xattrschema rename /.:/hosts/sanatan/config/xattrschema/someint -to junkint
+
+The rename code segment is as folllows:
+
+if (strcmp((char *)schema_name, (char *)DEFAULT_RGY_SCHEMA_NAME) == 0) {
+     /*
+      * Use the default registry call.
+      */
+      sec_rgy_attr_sch_lookup_by_name(rgy_context,
+                                      (sec_attr_component_name_t)schema_name,
+                                      (idl_char *)schema_attr_name,
+                                      &schema_entry_orig,
+                                      &status);
+      DCP_CHECK_SEC_ERROR(status);
+      schema_entry.attr_id = schema_entry_orig.attr_id;
+      sec_rgy_attr_sch_update_entry(rgy_context,
+                                    (sec_attr_component_name_t)schema_name,
+                                     modify_parts,
+                                     &schema_entry,
+                                     &status);
+      DCP_CHECK_SEC_ERROR(status);
+   }
+   else {
+      printf("reaching in non-default schema part\n");
+      set_attr_schema_binding((dce_attr_component_name_t) schema_name, &status);
+      printf("found binding handle %x, status %x\n", attr_schema_binding_handle, status);
+      DCP_CHECK_SEC_ERROR(status);
+      /*
+       * Given the schema attribute name,
+       * look up the schema attribute id.
+       */
+      dce_attr_sch_lookup_by_name(attr_schema_binding_handle,
+                                (idl_char *)schema_attr_name,
+                                (dce_attr_schema_entry_t *) &schema_entry_orig,
+                                &status);
+      printf("dce_attr_sch_lookup_by_name over, status %x\n", status);
+      DCP_CHECK_SEC_ERROR(status);
+      schema_entry.attr_id = schema_entry_orig.attr_id;
+      dce_attr_sch_update_entry(attr_schema_binding_handle,
+                               (dce_attr_schema_entry_parts_t) modify_parts,
+                               (dce_attr_schema_entry_t *) &schema_entry,
+                               &status);
+      printf("done with dce_attr_sch_update_entry, status %x \n", status);
+      DCP_CHECK_SEC_ERROR(status);
+   }
+
+[8/24/94 public]
+dced core dumped, it's a dced bug.
+cores are severity A
+Made a P2 but perhaps could be higher.
+
+[9/1/94 public]
+This works fine on both platforms.
+(Perhaps related to CR 11840?)
+
+[9/02/94 public]
+The command "xattrschema rename" might work fine, because I fixed a bug 
+in my code that was causing dced to die. Specifically, I was sending to dced
+a null name in schema_entry. When I fixed the bug, rename started working OK
+but I think the bug in dced is still there. dced must ensure that the input
+passed is valid before processing it.
+
+[9/02/94 public]
+Based on what you say above, this ot is a dup of CR11840.
+
+
+
+CR Number                     : 11809
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 11807
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : dced exits during startup
+Reported Date                 : 8/22/94
+Found in Baseline             : 1.1b15
+Found Date                    : 8/22/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 11807
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/22/94 public]
+
+After the crash reported in OT #11807, I took down the remaining
+components of dce on the two nodes where dced had crashed and
+restarted then using /etc/rc.dce. The terminal output was as
+follows:
+
+	/opt/dcelocal/bin/dced
+dced (pid 1866) exited with status 0213
+	/opt/dcelocal/bin/sec_clientd
+
+	and then startup hung.
+
+There is a corresponding core dump for dced, as follows:
+
+Core was generated by `dced'.
+Program terminated with signal 11, Segmentation fault.
+#0  0x40676b in srvr_hash_table_add (ht=0x432668, up=0x4a49a8, value=0xbffff3a8, 
+    st=0xbffff548) at
+    /project/dce/build/dce1.1-snap/src/admin/dced/server/misc.c:533
+Source file is more recent than executable.
+
+At this point I got bl15 mounted, and added it to the search list for the
+ sources.:
+(gdb) directory /project/dce/build/dce1.1-baseline/bl-15/src/admin/dced/server
+Source directories searched:
+/project/dce/build/dce1.1-baseline/bl-15/src/admin/dced/server:$cdir:$cwd
+
+(gdb) bt
+#0  0x40676b in srvr_hash_table_add (ht=0x432668, up=0x4a49a8, value=0xbffff3a8, 
+    st=0xbffff548) at
+    /project/dce/build/dce1.1-snap/src/admin/dced/server/misc.c:533
+#1  0x4068cf in srvr_hash_build (t=0x432cc0, ht=0x432668, st=0xbffff548)
+    at /project/dce/build/dce1.1-snap/src/admin/dced/server/misc.c:579
+#2  0x406c1e in name_cache_server_init (db=0x4ab510, cache=0x4ac998, t=0x432cc0, 
+    ht=0x432668, st=0xbffff548)
+    at /project/dce/build/dce1.1-snap/src/admin/dced/server/misc.c:643
+#3  0x406df3 in init_caches (st=0xbffff548)
+    at /project/dce/build/dce1.1-snap/src/admin/dced/server/misc.c:685
+#4  0x4004fc in main (ac=1, av=0xbffff57c)
+    at /project/dce/build/dce1.1-snap/src/admin/dced/server/main.c:318
+
+[8/22/94 public]
+
+With the system in the state it was left in after dced crashed during
+startup, I reran dced with the -d option, under gdb. It exited as 
+follows:
+
+(gdb) run -d
+Starting program: /u1/opt/dcelocal/bin/dced -d
+Failed opening Hostdata.db.
+Unknown message number 0x1460100a
+Program exited with code 01.
+
+In dcelibmsg.h this status code shows up as db_s_open_failed_enoent.
+
+[08/22/94 public]
+When you use the "-d" flag you must be in the /opt/dcelocal/var/dced
+directory first.
+
+[8/22/94 public]
+Is this crashing because the database was trashed by CR 11807?  (this may
+be a dup or cancel...)  It does not crash under "normal" circumstances.
+Downgrading priority.
+
+[8/22/94 public]
+Started dced under gdb on one of the 486 platforms, with -d option. 
+Under gdb it came up successfully, and rc.dce then ran okay.
+
+[08/26/94 public]
+Can we cancel this?
+
+[08/28/94 public]
+After reading this more carefully:  this is a dup of 11807.
+In 11807 a server is created, dced stores it in the database, and
+then rebuilds its hash tables; this last step died.  In this OT,
+it comes up, reads the database and rebuilds its hash tables and
+then dies.  Dup.
+
+
+
+CR Number                     : 11727
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : secval
+Short Description             : dced secval should be the default, not sec_clientd.
+Reported Date                 : 8/16/94
+Found in Baseline             : 1.1b14
+Found Date                    : 8/16/94
+Severity                      : B
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 11656
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/16/94 public]
+
+dced secval services should completely replace sec_clientd by default.  To
+make this happen at this stage, minor changes will be amde to dcecp, dced
+& dce_config.
+
+[8/2/94 public]
+Way ahead of you, Rob...
+
+
+
+CR Number                     : 11510
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : dce_config
+Short Description             : rpc runtime error
+Reported Date                 : 8/1/94
+Found in Baseline             : 1.1
+Found Date                    : 8/1/94
+Severity                      : A
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 11506
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[8/1/94 public]
+
+S:****** Starting dced...
+S:****** Initializing dced...
+DCED listening...
+
+>>> rpc runtime error: communications failure (dce / rpc)
+
+/.../sif_cell dce_config failed to find sec server uuid
+ERROR:   Unable to get object uuid of security server.  Check that dced and 
+         secd are running on "sif" (130.105.5.25) and retry the configuration.
++ cd /u1/RAT_tools 
++ rm -rf /u1/RAT_tools/run_commands.dfs.log.previous 
++ mv /u1/RAT_tools/run_commands.dfs.log /u1/RAT_tools/run_commands.dfs.log.previous 
+
+
+It should be noted that both the secd, and dced were running on sif when this
+occured. I ran this twice with the same results
+
+[08/02/94 public]
+Can you try doing an "rpccp show mapping" and see what comes out?
+I think dced is inadvertently deleting all its endpoints. :-(  I have
+a fix :-)
+
+[8/4/94 public]
+This has not been seen since - the recent dced fixes may account for
+this - lowering the priority and reassigning to Peter - if not seen
+again, please dup to 11506 or cancel.
+
+[8/9/94 public]
+What she said... (dup)
+
+
+
+CR Number                     : 11406
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : dced crashes during DCDREL001 test
+Reported Date                 : 7/23/94
+Found in Baseline             : 1.1b11
+Found Date                    : 7/23/94
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 11408
+Fix By Baseline               : 
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/23/94 public]
+
+A simplified version of DCDREL001 was run for 15 hours in a cell
+consisting of 2 OSF/1 systems and 1 HPUX system. The HPUX system
+ran all the core servers. The test itself was run only on the 2
+OSF/1 systems. The version of the test used in this case registered
+an obj uuid vector contain 10 uuids (I note this only because it
+will later be run with a higher value for the uuid count, which 
+may change the behavior). 
+
+After 13 hours of operation the test started failing on a server
+call to rpc_ns_binding_export, with the error "RPC daemon
+communications failure (dce / rpc)". After the test was completed
+both dced and gdad were no longer running on the HPUX system.
+
+[07/26/94 public]
+Did you see a core file in /opt/dcelocal/var/dced?  I know 13hrs
+is a long time but is this reproducible?  Try invoking dced like this:
+	cd /opt/dcelocal/var/dced
+	dced -d >log 2>&1
+(or "dced -d >&log" if using csh).  dced will use SVC soon, very soon...
+
+[08/01/94 public]
+This problem did not occur during a 48-hour test run against BL13,
+so I'm cancelling it.
+
+[08/16/94 public]
+This problem occurred again while testing BL14.0 so I'm reopening
+it. This time the dced server on a client OSF/1 system crashed 
+with a segmentation fault. No backtrace information was available. 
+The stack pointer was reported as being in acl_db() by gdb. The 
+crash occurred after the test had been running on 3 nodes (2 OSF/1 
+platforms, 1 HPUX platform running the core servers) for 5 hours.
+
+[08/22/94 public]
+Is it easy to reproduce this?  Here is what I would like you to try.
+Become root on the machine where dced crashes.  Stop dce.  In one window
+do
+	cd /opt/dcelocal/dced
+	gdb (or xdb or xde or wahtever) /usr/bin/dced
+	run -d
+Then in another window, become root and run rc.dce
+
+Then do the systest and wait for the debugger to catch the segfault.
+
+tnx.
+
+[08/26/94 public]
+Does this still happen in BL16?
+
+[08/29/94]
+Yes, but not as quickly. Dced crashed on all three test nodes in
+the test cell running DCDREL001 during a 48 hour test run, as follows:
+
+31 hours- node maui (OSF/1 client platform)
+38 hours- node jamaica (OSF/1 client platform)
+43 hours- node dce2 (HP-UX dce core server platform)
+
+[09/12/94 public]
+I believe that this is a side-effect of the bug in 11408.
+
+
+
+CR Number                     : 11160
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : rs6000
+S/W Ref Platform              : aix
+Component Name                : dced
+Subcomponent Name             : admin/dced/server/sv_clientd.c
+Short Description             : Function call argument cannot be assigned
+Reported Date                 : 7/1/94
+Found in Baseline             : 1.1
+Found Date                    : 7/1/94
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 11158
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[7/1/94 public]
+
+"/project/dce/build/dce1.1-snap/src/admin/dced/server/sv_clientd.c", line 322.9: 1506-193 (E) Function call argument cannot be assigned to corresponding parameter.
+*** Error code 1
+
+[07/01/94 public]
+This error is really just a warning.  There is (was) an error in that file,
+however, it was that sys/fcntl.h could not be found.  See OT CR 11158.
+
+(The error you are seeing, by the way, is an AIX bug:
+	extern int fchmod(char*, mode_t)
+is how their system header files declare fchmod.  The first param should
+be int.)
+
+
+
+CR Number                     : 11038
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : i486
+S/W Ref Platform              : osf1
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : failures with secval service
+Reported Date                 : 6/22/94
+Found in Baseline             : 1.1
+Found Date                    : 6/22/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 11027
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/22/94 public]
+Installed 'Beta' dce. (BL-10)
+Brought of a simple cell with rpcd
+killed sec_clientd.
+I built dced using the sources from the backing tree.
+
+dced -di
+dced -def 
+
+Ran all the dced api tests - 
+	all the tests excepts for secval tests pass.
+
+
+	secval tests fail with rpc_s_no_more_bindings(382312629)
+	during binding_create.
+
+	observation:
+	binding_create with format /.:/host/config/service for secval
+	service passes, while other formats fail.
+
+
+	ofcourse, then secval_start returns with
+	rpc_s_bad_binding(289255524), when that binding handle is used.
+
+[6/28/94 public]
+This bug is caused by the failure of rpc_ns_binding_import_next() in
+dced_binding_create() and is a duplicate of OT#11027.
+
+
+
+CR Number                     : 10847
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : server srvrconf
+Short Description             : srvrconf create core dumps
+Reported Date                 : 6/2/94
+Found in Baseline             : 1.1
+Found Date                    : 6/2/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 10857
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[6/2/94 public]
+srvrconf create core dumps. either the caller of string_copy or
+string_copy itself need to check null pointer. Here is the gdb
+stack info,
+#0  0xa40408d2 in strlen ()
+#1  0x40495e in string_copy (new=0x49f990, old=0x49f828, 
+    alloc=0x40404c <copy_via_malloc>, st=0x59aaf4)
+    at ../../../../../src/admin/dced/server/misc.c:396
+#2  0x404e93 in service_copy (new=0x49f970, old=0x49f808, 
+    alloc=0x40404c <copy_via_malloc>, st=0x59aaf4)
+    at ../../../../../src/admin/dced/server/misc.c:560
+#3  0x404f84 in service_list_copy (new=0x4cd680, old=0x59a900, 
+    alloc=0x40404c <copy_via_malloc>, st=0x59aaf4)
+    at ../../../../../src/admin/dced/server/misc.c:582
+#4  0x404ff5 in server_copy (new=0x4cd66c, old=0x59a8ec, 
+    alloc=0x40404c <copy_via_malloc>, st=0x59aaf4)
+    at ../../../../../src/admin/dced/server/misc.c:600
+#5  0x404722 in srvr_add_to_table (t=0x42cdb0, new=0x59a858, st=0x59aaf4)
+    at ../../../../../src/admin/dced/server/misc.c:310
+#6  0x409d25 in srvrconf_create (h=0x4b8098, server=0x59aaf8, st=0x59aaf4)
+    at /project/dce/build/dce1.1/src/admin/dced/server/scops.c:130
+#7  0x41eaba in op2_ssr (h=0x4b8098, IDL_call_h=0x5d9bf8, IDL_elt_p=0x59ae4c, 
+    IDL_drep_p=0x4f57b8, IDL_transfer_syntax_p=0x5d9df4, IDL_mgr_epv=0x42aec0, 
+    IDL_status_p=0x59ae28) at srvrconf_sstub.c:1980
+#8  0xa41fc2d4 in rpc__cn_call_executor (6134776, 0)
+#9  0xa41d3b08 in cthread_call_executor (5201144)
+#10 0xa41ac38b in cma__thread_base ()
+#11 0xa41b177d in cma__create_thread ()
+#12 0xa41d3958 in cthread_call_executor ()
+#13 0x5750e0 in acl_db ()
+Cannot access memory at address 0x2.
+
+
+
+CR Number                     : 10781
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : dced core dumps easily on
+keytab create or hostdata create operations ((HP only)
+Reported Date                 : 5/25/94
+Found in Baseline             : 1.1
+Found Date                    : 5/25/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 10757
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/25/94 public]
+
+Core dump happens quickly wqhen running dcecp keytab and hostdata FVT's
+on HP.
+
+The top of the stacks is free().  See OT #10778 & OT #10779, also free related
+core dumps in the libs.
+
+
+
+CR Number                     : 10772
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa
+S/W Ref Platform              : hpux
+Component Name                : dced
+Subcomponent Name             : server
+Short Description             : dced core dumps with multiple
+rkeytab_change_key
+Reported Date                 : 5/25/94
+Found in Baseline             : 1.1
+Found Date                    : 5/25/94
+Severity                      : A
+Priority                      : 1
+Status                        : dup
+Duplicate Of                  : 10615
+Fix By Baseline               : 1.1beta
+Fixed In Baseline             : 1.1b9
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/25/94 public]
+
+when I tried to use the keytab_change_key api more than once on HP,
+dced server core dumps.
+
+
+test1 :
+	create the principal etc, thro' rgy_edit
+	dced_keytab_create
+	get the version number for the key
+	dced_keytab_add_key
+	dced_keytab_change_key (with version 0)
+	dced_keytab_change_key (with version 0)
+	dced_keytab_change_key (with version 0)
+	dced_keytab_change_key (with version 0)
+	..
+	dced_keytab_delete
+
+	Note: this test works fine on 486/osf with no problems.
+
+test2:
+	create the principal etc, thro' rgy_edit
+	dced_keytab_create
+	get the version number for the key
+	dced_keytab_add_key
+	sec_key_mgmt_change_key (with version 0)
+	sec_key_mgmt_change_key (with version 0)
+	sec_key_mgmt_change_key (with version 0)
+	sec_key_mgmt_change_key (with version 0)
+	...
+	dced_keytab_delete
+
+	Note: this test works fine both on 486/osf and hp/ux
+		with no problems.
+
+[6/3/94 public]
+It's dumping core within the code in sec_key_mgmt_change_key() that binds
+to the registry, not any of the DCED code.  It's from the "good" nightly
+build of May 31.
+
+Here's a stack trace
+ 0 TMEM@libc + 0x000ad284 (0x40011568, 0, 0, 0)
+ 1 TMEM@libdce + 0x000904bc (0x4034d4d8, 0x4029910c, 0x4034d3d0, 0x40298c40)
+ 2 rca_site_resolve_update (auth_info = 0x40298c40, icontext = 0x403462a8,
+    ocontext = 0x402987bc, status = 0x40297870)
+    [/project/dce/build/dce1.1/src/security/client/rca/internal_binding.c: 2455]
+ 3 sec_rgy_site_bind_update (site_name = 0x402987c0, auth_info = 0x40298c40,
+    context = 0x402987bc, status = 0x40297870)
+    [/project/dce/build/dce1.1/src/security/client/rca/binding.c: 201]
+ 4 sec_key_mgmt__bind_rgy (principal_name = 0x402d0478, auth_type =
+    sec_rgy_bind_auth_dce, lc = 0x4034b090, rel_princ_name = 0x40298bf0,
+    cell = 0x402987c0, update = 1, rgy_h = 0x402987bc, st = 0x40297870)
+    [/project/dce/build/dce1.1/src/security/client/key_mgmt/seckey_util.c: 396]
+ 5 sec_key_mgmt_change_key (authn_service = 1, arg = 0x402d0da0,
+     principal_name = 0x402d0478, key_vno = 0, keydata = 0x402d0ee8,
+     garbage_collect_time = 0x40297b40, err = 0x40297870)
+    [/project/dce/build/dce1.1/src/security/client/key_mgmt/keymgmt.c: 286]
+ 6 rkeytab_change_key (h = 0x402d4ba0, id_uuid = 0x4029784c, key = 0x4029785c,
+    st = 0x40297870)
+    [/project/dce/build/dce1.1/src/admin/dced/server/kmops.c: 499]
+ 7 op6_ssr (h = 0x402d4ba0, IDL_call_h = 0x400ae6d8, IDL_elt_p = 0x4029751c,
+     IDL_drep_p = 0x400aead0, IDL_transfer_syntax_p = 0x400ae8d4,
+     IDL_mgr_epv = 0x400085c8, IDL_status_p = 0x40297550)
+    [rkeytab_sstub.c: 1353]
+ 8 TMEM@libdce + 0x0013ddd8 (0x400ae6d8, 0, 0, 0)
+ 9 TMEM@libdce + 0x00105410 (0x401349a0, 0x7af54e40, 0x40027928, 0x13
+
+Rajendra reports there this is from a known bug (10615) in sec_id_parse_name()
+(actually, it's deeper - where it binds to the registry).
+
+
+
+CR Number                     : 10604
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : server
+Short Description             : build error from /admin/dced/server
+Reported Date                 : 5/11/94
+Found in Baseline             : 1.1
+Found Date                    : 5/11/94
+Severity                      : A
+Priority                      : 0
+Status                        : dup
+Duplicate Of                  : 10603
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+
+[5/11/94 public]
+
+
+
+see related ot 10556 05-06-94
+
+
+[ /admin/dced/server at 00:05 (AM) Wednesday ]
+*** Error code 1
+*** Error code 1
+*** Error code 1
+*** Error code 1
+`build_all' not remade because of errors.
+*** Error code 1
+`build_all' not remade because of errors.
+*** Error code 1
+
+
+
+CR Number                     : 6373
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : secval serviceability
+Short Description             : sec_clientd does not print a warning on clock skew
+Reported Date                 : 12/8/92
+Found in Baseline             : 1.0.2
+Found Date                    : 12/8/92
+Severity                      : C
+Priority                      : 2
+Status                        : dup
+Duplicate Of                  : 11725
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Deltas               : 
+Transarc Herder               : jaffe@transarc.com
+Transarc Status               : open
+
+[12/8/92 public]
+Occasionally, I will restart a pmax after having it in the debugger.  This
+causes the clock to be severely wrong.
+
+When I restart the machine, and run rc.dce, the script hangs waiting for 
+sec_clientd to reset its credentials.  If I run sec_clientd with the -d
+switch, I get the following output:
+
+root@osf.transarc.com  #  /opt/dcelocal/bin/sec_clientd -d
+/opt/dcelocal/bin/sec_clientd 12/07/92 21:26:57 - Unable to validate machine con
+text
+... Clock skew too great (dce / krb)
+
+This is very nice, and the enhancment is to print this message to the 
+console even when not in debugging mode so that the user has some hope
+of noticing the problem.
+
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `jaffe@transarc.com' 
+Added field Transarc Status with value `open'
+
+[12/8/92 public]
+It's an enhancement for security, not DFS, to make.
+Changed Component Name from `dfs' to `sec' 
+Changed Subcomponent Name from `sec' to `' 
+Filled in Interest List CC with `bb+transarc.afs.ot-notices@transarc.com' 
+Changed Responsible Engr. from `sehkar@osf.org' to `' 
+Changed Resp. Engr's Company from `osf' to `'
+
+[08/26/94 public]
+I think John will fix this as part of doing dced serviceability.
+sec_clientd is superceded in DCE 1.1 by dced's secval service.
+
+
+
+CR Number                     : 6317
+Defect or Enhancement?        : enh
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : secval serviceability
+Short Description             : sec_clientd as liveness agent
+Reported Date                 : 12/3/92
+Found in Baseline             : 1.0.2
+Found Date                    : 12/3/92
+Severity                      : E
+Priority                      : 4
+Status                        : dup
+Duplicate Of                  : 11725
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 
+Affected File(s)              : 
+Sensitivity                   : public
+Transarc Status               : open
+Transarc Deltas               : 
+Transarc Herder               : jaffe@transarc.com
+
+[12/3/92 public]
+  A seviceability enhancement appears to be worth investigating:
+sec_clientd is in an appropriate environment to monitor the liveness
+of the registry master database (and, implicitly, the communications
+path to it). We have encoutnered situations in which security clients
+(applications) are burdened with this task. Encapsulating this within
+sec_clientd would permit a uniform response to unexpected and
+prolonged registry outages. While individual routines of the sec
+library cannot display warnings or use more conventional means of
+informing the outer world what has happened (and what ought to be
+done), sec_clientd could cleanly log system notices when the registry
+master becomes unreachable or unresponsive. This would permit direct
+notification of an external operator or monitor, and allow a fair
+amount of detail to be included in the notification without
+transporting these details through the applications.
+Added field Transarc Deltas with value `' 
+Added field Transarc Herder with value `jaffe@transarc.com' 
+Added field Transarc Status with value `open'
+
+[08/26/94 public]
+This is almost a dup of 6373.  I think John should fix this as part
+of the SVC work for dced's secval, the DCE 1.1 replacement for sec_clientd.
+
+[8/31/94 public]
+Changed Interest List CC from `travis@transarc.com, sanzi@transarc.com, 
+ bb+transarc.kansas.sfs@transarc.com' to `travis@transarc.com, 
+ sanzi@transarc.com'
+
+[09/13/94 public]
+The secval validate, enable, disable and status operations, in conjunction
+with the SVC logging, should meet this need.  Marking as a dup of the
+svc work.
+
+
+

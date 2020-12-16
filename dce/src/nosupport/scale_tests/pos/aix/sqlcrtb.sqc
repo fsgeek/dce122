@@ -1,0 +1,218 @@
+/*********************************************************************/
+/* SQLCRTB.SQC Creates Empty DB2/2 Tables for POS                    */
+/*********************************************************************/
+/*** IBM Corporation                                               ***/
+/*** OS/2 LAN Systems Performance                                  ***/
+/*** Department 59LS                                               ***/
+/*** 11400 Burnet Road                                             ***/
+/*** Austin Texas 78759                                            ***/
+/*** Bob Russell, ZIP 9151                                         ***/
+/*** (512) 838-0454 TL 678-0454                                    ***/
+/*********************************************************************/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <os2.h>
+#include <os2def.h>
+
+#include <sys\stat.h>
+#include <sys\timeb.h>
+#include <sys\types.h>
+#include "pos.h"
+
+#include "sql.h"
+#include "sqlenv.h"
+#include "sqlca.h"
+#include "sqlcodes.h"
+#include "sqlutil.h"
+#include "sqlda.h"
+
+/* * * * * * * * * * * * * * * global/external variables  * * * * * * * * * */
+void dump_sqlca(void);
+
+EXEC SQL INCLUDE SQLCA;
+
+/***********************************************
+ Begin MAIN
+ ***********************************************/
+
+
+void main(short argc, unsigned char * argv[]);
+void main(short argc, unsigned char * argv[])
+{
+  char          * env_ptr = NULL;
+  unsigned char database[24]={"POS96"};
+  /******************************************************/
+
+  EXEC SQL BEGIN DECLARE SECTION;
+
+    char       cmdstring[150];
+
+  EXEC SQL END DECLARE SECTION;
+
+  /******************************************************/
+   printf("*******************************************\n");
+   printf("*        IBM Corporation(c) 1995          *\n");
+   printf("*        PSP Systems Performance          *\n");
+   printf("*       Point of Sale DCE Benchmark       *\n");
+   printf("*           Department 59LS               *\n");
+   printf("*             Austin, TX                  *\n");
+   printf("*******************************************\n");
+
+  /************* GET DB2/2 database name ****************/
+  if (!(env_ptr = getenv("POSDBNAME")))
+    strcpy(database,"POS96");
+  else
+    sprintf(database,env_ptr);
+
+  /************* Open the Database *********************/
+  printf("Start Using Database <%s> ", database);
+  sqlestrd( database, SQL_USE_SHR, &sqlca);
+  printf("SQLCODE= %ld\n",sqlca.sqlcode);
+  if (sqlca.sqlcode) dump_sqlca();
+
+  /****************************************************/
+  printf("DROP posadmin.customer TABLE \n");
+  strcpy(cmdstring,"DROP TABLE posadmin.customer");
+
+  EXEC SQL
+    EXECUTE IMMEDIATE :cmdstring;
+
+  printf("DROP CUSTOMER  sqlcode= %ld \n",sqlca.sqlcode);
+
+  if (!sqlca.sqlcode)
+  {
+    EXEC SQL COMMIT;
+    printf("COMMIT sqlcode= %ld\n",sqlca.sqlcode);
+  }
+  else
+    dump_sqlca();
+
+  /****************************************************/
+  printf("CREATE TABLE posadmin.customer TABLE \n");
+
+  EXEC SQL
+    CREATE TABLE posadmin.customer  (
+          area_code             integer  ,
+          phone_no              integer  ,
+          extn                  varchar(10)  ,
+          acct_id               integer  ,
+          cust_last_name        varchar(50) ,
+          cust_first_name       varchar(26) ,
+          cust_MI               varchar(4)  ,
+          ship_addr             varchar(74) ,
+          mail_addr             varchar(74) ,
+          state                 varchar(6)  ,
+          city                  varchar(50) ,
+          zip_code              integer  ,
+          cust_type             varchar(4)  ,
+          disc_pcnt             decimal(8,3),
+          tax_pcnt              decimal(8,3),
+          drv_lic               varchar(26) ,
+          drv_lic_state         varchar(4)  ,
+          date_last_purch       date     ,
+          cust_ref              varchar(74) ,
+          cust_filler           varchar(70) );
+
+  printf("CREATE sqlcode= %ld\n ",sqlca.sqlcode);
+
+  if (!sqlca.sqlcode)
+  {
+    EXEC SQL COMMIT;
+    printf("COMMIT sqlcode= %ld\n",sqlca.sqlcode);
+    EXEC SQL
+        GRANT ALL ON posadmin.customer TO PUBLIC;
+    printf("GRANT  sqlcode= %ld\n",sqlca.sqlcode);
+  }
+  else
+    dump_sqlca();
+
+  /****************************************************/
+  printf("DROP posadmin.price TABLE \n");
+  strcpy(cmdstring,"DROP TABLE posadmin.price");
+
+  EXEC SQL
+    EXECUTE IMMEDIATE :cmdstring;
+
+  printf("DROP PRICE  sqlcode= %ld \n",sqlca.sqlcode);
+
+  if (!sqlca.sqlcode)
+  {
+    EXEC SQL COMMIT;
+    printf("COMMIT sqlcode= %ld\n",sqlca.sqlcode);
+  }
+  else
+    dump_sqlca();
+
+  /****************************************************/
+  printf("CREATE TABLE posadmin.price TABLE \n");
+
+  EXEC SQL
+    CREATE TABLE posadmin.price  (
+         item_no      integer     ,
+         upc_no       integer     ,
+         descr        varchar(36) ,
+         dept_no      varchar(4)  ,
+         qty_on_hand  integer     ,
+         inv_unit     varchar(8)  ,
+         ord_at_qty   integer     ,
+         qty_to_ord   integer     ,
+         inv_cnt      integer     ,
+         inv_date     date        ,
+         qty_on_ord   integer     ,
+         lst_ord_dt   date        ,
+         price_1      decimal(8,2),
+         eff_dt_1     date        ,
+         price_2      decimal(8,2),
+         eff_dt_2     date        ,
+         price_3      decimal(8,2),
+         eff_dt_3     date        ,
+         unit_cost    decimal(8,2));
+
+  printf("CREATE sqlcode= %ld\n ",sqlca.sqlcode);
+
+  if (!sqlca.sqlcode)
+  {
+    EXEC SQL COMMIT;
+    printf("COMMIT sqlcode= %ld\n",sqlca.sqlcode);
+    EXEC SQL
+        GRANT ALL ON posadmin.price TO PUBLIC;
+    printf("GRANT  sqlcode= %ld\n",sqlca.sqlcode);
+  }
+  else
+    dump_sqlca();
+
+  /*********************************************************************/
+  exit;
+}
+/***********************************************
+ End of Main
+ ***********************************************/
+/*****************************/
+void dump_sqlca(void)
+{
+int j=0,k=0,i=0;
+  printf("Error: SQLCODE=%ld\n", sqlca.sqlcode);
+
+  printf("sqlcabc = %ld sqlcode = %ld sqlerrml = %d\n",
+          sqlca.sqlcabc, sqlca.sqlcode, sqlca.sqlerrml);
+
+  printf("slerrmc[]:\n");
+  for(j=0; j < 7 && i < sqlca.sqlerrml; j++)
+  {
+     for(k= 0; k < 10 && i < sqlca.sqlerrml; k++)
+        printf("%x ", sqlca.sqlerrmc[j*10+k]);
+        i++;
+     printf("\n");
+  }
+  printf("sqlerrp[]: ");
+  for(j=0; j< 8; j++) printf("  %x", sqlca.sqlerrp[j]);
+  printf("\nsqlerrd[]: ");
+  for(j=0; j< 6; j++) printf(" %x", sqlca.sqlerrd[j]);
+
+  printf("\nsqlwarn[]");
+  for(j=0; j< 8; j++) printf(" %x", sqlca.sqlwarn[j]);
+  printf("\n");
+}

@@ -1,0 +1,175 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: BOSSVR.3dfs,v $
+...\" Revision 1.1.2.2  1994/06/10  21:09:11  devobj
+...\" 	cr10872 - fixed copyright
+...\" 	[1994/06/10  20:48:37  devobj]
+...\"
+...\" Revision 1.1.2.1  1994/04/05  15:14:56  rom
+...\" 	{enh, 10283, R1.1}
+...\" 	Moved from dce_books/app_ref/man3dfs/BOSSVR.3dfs to
+...\" 	supp_docs/redistrib/dfs_app_gdref/man3dfs/BOSSVR.3dfs.
+...\" 	[1994/04/04  22:02:33  rom]
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc. ALL RIGHTS RESERVED
+.TH "BOSSVR" "3dfs" "" "" ""
+.iX "functions in DFS"  "file server monitoring"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.SH "NAME"
+.PP
+\*LBOSSVR\*O - Introduction to file server monitoring functions
+.SH "SYNOPSIS"
+.PP
+.sS
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.zA"defect,5992,r1.0.2,fixed include directory"
+\*L#include <dcedfs/bbos_ncs_interface.h>
+.zZ"defect,5992,r1.0.2,fixed include directory"
+.nL
+#include <dce/rpc.h>\*O
+.sE
+.br
+.ne 1.5i
+.SH "Libraries"
+.PP
+All \*LBOSSVR...(\|)\*O functions are defined in the library \*Llibdcedfs.a\*O.
+.PP
+.PP
+.br
+.ne 1.5i
+.SH "DESCRIPTION"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.PP
+The \*LBOSSVR...(\|)\*O (BOS Server interface) functions provide the basic
+process monitoring and system software installation tools used for maintaining
+the DFS file server machines. The functions fall into several
+categories.
+.ML
+...\'wH UNDEFINED{tightenlist}
+.LI
+Process Monitoring: Monitoring processes and restarting them on failure.
+.LI
+Server Key Maintenance: Maintaining the set of authentication keys
+used by the various DFS servers.
+.LI
+Binary Maintenance: Installing new binaries on the server machines and
+scheduling server restarts to pick up the newly installed binaries.
+.LI
+Authorization: Ensuring that only authorized users
+reconfigure the servers. Authentication of these users is handled by
+the DCE authentication system.
+.LE
+.SS Process Monitoring
+.iX "BOS Server"  "process monitoring"
+.iX "bnode in DFS"  "simple"
+.iX "bnode in DFS"  "\*Lcron\*O"
+.PP
+Processes that are run under the BOS Server are specified by
+the term ``bnodes.''  The process monitoring routines create, delete,
+and alter these processes and start and stop the BOS Server.
+Bnodes have types, and for each type of
+bnode, the BOS Server has embedded code defining how those
+processes are managed. There are two types
+of bnodes: \*Lsimple\*O bnodes and \*Lcron\*O bnodes.
+.PP
+All bnodes are parameterizable at bnode creation time. Bnode
+parameters are character strings, and each type of bnode has its own
+specific set of parameters.
+.PP
+A \*Lsimple\*O bnode manages a single process, and manages it with a simple
+goal: to keep the process running. If a process managed by a \*Lsimple\*O
+bnode crashes, it is restarted, and any resulting core file is saved
+for future reference. If the process restarts too often in a given
+period, the bnode instance is marked as damaged and is shut down pending an
+operator's intervention. Most bnode instances in a file server installation
+are \*Lsimple\*O bnodes.
+.PP
+A \*Lsimple\*O bnode has only one parameter, the command string to be
+used to start the process. The command string is parsed by the
+BOS Server itself, and thus cannot contain the usual shell-provided
+expansions (such as those containing asterisks), but otherwise
+resembles a typical
+\ UNIX
+\ command. This command is reexecuted
+whenever the process needs to be restarted.
+.PP
+A \*Lcron\*O bnode manages a single process that is to be run either
+once-only or periodically. Essentially, this is a generalization of
+the \*Lsimple\*O bnode that runs a process, but leaves it shut down after it
+exits until the next time that the process is scheduled to be executed.
+After a process's last scheduled execution (assuming that it \*Ehas\*O a
+last execution), a \*Lcron\*O bnode deletes itself; this generally only
+occurs with once-only bnodes.
+.PP
+A \*Lcron\*O bnode has two parameters. The first is the
+command to be used to start the process to be managed, and the second
+is a string that can be parsed as a periodically recurring date,
+giving the times that the process should be run.
+.iX "bnode in DFS"  "time format"
+.PP
+The date format is one of the following (all are strings):
+.ML
+...\'wH UNDEFINED{tightenlist}
+.LI
+\*Lnever\*O
+.LI
+\*Lnow\*O
+.LI
+A day of the week and a time (in 24-hour notation),
+separated by spaces, such as \*Lwed\ 16:00\*O.
+.nL
+Such processes run once per week.
+The day must come first and be in lowercase.
+Use either the entire day name or the first three letters.
+.LI
+A time, in 24-hour notation. The process runs once per day.
+.LE
+.SS Server Key Maintenance
+.iX "BOS Server"  "server key maintenance"
+.PP
+The server key maintenance functions maintain the authentication keys
+used by DFS servers. More information about server keys can be found in
+the Security chapters of the \*VOSF DCE Application Development Guide\*O.
+.SS Binary Maintenance
+.iX "BOS Server"  "binary maintenance"
+.iX "binaries in DFS"  "maintaining"
+.PP
+There are several functions for installing system binaries and recovering to
+earlier versions when necessary.
+.SS Authorization
+.iX "BOS Server"  "authorization"
+.PP
+There are functions to maintain DFS server administration lists.
+.br
+.ne 2.5i
+.SS Structures
+.PP
+A number of functions in this section return strings in the
+\*Lbossvr_out_string\*O structure. This structure is defined as follows:
+...\'wH UNDEFINED{footnotesize}
+.iS
+struct bossvr_out_string {
+	unsigned32 strLen;
+	unsigned char *theString;
+}
+.iE
+.br
+.ne 1.1i
+.SH "RELATED INFORMATION"
+...\'wH NOT_HANDLED{hspace{.15 in}}
+.PP
+.ad l
+Functions:
+\*Lintro(3dfs)\*O.
+.PP
+Books:
+\*VOSF DCE Applications Development Guide\*O.
+.ad b

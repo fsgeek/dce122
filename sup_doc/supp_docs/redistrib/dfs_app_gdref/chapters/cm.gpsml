@@ -1,0 +1,703 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: cm.gpsml,v $
+...\" Revision 1.1.2.3  1994/06/10  21:08:05  devobj
+...\" 	cr10872 - fixed copyright
+...\" 	[1994/06/10  20:47:51  devobj]
+...\"
+...\" Revision 1.1.2.2  1994/04/06  16:52:56  zahn
+...\" 	{enh,5923,R1.1}
+...\" 
+...\" 	Fixed cross-refs to now-defunct User's Guide and
+...\" 	Reference.
+...\" 	[1994/04/06  16:52:44  zahn]
+...\" 
+...\" Revision 1.1.2.1  1994/04/05  15:14:12  rom
+...\" 	{enh, 10283, R1.1}
+...\" 	Moved from dce_books/app_gd/dfs/2.cm.dfs.gpsml to
+...\" 	supp_docs/redistrib/dfs_app_gdref/chapters/cm.gpsml.
+...\" 	[1994/04/04  20:55:05  rom]
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc. ALL RIGHTS RESERVED
+..."Copyright (C) 1989, 1991, 1992, 1993 Transarc Corporation
+..."The Gulf Tower
+..."707 Grant Street
+..."Pittsburgh, PA  15219
+.H 1 "General Cache Manager Operations"
+.iX "-[" "DFS" "Cache Manager" 
+.iX "-: DFS Cache Manager" "Cache Manager"
+.P
+.zA "defect, 6441, r1.0.2, pioctl changes"
+.zA"defect, 6386, r1.0.2, fixed bogus () notation"
+This chapter describes the operations you can perform with the DFS Cache
+Manager. The Cache Manager is the process on the client machine that maintains
+information about filesets that have already been fetched from the server.
+For more information about the general operation of the Cache Manager, see the
+introductory chapter of this guide, or the
+\*EOSF DCE Administration Guide\*O. For more information
+about the functions described in this chapter, see the \*EOSF DCE Application
+Development Reference\*O.
+.P
+The Cache Manager is the part of DFS that is responsible
+for the local caching of file and directory data on file system clients.
+Once a file or directory is requested by a client, the data is kept
+(cached) until either it is flushed or the cache storage is
+recycled. DFS provides functions to access cached data, manipulate
+related fileset information, and control the behavior of the
+Cache Manager. These function calls are described in this chapter.
+.P
+At the end of this chapter is a summary of the syntax and parameters
+for the various calls.
+.P
+.H 2 "Using the pioctl(\|) System Call"
+.zA "defect,5278,r1.0.2,remove ioctl"
+Most Cache Manager management
+operations are done through the \*Lpioctl(\|)\*O
+call. ACLs are manipulated through the \*Lafs_syscall(\|)\*O system call.
+Both calls take several
+arguments, one of which is the identifier of the specific call to apply.
+.P
+The \*Lpioctl(\|)\*O call is very similar to the \*Lioctl(\|)\*O call on
+BSD Unix systems.  One important
+difference between the two is that for \*Lpioctl(\|)\*O, the first argument,
+which refers to the file or directory to which the call applies, is
+passed via a pathname rather than via a file descriptor.
+(The \*Lp\*O in \*Lpioctl(\|)\*O stands
+for pathname.) Using pathnames is necessary because pathnames, unlike
+file descriptors, can refer to files or directories that do not actually exist.
+Some calls, in fact, use the first argument to supply a directory and another
+argument to supply the name of a file in that directory; if the file does
+not exist but the directory does, some actions can still be taken, while
+a descriptor cannot be obtained on a nonexistent file.
+.P
+The second argument is the specific call to be issued.
+Constants are defined for these values; you should use those constants
+rather than specific numeric values.
+The syntax summary at the end of this chapter contains these constants and
+other parameter information for each \*Lpioctl(\|)\*O call. 
+Further information is also
+provided in the \*EOSF DCE Application Development Reference\*O.
+.P
+The third argument is a pointer to the block of data to
+be manipulated by the call. This data block contains an input buffer
+and an output buffer, one, both, or neither of which may be used for
+any particular call. The exact nature of this data depends
+on which call is being made. More information is given later
+in this chapter.
+.P
+The fourth argument determines what file should be used if the file
+specified is a symbolic link. If this parameter is 1, the symbolic link
+is followed to its destination and the call is applied to that destination
+file. If the parameter is 0 (zero), the call is applied to the symbolic link
+itself. Note that this fourth parameter applies to a symbolic link only
+if the link is the last component of the pathname; links encountered in
+intermediate components are always followed.
+.zZ "defect,5278,r1.0.2,remove ioctl"
+.P
+Not all \*Lpioctl(\|)\*O calls affect files. In those cases, a null pointer
+may be used for the pathname argument (in other words, \*L(char *)0\*O).
+.P
+All calls either return 0 (zero), indicating successful execution, or 
+return -1 and set \*Lerrno\*O to an
+error flag. Output, when provided, is placed in the output buffer, which
+is the third argument to \*Lpioctl(\|)\*O.
+.P
+The \*Lpioctl(\|)\*O calls described in this chapter are only
+meaningful for operations on the DFS; in particular, they do not operate
+on files in the local file system.
+.P
+The following \*Lpioctl(\|)\*O calls require root privileges to perform:
+.ML
+.LI
+\*LVIOC_AFS_SYSNAME\*O
+.LI
+\*LVIOC_CLOCK_MGMT\*O (setting only)
+.LI
+\*LVIOCSETCACHESIZE\*O
+.LI
+\*LVIOC_SETCELLSTATUS\*O
+.LI
+\*LVIOCSETVOLSTAT\*O
+.LE
+.H 3 "System, Cell, and Fileset Operations"
+.P
+The calls in the following subsections have to do with 
+getting information and performing
+operations on the system (workstation), cell, and filesets. Some information
+is related to the system in general (and not DFS in particular), some
+is related to the cell as a whole, and some is related to filesets. Anyone
+with access to the right directories, as determined by Access Control
+Lists on those directories,
+can examine this information, but usually only system administrators
+or root can change it.
+You should make sure you know the implications of what you are doing before
+you alter things at the system or cell level, as you will be affecting
+many other people. For more information about these implications, see the
+\*EOSF DCE Administration Guide\*O.
+.H 4 "System Information"
+.iX "-[" "pioctls"
+.iX "checking run status of file servers"
+.P
+It is often useful to be able to
+check to see which file servers are up before starting expensive
+operations.  The \*Lpioctl(\|)\*O call \*LVIOCCKSERV\*O 
+can be used to get this information. It returns a list of socket addresses
+of servers that are down (or none, if no servers are down).
+It can operate in one of two modes. The first (the ``quick'' mode) uses
+cached information about server status, which is updated periodically.
+The second (the ``thorough'' mode) performs the check when the call is made,
+so the information is more accurate, but at a price.
+The fast check is the recommended one unless your application
+really needs up-to-the-minute information. The thorough check is
+potentially expensive, as a query to a server that is down will
+have to wait to time out. Cached information about which
+servers are up is usually updated every 10 or 15 minutes; this time is
+controlled by parameters set by the system administrator.
+.iX "setting" "@sys variable"
+.P
+The \*Lpioctl(\|)\*O call \*LVIOC_AFS_SYSNAME\*O is 
+used to set or query the string that the \*E@sys\*O
+variable uses for pathname expansion. This variable, when used in a path, is
+expanded by the kernel; if you set it to different values on different
+hardware platforms, you can, for instance, use \*E@sys\*O to point
+to platform-dependent binaries while still using only one path in the code
+that calls them. The user command \*Lcm sysname\*O checks the current
+platform's type.
+.P
+It is not necessary to set the pathname variable, as DFS 
+knows what its hardware and operating system are.
+.P
+The input to this call contains a flag that indicates whether to query or
+set the value, and if setting a value, which value to use.
+.iX "setting" "local clock"
+.iX "examining, local clock"
+.P
+Because so many Cache Manager operations are tied to the time, there is
+a \*Lpioctl(\|)\*O call to examine and change the setting of the local
+machine's clock. This call, \*LVIOC_CLOCK_MGMT\*O, also fetches and stores
+kernel values that describe the clock's accuracy. This
+feature is typically used only on client-only machines to set
+the machine's clock based on the time as set on a local File Server
+machine. This feature is initialized with \*Ldfsd\*O (see the
+\*EOSF DCE Administration Guide\*O).
+.P
+The clock data block contains a number of items, which are described in
+the \*EOSF DCE Application Development Reference\*O.
+.H 4 "Cells"
+.P
+There are several types of information that you may want to get about a cell.
+.P
+The \*Lpioctl(\|)\*O call \*LVIOCGETCELL\*O provides a list of the known 
+Fileset Location Servers (FL Servers)
+for a cell. The call provides the addresses of FL Servers
+known to the workstation on which the call is made.
+.iX "getting"  "all known cells"
+The way to use this function is to keep calling it, incrementing the cell
+number (starting with 0 (zero)), 
+until you reach the end of the list of cells, at
+which point the call returns an error.
+.P
+\*LVIOC_GETCELLSTATUS\*O and \*LVIOC_SETCELLSTATUS\*O 
+obtain
+and set the status information for a named cell. Currently, the only
+information available is a status bit that indicates 
+whether the named cell is
+the local one.
+.H 4 "Mount Points"
+.iX "mount points"
+.P
+A fileset is connected to the root directory of other filesets through a
+DFS mount point. Each mount point connects to the root directory of a
+fileset. The mount point looks like an ordinary subdirectory,
+but it is actually a special interface to a fileset.
+A mount point's name is the name of the subdirectory.
+Mount points are created after the filesets themselves are created.
+.P
+Unlike Network File System (NFS) mount points, DFS mount points are stored in the file system.
+They are thus persistent, meaning that they survive system restarts.
+.P
+Given the name of a mount point, it is possible to find the name of the
+fileset to be mounted at that place. Mount point and fileset names can,
+and should, be different.
+A fileset's name should be more verbose than the name that
+users of the system see. Users want to see terse names, but system
+administrators often want verbosity to make tasks such as accounting and
+backups easier.
+For example, the fileset corresponding to the
+mount point \*Ljones\*O in the user tree may be \*Luser.jones\*O, indicating
+that this fileset corresponds to a user directory. Users browsing through the
+directory already know that this fileset is in the user space because a
+directory named something like \*Luser\*O or \*Lusr\*O is above it in
+the tree, so the information should not be repeated in the mount point
+name itself.
+.iX "getting"  "fileset names from mount points"
+.P
+The \*Lpioctl(\|)\*O call \*LVIOC_AFS_STAT_MT_PT\*O maps 
+mount point names to fileset names.
+In addition to the fileset name, this call provides the type of the
+mount point. (The call actually produces a single string that begins
+with the character representing the type.) Mount points come in three types:
+.ML
+.LI
+The first type (regular),
+indicated by the # (number sign) character, tells the Cache Manager to use the
+latest read-only replica (fileset copy) that corresponds to the named fileset,
+if the mount point is part of a read-only tree and there is a read-only
+version of the fileset. 
+.LI
+The second type, indicated
+by the % (percent sign) character, forces the 
+Cache Manager to use the read/write copy.
+.LI
+The third type, indicated by the ! (exclamation point) character, 
+indicates a mount point
+for the global namespace itself. 
+.LE
+.P
+The third type is typically only used for
+diskless support. Using regular mount points is more efficient than
+forcing the use of the read/write copy, but there
+are times when you want to force access to the original fileset.
+Replicas are discussed in more detail in
+Chapter 49 of this guide.
+.P
+Anyone who has delete access to the directory can delete a mount point.
+.iX "deleting"  "mount points"
+The \*Lpioctl(\|)\*O call \*LVIOC_AFS_DELETE_MT_PT\*O accomplishes this.
+If you want to completely
+remove a fileset and its mount points, you should use the
+fileset manipulation functions described in
+Chapter 51 of this guide.
+.H 4 "Filesets and Files"
+.P
+The \*Lpioctl(\|)\*O call \*LVIOCWHEREIS\*O 
+locates copies of a fileset, given the
+name of any file in it.
+.iX "files"  "getting fileset information"
+.iX "getting"  "fileset addresses"
+.iX "filesets"  "getting addresses"
+It returns the addresses of all servers that have copies of the
+fileset. This call allows you to make the correspondence between a
+server being down and a directory access timing out. If you give
+\*LVIOCWHEREIS\*O a file in a read-only fileset, it returns the read-only
+servers. If you give it a file in a read/write fileset, it returns the
+read/write servers.
+.P
+Given a filename, you may want to find out additional information about the
+fileset and cell in which it is stored. \*LVIOCWHEREIS\*O is useful for
+finding copies, but if you want other information, such as the fileset's
+cell or the file ID number of a particular file in the fileset, you need
+to use the \*Lpioctl(\|)\*O call \*LVIOCGETFID\*O.
+.iX "getting"  "fileset information"
+.iX "filesets"  "getting cell"
+.iX "files"  "getting fileset information"
+.iX "files"  "getting handles"
+.iX "files"  "getting cell information"
+This call, given a filename, gets the file handle, which is a string
+representing that file's cell identifier, fileset identifier, file slot
+number, and a uniquifier that, combined with the other information,
+ensures uniqueness.
+.P
+The cell and fileset identifiers are unique IDs assigned
+to the cell and fileset, respectively. The file slot number
+is the number of the file in the fileset. 
+.iX "file" "slot number"
+These numbers can be reused
+when files are deleted and others are created; you can think of a fileset
+as being an array of files (referenced by index number),
+and it is most efficient to fill the array from
+beginning to end. It is therefore preferable to put a new file in the
+earliest open slot in the array, rather than extending the array and giving
+the new file the highest position assigned to date.
+.iX "uniquifier"
+.P
+Because of this scheme, a uniquifier is needed to distinguish among
+files that occupy, or once occupied, a particular file slot. This is simply
+an integer specifying which file this is; when a file slot is first occupied
+the file is given a uniquifier of 1, and for each subsequent occupant of
+that file slot, the uniquifier is incremented.
+.P
+If all you want is the cell name for a file, you can call
+\*LVIOC_FILE_CELL_NAME\*O, which returns the name of the cell in which a
+file is stored.
+This is easier than calling \*LVIOCGETFID\*O and extracting the cell data.
+.iX "files"  "getting cell information"
+Note, however, that while \*LVIOCGETFID\*O returns the cell ID,
+\*LVIOC_FILE_CELL_NAME\*O returns the cell name.
+.P
+To summarize, \*LVIOCWHEREIS\*O finds copies of a fileset, 
+\*LVIOCGETFID\*O
+gets the file handle for a particular file within a fileset, and
+\*LVIOC_FILE_CELL_NAME\*O, given a filename, finds the name of the cell
+in which that file is stored.
+.H 4 "Fileset and File Access"
+.P
+...\" Note: calls currently not useful; commented out until status bits
+...\" actually defined.  -mjc 2-18-93
+...\" 
+...\" The \*Lpioctl(\|)\*O calls \*LVIOC_SETCELLSTATUS\*O 
+...\" and \*LVIOC_GETCELLSTATUS\*O
+...\" control and report status information about a cell. Currently, the only
+...\" status information available is whether a cell is the local one.
+.P
+The calls \*LVIOCGETVOLSTAT\*O and \*LVIOCSETVOLSTAT\*O control status
+information about a particular fileset, rather then the cell. There are
+two status flags for filesets. The first controls whether the \*Lsetuid\*O
+and \*Lsetgid\*O bits are to be honored for the fileset. The second
+controls whether special device files (those in \*L/dev\*O) can be seen from
+workstations other than the local one.
+.iX "accessing files"
+.iX "-: ACL" "access control list"
+.iX "ACL"  "accessing files"
+.P
+To determine if a caller has access rights to a file, according to the
+DFS ACL, use the \*Lpioctl(\|)\*O call \*LVIOCACCESS\*O. 
+When making this call,
+you supply the name of the file or directory and a mask specifying the types
+of access you want. The call fails if any of the
+requested permissions are denied, but it does not provide a way of finding out
+which one failed (short of iterating over all of the access rights).
+Because the denial of any single access right causes the
+entire call to fail, you should make sure you request only the rights you
+actually need to check.
+.P
+\*LVIOCACCESS\*O does not actually retrieve the file or change the last
+modification time; it just checks that you are able to access the
+file. You may want to check this in advance if, for example, you will
+be running a job later that requires access.
+.iX "pre-fetching files"
+.iX "files"  "pre-fetching"
+.P
+The Cache Manager allows clients to fetch files before they are actually
+needed in order to save time later. This is done to take advantage of idle time,
+or to prepare for accesses that must happen very quickly for
+application-specific reasons. The \*Lpioctl(\|)\*O call \*LVIOCPREFETCH\*O
+prefetches the desired file into the local cache, so that the first
+file access is treated like a later access. If the caller does
+not have access rights to the file, the prefetch is unsuccessful.
+.H 3 "The Cache"
+.P
+There are several \*Lpioctl(\|)\*O calls 
+that directly manipulate the local cache
+and its parameters. It is possible to manipulate cache parameters on only a
+single machine at a time;
+changes that you make on one machine do not propagate to
+any other. Further, these calls cannot affect remote machines; you have
+to run the application on each machine separately to make changes on multiple
+machines. If you want to permanently change cache parameters, it is probably
+better to do this through the standard system administration procedures,
+described in the \*EOSF DCE Administration Guide\*O. These
+calls are intended primarily for use by applications that need to make
+temporary or localized changes.
+.H 4 "Manipulating Cache Parameters"
+.P
+There is currently only one cache parameter that can be set or monitored:
+the cache size. The larger the cache, the more
+information you are able to store without performing unnecessary remote
+accesses. (If the cache fills up, the oldest entries are discarded first.)
+You need to balance this convenience against your other disk
+space needs, such as swap space and a local file system. More information
+about suggested sizes can be found in the \*EOSF DCE Administration
+Guide\*O.
+.P
+To change the size of the cache, use the \*Lpioctl(\|)\*O call
+\*LVIOCSETCACHESIZE\*O. 
+.iX "setting"  "cache size"
+.iX "cache size"  "setting"
+Size is allocated in 1024-byte units; you supply the number of these units
+to allocate. If you reduce the size of the cache, data is immediately
+deleted, oldest first, to make room.
+.P
+If you attempt to reduce the cache size to an unrealistic value, the
+cache is not resized. (See the \*EDCE Administration Guide\*O 
+for guidelines on appropriate values.)
+If you specify a size of 0 (zero), it is reset to its default value.
+.P
+The \*Lpioctl\*O call \*LVIOCGETCACHEPARMS\*O can be used to find out how many
+blocks of data are currently allocated to the cache, and how many of those
+are in use.
+.iX "getting"  "cache size"
+.iX "cache size"  "getting"
+.P
+There is no way to find out what is actually in the cache; you can only
+find out how much space it is using.
+.H 4 "Manipulating Pending File Writes"
+.P
+Sometimes the Cache Manager attempts to write a file and cannot do so because
+the fileset is over quota. This type of write failure is different from
+others because quota problems can be corrected more easily than, for example,
+protection problems. Thus, the Cache Manager will remember that it is trying
+to write the file and keep trying, rather than rejecting the write entirely,
+in the hope that room will be cleared for the file. By default, the Cache
+Manager repeats these attempts approximately once per minute.
+.iX "flushing" "pending write queue"
+.P
+If you want to flush the queue of pending writes, you can use the
+\*LVIOCRESETSTORES\*O call.
+There are no inputs or outputs. By the time a
+write gets to this point, the error [\*LEDQUOT\*O] has already been
+returned to the caller, so it is not sent again. At this stage, no
+guarantees are made that the write will actually succeed, but efforts
+are made anyway. Thus, canceling these efforts does not significantly
+change expectations held by the application.
+.iX "getting"  "pending write queue"
+.P
+To see what is in this queue, use \*LVIOCLISTSTORES\*O.
+This call produces a count of the files waiting and an array describing
+the filesets to which they are to be written.
+.H 4 "Flushing Information from the Cache"
+.P
+As discussed earlier, when the Cache Manager needs to make room to cache
+something, it flushes the oldest data it has. Sometimes your cache
+fills quickly causing the Cache Manager to flush something you still need.
+Thus, it is sometimes useful to be able to explicitly flush data
+from the cache to reclaim space, to prevent flushing data you still want,
+or to repair a corrupted cache.
+.iX "flushing" "the cache"
+.P
+The most general way to flush data from the cache is to 
+use the \*Lpioctl(\|)\*O  
+calls \*LVIOCFLUSH\*O and \*LVIOC_FLUSHVOLUME\*O. The former flushes
+the fileset data and status information for a given fileset from the cache;
+the latter flushes the fileset data only.
+The next time the fileset is accessed, the server is queried
+and new data is retrieved.
+.P
+The \*Lpioctl(\|)\*O call \*LVIOCCKBACK\*O flushes the 
+Cache Manager's memory of
+the mappings between fileset names and IDs, and between the ID of
+the read/write fileset and its replicas, if any. This information must be
+flushed periodically to allow for the fact that filesets can be moved.
+This flushing is normally done automatically once every hour.
+.P
+Before flushing data, these functions try to write any local modifications
+to the server. You should not rely on this, however, as they may not
+succeed; \*Edo not\*O use these functions in place of the \*Lfsync(\|)\*O call.
+.H 2 "Using the afs_syscall(\|) System Call"
+.iX "ACL"  "in DCE"
+.iX "afs_syscall"
+.P
+File and directory protection is handled by DCE Access Control Lists (ACLs),
+which are manipulated through the \*Lafs_syscall(\|)\*O system call.
+An ACL specifies the types of access users and groups have
+to a file or directory.
+.zA "enh,5923,R1.1,fix cross-refs to User Guide & Ref"
+ The use of ACLs is described fully in the
+\*(Ac; the following subsections describe 
+only the programming interface to them.
+.zZ "enh,5923,R1.1,fix cross-refs to User Guide & Ref"
+DFS provides calls to set, retrieve, and copy ACLs, and to try to
+access files or directories.
+.P
+All ACL calls are issued through the \*Lafs_syscall(\|)\*O call.
+The first argument selects a DFS
+component; all ACL system calls use \*LAFSCALL_VNODE_OPS\*O for this
+argument. 
+The second argument to \*Lafs_syscall(\|)\*O 
+is the name of the particular call to
+issue; it is analogous to the second argument to \*Lpioctl(\|)\*O.
+There are also additional call-specific arguments.
+.H 3 "Retrieving ACLs"
+.iX "-[" "VNX functions"
+.P
+The \*Lafs_syscall(\|)\*O \*LVNX_OPCODE_GETACL\*O retrieves 
+an ACL for an object.
+It takes four additional arguments: 
+.ML
+.LI
+The pathname of the file or directory
+whose ACL is requested
+.LI
+Memory in which to store the ACL (a string)
+.LI
+Memory in which to store the length of the ACL
+.LI
+An indication of which
+ACL is requested. 
+.LE
+.P
+A directory can have up to three ACLs:
+.ML
+.LI
+One for its own
+use (\*LVNX_ACL_REGULAR_ACL\*O)
+.iX "ACL"  "regular"
+.LI
+One for files created in it (\*LVNX_ACL_INITIAL_ACL\*O)
+.iX "ACL"  "default for files"
+.LI
+One for directories created in it (\*LVNX_ACL_DEFAULT_ACL\*O)
+.iX "ACL"  "default for subdirectories"
+.LE
+.P
+A regular file can have only a \*LVNX_ACL_REGULAR ACL\*O set.
+.iX "ACL"  "format of"
+.iX "format" "of ACLs"
+.P
+The ACL is an array of bytes, and is very complex. The full description of
+the format is contained in the \*Lafs_syscall(2dfs)\*O reference page  
+in the \*EOSF DCE Application Development Reference\*O.
+.H 3 "Setting ACLs"
+.P
+The \*Lafs_syscall(\|)\*O \*LVNX_OPCODE_SETACL\*O sets an ACL for an object.
+Like \*LVNX_OPCODE_GETACL\*O, it takes four additional arguments:
+.ML
+.LI
+A pathname, an ACL (represented as a string)
+.LI
+The length of the string
+.LI
+Which ACL to set
+.LE
+.P
+The ACL types are the same as for
+\*LVNX_OPCODE_GETACL\*O. It is an error to try to set any ACL type
+other than \*LVNX_ACL_REGULAR_ACL\*O for files.
+.H 3 "Copying ACLs"
+.P
+The \*LVNX_OPCODE_COPYACL\*O call copies an ACL from one object to
+another. It takes four additional arguments:
+.ML
+.LI
+The destination pathname
+.LI
+The source pathname
+.LI
+Which ACL to set in the destination
+.LI
+Which ACL to copy from the source. 
+.LE
+.P
+As with \*LVNX_OPCODE_SETACL\*O,
+files can only have one of the three ACL types set.
+.H 2 "Syntax Summary"
+.iX "syntax"  "Cache Manager"
+.iX "DFS" "Cache Manager syntax summary" 
+.zA "defect,5278,r1.0.2,remove ioctl"
+The following subsections provide a summary of the syntax and
+parameters for the \*Lpioctl()\*O and \*Lafs_syscall()\*O 
+system calls.
+.zZ "defect,5278,r1.0.2,remove ioctl"
+.H 3 "The pioctl(\|) Call"
+.P
+.zA "defect, 6649, r1.0.2, pioctl changes"
+The syntax for a call to \*Lpioctl(\|)\*O follows:
+.iX "syntax"  "pioctl"
+.sS
+.zA"defect,5992,r1.0.2,fixed include directory"
+\*L#include<dcedfs/ioctl.h>
+.zZ"defect,5992,r1.0.2,fixed include directory"
+.nL
+#include <socket.h>
+.nL
+#include <dcedfs/common_data.h>  \*O /* for afsFid and afsHyper */
+.nL
+\*L#include <dcedfs/aclbase.h>  \*O /* for sec_acl_perm_* flags */
+.zZ "defect, 6649, r1.0.2, pioctl changes"
+.nL
+
+\*Llong pioctl (
+        \*Lchar\*V *pathname,\*O            /* in */
+        \*Lint\*V command,\*O               /* in */
+        \*Lstruct afs_ioctl\*V *ioDesc,\*O  /* inout */
+        \*Lint\*V follow_links)\*O          /* in */
+.sE
+.P
+The \*Lpioctl(\|)\*O calls are invoked not by name but 
+by opcode number or by a defined constant.
+The following table contains these constants and the input
+and output types for each call.
+.iX "VIOC functions"
+.TS
+box, center, tab(@);
+lb | lb |lb
+lb | lb |lb
+lb | l  |l.
+Call@Contents of@Contents of
+\^@Input Buffer@Output Buffer@Path
+_
+VIOCACCESS@signed32@none@used
+VIOC_AFS_DELETE_MT_PT@string@none@used
+VIOC_AFS_STAT_MT_PT@string@string@used
+VIOC_AFS_SYSNAME@signed32 + string@signed32 + string@ignored
+.sp .5v
+VIOC_CLOCK_MGMT@(see text)@(see text)@ignored
+VIOCCKBACK@none@none@ignored
+VIOCCKSERV@signed32 [+ string]@signed32 + sockaddrs@ignored
+.sp .5v
+VIOC_FILE_CELL_NAME@none@string@used
+VIOCFLUSH@none@none@used
+VIOC_FLUSHVOLUME@none@none@used
+.sp .5v
+VIOCGETCACHEPARMS@none@array of signed32s@ignored
+VIOCGETCELL@signed32@signed32 + sockaddrs +@ignored
+@@string@
+VIOC_GETCELLSTATUS@string@signed32@ignored
+VIOCGETFID@none@afsFid@used
+VIOCGETVOLSTAT@none@signed32@used
+.sp .5v
+VIOCLISTSTORES@none@signed32 + signed32 +@ignored
+@@array of afsHyper@
+.sp .5v
+VIOCPREFETCH@none@none@used
+.sp .5v
+VIOCRESETSTORES@none@none@ignored
+.sp .5v
+VIOCSETCACHESIZE@signed32@none@ignored
+VIOC_SETCELLSTATUS@2 signed32s + string@none@ignored
+VIOCSETVOLSTAT@signed32@none@used
+.sp .5v
+VIOCWHEREIS@none@signed32 + array of@used
+@@sockaddrs + string@
+.TE
+.H 3 "The afs_syscall(\|) Call"
+.P
+The syntax for the DFS part of \*Lsyscall\*O follows:
+.iX "afs_syscall"  "syntax"
+.iX "syntax"  "afs_syscall"
+.sS
+.zA"defect,5992,r1.0.2,fixed include directory"
+\*L#include<dcedfs/syscall.h>\*O
+.nL
+\*L#include<dcedfs/aclint.h>\*O
+.zZ"defect,5992,r1.0.2,fixed include directory"
+
+\*Lint afs_syscall(\*O
+        \*LAFSCALL_VNODE_OPS,\*O      /* in */
+        \*LVNX_OPCODE_GETACL,\*O      /* in */
+        \*Lchar\*V *pathname\*L,\*O         /* in */
+        \*Lchar\*V *acl\*L,\*O              /* out */
+        \*Lint\*V *length\*L,\*O            /* out */
+        \*Lint\*V whichacl\*L)\*O           /* in */
+
+\*Lint afs_syscall(\*O
+        \*LAFSCALL_VNODE_OPS,\*O      /* in */
+        \*LVNX_OPCODE_SETACL,\*O      /* in */
+        \*Lchar\*V *pathname\*L,\*O         /* in */
+        \*Lchar\*V *acl\*L,\*O              /* in */
+        \*Lint\*V length\*L,\*O             /* in */
+        \*Lint\*V whichacl\*L)\*O           /* in */
+
+\*Lint afs_syscall(\*O
+        \*LAFSCALL_VNODE_OPS,\*O     /* in */
+        \*LVNX_OPCODE_COPYACL,\*O     /* in */
+        \*Lchar\*V *dest_pathname\*L,\*O    /* in */
+        \*Lchar\*V *source_pathname\*L,\*O  /* in */
+        \*Lint\*V dest_whichacl\*L,\*O      /* in */
+        \*Lint\*V source_whichacl\*L)\*O    /* in */
+.sE
+.iX "-]" "VNX functions"
+.zZ"defect, 6386, r1.0.2, fixed bogus () notation"
+.zZ "defect, 6441, r1.0.2, pioctl changes"
+.zA"email complaint (no defect), r1.0.2, added missing index entry"
+.iX "-]" "pioctls"
+.iX "-]" "DFS" "Cache Manager" 
+.zZ"email complaint (no defect), r1.0.2, added missing index entry"

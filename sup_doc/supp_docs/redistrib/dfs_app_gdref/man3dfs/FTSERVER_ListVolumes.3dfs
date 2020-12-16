@@ -1,0 +1,146 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: FTSERVER_ListVolumes.3dfs,v $
+...\" Revision 1.1.2.3  1994/08/30  00:24:39  jeff
+...\" 	{defect, 11947, R1.1}
+...\" 	Correct/clarify some DFS APIs.
+...\" 	[1994/08/30  00:23:53  jeff]
+...\"
+...\" Revision 1.1.2.2  1994/06/10  21:12:39  devobj
+...\" 	cr10872 - fixed copyright
+...\" 	[1994/06/10  20:52:15  devobj]
+...\" 
+...\" Revision 1.1.2.1  1994/04/05  15:17:36  rom
+...\" 	{enh, 10283, R1.1}
+...\" 	Moved from dce_books/app_ref/man3dfs/FTSERVER_ListVolumes.3dfs to
+...\" 	supp_docs/redistrib/dfs_app_gdref/man3dfs/FTSERVER_ListVolumes.3dfs.
+...\" 	[1994/04/04  22:06:02  rom]
+...\" 
+...\" $EndLog$
+...\"
+...\" (c) Copyright 1991, Open Software Foundation, Inc. ALL RIGHTS RESERVED
+.TH "FTSERVER_ListVolumes" "3dfs" "" "" ""
+...\" .iX "functions"  "in DFS"  "\*LFTSERVER_ListVolumes(\|)\*O"
+...\" .iX "\*LFTSERVER_ListVolumes(\|)\*O"
+.iX "fileset"  "listing (DFS)"
+.iX "listing DFS filesets"
+...\" .iX "File Server"  "in DFS"  "listing filesets"
+.SH "NAME"
+.PP
+\*LFTSERVER_ListVolumes\*O - Lists the filesets on a File Server
+.SH "SYNOPSIS"
+.PP
+.sS
+\*Lerror_status_t FTSERVER_ListVolumes(
+.nL
+\*Lhandle_t \*VRpcBinding\*L,
+.nL
+\*Lunsigned32 \*VaggrID\*L,
+.nL
+\*Lftserver_iterator *\*VinCookie\*L,
+.nL
+\*Lftserver_iterator *\*VoutCookie\*L,
+.nL
+\*Lftserver_statEntries *\*VstatEntries\*L)
+.sE
+.br
+.ne 1.5i
+.SH "PARAMETERS"
+.SS Input
+.VL 6m
+.LI "\*VRpcBinding\*O"
+The RPC handle.
+.LI "\*VaggrID\*O"
+The aggregate to list.
+.LI "\*VinCookie\*O"
+The iterator value: an index into the volume list.
+.LE
+.SS Output
+.VL 6m
+.LI "\*VoutCookie\*O"
+The iterator to use for the next call: an index into the volume list.
+.LI "\*VstatEntries\*O"
+The output.
+.LE
+.br
+.ne 1.5i
+.SH "DESCRIPTION"
+.PP
+\*LFTSERVER_ListVolumes(\|)\*O returns, in \*VstatEntries\*O, a list of
+all the filesets on the aggregate \*VaggrID\*O of the server specified in
+\*VRpcBinding\*O. This is a heavyweight operation because it reads the fileset
+headers for all the filesets on that aggregate on the disk.
+.PP
+The input and output iterators, \*VinCookie\*O and \*VoutCookie\*O, are used
+to break up large arrays of data that do not fit in \*VstatEntries\*O. For
+each call to \*LFTSERVER_ListVolumes(\|)\*O, \*VinCookie\*O indicates the
+point in the array at which the routine began to read data, and \*VoutCookie\*O
+indicates the point in the array to which the routine read data. Together, the
+two iterators identify the range of data that was read from the array during a
+given call.
+.PP
+On each call to the routine, step through the array by using \*VoutCookie\*O
+as the value of \*VinCookie\*O. Repeat \*LFTSERVER_ListVolumes(\|)\*O until
+you have read all data from the array (until the \*Lindex\*O field in
+\*VoutCookie\*O is the same as the \*Lindex\*O field in \*VinCookie\*O or
+until the return error code is \*LVOL_ERR_EOF\*O).
+.PP
+The following example demonstrates the use of \*LFTSERVER_ListVolumes(\|):
+.iS
+{
+    ftserver_iterator		inCookie;
+    ftserver_iterator		outCookie;
+    struct ftserver_statEntries	statEntries;
+
+    statEntries.ftserver_status_len = 0;
+    memset(&inCookie, 0, sizeof inCookie); /* \*OSet \*VinCookie\*O to zero.\*L */
+    while (FTSERVER_ListVolumes(handle, aggrID, &inCookie, &outCookie, &statEntries)
+	== 0 && outCookie.index != inCookie.index)
+    {
+	/* \*OUse the contents of the array here.\*L */
+	inCookie = outCookie;
+    }
+}
+.oE
+.PP
+The \*Lftserver_iterator\*O structure is defined as follows:
+.iS
+struct ftserver_iterator{
+\&       unsigned32 index;
+\&       struct afsUUID uuid;
+}
+.iE
+.PP
+The \*Lftserver_statEntries\*O structure is defined as follows:
+.iS
+struct ftserver_statEntries{
+\&       unsigned32 ftserver_status_len;
+\&       struct ftserver_status ftserver_status_val[FTSERVER_MAXENTRIES];
+}
+.iE
+.PP
+Information about the \*Lftserver_status\*O structure can be found in the
+description of \*LFTSERVER_GetStatus(\|)\*O.
+.br
+.ne 1.5i
+.SH "ERRORS"
+.VL 16.3m
+.LI "\*LDAUT_ERROR_ACCESS_DENIED\*O"
+There is insufficient permission.
+.LI "\*LFTSERVER_ERR_BADAGGREGATE\*O"
+The aggregate cannot be accessed.
+.LE
+.br
+.ne 1.0i
+.SH "RELATED INFORMATION"
+.ad l
+.PP
+Functions:
+\*LFTSERVER_GetStatus(3dfs)\*O.
+.ad b

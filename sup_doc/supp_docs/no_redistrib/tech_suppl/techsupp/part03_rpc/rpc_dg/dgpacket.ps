@@ -1,0 +1,5952 @@
+%!PS-Adobe-
+%%DocumentFonts: (atend)
+%%Endcomments
+%  Copyright 1987 Interleaf, Inc.
+%  Ten Canal Park, Cambridge, MA  02141
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	PS macros
+%%%%%%%%%%%%%%%%%%%%%%%%%
+/bdf {bind def} bind def
+/xdf {exch def} bdf
+/ldd {load def} bdf
+/msg { print (\n) print flush} bdf
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%	global constants and variables
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%	Version
+%
+/PS_MAJOR	4 def	%Nov 3, 1987
+/PS_MINOR	0 def	%Nov 3, 1987
+/PS_SUB		5 def	%Nov 3, 1987
+
+%
+%	Drawing modes
+%
+/PL_SET 	0 def		%ink black
+/PL_CLEAR	1 def		%ink white
+/PL_XOR		2 def		%ink by xor'ing source onto page - can PS do it?
+/PL_REPLACE	3 def		%ink by replacing, e.g. overlayed bitmaps
+
+%
+%	 Default global PS state 
+%
+/drawmode	PL_SET def	%default is ink black
+/docutmark	false def	%should cropping marks be printed
+/invertmatrix [1 0 0 -1 0 0] def
+
+%
+%	Font limits
+%
+/MAXFONT 1024 def
+/MAXFONT1 MAXFONT 1 sub def
+/MAXCHARS 128 def	%per font
+/MAXCHARS1 MAXCHARS 1 sub def
+/VMHEADROOM 1000 def
+/BOGUSWIDTH -1 def
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	Memory Defs
+%%%%%%%%%%%%%%%%%%%%%%%%%
+/mesg 64 string def
+/charname 12 string def
+/istr 3 string def
+/ILEncoding 256 array def	% New global Encoding vector.
+/ILSymBEnc 256 array def	% SymbolB Encoding vector.
+/trashheap 1024 string def
+/emsg1 256 string def
+/emsg2 256 string def
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	Job Utilities
+%%%%%%%%%%%%%%%%%%%%%%%%%
+/inch {72 mul} bdf
+
+/headerpage {
+  %assumes standard PS state
+  /y 11 def
+  /nl {/y y .33 sub def 1 inch y inch moveto } bdf
+  /#copies 1 def
+  /Helvetica-Bold /ILhelvb ILEncoding ReEncode
+  /ILhelvb findfont 18 scalefont setfont
+  nl nl nl
+  /nhlines hline length def
+  nhlines 25 gt 
+    {
+      /lim nhlines 26 sub def 
+      hline lim ((        ...)) put
+    }
+    { 
+      /lim 0 def
+    }
+  ifelse
+  nhlines 1 sub -1  lim { 
+   hline exch get show nl
+  } for
+  /Helvetica findfont 8 scalefont setfont
+  1 inch 1 inch moveto 
+  (pl2ps )show PS_SUB PS_MINOR PS_MAJOR vershow
+  (   Copyright 1988 Interleaf, Inc. ) show 
+  emsg1 0 get 0 ne { 1 inch .75 inch moveto emsg1 show } if
+  emsg2 0 get 0 ne { 1 inch .5 inch moveto emsg2 show } if
+} bdf
+
+/logme {
+  (\tInterleaf::pl2ps ) print
+  PS_SUB PS_MINOR PS_MAJOR verprint
+  /nllines lline length def
+  nllines 5 gt 
+    {
+      /lim nllines 5 sub def 
+    }
+    { 
+      /lim 0 def
+    }
+  ifelse
+  nllines 1 sub -1  lim { 
+    (\tInterleaf::) print lline exch get print (\n) print
+  } for
+  flush 
+} bdf
+
+/verprint {
+  10 mesg cvrs print (.) print 
+  10 mesg cvrs print (.) print 
+  10 mesg cvrs print (\n) print
+} bdf
+/vershow {
+  10 mesg cvrs show (.) show 
+  10 mesg cvrs show (.) show
+  10 mesg cvrs show 
+} bdf
+    
+/versioncheck {
+  /PL_MAJOR xdf
+  /PL_MINOR xdf
+  /PL_SUB xdf
+  /doheader userdict /lline known def
+  PL_MAJOR PS_MAJOR ne 
+  PL_MINOR PS_MINOR ne or
+  PL_SUB PS_SUB ne or {
+    doheader {logme } if
+    (\tInterleaf:: FATAL ERROR: pspro.ps and pl2ps versions do not agree.) msg
+    (\tInterleaf:: pspro.ps version: \t) print
+    PS_SUB PS_MINOR PS_MAJOR verprint
+    (\tInterleaf:: pl2ps version: \t) print
+    PL_SUB PL_MINOR PL_MAJOR verprint
+    flush 
+    doheader {headerpage } if
+    ( FATAL ERROR. pspro version ) show
+    PS_SUB PS_MINOR PS_MAJOR vershow
+    ( does not agree with pl2ps version ) show 
+    PL_SUB PL_MINOR PL_MAJOR vershow
+    showpage
+    quit 
+  } if
+} bdf
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	Graphics
+%%%%%%%%%%%%%%%%%%%%%%%%%
+/sw /setlinewidth ldd
+/m { /vpos xdf /hpos xdf } bdf %record pl current point, in rsu
+/v { /vpos xdf } bdf
+/h { /hpos xdf } bdf
+/pm /moveto ldd
+/as /lineto ldd % add segment 
+/av /moveto ldd % add vertex 
+%
+% startangle endangle xradius yradius rotation xcenter ycenter el
+%
+/el {
+  matrix currentmatrix 8 1 roll % save the CTM
+  translate rotate scale
+  0 0 1 5 -2 roll arc
+  setmatrix 			% restore CTM
+} bdf
+
+%
+% startangle endangle clockwise xrad yrad rotation xcenter ycenter addconic
+%
+/addconic {
+  matrix currentmatrix 9 1 roll	% save the CTM
+  translate rotate scale
+  0 0 1 6 -3 roll 1 eq {arc} {arcn} ifelse
+  setmatrix			% restore CTM
+} bdf
+
+%
+%	Draw current path
+%
+/dp40 {
+  1 setlinejoin 		% round line ends  
+  1 setlinecap 			% round line ends
+  setgray
+  stroke  
+} bdf 
+
+/dp {
+  gsave
+  1 setlinejoin                 % round line ends
+  1 setlinecap                  % round line ends
+  drawmode PL_CLEAR eq {1} {0} ifelse setgray %only support two modes
+  stroke
+  grestore
+} bdf
+
+%
+%	Pen pattern routines
+%
+/ALIGN_NONE 0 def
+/ALIGN_OPEN 1 def
+/ALIGN_CLOSE 2 def
+/PENPATWIDTHADJ [0 0 4 8 12 16 20] def	% WARNING these values are derived 
+					% by scaling widthadj[], defined
+					% in /usr/xops/lib/crt/scr/pens.c,
+					% by the same factor (.4) that the
+					% pen patterns were scaled when
+					% sent to printerleaf.
+/MINSCALE .1 def			% Do not scale pen pattern below 10%
+					% of original size.
+% 
+% Calulates length of current path. Ala cookbook.
+%
+/pathlength { 0 begin
+    flattenpath				% changes all curveto's to lineto's
+    /dist 0 def
+
+    { /yfirst xdf /xfirst xdf
+      /ymoveto yfirst def /xmoveto xfirst def}
+    { /ynext xdf /xnext xdf
+      /dist dist ynext yfirst sub dup mul
+	xnext xfirst sub dup mul add sqrt add def
+      /yfirst ynext def /xfirst xnext def}
+    {}
+
+    { /ynext ymoveto def /xnext xmoveto def
+      /dist dist ynext yfirst sub dup mul
+	xnext xfirst sub dup mul add sqrt add def
+      /yfirst ynext def /xfirst xnext def}
+    pathforall
+    dist
+    end
+} bdf
+/pathlength load 0 7 dict put
+
+/setpenpat { 0 begin		% define penpattern dictionary
+    /style xdf			% alignment style 
+    /width xdf
+    /pattern xdf
+
+    % 
+    % Adjust pattern for various pen widths.
+    %
+    /scaleup DPIx 300 div def		% Seybold hack!!!!
+    /indx width 1 add scaleup div 4 div cvi def	% Change width into an index
+    indx 1 gt indx 7 lt and {
+	/adj PENPATWIDTHADJ indx get def% Get ajustment for specified pen width
+	/adj adj scaleup mul def	% from predefined array PENPATWIDTHADJ
+					% and scale up to the resolution.
+	/indx 0 def
+	pattern {
+	    /iszero indx 2 mod def	% Add ajustment for pen width
+	    iszero 0 ne			% to just "off" phases of pattern.
+		{adj add /val xdf}
+		{/val xdf}
+	    ifelse
+	    pattern indx val put
+	    /indx indx 1 add def
+	} forall
+    } if
+
+    %
+    % Align pattern to pathlength.
+    %
+    /offset 0 def
+    /patternlen 0 def
+    /pathlen pathlength def		% Computes path length.
+    pattern				% Compute total len of repeating pattern
+	{patternlen add /patternlen xdf
+	} forall
+
+    style ALIGN_NONE eq {
+    } if
+    style ALIGN_CLOSE eq {		% from /usr/xops/lib/crt/scr/pens.c
+	/n pathlen patternlen div cvi def
+	/extralen pathlen cvi patternlen cvi mod def
+	/halfpatlen patternlen 2 div def
+	extralen halfpatlen gt {/n n 1 add def} if
+	n 0 eq {/n 1 def} if
+	/scale1 pathlen n patternlen mul div def
+	scale1 MINSCALE gt {
+	    /indx 0 def
+	    pattern {
+		scale1 mul /val xdf
+		val 0 eq {/val 1 def} if
+		pattern indx val cvi put
+		/indx indx 1 add def
+	    } forall
+	} if
+	/offset pattern 0 get 2 div round def
+    } if
+    style ALIGN_OPEN eq {		% from /usr/xops/lib/crt/scr/pens.c
+	/firstdash pattern 0 get def
+	/dashpct firstdash patternlen div def
+	/n pathlen patternlen div dashpct sub cvi def
+	/scale1 pathlen n dashpct add patternlen mul div def
+	/scale2 pathlen n dashpct add 1 add patternlen mul div def
+	/x scale2 1 sub abs def
+	/y scale1 1 sub abs def
+	x y lt {/scale1 scale2 def} if
+	scale1 MINSCALE gt {
+	    /indx 0 def
+	    pattern {
+		scale1 mul /val xdf
+		val 0 eq {/val 1 def} if
+		pattern indx val cvi put
+		/indx indx 1 add def
+	    } forall
+	    /offset 0 def
+	} if 
+    } if
+
+    pattern offset setdash
+    end
+} bdf
+/setpenpat load 0 50 dict put
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	Text handling
+%%%%%%%%%%%%%%%%%%%%%%%%%
+/s { 
+  /msp xdf
+  /stEnd xdf
+  /nsp xdf
+  /fstr xdf
+
+  hpos vpos moveto
+  msp -1 ne
+    {stEnd hpos sub fstr stringwidth pop sub nsp div 0 msp fstr widthshow}
+    {fstr show}
+  ifelse
+  /hpos stEnd def	%adjust idea of current point
+} bdf
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	Images
+%%%%%%%%%%%%%%%%%%%%%%%%%
+/ilr {
+  BinaryMode
+    {
+     readstring
+     }
+    {
+     readhexstring
+    } ifelse
+} bdf
+
+/PL_bitmap { 0 begin
+  gsave
+  /vpix xdf
+  /hpix xdf
+
+  /nbytes hpix 15 add 16 idiv 2 mul def
+  /picstr nbytes string def
+  hpos vpos translate
+  nbytes 8 mul vpix false [1 0 0 1 0 0 ] 
+  {currentfile picstr 0 nbytes getinterval ilr pop}
+    imagemask
+  grestore
+  end
+} bdf
+/PL_bitmap load 0 4 dict put
+
+/PL_contone { 0 begin
+   gsave
+  /nbits xdf
+  /vpix xdf
+  /hpix xdf
+
+  /nbytes hpix nbits mul 15 add 16 idiv 2 mul def
+  /picstr nbytes string def
+  hpos vpos translate
+  hpix vpix nbits [1 0 0 1 0 0] 
+  {currentfile picstr 0 nbytes getinterval ilr pop }
+    image
+  grestore
+  end
+} bdf
+/PL_contone load 0 5 dict put
+
+/PL_image { 0 begin
+  gsave
+  /ho xdf	% upper left corner of image.
+  /vo xdf	%
+  /hh xdf	% Transformed upper right corner relative
+  /vh xdf	% to upper left corner.
+  /hv xdf	% Transformed lower left corner relative
+  /vv xdf	% to upper left corner.
+  /nbits xdf	% depth
+  /vpix xdf	% height
+  /hpix xdf	% width
+  /scfrq xdf	% screen frequency
+  /scang xdf	% screen angle
+  /mapsz xdf	% PL_MAP data size
+  /map xdf	% PL_MAP data
+
+  mapsz 0 ne
+  {
+    /mapsz mapsz 1 sub def
+    {map exch mapsz mul round cvi get} settransfer
+  } if 
+  scfrq 0 ne scang 0 ne and {
+    scfrq scang currentscreen 3 1 roll pop pop setscreen
+  } if
+  %
+  % allocate the largest amount of memory avail for reading image data...
+  %
+  /availmem vmstatus exch sub exch pop def
+  /datasize hpix nbits mul 7 add 8 idiv vpix mul def 
+  availmem 65535 gt {
+    /availmem 65535 def 
+  } if
+  datasize availmem lt
+  {
+    /picstr datasize string def
+  } {
+    /picstr datasize vpix idiv string def 
+  } ifelse
+  ho vo translate
+  [hh vh hv vv 0 0] concat
+  nbits 1 eq mapsz 0 eq and{
+    hpix vpix false [hpix 0 0 vpix 0 0]
+    {currentfile picstr ilr pop }
+      imagemask
+  } {
+    hpix vpix nbits [hpix 0 0 vpix 0 0]
+    {currentfile picstr ilr pop }
+      image
+  } ifelse
+  grestore
+  end
+} bdf
+/PL_image load 0 16 dict put
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	FONT GOODIES
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%	ReEncodeSubset -map character set a'la Interleaf
+%	
+%	snarfed from PS manual, example 22
+%	At the moment, it seems like all overlays will start at char 0,
+%		but we might as well be general
+/reencodesubdict 12 dict def
+/ReEncode {
+%
+%	Copy basefontdict into newfont except for the FID entry.
+%	First create a new font dictionary the size of basefontdict
+%	plus 2 for a FID entry which definefont will provide.
+%
+  reencodesubdict begin
+  /newencoding xdf
+  /newfontname xdf
+  /basefontname xdf
+	
+  /basefontdict basefontname findfont def
+  /newfont basefontdict maxlength 2 add dict def
+  basefontdict { 		% Copy basefontdict to newfont 
+    exch dup /FID ne {		% except for the FID entry.
+      exch newfont 3 1 roll put	% Copy entry into newfont.
+    } {
+      pop pop			% Remove entry from stack if equal FID.
+    } ifelse
+  } forall
+  newfont /FontName newfontname put
+  newencoding -1 ne {
+    newfont /Encoding newencoding put
+  } if
+  newfontname newfont definefont pop
+  end
+} bdf
+
+%
+%	Now make a global Encoding vector
+%
+/insertcharnum { 0 begin	% Put /char# into entry i
+  /encoding xdf			% of new encoding vector as
+  /i xdf			% character names.
+
+  (char) charname copy pop
+  i istr cvs pop
+  charname 4 istr  putinterval
+  encoding i charname cvn  put
+  end
+} bdf
+/insertcharnum load 0 2 dict put
+
+ILEncoding 0
+[
+/Aacute /Acircumflex /Adieresis /Agrave /Aring /Atilde /Ccedilla /Eacute
+/Ecircumflex /Edieresis /Egrave /Iacute /Icircumflex /Idieresis /Igrave /Ntilde
+/Oacute /Ocircumflex /Odieresis /Ograve /Otilde /Scaron /Uacute /Ucircumflex
+/Udieresis /Ugrave /Ydieresis /Zcaron /char28 /char29 /char30 /char31
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright
+/parenleft /parenright /asterisk /plus /comma /hyphen /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/quoteleft /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /quotedblleft
+/aacute /acircumflex /adieresis /agrave /aring /atilde /ccedilla /eacute
+/ecircumflex /edieresis /egrave /iacute /icircumflex /idieresis /igrave /ntilde
+/oacute /ocircumflex /odieresis /ograve /otilde /scaron /uacute /ucircumflex
+/udieresis /ugrave /ydieresis /zcaron /char156 /char157 /char158 /char159
+/char160 /exclamdown /cent /sterling /fraction /yen /florin /section
+/currency /quotesingle /quotedblleft /guillemotleft /guilsinglleft /guilsinglright /fi /fl
+/char176 /endash /dagger /daggerdbl /periodcentered /char181 /paragraph /bullet
+/quotesinglbase /quotedblbase /quotedblright /guillemotright /ellipsis /perthousand /char190 /questiondown
+/char192 /grave /acute /circumflex /tilde /macron /breve /dotaccent
+/dieresis /char201 /ring /cedilla /char204 /hungarumlaut /ogonek /caron
+/emdash /char209 /char210 /char211 /char212 /char213 /char214 /char215
+/char216 /char217 /char218 /char219 /char220 /char221 /char222 /char223
+/char224 /AE /char226 /ordfeminine /char228 /char229 /char230 /char231
+/Lslash /Oslash /OE /ordmasculine /char236 /char237 /char238 /char239
+/char240 /ae /char242 /char243 /char244 /dotlessi /char246 /char247
+/lslash /oslash /oe /germandbls /char252 /char253 /char254 /char255
+] putinterval
+%
+%	Create a dictionary entry in "fontmap" indexed by
+%	PL fontnames with PS names and sizes as entries
+%	a call is of the form:    /timsps10 /ILtims 10 map
+%
+/map {
+  2 dict begin
+  /pssize xdf
+  /psname xdf
+  fontmap exch currentdict put	% install it, PL_name is the index
+  end
+} bdf
+
+%
+%	Symbol_B character encoding vector. Encodes IL char num to PS
+%	symbol names.
+%
+ILSymBEnc 32
+[
+/space /logicalor /arrowright /arrowdblleft /arrowdblup 
+/arrowdblright /lozenge /arrowhorizex /angleleft /registersans
+/Upsilon1 /plusminus /second /angle /greaterequal
+/radical /ellipsis /Ifraktur /spade /lessequal
+/minute /degree /fraction /florin /infinity
+/approxequal /integral /propersuperset /parenrightbt /arrowup
+/bracketrighttp /aleph /arrowdblboth /bracerightbt /integralbt
+/notsubset /bracketleftbt /trademarksans /bracelefttp /braceleftmid
+/braceleftbt /bracketlefttp /braceex /apple /angleright
+/parenrightex /parenrighttp /arrowdown /divide /element
+/summation /bracketleftex /parenlefttp /parenleftbt /dotmath
+/copyrightsans /integralex /parenleftex /integraltp /registerserif 
+/intersection /trademarkserif /arrowdbldown /gradient /logicalnot
+/reflexsubset /equivalence /propersubset /partialdiff /arrowboth
+/circlemultiply /heart /bracketrightex /bracerightmid /emptyset
+/bracketrightbt /Rfraktur /proportional /reflexsuperset /carriagereturn
+/notequal /notelement /diamond /club /bracerighttp
+/arrowleft /weierstrass /bullet /circleplus /multiply
+/arrowvertex /copyrightserif /union /product /logicaland
+] putinterval
+0 1 32 {ILSymBEnc insertcharnum } for
+127 1 255 {ILSymBEnc insertcharnum } for
+
+/declareFont { 0 begin
+    /PLnum xdf
+    /PLname xdf 
+
+    { % if useNativeFont
+    	PSfontobj PLnum
+           fontmap PLname get dup 
+	    /psname get findfont 
+	    invertmatrix makefont exch
+	    /pssize get DPIx 72 div mul scalefont 
+	put
+    } { % else NonNativeFont
+	PSfontobj PLnum % into the Plnum'th object make a dictionary:
+	10 dict dup begin
+	    /FontType 3 def
+	    % scale 300 dpi downloaded fonts to target resolution (1270/300).
+	    /FontMatrix [DPIx 300 div 0 0 DPIy 300 div 0 0] def
+	    /FontBBox [0 0 0 0] def	%updated by LoadGlyph
+	    /Encoding ILEncoding def
+	    /BuildChar { 0 begin
+		/char xdf
+		/fontdict xdf
+		/charname fontdict /Encoding get char get def
+		/charinfo fontdict /CharData get charname get def
+		/wx charinfo 0 get def
+		charinfo 0 get BOGUSWIDTH eq 
+		{puterrchar} 
+		{ /charbbox charinfo 1 4 getinterval def
+		  wx 0 charbbox aload pop setcachedevice	
+		  charinfo 5 get charinfo 6 get true
+		  fontdict /imagemaskmatrix get
+		    dup 5 charinfo 8 get put
+		    dup 4 charinfo 7 get  put
+		  charinfo 9  get
+		  imagemask
+		}ifelse
+	    end %BuildChar dict
+	    }def %BuildChar
+	    /BuildChar load 0 7 dict put
+	    /imagemaskmatrix [1 0 0 1 0 0] def %scale factors irrelevant
+	    /CharData MAXCHARS dict def	% CharData is built by LoadGlyph.
+	end %font dictionary defn
+	PLname exch definefont  put
+
+	%load a bogus space character in case no one does
+	PSfontobj PLnum get /CharData get 
+		/space [16 0 0 1 1 16 1 0 0 [<00>] cvx ] put
+    } ifelse % useNativeFonts
+    end
+} def
+/declareFont load 0 3 dict put
+
+/numLoadEmptyGlyph { 0 begin
+	% by number, load font data for char with width but no bits
+	/charno xdf
+	/fontno xdf
+	/w xdf
+	w fontno PSfontobj fontno get /Encoding get charno get
+	LoadEmptyGlyph
+	end
+} bdf
+/numLoadEmptyGlyph load 0 3 dict put
+
+/LoadEmptyGlyph { 0 begin
+	% by name, load font data for char with width but no bits
+	
+	/charname xdf
+	/fontno xdf
+	/w xdf
+	PSfontobj fontno get  /CharData get
+	    charname [w 0 0 1 1 w 1 0 0 [<00>] cvx ] put
+	end
+} bdf
+/LoadEmptyGlyph load 0 3 dict put
+
+/puterrchar {
+	PSfontobj errfontno  get dup 
+	/BuildChar get  errcharno exch exec 
+	(\tInterleaf::out of VM loading bitmap (?). Try breaking up document\n) 
+		dup print flush
+	emsg1 copy pop
+} bdf
+
+/timeToQuit {
+%	initialstate restore
+	(\tInterleaf::completely out of memory. \n\tTry breaking up the document \n) 
+		dup print flush
+	emsg2 copy pop
+%	headerpage showpage
+	stop
+} bdf
+
+/LoadGlyph { 0 begin
+	% load a glyph into the CharData entry of PSFontobj[fontno]
+	% the entry is in the position implied by charno
+	% and with the metrics height, width, lsb
+
+	/charno xdf
+	/fontno xdf
+	/height xdf
+	/vadj xdf
+	/width xdf
+	/hsize xdf
+	/lsb xdf
+
+	/noVMHEADROOM vmstatus exch sub exch pop dup
+		VMHEADROOM 2 idiv lt {timeToQuit} if
+		VMHEADROOM lt 
+		{true } {false} ifelse def
+	/nbytes hsize 15 add 16 idiv 2 mul height mul def	
+	noVMHEADROOM not  {/glyph nbytes string def } if
+	currentfile noVMHEADROOM 
+		{trashheap 0 nbytes getinterval } {glyph} ifelse 
+		readhexstring pop pop
+	
+	   %actually, we pass bitmap rounded to 16 bits wide:
+	/hsize hsize 15 add 16 idiv 16 mul def
+	
+	/thefont PSfontobj fontno get	def %the font dict
+		% if we are loading glyphs, PSfontobj is an array of
+		% dictionaries each of which already has the form
+		% of Program 21, PS T&C
+	/charname thefont /Encoding get charno get def %access by name !
+
+	%now make the parameters for the CharData
+	% 1 unit = 1 pixel
+	
+		
+	/tx lsb  neg def
+	/ty vadj neg def
+	/lly  height vadj add def	%lower left of bbox
+	/llx  lsb def
+	/urx hsize lsb add def %upper right
+	/ury vadj def
+	thefont /CharData get charname 
+	    noVMHEADROOM
+	    { [BOGUSWIDTH] }
+	    {[width llx lly urx ury hsize height tx ty [glyph] cvx ]} ifelse
+	put
+	end
+} bdf
+/LoadGlyph load 0 20 dict put
+
+/sf { PSfontobj exch get setfont } bdf
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	FILL PATTERNS
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%	Fill patterns by clipping a rectangle filled with characters
+%
+%	IL patterns are presently on 32x32 tiles, even if there is a subtile
+%	which would define the whole pattern. However, we attempt generality
+%	here grayArray determines whether to use grayscale for some patterns
+%	even if not using native patterns
+%
+/patternstring	1 string def
+/grayArray [	%indexed by position in IL pattern font, -1 means not grayscale 
+		% others are fraction of  WHITE
+	-1	-1	-1	-1	-1	-1	-1	-1
+	-1	-1	-1	-1	-1	1	.92	.8	
+	.65	0	.5	.35	.2	] def
+/patgrayArray [ %when using grayscale as complete simulation
+	0	.12	.22	.32	.42	.52	.62	.72
+	.82	.92	.17	.27	.37	1	.92	.8	
+	.65	0	.5	.35	.2	] def
+
+%
+%	THE APPLICATION CALLS:
+%
+/fillpatset40 {			% fillpatset for 4.0
+    /patchar xdf
+    /pfindex xdf
+    /patIsGray false def	% tining is done by color lib
+} bdf
+
+/fillpatset {			% fnum patchar fillpatset
+    /patchar xdf		% selects pattern ch in font fnum
+    /pfindex xdf
+    patgraylevel dup 0 ge {	% The extra call to patgraylevel
+	/patIsGray true def	% is needed because PS computes
+	/patgray xdf		% both operands of an "and" operator
+    } {				% even if the first is false.
+	pop /patIsGray false def
+    } ifelse
+} bdf
+
+/fp {
+    /useNativePattern xdf
+
+    gsave
+    pfindex 0 eq patchar 0 eq and {		% special case 
+	/patIsGray true def
+	/patgray 0 def
+    } if
+
+    patIsGray {
+	/oldgray currentgray def
+	patgray setgray
+	eofill
+	oldgray setgray
+    } {
+	useNativePattern {			% native non gray fill patterns
+	    patchar 0 showpattern
+	} {
+	    currentfont 
+	    PSfontobj pfindex get setfont
+	    pfill
+	    dup null ne {setfont} {pop} ifelse
+	} ifelse
+    } ifelse
+    grestore
+} bdf
+
+%
+%	Private implementation procedures
+%
+
+%	Before invoking pfill, you must have set the pattern
+%	font as the current font.
+%	pfill will cause a newpath, just as do fill and stroke.
+%
+/pfill {
+  gsave 1 setgray eofill grestore % must fill on white
+  setupfactors setupregion blastchars
+  newpath
+} bdf
+
+/setupfactors {
+  0 setgray
+  [] 0 setdash
+  patternstring 0 patchar put
+  patternstring stringwidth pop /paty exch def /patx paty def
+} bdf
+
+/setupregion {
+  eoclip	
+  pathbbox
+    /ry exch floor  def
+    /rx exch floor  def
+    /ly exch ceiling cvi
+      dup 0 lt{paty sub}if cvi		%We need (lx,ly) modulo (patx,paty)
+      dup paty ceiling cvi mod  sub  def	%in device space coords.
+    /lx exch ceiling cvi
+      dup 0 lt{patx sub}if cvi
+      dup patx ceiling cvi mod  sub  def
+
+    /ry ry paty add def		%we are painting downwards as positive
+    /ly ly paty sub def
+
+  newpath
+} bdf
+
+/blastchars {
+  /#chars  rx lx sub patx div ceiling cvi  def
+  ly paty ry  {
+    lx exch moveto
+    #chars{ patternstring show} repeat
+  }for
+} bdf
+
+/patgraylevel {
+  patchar grayArray length ge {
+    -1
+  } {
+    grayArray patchar get
+  } ifelse
+} bdf
+
+% 
+%	Non gray Native fill pattern. Right out of the PS cook book page 192.
+%
+/setuserscreendict 22 dict def
+setuserscreendict begin
+ /tempctm matrix def
+ /temprot matrix def
+ /tempscale matrix def
+
+ /concatprocs
+  {/proc2 exch cvlit def
+   /proc1 exch cvlit def
+   /newproc proc1 length proc2 length add
+    array def
+   newproc 0 proc1 putinterval
+   newproc proc1 length proc2 putinterval
+   newproc cvx
+  } bdf
+
+  /resmatrix matrix def
+  /findresolution
+   {72 0 resmatrix defaultmatrix dtransform
+    /yres xdf /xres xdf
+    xres dup mul yres dup mul add sqrt
+   } bdf
+end
+
+/setuserscreen
+{setuserscreendict begin
+   /spotfunction xdf
+   /screenangle xdf
+   /cellsize xdf
+
+   /m tempctm currentmatrix def
+   /rm screenangle temprot rotate def
+   /sm cellsize dup tempscale scale def
+
+   sm rm m m concatmatrix m concatmatrix pop
+   1 0 m dtransform /y1 xdf /x1 xdf
+   /veclength x1 dup mul y1 dup mul add sqrt def
+   /veclength veclength DPIx 72 div mul def
+   /frequency findresolution veclength div def
+   /newscreenangle y1 x1 atan def
+   m 2 get m 1 get mul m 0 get m 3 get mul sub 0 gt
+   {{neg}
+    /spotfunction load concatprocs
+    /spotfunction xdf
+   } if
+
+   frequency newscreenangle /spotfunction load setscreen
+  end % setuserscreendict begin
+} bdf
+
+/setpatterndict 32 dict def
+setpatterndict begin
+ /bitison
+ {/ybit xdf /xbit xdf
+  /bytevalue bstring ybit bwidth mul xbit 8 idiv add get def
+  /mask 1 7 xbit 8 mod sub bitshift def
+  bytevalue mask and 0 ne
+ } bdf
+end % setpatterndict begin
+
+/bitpatternspotfunction
+{setpatterndict begin
+  /y xdf /x xdf
+  /xindex x 1 add 2 div bpside mul cvi def
+  /yindex y 1 add 2 div bpside mul cvi def
+  xindex yindex bitison
+  {/onbits onbits 1 add def 1 }
+  {/offbits offbits 1 add def 0 }
+  ifelse
+  end % setpatterndict begin
+} bdf
+ 
+/setpattern
+ {setpatterndict begin
+  /cellsz xdf
+  /angle  xdf
+  /bwidth xdf
+  /bpside xdf
+  /bstring xdf
+
+  /onbits 0 def /offbits 0 def
+  cellsz angle /bitpatternspotfunction load setuserscreen
+  {} settransfer
+  offbits offbits onbits add div setgray
+  end % setpatterndict begin
+ } bdf
+   
+/showpattern
+{/ang xdf
+ /patnum xdf
+
+ patternarray patnum get 32 4 ang 72 300 32 div div setpattern
+ gsave eofill grestore
+} bdf
+
+/patternarray [
+<>
+<
+00000000 60c00030 60c00030 00000000 00000000 060c0003 060c0003 00000000
+00000000 3060c000 3060c000 00000000 00000000 03060c00 03060c00 00000000
+00000000 003060c0 003060c0 00000000 00000000 0003060c 0003060c 00000000
+00000000 c0003060 c0003060 00000000 00000000 0c000306 0c000306 00000000
+>
+<
+00000000 0c000306 0c000306 00000000 00000000 c0003060 c0003060 00000000
+00000000 0003060c 0003060c 00000000 00000000 003060c0 003060c0 00000000
+00000000 03060c00 03060c00 00000000 00000000 3060c000 3060c000 00000000
+00000000 060c0003 060c0003 00000000 00000000 60c00030 60c00030 00000000
+>
+<
+00030c00 00030c00 00000000 00000000 000030c0 000030c0 00000000 00000000
+0000030c 0000030c 00000000 00000000 c0000030 c0000030 00000000 00000000
+0c000003 0c000003 00000000 00000000 30c00000 30c00000 00000000 00000000
+030c0000 030c0000 00000000 00000000 0030c000 0030c000 00000000 00000000
+>
+<
+0030c000 0030c000 00000000 00000000 030c0000 030c0000 00000000 00000000
+30c00000 30c00000 00000000 00000000 0c000003 0c000003 00000000 00000000
+c0000030 c0000030 00000000 00000000 0000030c 0000030c 00000000 00000000
+000030c0 000030c0 00000000 00000000 00030c00 00030c00 00000000 00000000
+>
+<
+00000000 00000707 00000707 00000707 00000000 00007070 00007070 00007070
+00000000 00000707 00000707 00000707 00000000 00007070 00007070 00007070
+00000000 00000707 00000707 00000707 00000000 00007070 00007070 00007070
+00000000 00000707 00000707 00000707 00000000 00007070 00007070 00007070
+>
+<
+00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+00000000 0e0e0e0e 0e0e0e0e 0e0e0e0e 00000000 e0e0e0e0 e0e0e0e0 e0e0e0e0
+00000000 0e0e0e0e 0e0e0e0e 0e0e0e0e 00000000 e0e0e0e0 e0e0e0e0 e0e0e0e0
+>
+<
+cccc0ccc cccc0ccc 00000000 00000000 cccc0ccc cccc0ccc 00000000 00000000
+cccc0ccc cccc0ccc 00000000 00000000 00000000 00000000 00000000 00000000
+0ccccccc 0ccccccc 00000000 00000000 0ccccccc 0ccccccc 00000000 00000000
+0ccccccc 0ccccccc 00000000 00000000 00000000 00000000 00000000 00000000
+>
+<
+88880888 88880888 00000000 00000000 88880888 88880888 00000000 00000000
+88880888 88880888 00000000 00000000 00000000 00000000 00000000 00000000
+08888888 08888888 00000000 00000000 08888888 08888888 00000000 00000000
+08888888 08888888 00000000 00000000 00000000 00000000 00000000 00000000
+>
+<
+00000308 00000308 00040308 00040398 000c01d0 007e01f8 01cb80fc 0309803e
+0618802f 06108027 06108063 07100843 03b01843 03e01046 01f018c6 00781c9c
+007c07f0 005e0080 004e0180 00c60100 10860100 30860000 208c0000 318c0000
+39380002 0fe00002 01000006 0300003f c20000e5 c2000184 40000304 4000030c
+>
+<
+00007618 00003c70 00003fe0 00000f80 00000800 00040800 00041800 000c1000
+00081000 007e0000 01db0000 03138000 06138000 06310000 0c200000 0c200010
+18600010 18400030 18400020 18c001f8 1880076c 1c810c4e 1d86184e 0f1c18c4
+0ff83080 03e03080 02006180 02006100 06006100 04006300 04006200 00007204
+>
+<
+00000180 00000180 00000000 00000000 00000198 00000198 00000000 00000000
+00000198 00000198 00000000 00000000 00000198 00000198 00000000 00000000
+00000198 00000198 00000000 00000000 19999998 19999998 00000000 00000000
+01999998 01999998 00000000 00000000 00000000 00000000 00000000 00000000
+>
+<
+00000400 00000000 00000100 00000180 00000000 00000000 00000190 00000198
+00000000 00000000 00000198 00000198 00000000 00000000 00000998 00000998
+00000000 00000000 00001998 00019990 40000000 00000000 19999980 09999980
+00000000 00000000 01999800 00999000 00000000 00000000 00000000 00000000
+>
+] def
+
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	Page
+%%%%%%%%%%%%%%%%%%%%%%%%%
+/bop  {/pagestate save def  } bdf
+/eop  {docutmark {cutmark} if showpage pagestate restore } bdf %prints N copies
+
+%
+% 	Define clipping path
+%
+/clp {initclip newpath av as as as closepath clip } bdf
+
+%
+%	Cutting marks for typsetter paper
+%
+/cutmark { 0 begin
+  /pw DPIx 40 div def		% pen width
+  /pw2 pw 2 div def
+  /lnx DPIx 4 div def
+  /lny DPIy 4 div def
+
+  initclip
+  pw sw
+  /lnx4 lnx 4 div def
+  [lnx lnx4 sub lnx4 2 mul] 0 setdash
+  newpath
+  pw2 neg pw2 neg translate
+  lnx neg 0 av lnx 0 as
+  0 lny neg av 0 lny as
+  PSpagewidth pw add 0 translate
+  lnx neg 0 av lnx 0 as
+  0 lny neg av 0 lny as
+  0 PSpagelength pw add translate
+  lnx neg 0 av lnx 0 as
+  0 lny neg av 0 lny as
+  PSpagewidth pw add neg 0 translate
+  lnx neg 0 av lnx 0 as
+  0 lny neg av 0 lny as
+  0.0 dp
+  end
+} bdf
+/cutmark load 0 5 dict put
+%(pspro.ps version 4.0.5 download complete.\n) print flush
+%%EndProlog
+%!
+%	InterLeaf to Postscript fontname mapping
+%
+/fontmap 20 dict def
+	/marks:Ops10 /ILtims 10 map
+	/errors:Ops10 /ILtims 10 map
+	/wst:timsps6 /ILtims 6 map
+	/wst:timsps10 /ILtims 10 map
+	/wst:timsps10b /ILtimsb 10 map
+	/wst:timsps10i /ILtimsi 10 map
+	/wst:timsps11 /ILtims 11 map
+	/wst:timsps11b /ILtimsb 11 map
+	/wst:timsps11i /ILtimsi 11 map
+	/wst:timsps12b /ILtimsb 12 map
+	/wst:timsps14b /ILtimsb 14 map
+	/wst:timsps16 /ILtims 16 map
+	/wst:timsps18 /ILtims 18 map
+	/wst:timsps24 /ILtims 24 map
+	/wst:helvps10 /ILhelv 10 map
+	/wst:helvps10b /ILhelvb 10 map
+	/wst:helvps18 /ILhelv 18 map
+	/wst:courps10 /ILcour 10 map
+	/sps:symbb10 /ILsymbb 10 map
+	/sps:symbb12 /ILsymbb 12 map
+%
+%	Create and ReEncode the following fonts.
+%
+/Times-Roman /ILtims ILEncoding ReEncode
+/Times-Italic /ILtimsi ILEncoding ReEncode
+/Times-Bold /ILtimsb ILEncoding ReEncode
+/Courier /ILcour ILEncoding ReEncode
+/Helvetica /ILhelv ILEncoding ReEncode
+/Helvetica-Bold /ILhelvb ILEncoding ReEncode
+/Symbol /ILsymbb ILSymBEnc ReEncode
+%!
+% >> pl2ps version 4.0.5
+5 0 4 versioncheck
+/hline 5 array def
+hline 4 (For: mk.dds.r_d.218CB ) put
+hline 3 (Printed on: Tue, Oct  1, 1991 00:31:29 ) put
+hline 2 (From book: nca ) put
+hline 1 (Document: dgpacket ) put
+hline 0 (Last saved on: Tue, Oct  1, 1991 00:31:25 ) put
+/lline 5 array def
+lline 4 (For: mk.dds.r_d.218CB ) put
+lline 3 (Printed on: Tue, Oct  1, 1991 00:31:29 ) put
+lline 2 (From book: nca ) put
+lline 1 (Document: dgpacket ) put
+lline 0 (Last saved on: Tue, Oct  1, 1991 00:31:25 ) put
+logme
+% letter % nonportable "letter" commented out
+headerpage showpage
+/initialstate save def
+/PSpagelength 13970 def
+/PSpagewidth 10795 def
+/DPIx 1270 def /DPIy 1270 def
+72 DPIx div 72 DPIy div neg scale
+/PSfontobj 215 array def
+/BinaryMode false def
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 3939 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 3296 32 s
+7335.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 9468 32 s
+6445.0 1060.0 m
+0.0000 setgray
+<62617273206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+8844.0 13251.0 m
+6301.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 8844 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+9521.0 h
+9424.0 13251.0 m
+0.0000 setgray
+<35> 0 9521 -1 s
+true /wst:helvps18 8 declareFont
+8 sf
+9525.0 1762.0 m
+5 sf
+1270.0 2784.0 m
+true /wst:timsps24 9 declareFont
+9 sf
+7869.0 3154.0 m
+0.0000 setgray
+<43686170746572> 0 9208 -1 s
+0.0000 setgray
+<2033> 1 9525 32 s
+9525.0 h
+true /wst:timsps18 10 declareFont
+10 sf
+5305.0 3820.0 m
+0.0000 setgray
+<4e43412f5250432f4447> 0 7214 -1 s
+0.0000 setgray
+<205061636b657420446566696e6974696f6e> 2 9525 32 s
+5 sf
+2159.0 5543.0 m
+0.0000 setgray
+<4e43412f525043> 0 2988 -1 s
+0.0000 setgray
+<207061737365732072656d6f74652070726f6365647572652063616c6c206d6573736167657320696e207061636b6574732e2054686973206368617074657220646566696e6573207468652073747275632d> 12 9319 32 s
+2159.0 5797.0 m
+0.0000 setgray
+<74757265206f6620616e204e43412f5250432f4447207061636b657420616e642064657363726962657320746865207479706573206f66207061636b6574732073656e74206279204e43412f5250432f4447> 13 9158 32 s
+2159.0 6051.0 m
+0.0000 setgray
+<636c69656e747320616e6420736572766572732e> 2 3638 32 s
+true /wst:timsps6 11 declareFont
+11 sf
+1270.0 6752.0 m
+0.0 0.0 m
+34.0 sw
+/drawmode PL_SET def
+newpath
+1278 6731 av
+9496 6731 as
+[] 0 setdash
+0.0000 dp40
+9525.0 6752.0 m
+true /wst:timsps14b 12 declareFont
+12 sf
+1270.0 7001.0 m
+0.0000 setgray
+<332e31> 0 1578 -1 s
+1578.0 h
+0.0000 setgray
+<205061636b6574205374727563747572> 2 3320 32 s
+3316.0 h
+0.0000 setgray
+<65> 0 3426 -1 s
+5 sf
+2159.0 7475.0 m
+0.0000 setgray
+<416e> 0 2396 -1 s
+0.0000 setgray
+<204e43412f5250432f4447207061636b657420636f6d70726973657320757020746f2074687265652070617274733a> 7 6351 32 s
+true /sps:symbb10 13 declareFont
+13 sf
+2477.0 7926.0 m
+0.0000 setgray
+<77> 0 2558 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<41207061636b65742068656164657220636f6e7461696e732070726f746f636f6c20636f6e74726f6c20696e666f726d6174696f6e2e2041206865616465722069732070726573656e7420696e20616c6c> 12 9034 32 s
+2794.0 8182.0 m
+0.0000 setgray
+<7061636b6574732e> 0 3423 -1 s
+13 sf
+2477.0 8635.0 m
+0.0000 setgray
+<77> 0 2558 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<41207061636b657420626f647920636f6e7461696e7320646174612e20466f72206578616d706c652c2074686520626f6479206f6620612072657175657374206f7220726573706f6e7365207061636b6574> 14 9278 32 s
+2794.0 8890.0 m
+0.0000 setgray
+<636f6e7461696e73206461746120726570726573656e74696e672074686520696e707574206f72206f757470757420706172616d657465727320666f7220616e206f7065726174696f6e2e204120626f6479206973> 13 9339 32 s
+2794.0 9145.0 m
+0.0000 setgray
+<70726573656e74206f6e6c7920696e20736f6d65207479706573206f66207061636b6574732e> 6 5747 32 s
+13 sf
+2477.0 9598.0 m
+0.0000 setgray
+<77> 0 2558 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<416e2061757468656e7469636174696f6e20766572696669657220636f6e7461696e7320646174612073706563696669656420627920616e2061757468656e7469636174696f6e2070726f746f636f6c2e2020466f72> 11 9343 32 s
+2794.0 9854.0 m
+0.0000 setgray
+<6578616d706c652c20616e2061757468656e7469636174696f6e2070726f746f636f6c206d617920656e737572652074686520696e74656772697479206f662061207061636b65742076696120696e636c7573696f6e> 12 9441 32 s
+2794.0 10109.0 m
+0.0000 setgray
+<6f6620616e20656e6372797074656420636865636b73756d20696e207468652061757468656e7469636174696f6e207665726966696572> 7 7074 32 s
+7063.0 h
+0.0000 setgray
+<2e20416e2061757468656e7469636174696f6e207665726966696572206973> 4 9340 32 s
+2794.0 10365.0 m
+0.0000 setgray
+<70726573656e7420696e2061207061636b6574206f6e6c7920696620616e2061757468656e7469636174696f6e2070726f746f636f6c206973206265696e6720757365642e> 11 7981 32 s
+2159.0 10874.0 m
+0.0000 setgray
+<546865207061636b657420686561646572206861732061206669786564206c656e677468206f6620383020627974657320616e642063616e20626520646566696e656420617320612073747275637475726520696e20746865204e4341> 19 9426 32 s
+2159.0 11128.0 m
+0.0000 setgray
+<496e7465726661636520446566696e6974696f6e204c616e6775616765202849444c293a> 3 5064 32 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 3454 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<626172206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 4269 32 s
+6850.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 9468 32 s
+7493.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+1965.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 4508 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+1270.0 h
+0.0000 setgray
+<36> 0 1367 -1 s
+true /wst:courps10 8 declareFont
+8 sf
+2159.0 1659.0 m
+0.0000 setgray
+<74797065646566> 0 2901 -1 s
+0.0000 setgray
+<20737472756374207b> 2 3855 32 s
+0.0 0.0 m
+newpath
+0.0 sw
+/drawmode PL_SET def
+1033 1524 av
+1152 1524 as
+1152 1757 as
+1033 1757 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 1892.0 m
+0.0000 setgray
+<20202020756e7369676e656420736d616c6c207270635f766572733b20202020202f2a2070726f746f636f6c2076657273696f6e206e756d626572202a2f> 15 8731 32 s
+0.0 0.0 m
+newpath
+1033 1757 av
+1152 1757 as
+1152 1990 as
+1033 1990 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 2125.0 m
+0.0000 setgray
+<20202020756e7369676e656420736d616c6c2070747970653b20202020202020202f2a207061636b65742074797065202a2f> 17 7459 32 s
+0.0 0.0 m
+newpath
+1033 1990 av
+1152 1990 as
+1152 2223 as
+1033 2223 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 2358.0 m
+0.0000 setgray
+<20202020756e7369676e656420736d616c6c20666c616773313b202020202020202f2a207061636b657420666c616773202a2f> 16 7565 32 s
+0.0 0.0 m
+newpath
+1033 2223 av
+1152 2223 as
+1152 2456 as
+1033 2456 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 2591.0 m
+0.0000 setgray
+<20202020756e7369676e656420736d616c6c20666c616773323b202020202020202f2a207061636b657420666c616773202a2f> 16 7565 32 s
+0.0 0.0 m
+newpath
+1033 2456 av
+1152 2456 as
+1152 2689 as
+1033 2689 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 2824.0 m
+0.0000 setgray
+<20202020627974652020202020202020202020647265705b335d3b2020202020202f2a206461746120726570726573656e746174696f6e> 23 7989 32 s
+0.0 0.0 m
+newpath
+1033 2689 av
+1152 2689 as
+1152 2921 as
+1033 2921 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 3056.0 m
+0.0000 setgray
+<2020202020202020202020202020202020202020202020202020202020202020202020202020666f726d6174206c6162656c202a2f> 40 7777 32 s
+0.0 0.0 m
+newpath
+1033 2921 av
+1152 2921 as
+1152 3154 as
+1033 3154 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 3289.0 m
+0.0000 setgray
+<20202020756e7369676e656420736d616c6c2073657269616c5f68693b202020202f2a20686967682062797465206f662073657269616c206e756d626572202a2f> 16 9049 32 s
+0.0 0.0 m
+newpath
+1033 3154 av
+1152 3154 as
+1152 3387 as
+1033 3387 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 3522.0 m
+0.0000 setgray
+<20202020757569645f742020202020202020206f626a6563743b202020202020202f2a206f626a656374206964656e746966696572202a2f> 23 8095 32 s
+0.0 0.0 m
+newpath
+1033 3387 av
+1152 3387 as
+1152 3620 as
+1033 3620 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 3755.0 m
+0.0000 setgray
+<20202020757569645f7420202020202020202069665f69643b20202020202020202f2a20696e74657266616365206964656e746966696572202a2f> 24 8413 32 s
+0.0 0.0 m
+newpath
+1033 3620 av
+1152 3620 as
+1152 3853 as
+1033 3853 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 3988.0 m
+0.0000 setgray
+<20202020757569645f742020202020202020206163745f69643b202020202020202f2a206163746976697479206964656e746966696572202a2f> 23 8307 32 s
+0.0 0.0 m
+newpath
+1033 3853 av
+1152 3853 as
+1152 4086 as
+1033 4086 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 4221.0 m
+0.0000 setgray
+<20202020756e7369676e6564206c6f6e6720207365727665725f626f6f743b20202f2a2073657276657220626f6f742074696d65202a2f> 13 7989 32 s
+0.0 0.0 m
+newpath
+1033 4086 av
+1152 4086 as
+1152 4318 as
+1033 4318 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 4453.0 m
+0.0000 setgray
+<20202020756e7369676e6564206c6f6e67202069665f766572733b2020202020202f2a20696e746572666163652076657273696f6e202a2f> 16 8095 32 s
+0.0 0.0 m
+newpath
+1033 4318 av
+1152 4318 as
+1152 4551 as
+1033 4551 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 4686.0 m
+0.0000 setgray
+<20202020756e7369676e6564206c6f6e6720207365716e756d3b202020202020202f2a2073657175656e6365206e756d626572202a2f> 17 7883 32 s
+0.0 0.0 m
+newpath
+1033 4551 av
+1152 4551 as
+1152 4784 as
+1033 4784 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 4919.0 m
+0.0000 setgray
+<20202020756e7369676e65642073686f7274206f706e756d3b20202020202020202f2a206f7065726174696f6e206e756d626572202a2f> 17 7989 32 s
+0.0 0.0 m
+newpath
+1033 4784 av
+1152 4784 as
+1152 5017 as
+1033 5017 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 5152.0 m
+0.0000 setgray
+<20202020756e7369676e65642073686f7274206968696e743b20202020202020202f2a20696e746572666163652068696e74202a2f> 17 7777 32 s
+0.0 0.0 m
+newpath
+1033 5017 av
+1152 5017 as
+1152 5250 as
+1033 5250 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 5385.0 m
+0.0000 setgray
+<20202020756e7369676e65642073686f7274206168696e743b20202020202020202f2a2061637469766974792068696e74202a2f> 17 7671 32 s
+0.0 0.0 m
+newpath
+1033 5250 av
+1152 5250 as
+1152 5483 as
+1033 5483 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 5618.0 m
+0.0000 setgray
+<20202020756e7369676e65642073686f7274206c656e3b202020202020202020202f2a206c656e677468206f66207061636b657420626f6479202a2f> 21 8519 32 s
+0.0 0.0 m
+newpath
+1033 5483 av
+1152 5483 as
+1152 5715 as
+1033 5715 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 5850.0 m
+0.0000 setgray
+<20202020756e7369676e65642073686f727420667261676e756d3b2020202020202f2a20667261676d656e74206e756d626572202a2f> 15 7883 32 s
+0.0 0.0 m
+newpath
+1033 5715 av
+1152 5715 as
+1152 5948 as
+1033 5948 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 6083.0 m
+0.0000 setgray
+<20202020756e7369676e656420736d616c6c20617574685f70726f746f3b2020202f2a2061757468656e7469636174696f6e> 10 7459 32 s
+0.0 0.0 m
+newpath
+1033 5948 av
+1152 5948 as
+1152 6181 as
+1033 6181 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 6316.0 m
+0.0000 setgray
+<202020202020202020202020202020202020202020202020202020202020202020202020202070726f746f636f6c20737065636966696572202a2f> 40 8413 32 s
+0.0 0.0 m
+newpath
+1033 6181 av
+1152 6181 as
+1152 6414 as
+1033 6414 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 6549.0 m
+0.0000 setgray
+<20202020756e7369676e656420736d616c6c2073657269616c5f6c6f3b202020202f2a206c6f772062797465206f662073657269616c206e756d626572202a2f> 16 8943 32 s
+0.0 0.0 m
+newpath
+1033 6414 av
+1152 6414 as
+1152 6647 as
+1033 6647 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 6782.0 m
+0.0000 setgray
+<7d206e63615f7270635f64675f706b745f6864725f743b> 1 4597 32 s
+0.0 0.0 m
+newpath
+1033 6647 av
+1152 6647 as
+1152 6823 as
+1033 6823 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+4597.0 6782.0 m
+5 sf
+2159.0 7342.0 m
+0.0000 setgray
+<5b5442535d> 0 2645 -1 s
+0.0000 setgray
+<20646566696e657320> 2 3301 32 s
+7 sf
+0.0000 setgray
+<757569645f74> 0 3841 -1 s
+5 sf
+0.0000 setgray
+<2c207468652064617461207479706520666f7220556e6976657273616c20556e69717565204964656e7469666965727320285555494473292e> 8 8255 32 s
+2159.0 7850.0 m
+0.0000 setgray
+<546865207061636b657420626f64792063616e20626520646566696e656420617320616e206172726179206f66207468652049444c20> 12 6431 32 s
+7 sf
+0.0000 setgray
+<62797465> 0 6787 -1 s
+5 sf
+0.0000 setgray
+<20747970652e20546865206c656e677468206f6620746865207061636b6574> 6 9149 32 s
+2159.0 8104.0 m
+0.0000 setgray
+<626f64792069732073706563696669656420696e20746865207061636b65742068656164657220616e64206973206174206d6f73742036353533352062797465732e20> 13 7279 32 s
+2159.0 8612.0 m
+0.0000 setgray
+<5468652061757468656e7469636174696f6e2076657269666965722063616e20626520646566696e656420617320616e206172726179206f66207468652049444c20> 12 7208 32 s
+7 sf
+0.0000 setgray
+<62797465> 0 7564 -1 s
+5 sf
+0.0000 setgray
+<20747970652e20546865206c656e677468206f6620746865> 5 9372 32 s
+2159.0 8866.0 m
+0.0000 setgray
+<61757468656e7469636174696f6e20766572696669657220646570656e6473206f6e207468652061757468656e7469636174696f6e2070726f746f636f6c2073706563696669656420696e20746865207061636b657420686561646572> 11 9281 32 s
+9270.0 h
+0.0000 setgray
+<2e20> 1 9366 32 s
+2159.0 9374.0 m
+0.0000 setgray
+<546865206d6178696d756d2073697a65206f6620616e204e43412f5250432f4447207061636b65742069732074686520666978656420686561646572206c656e677468202838302062797465732920706c757320746865> 15 9343 32 s
+2159.0 9628.0 m
+0.0000 setgray
+<6d6178696d756d20626f6479206c656e677468202836353533352062797465732920706c757320746865206c656e677468206f66207468652061757468656e7469636174696f6e207665726966696572202864657465726d696e6564> 12 9472 32 s
+2159.0 9882.0 m
+0.0000 setgray
+<6279207468652061757468656e7469636174696f6e2070726f746f636f6c292e20496e2070726163746963652c20686f7765766572> 6 6229 32 s
+6221.0 h
+0.0000 setgray
+<2c20616e20696d706c656d656e746174696f6e206f66204e43412f525043206f7665722061> 6 9380 32 s
+2159.0 10136.0 m
+0.0000 setgray
+<706172746963756c617220646174616772616d20736572766963652063616e20696d706f73652061206c6f776572206d6178696d756d2e20466f72206578616d706c652c20696620616e20696d706c656d656e746174696f6e> 12 9437 32 s
+2159.0 10390.0 m
+0.0000 setgray
+<6f66204e43412f5250432f4447206973206c617965726564206f6e206120646174616772616d20736572766963652077686f7365206d6178696d756d20646174616772616d2073697a652069732031204b422c> 14 9255 32 s
+2159.0 10644.0 m
+0.0000 setgray
+<7468656e20746865206d6178696d756d207061636b65742073697a652069732031204b422e> 7 5203 32 s
+2159.0 11152.0 m
+0.0000 setgray
+<49662074686520696e707574206461746120696e20612072657175657374206f7220746865206f7574707574206461746120696e206120726573706f6e73652065786365656420746865206d6178696d756d207061636b657420626f6479> 18 9498 32 s
+2159.0 11406.0 m
+0.0000 setgray
+<73697a652c20746865204e43412f5250432f44472070726f746f636f6c7320667261676d656e74207468652072657175657374206f7220726573706f6e736520696e746f207365766572616c207061636b6574732c2063616c6c6564> 12 9487 32 s
+2159.0 11660.0 m
+0.0000 setgray
+<667261676d656e74732e20546865206d6178696d756d206e756d626572206f6620667261676d656e747320696e20612072657175657374206f7220726573706f6e7365206973203635353335> 12 8430 32 s
+2159.0 11914.0 m
+0.0000 setgray
+<5b3f3f3f20466f726d65726c792036353533365d2e> 2 3899 32 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 3939 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 3296 32 s
+7335.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 9468 32 s
+6445.0 1060.0 m
+0.0000 setgray
+<62617273206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+8844.0 13251.0 m
+6301.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 8844 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+9521.0 h
+9424.0 13251.0 m
+0.0000 setgray
+<37> 0 9521 -1 s
+5 sf
+2159.0 1669.0 m
+0.0000 setgray
+<52657175657374732074686174206172652062726f616463617374206d7573742066697420696e206f6e65207061636b657420616e64206f6e20736f6d6520646174616772616d207365727669636573206d6179206265> 15 9082 32 s
+2159.0 1923.0 m
+0.0000 setgray
+<7375626a65637420746f20667572746865722073697a65206c696d69746174696f6e73205b3f3f3f5d2e> 5 5195 32 s
+2159.0 2431.0 m
+0.0000 setgray
+<53656374696f6e7320332e32> 1 3106 32 s
+3107.0 h
+0.0000 setgray
+<2c20332e33> 1 3445 32 s
+3446.0 h
+0.0000 setgray
+<2c20616e6420332e34> 2 4112 32 s
+4113.0 h
+0.0000 setgray
+<20646573637269626520696e2064657461696c20746865207061636b657420686561646572> 6 6889 32 s
+6881.0 h
+0.0000 setgray
+<2c207061636b657420626f6479> 2 7919 32 s
+7906.0 h
+0.0000 setgray
+<2c20616e642061757468656e7469636174696f6e> 2 9429 32 s
+2159.0 2685.0 m
+0.0000 setgray
+<7665726966696572> 0 2731 -1 s
+2720.0 h
+0.0000 setgray
+<2e> 0 2768 -1 s
+true /wst:timsps6 8 declareFont
+8 sf
+1270.0 3387.0 m
+0.0 0.0 m
+34.0 sw
+/drawmode PL_SET def
+newpath
+1278 3366 av
+9496 3366 as
+0.0000 dp40
+9525.0 3387.0 m
+true /wst:timsps14b 9 declareFont
+9 sf
+1270.0 3635.0 m
+0.0000 setgray
+<332e32> 0 1578 -1 s
+1578.0 h
+0.0000 setgray
+<20546865205061636b657420486561646572> 3 3671 32 s
+5 sf
+2159.0 4109.0 m
+0.0000 setgray
+<54686973> 0 2504 -1 s
+0.0000 setgray
+<2073656374696f6e2064657363726962657320746865206669656c647320696e2074686520686561646572206f6620616e204e43412f5250432f4447207061636b65742e> 11 7937 32 s
+2159.0 4617.0 m
+0.0000 setgray
+<5b3f3f3f20466f6c6c6f77696e6720706172616772617068206d61792062656c6f6e6720696e2046534d206465736372697074696f6e73206f72206d6179206e6f74206265206e656365737361727920617420616c6c2e5d> 14 9193 32 s
+2159.0 4871.0 m
+0.0000 setgray
+<416e79207061636b657420686561646572206669656c642074686174206973206e6f7420646566696e656420746f2068617665206d65616e696e6720696e2061207365727665722d696e69746961746564207061636b6574206d757374> 15 9322 32 s
+2159.0 5125.0 m
+0.0000 setgray
+<636f6e7461696e207468652073616d652076616c756520617320746861742070617373656420696e2074686520636c69656e742d696e69746961746564207061636b65743b20746861742069732c20746865207365727665722063616e> 15 9001 32 s
+2159.0 5379.0 m
+0.0000 setgray
+<6368616e676520746865207061636b657420747970652c20667261676d656e7420626f6f6c65616e7320616e64207661726961626c65732c2068696e74732c20616e6420626f6f742074696d652c20627574206974206d757374> 14 9099 32 s
+2159.0 5633.0 m
+0.0000 setgray
+<707265736572766520616c6c206f7468657220636c69656e74207061636b65742076616c7565732e> 5 5129 32 s
+2159.0 6141.0 m
+0.0000 setgray
+<54686520626974206c61796f7574206f662065616368206669656c6420696e2061207061636b6574206865616465722069732064657465726d696e6564206279> 12 7056 32 s
+true /sps:symbb12 10 declareFont
+10 sf
+2477.0 6610.0 m
+0.0000 setgray
+<77> 0 2574 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<5468652049444c2074797065206f6620746865206669656c642c2061732073686f776e20696e2074686520646566696e6974696f6e20666f7220> 12 7175 32 s
+7 sf
+0.0000 setgray
+<6e63615f7270635f64675f706b745f74> 0 8685 -1 s
+5 sf
+0.0000 setgray
+<2e> 0 8733 -1 s
+10 sf
+2477.0 7080.0 m
+0.0000 setgray
+<77> 0 2574 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<546865204e445220726570726573656e746174696f6e20666f7220746861742049444c20747970652c2061732073706563696669656420696e2053656374696f6e> 10 7902 32 s
+0.0000 setgray
+<2031342e31> 1 8288 32 s
+8281.0 7080.0 m
+0.0000 setgray
+<31> 0 8378 -1 s
+8379.0 h
+0.0000 setgray
+<2e> 0 8427 -1 s
+10 sf
+2477.0 7549.0 m
+0.0000 setgray
+<77> 0 2574 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<546865204e445220636861726163746572> 2 4312 32 s
+4304.0 h
+0.0000 setgray
+<2c20696e7465676572> 1 4939 32 s
+4931.0 h
+0.0000 setgray
+<2c20616e6420666c6f6174696e672d706f696e7420666f726d617473207573656420627920746865204e43412f52504320696d706c652d> 8 9423 32 s
+2794.0 7805.0 m
+0.0000 setgray
+<6d656e746174696f6e20746861742069732073656e64696e6720746865207061636b65742e> 5 5624 32 s
+2159.0 8314.0 m
+0.0000 setgray
+<43686170746572203134> 1 3015 32 s
+3016.0 h
+0.0000 setgray
+<206465736372696265732049444c2e2043686170746572203133> 4 5109 32 s
+5110.0 h
+0.0000 setgray
+<20646573637269626573204e44522e> 2 6384 32 s
+true /wst:timsps12b 11 declareFont
+11 sf
+1270.0 8963.0 m
+0.0000 setgray
+<332e322e31> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<205072> 1 1971 32 s
+1967.0 h
+0.0000 setgray
+<6f746f636f6c2056> 1 2715 32 s
+2695.0 h
+0.0000 setgray
+<657273696f6e204e756d626572> 1 4055 32 s
+5 sf
+2159.0 9419.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<2070726f746f636f6c2076657273696f6e206e756d62657220697320616e20382d626974206e6f6e2d6e6567617469766520696e7465676572207468617420696e6469636174657320612076657273696f6e206f6620616e> 14 9157 32 s
+2159.0 9673.0 m
+0.0000 setgray
+<4e43412f5250432070726f746f636f6c2e2054686973206e756d62657220697320696e6372656d656e7465642061742065616368206e65772072656c65617365206f66207468652070726f746f636f6c2e20546865> 13 9085 32 s
+2159.0 9927.0 m
+0.0000 setgray
+<70726f746f636f6c2076657273696f6e206e756d62657220616c6c6f777320696d706c656d656e746174696f6e73206f66207365766572616c2076657273696f6e73206f66204e43412f52504320746f20636f6578697374> 11 9345 32 s
+2159.0 10181.0 m
+0.0000 setgray
+<696e206120646973747269627574656420656e7669726f6e6d656e742e20496e2076657273696f6e20322e30206f66204e43412c20746865204e43412f5250432f44472070726f746f636f6c2076657273696f6e> 12 9043 32 s
+2159.0 10435.0 m
+0.0000 setgray
+<6e756d62657220697320342e> 2 3122 32 s
+11 sf
+1270.0 11084.0 m
+0.0000 setgray
+<332e322e32> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<205061636b65742054> 2 2554 32 s
+2538.0 h
+0.0000 setgray
+<797065> 0 2856 -1 s
+5 sf
+2159.0 11540.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<207061636b65742074797065206669656c6420697320616e20382d626974206e6f6e2d6e6567617469766520696e74656765722074686174206964656e746966696573207468652074797065206f66207061636b6574206265696e67> 15 9291 32 s
+2159.0 11794.0 m
+0.0000 setgray
+<73656e742e> 0 2519 -1 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 3454 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<626172206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 4269 32 s
+6850.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 9468 32 s
+7493.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+1965.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 4508 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+1270.0 h
+0.0000 setgray
+<38> 0 1367 -1 s
+5 sf
+2159.0 1669.0 m
+0.0000 setgray
+<54> 0 2278 -1 s
+2264.0 1669.0 m
+0.0000 setgray
+<61626c652033b131> 1 2926 32 s
+2927.0 h
+0.0000 setgray
+<206c697374732074686520706f737369626c652076616c75657320666f7220746865207061636b65742074797065206669656c6420616e642062726965666c7920646573637269626573207468652074797065206f66> 15 9238 32 s
+2159.0 1923.0 m
+0.0000 setgray
+<7061636b6574206964656e74696669656420627920656163682076616c75652e20536f6d65207479706573206f66207061636b6574732063616e2062652073656e74206f6e6c792066726f6d20636c69656e7420746f207365727665723b> 16 9385 32 s
+2159.0 2177.0 m
+0.0000 setgray
+<736f6d652074797065732063616e2062652073656e74206f6e6c792066726f6d2073657276657220746f20636c69656e743b2061206661636b207061636b65742063616e2062652073656e7420696e2065697468657220646972656374696f6e2e> 18 9459 32 s
+6 sf
+4905.0 2685.0 m
+0.0000 setgray
+<54> 0 5013 -1 s
+4995.0 2685.0 m
+0.0000 setgray
+<61626c652033b131> 1 5668 32 s
+5668.0 h
+0.0000 setgray
+<2e205061636b65742054> 2 6448 32 s
+6434.0 h
+0.0000 setgray
+<79706573> 0 6778 -1 s
+true /wst:timsps10 8 declareFont
+8 sf
+2159.0 6443.0 m
+true /wst:timsps10b 9 declareFont
+9 sf
+2337.0 3175.0 m
+0.0000 setgray
+<5061636b6574> 0 2846 -1 s
+0.0000 setgray
+<2054> 1 3007 32 s
+2994.0 h
+0.0000 setgray
+<797065> 0 3258 -1 s
+4285.0 h
+0.0000 setgray
+<446972> 0 4539 -1 s
+4536.0 h
+0.0000 setgray
+<656374696f6e> 0 4986 -1 s
+3565.0 h
+0.0000 setgray
+<56> 0 3692 -1 s
+3676.0 h
+0.0000 setgray
+<616c7565> 0 3989 -1 s
+5802.0 h
+0.0000 setgray
+<4d65616e696e67> 0 6467 -1 s
+8 sf
+2328.0 3649.0 m
+0.0000 setgray
+<72657175657374> 0 2836 -1 s
+4277.0 h
+0.0000 setgray
+<636c69656e7420746f20736572766572> 2 5323 32 s
+3747.0 h
+0.0000 setgray
+<30> 0 3835 -1 s
+5793.0 h
+0.0000 setgray
+<54686520636c69656e7420726571756573747320657865637574696f6e206f6620612072656d6f7465206f706572612d> 7 9190 32 s
+5793.0 3844.0 m
+0.0000 setgray
+<74696f6e2e> 0 6111 -1 s
+2328.0 4200.0 m
+0.0000 setgray
+<70696e67> 0 2641 -1 s
+4277.0 h
+0.0000 setgray
+<636c69656e7420746f20736572766572> 2 5323 32 s
+3747.0 h
+0.0000 setgray
+<31> 0 3835 -1 s
+5793.0 h
+0.0000 setgray
+<54686520636c69656e742072657175657374732061636b6e6f776c656467656d656e74206f6620616e206f75742d> 6 9175 32 s
+5793.0 4395.0 m
+0.0000 setgray
+<7374616e64696e6720726571756573742e> 1 6985 32 s
+2328.0 4742.0 m
+0.0000 setgray
+<726573706f6e7365> 0 2943 -1 s
+4277.0 h
+0.0000 setgray
+<73657276657220746f20636c69656e74> 2 5323 32 s
+3747.0 h
+0.0000 setgray
+<32> 0 3835 -1 s
+5793.0 h
+0.0000 setgray
+<546865207365727665722069732072657475726e696e672074686520726573756c7473206f6620612072656d6f7465> 8 9000 32 s
+5793.0 4937.0 m
+0.0000 setgray
+<6f7065726174696f6e2e> 0 6502 -1 s
+2328.0 5267.0 m
+0.0000 setgray
+<6661756c74> 0 2651 -1 s
+4277.0 h
+0.0000 setgray
+<73657276657220746f20636c69656e74> 2 5323 32 s
+5793.0 h
+0.0000 setgray
+<412072656d6f7465206f7065726174696f6e20696e6375727265642061206661756c7420647572696e672065786563752d> 7 9299 32 s
+5793.0 5462.0 m
+0.0000 setgray
+<74696f6e206f6e2074686520736572766572> 3 7020 32 s
+7010.0 h
+0.0000 setgray
+<2e> 0 7054 -1 s
+2328.0 5801.0 m
+0.0000 setgray
+<776f726b696e67> 0 2915 -1 s
+4277.0 h
+0.0000 setgray
+<73657276657220746f20636c69656e74> 2 5323 32 s
+3747.0 h
+0.0000 setgray
+<34> 0 3835 -1 s
+5793.0 h
+0.0000 setgray
+<546865207365727665722069732070726f63657373696e672074686520636c69656e7427> 5 8251 32 s
+8241.0 h
+0.0000 setgray
+<7320726571756573742e> 1 8905 32 s
+2328.0 6224.0 m
+0.0000 setgray
+<6e6f63616c6c> 0 2758 -1 s
+4277.0 h
+0.0000 setgray
+<73657276657220746f20636c69656e74> 2 5323 32 s
+3747.0 h
+0.0000 setgray
+<35> 0 3835 -1 s
+5793.0 h
+0.0000 setgray
+<5468652073657276657220686173206e6f207265636f7264206f662074686520636c69656e7427> 7 8477 32 s
+8467.0 h
+0.0000 setgray
+<7320726571756573742e> 1 9131 32 s
+2328.0 6648.0 m
+0.0000 setgray
+<72656a656374> 0 2719 -1 s
+3747.0 h
+0.0000 setgray
+<36> 0 3835 -1 s
+2328.0 7665.0 m
+0.0000 setgray
+<61636b> 0 2572 -1 s
+4277.0 h
+0.0000 setgray
+<636c69656e7420746f20736572766572> 2 5323 32 s
+3747.0 h
+0.0000 setgray
+<37> 0 3835 -1 s
+5793.0 h
+0.0000 setgray
+<54686520636c69656e7420686173207265636569766564206120726573706f6e736520746f2069747320726571756573742e> 8 9188 32 s
+2328.0 8088.0 m
+0.0000 setgray
+<71756974> 0 2602 -1 s
+4277.0 h
+0.0000 setgray
+<636c69656e7420746f20736572766572> 2 5323 32 s
+3747.0 h
+0.0000 setgray
+<38> 0 3835 -1 s
+5793.0 h
+0.0000 setgray
+<54686520636c69656e74207265717565737473207468617420746865207365727665722061626f7274207468652065786563752d> 8 9341 32 s
+5793.0 8283.0 m
+0.0000 setgray
+<74696f6e206f6620612072656d6f7465206f7065726174696f6e2e> 4 7666 32 s
+2328.0 8681.0 m
+0.0000 setgray
+<6661636b> 0 2631 -1 s
+4277.0 h
+0.0000 setgray
+<626f74682077617973> 1 4995 32 s
+3747.0 h
+0.0000 setgray
+<39> 0 3835 -1 s
+5793.0 h
+0.0000 setgray
+<4966207061737365642066726f6d2073657276657220746f20636c69656e742c207468652073657276657220686173> 8 8955 32 s
+5793.0 8876.0 m
+0.0000 setgray
+<72656365697665642061207265717565737420667261676d656e742e> 3 7787 32 s
+2328.0 9698.0 m
+0.0000 setgray
+<717561636b> 0 2748 -1 s
+4277.0 h
+0.0000 setgray
+<73657276657220746f20636c69656e74> 2 5323 32 s
+3652.0 h
+0.0000 setgray
+<3130> 0 3828 -1 s
+5793.0 h
+0.0000 setgray
+<54686520736572766572206861732072656365697665642061207175697420726571756573742e> 6 8495 32 s
+0.0 0.0 m
+17.0 sw
+/drawmode PL_SET def
+newpath
+2159 2921 av
+9512 2921 as
+9512 2921 as
+9512 9952 as
+2159 9952 as
+2159 2921 as
+0.0000 dp40
+newpath
+3430 2921 av
+3430 9952 as
+0.0000 dp40
+newpath
+4107 2921 av
+4107 9952 as
+0.0000 dp40
+newpath
+5632 2921 av
+5632 9952 as
+0.0000 dp40
+newpath
+2159 3260 av
+9512 3260 as
+0.0000 dp40
+3744.0 5267.0 m
+0.0000 setgray
+<33> 0 3832 -1 s
+5793.0 9139.0 m
+0.0000 setgray
+<4966207061737365642066726f6d20636c69656e7420746f20736572766572> 5 7900 32 s
+7893.0 h
+0.0000 setgray
+<2c2074686520636c69656e7420686173> 3 8909 32 s
+5793.0 9334.0 m
+0.0000 setgray
+<7265636569766564206120726573706f6e736520667261676d656e742e> 3 7894 32 s
+4277.0 6648.0 m
+0.0000 setgray
+<626f74682077617973205b3f3f3f5d> 2 5391 32 s
+5793.0 h
+0.0000 setgray
+<4966207061737365642066726f6d2073657276657220746f20636c69656e742c207468652073657276657220686173> 8 8955 32 s
+5793.0 6843.0 m
+0.0000 setgray
+<72656a65637465642074686520636c69656e7427> 2 7103 32 s
+7093.0 h
+0.0000 setgray
+<7320726571756573742e> 1 7757 32 s
+5793.0 7105.0 m
+0.0000 setgray
+<4966207061737365642066726f6d20636c69656e7420746f20736572766572> 5 7900 32 s
+7893.0 h
+0.0000 setgray
+<2c2074686520636c69656e7420436f6e7665722d> 3 9252 32 s
+5793.0 7300.0 m
+0.0000 setgray
+<736174696f6e204d616e61676572206861732072656a65637465642061207365727665722063616c6c6261636b2e> 6 9031 32 s
+9525.0 6443.0 m
+0.0 0.0 m
+newpath
+0.0 sw
+1033 2921 av
+1152 2921 as
+1152 9965 as
+1033 9965 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+9525.0 6443.0 m
+5 sf
+2159.0 10485.0 m
+0.0000 setgray
+<53656374696f6e> 0 2741 -1 s
+0.0000 setgray
+<20332e35> 1 3031 32 s
+3032.0 h
+0.0000 setgray
+<20646573637269626573207061636b657420747970657320696e2064657461696c2e> 5 5538 32 s
+true /wst:timsps12b 10 declareFont
+10 sf
+1270.0 11134.0 m
+0.0000 setgray
+<332e322e33> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<205061636b657420466c616773> 2 2896 32 s
+5 sf
+2159.0 11589.0 m
+0.0000 setgray
+<45616368> 0 2547 -1 s
+0.0000 setgray
+<206f662074686520666c616773206669656c647320697320616e20382d62697420696e746567657220636f6d706f736564206f662062697420666c61677320666f722075736520696e2070726f746f636f6c20636f6e74726f6c2e> 17 9199 32 s
+2159.0 12097.0 m
+0.0000 setgray
+<4e43412063757272656e746c79207370656369666965732074686520757365206f6620736978206269747320696e2074686520666972737420736574206f66207061636b657420666c6167732e20546865206f74686572206269747320617265> 18 9201 32 s
+2159.0 12351.0 m
+0.0000 setgray
+<65697468657220726573657276656420666f722075736520627920696d706c656d656e746174696f6e73206f66204e4341206f7220726573657276656420666f7220667574757265207573652e> 12 8193 32 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 3939 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 3296 32 s
+7335.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 9468 32 s
+6445.0 1060.0 m
+0.0000 setgray
+<62617273206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+8844.0 13251.0 m
+6301.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 8844 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+9521.0 h
+9424.0 13251.0 m
+0.0000 setgray
+<39> 0 9521 -1 s
+5 sf
+2159.0 1669.0 m
+0.0000 setgray
+<536f6d6520666c61677320617265206d65616e696e6766756c206f6e6c7920696e207061636b6574732074686174206172652073656e742066726f6d20636c69656e7420746f20736572766572> 13 8074 32 s
+8063.0 h
+0.0000 setgray
+<2e20546865736520666c61677320617265> 3 9332 32 s
+2159.0 1923.0 m
+0.0000 setgray
+<69676e6f72656420696e207061636b6574732074686174206172652073656e742066726f6d2073657276657220746f20636c69656e742e> 9 6238 32 s
+2159.0 2431.0 m
+0.0000 setgray
+<54> 0 2278 -1 s
+2264.0 2431.0 m
+0.0000 setgray
+<61626c652033b132> 1 2926 32 s
+2927.0 h
+0.0000 setgray
+<206c69737473207468652062697420666c61677320696e2074686520666972737420736574206f66207061636b657420666c6167732e> 11 6595 32 s
+6 sf
+4524.0 2939.0 m
+0.0000 setgray
+<54> 0 4632 -1 s
+4614.0 2939.0 m
+0.0000 setgray
+<61626c652033b132> 1 5287 32 s
+5287.0 h
+0.0000 setgray
+<2e205061636b657420466c6167732c20466972737420536574> 4 7159 32 s
+true /wst:timsps10 8 declareFont
+8 sf
+2159.0 5469.0 m
+true /wst:timsps10b 9 declareFont
+9 sf
+2328.0 3395.0 m
+0.0000 setgray
+<5061636b6574> 0 2837 -1 s
+2328.0 3590.0 m
+0.0000 setgray
+<466c6167> 0 2661 -1 s
+3530.0 3395.0 m
+0.0000 setgray
+<486578> 0 3833 -1 s
+3530.0 3590.0 m
+0.0000 setgray
+<56> 0 3657 -1 s
+3641.0 h
+0.0000 setgray
+<616c7565> 0 3954 -1 s
+8 sf
+3669.0 4411.0 m
+0.0000 setgray
+<3032> 0 3845 -1 s
+2328.0 h
+0.0000 setgray
+<6c61737466726167> 0 2856 -1 s
+4277.0 h
+0.0000 setgray
+<4d65616e696e6766756c> 0 5098 -1 s
+0.0000 setgray
+<20696e2065697468657220646972656374696f6e2e204966207365742c20746865207061636b657420697320746865206c61737420667261676d656e74206f662061> 13 9346 32 s
+4277.0 4606.0 m
+0.0000 setgray
+<6d756c74697061636b6574207472616e736d697373696f6e2e> 1 6085 32 s
+2328.0 5428.0 m
+0.0000 setgray
+<6e6f6661636b> 0 2807 -1 s
+2328.0 5936.0 m
+0.0000 setgray
+<6d61796265> 0 2797 -1 s
+2328.0 6444.0 m
+0.0000 setgray
+<6964656d706f74656e74> 0 3120 -1 s
+2328.0 7461.0 m
+0.0000 setgray
+<72657365727665645f3830> 0 3188 -1 s
+3669.0 5428.0 m
+0.0000 setgray
+<3038> 0 3845 -1 s
+4277.0 h
+0.0000 setgray
+<4d65616e696e6766756c20666f7220667261676d656e74732073656e7420696e2065697468657220646972656374696f6e2e204966207365742c20746865207265636569766572206973> 11 9239 32 s
+4277.0 5623.0 m
+0.0000 setgray
+<6e6f7420746f2073656e642061206661636b207061636b657420666f722074686520667261676d656e742e> 8 7254 32 s
+3669.0 5936.0 m
+0.0000 setgray
+<3130> 0 3845 -1 s
+3669.0 6444.0 m
+0.0000 setgray
+<3230> 0 3845 -1 s
+3669.0 7461.0 m
+0.0000 setgray
+<3830> 0 3845 -1 s
+4277.0 6444.0 m
+0.0000 setgray
+<4d65616e696e6766756c206f6e6c792066726f6d20636c69656e7420746f20736572766572> 5 6932 32 s
+6922.0 h
+0.0000 setgray
+<2e204966207365742c20746865207061636b657420697320666f7220616e206964656d2d> 8 9249 32 s
+4277.0 6639.0 m
+0.0000 setgray
+<706f74656e7420726571756573742e> 1 5313 32 s
+4277.0 7461.0 m
+0.0000 setgray
+<526573657276656420666f7220757365206279204e434120696d706c656d656e746174696f6e732e> 5 7355 32 s
+0.0 0.0 m
+17.0 sw
+/drawmode PL_SET def
+newpath
+2159 3175 av
+9512 3175 as
+9512 3175 as
+9512 7750 as
+2159 7750 as
+2159 3175 as
+0.0000 dp40
+newpath
+2159 3683 av
+9512 3683 as
+0.0000 dp40
+newpath
+3430 3175 av
+3430 7750 as
+0.0000 dp40
+newpath
+4107 3175 av
+4107 7750 as
+0.0000 dp40
+4277.0 5936.0 m
+0.0000 setgray
+<4d65616e696e6766756c206f6e6c792066726f6d20636c69656e7420746f20736572766572> 5 6932 32 s
+6922.0 h
+0.0000 setgray
+<2e204966207365742c20746865207061636b657420697320666f722061206d61796265> 8 9219 32 s
+4277.0 6131.0 m
+0.0000 setgray
+<726571756573742e> 0 4829 -1 s
+9 sf
+4277.0 3488.0 m
+0.0000 setgray
+<4d65616e696e67> 0 4942 -1 s
+8 sf
+3669.0 4920.0 m
+0.0000 setgray
+<3034> 0 3845 -1 s
+2328.0 h
+0.0000 setgray
+<66726167> 0 2612 -1 s
+4277.0 h
+0.0000 setgray
+<4d65616e696e6766756c20696e2065697468657220646972656374696f6e2e204966207365742c20746865207061636b6574206973206120667261676d656e74206f662061> 12 8921 32 s
+4277.0 5115.0 m
+0.0000 setgray
+<6d756c74697061636b6574207472616e736d697373696f6e2e> 1 6085 32 s
+2328.0 6953.0 m
+0.0000 setgray
+<62726f616463617374> 0 3002 -1 s
+3669.0 h
+0.0000 setgray
+<3430> 0 3845 -1 s
+4277.0 h
+0.0000 setgray
+<4d65616e696e6766756c206f6e6c792066726f6d20636c69656e7420746f20736572766572> 5 6932 32 s
+6922.0 h
+0.0000 setgray
+<2e204966207365742c20746865207061636b657420697320666f7220612062726f61642d> 8 9210 32 s
+4277.0 7148.0 m
+0.0000 setgray
+<6361737420726571756573742e> 1 5146 32 s
+3669.0 4072.0 m
+0.0000 setgray
+<3031> 0 3845 -1 s
+2328.0 h
+0.0000 setgray
+<72657365727665645f3031> 0 3188 -1 s
+4277.0 h
+0.0000 setgray
+<526573657276656420666f7220757365206279204e434120696d706c656d656e746174696f6e732e> 5 7355 32 s
+9525.0 5469.0 m
+5 sf
+2159.0 8283.0 m
+0.0000 setgray
+<54> 0 2278 -1 s
+2264.0 8283.0 m
+0.0000 setgray
+<61626c652033b133> 1 2926 32 s
+2927.0 h
+0.0000 setgray
+<206c69737473207468652062697420666c61677320696e20746865207365636f6e6420736574206f66207061636b657420666c6167732e> 11 6820 32 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 3454 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<626172206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 4269 32 s
+6850.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 9468 32 s
+7493.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+1965.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 4508 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+1270.0 h
+0.0000 setgray
+<3130> 0 1464 -1 s
+6 sf
+4432.0 1669.0 m
+0.0000 setgray
+<54> 0 4540 -1 s
+4522.0 1669.0 m
+0.0000 setgray
+<61626c652033b133> 1 5195 32 s
+5195.0 h
+0.0000 setgray
+<2e205061636b657420466c6167732c205365636f6e6420536574> 4 7250 32 s
+true /wst:timsps10 8 declareFont
+8 sf
+2159.0 3691.0 m
+true /wst:timsps10b 9 declareFont
+9 sf
+2328.0 2125.0 m
+0.0000 setgray
+<5061636b6574> 0 2837 -1 s
+2328.0 2320.0 m
+0.0000 setgray
+<466c6167> 0 2661 -1 s
+3530.0 2125.0 m
+0.0000 setgray
+<486578> 0 3833 -1 s
+3530.0 2320.0 m
+0.0000 setgray
+<56> 0 3657 -1 s
+3641.0 h
+0.0000 setgray
+<616c7565> 0 3954 -1 s
+0.0 0.0 m
+17.0 sw
+/drawmode PL_SET def
+newpath
+2159 1905 av
+9512 1905 as
+9512 1905 as
+9512 5463 as
+2159 5463 as
+2159 1905 as
+0.0000 dp40
+newpath
+2159 2413 av
+9512 2413 as
+0.0000 dp40
+newpath
+3430 1905 av
+3430 5463 as
+0.0000 dp40
+newpath
+4107 1905 av
+4107 5463 as
+0.0000 dp40
+4277.0 2218.0 m
+0.0000 setgray
+<4d65616e696e67> 0 4942 -1 s
+8 sf
+3669.0 2802.0 m
+0.0000 setgray
+<3031> 0 3845 -1 s
+2328.0 h
+0.0000 setgray
+<72657365727665645f3031> 0 3188 -1 s
+4277.0 h
+0.0000 setgray
+<5265736572766564> 0 4931 -1 s
+0.0000 setgray
+<20666f7220757365206279204e434120696d706c656d656e746174696f6e732e> 5 7355 32 s
+3669.0 3141.0 m
+0.0000 setgray
+<3032> 0 3845 -1 s
+2328.0 h
+0.0000 setgray
+<72657365727665645f3032> 0 3188 -1 s
+3669.0 3480.0 m
+0.0000 setgray
+<3034> 0 3845 -1 s
+2328.0 h
+0.0000 setgray
+<72657365727665645f3034> 0 3188 -1 s
+4277.0 h
+0.0000 setgray
+<526573657276656420666f7220667574757265207573652e204d7573742062652073657420746f20302e> 8 7179 32 s
+3669.0 3819.0 m
+0.0000 setgray
+<3038> 0 3845 -1 s
+2328.0 h
+0.0000 setgray
+<72657365727665645f3038> 0 3188 -1 s
+4277.0 h
+0.0000 setgray
+<526573657276656420666f7220667574757265207573652e204d7573742062652073657420746f20302e> 8 7179 32 s
+4277.0 3141.0 m
+0.0000 setgray
+<526573657276656420666f7220757365206279204e434120696d706c656d656e746174696f6e732e> 5 7355 32 s
+3669.0 4158.0 m
+0.0000 setgray
+<3130> 0 3845 -1 s
+2328.0 h
+0.0000 setgray
+<72657365727665645f3130> 0 3188 -1 s
+4277.0 h
+0.0000 setgray
+<526573657276656420666f7220667574757265207573652e204d7573742062652073657420746f20302e> 8 7179 32 s
+3669.0 4497.0 m
+0.0000 setgray
+<3230> 0 3845 -1 s
+2328.0 h
+0.0000 setgray
+<72657365727665645f3230> 0 3188 -1 s
+3669.0 4836.0 m
+0.0000 setgray
+<3430> 0 3845 -1 s
+2328.0 h
+0.0000 setgray
+<72657365727665645f3430> 0 3188 -1 s
+4277.0 h
+0.0000 setgray
+<526573657276656420666f7220667574757265207573652e204d7573742062652073657420746f20302e> 8 7179 32 s
+3669.0 5174.0 m
+0.0000 setgray
+<3830> 0 3845 -1 s
+2328.0 h
+0.0000 setgray
+<72657365727665645f3830> 0 3188 -1 s
+4277.0 h
+0.0000 setgray
+<526573657276656420666f7220667574757265207573652e204d7573742062652073657420746f20302e> 8 7179 32 s
+4277.0 4497.0 m
+0.0000 setgray
+<526573657276656420666f7220667574757265207573652e204d7573742062652073657420746f20302e> 8 7179 32 s
+9525.0 3691.0 m
+true /wst:timsps12b 10 declareFont
+10 sf
+1270.0 6138.0 m
+0.0000 setgray
+<332e322e34> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<20446174612052657072> 2 2695 32 s
+2691.0 h
+0.0000 setgray
+<6573656e746174696f6e20466f726d6174204c6162656c> 2 4918 32 s
+5 sf
+2159.0 6594.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<206461746120726570726573656e746174696f6e20666f726d6174206c6162656c206973206120766563746f72206f662074687265652062797465732074686174206964656e74696669657320746865207363616c617220666f726d617473> 15 9452 32 s
+2159.0 6848.0 m
+0.0000 setgray
+<75736564206279207468652073656e646572206f662061207061636b657420746f20726570726573656e74206461746120696e20746865207061636b65742068656164657220616e6420696e20746865207061636b657420626f6479> 18 9227 32 s
+9214.0 h
+0.0000 setgray
+<2e> 0 9262 -1 s
+2159.0 7102.0 m
+0.0000 setgray
+<2854686520726570726573656e746174696f6e206f66206461746120696e20616e2061757468656e7469636174696f6e2076657269666965722069732064657465726d696e6564206279207468652061757468656e7469636174696f6e> 12 9223 32 s
+2159.0 7356.0 m
+0.0000 setgray
+<70726f746f636f6c2e292054686520666f726d6174206c6162656c20737570706f72747320746865204e4341206d756c746963616e6f6e6963616c> 7 6908 32 s
+6 sf
+0.0000 setgray
+<20> 1 6956 32 s
+5 sf
+0.0000 setgray
+<617070726f61636820746f206461746120636f6e76657273696f6e2e> 3 9184 32 s
+2159.0 7864.0 m
+0.0000 setgray
+<546865204e44522070726f746f636f6c20646566696e6573207365766572616c206461746120726570726573656e746174696f6e20666f726d61747320666f7220636861726163746572732c20696e74656765727320616e64> 11 9124 32 s
+2159.0 8118.0 m
+0.0000 setgray
+<666c6f6174696e672d706f696e74206e756d626572732e2054686520737570706f7274656420666f726d617473206172652063686f73656e20666f7220636f6d7061746962696c6974792077697468206120776964652072616e6765> 12 9455 32 s
+2159.0 8372.0 m
+0.0000 setgray
+<6f6620686172647761726520617263686974656374757265732e2054686520696d706c656d656e746174696f6e206f66204e43412074686174206275696c647320616e642073656e64732061207061636b65742075736573> 13 9197 32 s
+2159.0 8626.0 m
+0.0000 setgray
+<4e4452207363616c617220666f726d61747320286f6e652063686172616374657220666f726d61742c206f6e6520696e746567657220666f726d61742c20616e64206f6e6520666c6f6174696e672d706f696e7420666f726d617429> 12 9407 32 s
+2159.0 8880.0 m
+0.0000 setgray
+<7468617420617265206e617469766520746f206f7220636c6f73656c7920636f6d70617469626c6520776974682074686520686172647761726520617263686974656374757265206f6620746865206c6f63616c20686f73742e205468657365> 15 9435 32 s
+2159.0 9134.0 m
+0.0000 setgray
+<666f726d6174732061726520696e6469636174656420696e2074686520666f726d6174206c6162656c2e2049662074686520696d706c656d656e746174696f6e206f66204e434120746861742072656365697665732061207061636b6574> 15 9425 32 s
+2159.0 9388.0 m
+0.0000 setgray
+<7573657320666f726d61747320646966> 2 3397 32 s
+3394.0 h
+0.0000 setgray
+<666572656e742066726f6d2074686f736520696e6469636174656420696e2074686520666f726d6174206c6162656c2c2074686520726563656976696e6720696d706c656d656e746174696f6e> 10 9333 32 s
+2159.0 9642.0 m
+0.0000 setgray
+<636f6e766572747320646174612066726f6d207468652073656e646572> 4 4452 32 s
+4459.0 h
+0.0000 setgray
+<27> 0 4524 -1 s
+4513.0 h
+0.0000 setgray
+<7320666f726d617420746f20746865207265636569766572> 4 6311 32 s
+6318.0 h
+0.0000 setgray
+<27> 0 6383 -1 s
+6372.0 h
+0.0000 setgray
+<732e> 0 6495 -1 s
+2159.0 10150.0 m
+0.0000 setgray
+<417320646566696e6564206279204e44522c2074686520666f726d6174206c6162656c20636f6e7369737473206f6620666f75722062797465732e20486f7765766572> 11 7534 32 s
+7526.0 h
+0.0000 setgray
+<2c2074686520666f757274682062797465206973206375722d> 5 9302 32 s
+2159.0 10404.0 m
+0.0000 setgray
+<72656e746c7920756e757365642c20616e64206f6e6c79207468652066697273742074687265652061707065617220696e204e43412f5250432f4447207061636b657420686561646572732e> 11 8277 32 s
+2159.0 10912.0 m
+0.0000 setgray
+<4e445220646566696e6573206f6e6c79206f6e6520626974206c61796f757420666f722074686520666f726d6174206c6162656c20697473656c662c20736f2069747320666f726d6174206973207468652073616d6520696e20616c6c> 18 9084 32 s
+2159.0 11166.0 m
+0.0000 setgray
+<7061636b6574732e> 0 2788 -1 s
+2159.0 11674.0 m
+0.0000 setgray
+<53656374696f6e2031332e31> 1 3128 32 s
+3129.0 h
+0.0000 setgray
+<2064657363726962657320746865204e4452207363616c617220747970657320616e6420746865206461746120726570726573656e746174696f6e20666f726d6174732074686174204e4452> 12 9165 32 s
+2159.0 11928.0 m
+0.0000 setgray
+<646566696e657320666f72206561636820747970652e2053656374696f6e2031332e35> 5 4844 32 s
+4845.0 h
+0.0000 setgray
+<207370656369666965732074686520626974206c61796f7574206f6620746865206461746120726570726573656e746174696f6e20666f726d6174> 9 9221 32 s
+2159.0 12182.0 m
+0.0000 setgray
+<6c6162656c2e> 0 2584 -1 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 3939 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 3296 32 s
+7335.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 9468 32 s
+6445.0 1060.0 m
+0.0000 setgray
+<62617273206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+8844.0 13251.0 m
+6301.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 8844 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+9521.0 h
+9327.0 13251.0 m
+0.0000 setgray
+<31> 0 9424 -1 s
+9413.0 13251.0 m
+0.0000 setgray
+<31> 0 9510 -1 s
+true /wst:timsps12b 8 declareFont
+8 sf
+1270.0 1683.0 m
+0.0000 setgray
+<332e322e35> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<2053657269616c204e756d626572> 2 3084 32 s
+5 sf
+2159.0 2139.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<2073657269616c206e756d62657220697320612031362d626974206e6f6e2d6e6567617469766520696e74656765722074686174206964656e7469666965732061207472616e736d697373696f6e206f66206120667261676d656e742e> 14 9453 32 s
+2159.0 2647.0 m
+0.0000 setgray
+<5468652073657269616c206e756d6265722069732073657420746f207a65726f207768656e20612072656d6f74652070726f6365647572652063616c6c20697320696e6974696174656420616e6420697320696e6372656d656e746564> 16 9305 32 s
+2159.0 2901.0 m
+0.0000 setgray
+<616674657220656163682074696d65206120667261676d656e742069732073656e74206f7220726573656e74206f6e20626568616c66206f6620746861742063616c6c2e> 13 7152 32 s
+2159.0 3409.0 m
+0.0000 setgray
+<496e20612072657175657374206f7220726573706f6e7365207061636b657420746861742069732070617274206f662061206d756c74697061636b6574207472616e736d697373696f6e2c207468652073657269616c206e756d626572> 15 9197 32 s
+2159.0 3663.0 m
+0.0000 setgray
+<6964656e746966696573207468652063757272656e7420667261676d656e74207472616e736d697373696f6e2e20496e206f74686572207479706573206f66207061636b6574732c207468652073657269616c206e756d626572206973> 13 9161 32 s
+2159.0 3917.0 m
+0.0000 setgray
+<6d65616e696e676c65737320616e642063616e206861766520616e206172626974726172792076616c7565205b3f3f3f5d2e> 7 6076 32 s
+2159.0 4425.0 m
+0.0000 setgray
+<5468652074776f206279746573206f66207468652073657269616c206e756d62657220646f206e6f74206f636375707920636f6e746967756f757320706f736974696f6e7320696e20746865207061636b657420686561646572> 15 9257 32 s
+9246.0 h
+0.0000 setgray
+<2e> 0 9294 -1 s
+2159.0 4679.0 m
+0.0000 setgray
+<546865206d6f7374207369676e69666963616e74206279746520666f6c6c6f777320746865206461746120726570726573656e746174696f6e20666f726d6174206c6162656c2e20546865206c65617374207369676e69666963616e74> 12 9227 32 s
+2159.0 4933.0 m
+0.0000 setgray
+<6279746520666f6c6c6f7773207468652061757468656e7469636174696f6e2070726f746f636f6c206e756d626572> 5 5891 32 s
+5880.0 h
+0.0000 setgray
+<2e> 0 5928 -1 s
+8 sf
+1270.0 5582.0 m
+0.0000 setgray
+<332e322e36> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<204f626a656374204964656e746966696572> 2 3273 32 s
+5 sf
+2159.0 6038.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<206f626a656374206964656e74696669657220697320612055554944207468617420756e697175656c79206964656e74696669657320746865206f626a656374206f6e20776869636820612072656d6f74652070726f63652d> 15 9259 32 s
+2159.0 6292.0 m
+0.0000 setgray
+<647572652063616c6c206973206f7065726174696e672e204966207468652063616c6c20646f6573206e6f74206f706572617465206f6e20616e206f626a6563742c2074686973206669656c6420636f6e7461696e73207a65726f65732e> 16 9007 32 s
+2159.0 6800.0 m
+0.0000 setgray
+<54686520736572766572207573657320746865206f626a65637420555549442c2074686520696e7465726661636520555549442c2074686520696e746572666163652076657273696f6e206e756d626572> 12 8617 32 s
+8609.0 h
+0.0000 setgray
+<2c20616e6420746865> 2 9270 32 s
+2159.0 7054.0 m
+0.0000 setgray
+<6f7065726174696f6e206e756d62657220746f2073656c65637420746865206f7065726174696f6e20746f2065786563757465206f6e2074686520636c69656e7427> 10 7197 32 s
+7186.0 h
+0.0000 setgray
+<7320626568616c662e> 1 7842 32 s
+2159.0 7562.0 m
+0.0000 setgray
+<5b5265666572656e636520666f72205555494473205442532e5d> 3 4410 32 s
+8 sf
+1270.0 8211.0 m
+0.0000 setgray
+<332e322e37> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<20496e74657266616365204964656e746966696572> 2 3484 32 s
+5 sf
+2159.0 8667.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<20696e74657266616365206964656e74696669657220697320612055554944207468617420756e697175656c79206964656e7469666965732074686520696e74657266616365206265696e672063616c6c65642e> 12 8678 32 s
+2159.0 9175.0 m
+0.0000 setgray
+<54686520736572766572207573657320746865206f626a65637420555549442c2074686520696e7465726661636520555549442c2074686520696e746572666163652076657273696f6e206e756d626572> 12 8617 32 s
+8609.0 h
+0.0000 setgray
+<2c20616e6420746865> 2 9270 32 s
+2159.0 9429.0 m
+0.0000 setgray
+<6f7065726174696f6e206e756d62657220746f2073656c65637420746865206f7065726174696f6e20746f2065786563757465206f6e2074686520636c69656e7427> 10 7197 32 s
+7186.0 h
+0.0000 setgray
+<7320626568616c662e> 1 7842 32 s
+2159.0 9937.0 m
+0.0000 setgray
+<5b5265666572656e636520666f72205555494473205442532e5d> 3 4410 32 s
+8 sf
+1270.0 10586.0 m
+0.0000 setgray
+<332e322e38> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<204163746976697479204964656e746966696572> 2 3379 32 s
+5 sf
+2159.0 11042.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<206163746976697479206964656e74696669657220697320612055554944207468617420756e697175656c79206964656e7469666965732074686520636c69656e742061637469766974792074686174206973206d616b696e672061> 15 9205 32 s
+2159.0 11296.0 m
+0.0000 setgray
+<72656d6f74652070726f6365647572652063616c6c2e20546865207365727665722063616e20757365207468652061637469766974792055554944206173206120636f6d6d756e69636174696f6e73206b65792062652d> 14 9138 32 s
+2159.0 11550.0 m
+0.0000 setgray
+<747765656e20697420616e642074686520636c69656e742e> 4 3918 32 s
+2159.0 12058.0 m
+0.0000 setgray
+<5b5265666572656e636520666f72205555494473205442532e5d> 3 4410 32 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 3454 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<626172206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 4269 32 s
+6850.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 9468 32 s
+7493.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+1965.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 4508 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+1270.0 h
+0.0000 setgray
+<3132> 0 1464 -1 s
+true /wst:timsps12b 8 declareFont
+8 sf
+1270.0 1683.0 m
+0.0000 setgray
+<332e322e39> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<2053657276657220426f6f742054> 3 3018 32 s
+3014.0 h
+0.0000 setgray
+<696d65> 0 3344 -1 s
+5 sf
+2159.0 2139.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<2073657276657220626f6f742074696d6520697320612033322d626974206e6f6e2d6e6567617469766520696e7465676572207468617420696e64696361746573207468652074696d6520617420776869636820746865> 15 8989 32 s
+2159.0 2393.0 m
+0.0000 setgray
+<63757272656e7420696e7374616e74696174696f6e206f662061207365727665722077617320626f6f7465642028746861742069732c207468652074696d65206174207768696368207468652070726f6365737320696e20776869636820746865> 17 9444 32 s
+2159.0 2647.0 m
+0.0000 setgray
+<7365727665722069732072756e6e696e672077617320637265617465642c206e6f74207468652074696d65206174207768696368207468652073657276657220686f73742077617320626f6f746564292e2053657276657220626f6f74> 16 9315 32 s
+2159.0 2901.0 m
+0.0000 setgray
+<74696d6520697320726570726573656e7465642061732074696d6520696e207365636f6e64732073696e63652031204a616e75617279203139373020616e64206d75737420696e6372656173652077697468206561636820626f6f74> 16 9388 32 s
+2159.0 3155.0 m
+0.0000 setgray
+<6f662074686520736572766572> 2 3128 32 s
+3117.0 h
+0.0000 setgray
+<2e> 0 3165 -1 s
+2159.0 3663.0 m
+0.0000 setgray
+<4120736572766572207061737365732069747320626f6f742074696d6520696e20616c6c207061636b65747320746861742069742073656e647320746f206120636c69656e742e2054686520636c69656e7420706173736573206261636b2074686973> 19 9396 32 s
+2159.0 3917.0 m
+0.0000 setgray
+<76616c756520696e20616c6c207061636b65747320746861742069742073756273657175656e746c792073656e647320746f207468652073616d6520736572766572> 11 7134 32 s
+7123.0 h
+0.0000 setgray
+<2e205768656e206120636c69656e742073656e647320697473206669727374> 6 9365 32 s
+2159.0 4171.0 m
+0.0000 setgray
+<7061636b657420746f206120736572766572> 3 3520 32 s
+3512.0 h
+0.0000 setgray
+<2c20697420646f6573206e6f74206b6e6f77207468652073657276657220626f6f742074696d652c20616e642069742070617373657320612076616c7565206f66207a65726f2e20546865> 16 9153 32 s
+2159.0 4425.0 m
+0.0000 setgray
+<73657276657220626f6f742074696d65206669656c6420656e61626c657320746865204e43412f5250432f44472070726f746f636f6c7320746f2070726576656e74206e6f6e2d6964656d706f74656e74206f706572612d> 11 9368 32 s
+2159.0 4679.0 m
+0.0000 setgray
+<74696f6e732066726f6d206265696e67206578656375746564206d6f7265207468616e206f6e636520696e207468652066616365206f662061207365727665722063726173682e> 13 7647 32 s
+2159.0 5187.0 m
+0.0000 setgray
+<557365206f66207468652073657276657220626f6f742074696d65206669656c642069732064657363726962656420696e207468652073706563696669636174696f6e73206f6620746865204e43412f5250432f444720636c69656e74> 15 9418 32 s
+2159.0 5441.0 m
+0.0000 setgray
+<616e64207365727665722070726f746f636f6c73202843686170746572732035> 4 4678 32 s
+4678.0 h
+0.0000 setgray
+<20616e642036> 2 5151 32 s
+5151.0 h
+0.0000 setgray
+<2920616e642074686520436f6e766572736174696f6e204d616e6167657220696e74657266616365732028436861707465722037> 7 9322 32 s
+9322.0 h
+0.0000 setgray
+<292e> 0 9435 -1 s
+8 sf
+1270.0 6090.0 m
+0.0000 setgray
+<332e322e3130> 0 1800 -1 s
+1800.0 h
+0.0000 setgray
+<20496e746572666163652056> 2 2883 32 s
+2863.0 h
+0.0000 setgray
+<657273696f6e> 0 3416 -1 s
+5 sf
+2159.0 6546.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<20696e746572666163652076657273696f6e20697320612033322d626974206e6f6e2d6e6567617469766520696e74656765722074686174206964656e746966696573207468652076657273696f6e206e756d626572206f6620746865> 14 9427 32 s
+2159.0 6800.0 m
+0.0000 setgray
+<696e74657266616365206265696e672063616c6c65642e2054686973206669656c6420616c6c6f7773207365727665727320746f20696d706c656d656e74207365766572616c2076657273696f6e73206f66206f6e6520696e746572666163652e> 13 9505 32 s
+2159.0 7308.0 m
+0.0000 setgray
+<54686520736572766572207573657320746865206f626a65637420555549442c2074686520696e7465726661636520555549442c2074686520696e746572666163652076657273696f6e206e756d626572> 12 8617 32 s
+8609.0 h
+0.0000 setgray
+<2c20616e6420746865> 2 9270 32 s
+2159.0 7562.0 m
+0.0000 setgray
+<6f7065726174696f6e206e756d62657220746f2073656c65637420746865206f7065726174696f6e20746f2065786563757465206f6e2074686520636c69656e7427> 10 7197 32 s
+7186.0 h
+0.0000 setgray
+<7320626568616c662e> 1 7842 32 s
+8 sf
+1270.0 8211.0 m
+0.0000 setgray
+<332e322e31> 0 1694 -1 s
+1682.0 8211.0 m
+0.0000 setgray
+<31> 0 1788 -1 s
+1788.0 h
+0.0000 setgray
+<2053657175656e6365204e756d626572> 2 3496 32 s
+5 sf
+2159.0 8667.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<2073657175656e6365206e756d62657220697320612033322d626974206e6f6e2d6e6567617469766520696e74656765722074686174206964656e746966696573207468652072656d6f74652070726f6365647572652063616c6c> 13 9464 32 s
+2159.0 8921.0 m
+0.0000 setgray
+<74686174206120636c69656e74206163746976697479206973206d616b696e672e> 5 4548 32 s
+2159.0 9429.0 m
+0.0000 setgray
+<456163682072656d6f74652070726f6365647572652063616c6c20696e766f6b656420627920616e20616374697669747920686173206120756e697175652073657175656e6365206e756d6265722074686174206973> 14 8993 32 s
+2159.0 9683.0 m
+0.0000 setgray
+<61737369676e6564207768656e207468652063616c6c20697320696e697469617465642e20416c6c204e43412f5250432f4447207061636b6574732073656e74206f6e20626568616c66206f66207468617420706172746963756c6172> 14 9428 32 s
+2159.0 9937.0 m
+0.0000 setgray
+<63616c6c2068617665207468652073616d652073657175656e6365206e756d626572> 5 4983 32 s
+4975.0 h
+0.0000 setgray
+<2c207768657468657220746865207061636b657473206172652066726f6d20636c69656e7420746f20736572766572206f722066726f6d> 10 9157 32 s
+2159.0 10191.0 m
+0.0000 setgray
+<73657276657220746f20636c69656e742e> 2 3359 32 s
+2159.0 10699.0 m
+0.0000 setgray
+<5768656e20616e20616374697669747920696e697469617465732061206e65772072656d6f74652070726f6365647572652063616c6c2c20697420696e63726561736573207468652073657175656e6365206e756d626572> 13 9035 32 s
+9027.0 h
+0.0000 setgray
+<2c20736f> 1 9295 32 s
+2159.0 10953.0 m
+0.0000 setgray
+<7468617420656163682073756273657175656e742063616c6c206861732061206c6172> 6 4783 32 s
+4780.0 h
+0.0000 setgray
+<6765722073657175656e6365206e756d626572> 2 6427 32 s
+6416.0 h
+0.0000 setgray
+<2e2054> 1 6631 32 s
+6617.0 h
+0.0000 setgray
+<6f676574686572> 0 7199 -1 s
+7191.0 h
+0.0000 setgray
+<2c20746865206163746976697479205555494420616e6420746865> 5 9300 32 s
+2159.0 11207.0 m
+0.0000 setgray
+<73657175656e6365206e756d62657220756e697175656c79206964656e7469667920612072656d6f74652070726f6365647572652063616c6c2e> 7 6810 32 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 3939 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 3296 32 s
+7335.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 9468 32 s
+6445.0 1060.0 m
+0.0000 setgray
+<62617273206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+8844.0 13251.0 m
+6301.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 8844 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+9521.0 h
+9327.0 13251.0 m
+0.0000 setgray
+<3133> 0 9521 -1 s
+true /wst:timsps12b 8 declareFont
+8 sf
+1270.0 1683.0 m
+0.0000 setgray
+<332e322e3132> 0 1800 -1 s
+1800.0 h
+0.0000 setgray
+<204f7065726174696f6e204e756d626572> 2 3591 32 s
+5 sf
+2159.0 2139.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<206f7065726174696f6e206e756d62657220697320612031362d626974206e6f6e2d6e6567617469766520696e74656765722074686174206964656e746966696573206120706172746963756c6172206f7065726174696f6e> 12 9170 32 s
+2159.0 2393.0 m
+0.0000 setgray
+<77697468696e2074686520696e74657266616365206265696e672063616c6c65642e> 4 4705 32 s
+2159.0 2901.0 m
+0.0000 setgray
+<54686520736572766572207573657320746865206f626a65637420555549442c2074686520696e7465726661636520555549442c2074686520696e746572666163652076657273696f6e206e756d626572> 12 8617 32 s
+8609.0 h
+0.0000 setgray
+<2c20616e6420746865> 2 9270 32 s
+2159.0 3155.0 m
+0.0000 setgray
+<6f7065726174696f6e206e756d62657220746f2073656c65637420746865206f7065726174696f6e20746f2065786563757465206f6e2074686520636c69656e7427> 10 7197 32 s
+7186.0 h
+0.0000 setgray
+<7320626568616c662e> 1 7842 32 s
+8 sf
+1270.0 3804.0 m
+0.0000 setgray
+<332e322e3133> 0 1800 -1 s
+1800.0 h
+0.0000 setgray
+<20496e746572666163652048696e74> 2 3143 32 s
+5 sf
+2159.0 4260.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<20696e746572666163652068696e7420697320612031362d626974206e6f6e2d6e6567617469766520696e7465676572> 7 6009 32 s
+5998.0 h
+0.0000 setgray
+<2e20416c74686f75676820616e204e434120696d706c656d656e746174696f6e2063616e20757365> 6 9404 32 s
+2159.0 4514.0 m
+0.0000 setgray
+<74686973206669656c6420666f7220616e7920707572706f73652c2069747320696e74656e6465642075736520697320746f20616c6c6f7720612073657276657220746f206f7074696d697a65206c6f6f6b757073206f6620696e666f726d612d> 17 9446 32 s
+2159.0 4768.0 m
+0.0000 setgray
+<74696f6e2061626f757420696e74657266616365733b20666f72206578616d706c652c206120736572766572206d69676874206d61696e7461696e207461626c6573206f6620656e74727920706f696e747320666f722074686520726f752d> 15 9319 32 s
+2159.0 5022.0 m
+0.0000 setgray
+<74696e6573207468617420696d706c656d656e74206f7065726174696f6e7320696e2069747320696e74657266616365732e20416e20696e746572666163652068696e742063616e20626520706172746963756c61726c792075736566756c206966> 14 9420 32 s
+2159.0 5276.0 m
+0.0000 setgray
+<6120736572766572206578706f727473206d6f7265207468616e206f6e6520696e74657266616365206f72206578706f72747320616e20696e7465726661636520666f72206d6f7265207468616e206f6e652074797065206f66> 16 9081 32 s
+2159.0 5530.0 m
+0.0000 setgray
+<6f626a6563742e> 0 2681 -1 s
+2159.0 6038.0 m
+0.0000 setgray
+<5768656e20612073657276657220657865637574657320616e206f7065726174696f6e206f6e20626568616c66206f66206120636c69656e742c2069742063616e207573652074686520696e746572666163652068696e74206669656c6420746f> 18 9395 32 s
+2159.0 6292.0 m
+0.0000 setgray
+<7061737320696e666f726d6174696f6e20746f2074686520636c69656e74207468617420696e6469636174657320776869636820696e746572666163652077697468696e2074686520736572766572206973206265696e672063616c6c65642e> 14 9311 32 s
+2159.0 6546.0 m
+0.0000 setgray
+<54686520636c69656e742063616e207468656e2070617373206261636b207468697320696e746572666163652068696e74206f6e2073756273657175656e742063616c6c7320746f207468652073616d6520696e746572666163653b20746865> 16 9389 32 s
+2159.0 6800.0 m
+0.0000 setgray
+<68696e742063616e207361766520746865206f76657268656164206f6620616e20696e74657266616365206c6f6f6b75702e20496620612073657276657220757365732074686973206669656c642c206974206d7573742062652061626c6520746f> 19 9394 32 s
+2159.0 7054.0 m
+0.0000 setgray
+<7665726966792074686520696e666f726d6174696f6e20696e2069742e2057> 5 4507 32 s
+4491.0 h
+0.0000 setgray
+<6520737567676573742074686174206120636c69656e742073657420746865206865782076616c7565204646464620666f722074686520696e74657266616365> 12 9269 32 s
+2159.0 7308.0 m
+0.0000 setgray
+<68696e74206669656c6420696620697420686173206e6f2076616c75652066726f6d207072696f7220636f6e746163742077697468206120736572766572> 12 6713 32 s
+6702.0 h
+0.0000 setgray
+<2e> 0 6750 -1 s
+8 sf
+1270.0 7957.0 m
+0.0000 setgray
+<332e322e3134> 0 1800 -1 s
+1800.0 h
+0.0000 setgray
+<2041637469766974792048696e74> 2 3038 32 s
+5 sf
+2159.0 8413.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<2061637469766974792068696e7420697320612031362d626974206e6f6e2d6e6567617469766520696e7465676572> 7 5912 32 s
+5901.0 h
+0.0000 setgray
+<2e20416c74686f75676820616e204e434120696d706c656d656e746174696f6e2063616e20757365> 6 9307 32 s
+2159.0 8667.0 m
+0.0000 setgray
+<74686973206669656c6420666f7220616e7920707572706f73652c2069747320696e74656e6465642075736520697320746f20616c6c6f7720612073657276657220746f206f7074696d697a65206c6f6f6b757073206f6620696e666f726d612d> 17 9446 32 s
+2159.0 8921.0 m
+0.0000 setgray
+<74696f6e2061626f757420746865207374617465206f662069747320636f6d6d756e69636174696f6e207769746820616e2061637469766974793b20666f72206578616d706c652c206120736572766572206d69676874206b656570> 15 9231 32 s
+2159.0 9175.0 m
+0.0000 setgray
+<747261636b206f66207468652063757272656e742073657175656e6365206e756d626572> 5 5039 32 s
+5031.0 h
+0.0000 setgray
+<2c207468652074696d652073696e636520746865206d6f737420726563656e7420726571756573742c207468652074696d652073696e636520746865> 11 9500 32 s
+2159.0 9429.0 m
+0.0000 setgray
+<6d6f737420726563656e7420726573706f6e73652c20696e666f726d6174696f6e2061626f75742061757468656e7469636174696f6e2c206f7220696e666f726d6174696f6e2061626f7574207468652070726f6772657373206f662061> 12 9459 32 s
+2159.0 9683.0 m
+0.0000 setgray
+<6d756c74697061636b6574207472616e736d697373696f6e2e20416e2061637469766974792068696e742063616e20626520706172746963756c61726c792075736566756c2069662061207365727665722073696d756c74616e656f75736c79> 12 9474 32 s
+2159.0 9937.0 m
+0.0000 setgray
+<68616e646c6573207365766572616c20636c69656e742072657175657374732e> 3 4558 32 s
+2159.0 10445.0 m
+0.0000 setgray
+<5768656e20612073657276657220657865637574657320616e206f7065726174696f6e206f6e20626568616c66206f66206120636c69656e742c2069742063616e20757365207468652061637469766974792068696e74206669656c6420746f> 18 9298 32 s
+2159.0 10699.0 m
+0.0000 setgray
+<7061737320696e666f726d6174696f6e20746f2074686520636c69656e742074686174206964656e74696669657320746865206163746976697479206d616b696e67207468652063616c6c2e2054686520636c69656e742063616e207468656e> 15 9263 32 s
+2159.0 10953.0 m
+0.0000 setgray
+<70617373206261636b20746869732061637469766974792068696e74206f6e2073756273657175656e742063616c6c7320746f207468652073616d65207365727665723b207468652068696e742063616e207361766520746865206f7665722d> 17 9361 32 s
+2159.0 11207.0 m
+0.0000 setgray
+<68656164206f6620616e206163746976697479206c6f6f6b75702e20496620612073657276657220757365732074686973206669656c642c206974206d7573742062652061626c6520746f207665726966792074686520696e666f726d6174696f6e> 18 9370 32 s
+2159.0 11461.0 m
+0.0000 setgray
+<696e2069742e2057> 2 2745 32 s
+2729.0 h
+0.0000 setgray
+<6520737567676573742074686174206120636c69656e742073657420746865206865782076616c7565204646464620666f72207468652061637469766974792068696e74206669656c6420696620697420686173206e6f2076616c7565> 19 9503 32 s
+2159.0 11715.0 m
+0.0000 setgray
+<66726f6d207072696f7220636f6e746163742077697468206120736572766572> 5 4620 32 s
+4609.0 h
+0.0000 setgray
+<2e> 0 4657 -1 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 3454 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<626172206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 4269 32 s
+6850.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 9468 32 s
+7493.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+1965.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 4508 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+1270.0 h
+0.0000 setgray
+<3134> 0 1464 -1 s
+true /wst:timsps12b 8 declareFont
+8 sf
+1270.0 1683.0 m
+0.0000 setgray
+<332e322e3135> 0 1800 -1 s
+1800.0 h
+0.0000 setgray
+<205061636b657420426f6479204c656e677468> 3 3691 32 s
+5 sf
+2159.0 2139.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<207061636b657420626f6479206c656e67746820697320612031362d626974206e6f6e2d6e6567617469766520696e7465676572207468617420696e6469636174657320746865206c656e67746820696e206279746573206f6620746865> 16 9500 32 s
+2159.0 2393.0 m
+0.0000 setgray
+<7061636b657420626f6479> 1 3101 32 s
+3088.0 h
+0.0000 setgray
+<2e20546865206d6178696d756d207061636b657420626f64792073697a652069732036353533352062797465732e> 8 6875 32 s
+8 sf
+1270.0 3042.0 m
+0.0000 setgray
+<332e322e3136> 0 1800 -1 s
+1800.0 h
+0.0000 setgray
+<20467261676d656e74204e756d626572> 2 3556 32 s
+5 sf
+2159.0 3498.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<20667261676d656e74206e756d62657220697320612031362d626974206e6f6e2d6e6567617469766520696e74656765722074686174206964656e7469666965732061207061636b65742077697468696e2061206d756c74692d> 14 9320 32 s
+2159.0 3752.0 m
+0.0000 setgray
+<7061636b6574207472616e736d697373696f6e2e> 1 3741 32 s
+2159.0 4260.0 m
+0.0000 setgray
+<496e20612072657175657374206f7220726573706f6e7365207061636b657420746861742069732070617274206f662061206d756c74697061636b6574207472616e736d697373696f6e2c2074686520667261676d656e74206e756d626572> 15 9478 32 s
+2159.0 4514.0 m
+0.0000 setgray
+<696e646963617465732074686520667261676d656e742074686174206973206265696e672073656e742e2054686520667261676d656e74206e756d62657220697320696e6372656d656e74656420666f72206561636820667261672d> 14 9313 32 s
+2159.0 4768.0 m
+0.0000 setgray
+<6d656e742c20627574207468652073657175656e6365206e756d626572206973207468652073616d6520666f7220616c6c20667261676d656e74732e2054686520666972737420667261676d656e7420697320667261676d656e7420302c> 16 9451 32 s
+2159.0 5022.0 m
+0.0000 setgray
+<746865207365636f6e6420697320667261676d656e7420312c20616e6420736f206f6e2e> 7 4939 32 s
+2159.0 5530.0 m
+0.0000 setgray
+<496e2061206661636b207061636b65742c2074686520667261676d656e74206e756d62657220696e646963617465732074686520667261676d656e747320746861742068617665206265656e207265636569766564> 13 8832 32 s
+2159.0 5784.0 m
+0.0000 setgray
+<aa696e206f72646572ba2c20617320666f6c6c6f77733a> 3 3881 32 s
+true /sps:symbb12 9 declareFont
+9 sf
+2477.0 6253.0 m
+0.0000 setgray
+<77> 0 2574 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<496620667261676d656e742030207468726f75676820667261676d656e7420> 5 5271 32 s
+6 sf
+0.0000 setgray
+<6e> 0 5368 -1 s
+5 sf
+0.0000 setgray
+<2068617665206265656e2072656365697665642c20616e6420667261676d656e7420> 6 8077 32 s
+6 sf
+0.0000 setgray
+<6e> 0 8174 -1 s
+5 sf
+0.0000 setgray
+<> 0 8174 -1 s
+8222.0 h
+0.0000 setgray
+<2b> 0 8331 -1 s
+8379.0 h
+0.0000 setgray
+<3120686173206e6f74206265656e> 3 9493 32 s
+2794.0 6508.0 m
+0.0000 setgray
+<72656365697665642c2074686520667261676d656e74206e756d626572206669656c642073686f756c6420626520> 7 6422 32 s
+6 sf
+0.0000 setgray
+<6e> 0 6519 -1 s
+5 sf
+0.0000 setgray
+<2e> 0 6567 -1 s
+9 sf
+2477.0 6978.0 m
+0.0000 setgray
+<77> 0 2574 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<496620667261676d656e74203020686173206e6f74206265656e2072656365697665642c2074686520667261676d656e74206e756d626572206669656c642073686f756c6420636f6e7461696e2074686520686578> 14 9469 32 s
+2794.0 7233.0 m
+0.0000 setgray
+<76616c75652046464646> 1 3694 32 s
+3678.0 h
+0.0000 setgray
+<2e> 0 3726 -1 s
+2159.0 7743.0 m
+0.0000 setgray
+<496e206566> 1 2520 32 s
+2517.0 h
+0.0000 setgray
+<666563742c20667261676d656e7473207265636569766564206f7574206f66206f7264657220617265206e6f742061636b6e6f776c65646765642e> 8 7146 32 s
+8 sf
+1270.0 8392.0 m
+0.0000 setgray
+<332e322e3137> 0 1800 -1 s
+1800.0 h
+0.0000 setgray
+<2041757468656e7469636174696f6e205072> 2 3486 32 s
+3482.0 h
+0.0000 setgray
+<6f746f636f6c20537065636966696572> 1 4878 32 s
+0.0 0.0 m
+newpath
+0.0 sw
+/drawmode PL_SET def
+1033 8233 av
+1152 8233 as
+1152 8703 as
+1033 8703 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+4878.0 8392.0 m
+5 sf
+2159.0 8848.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<2061757468656e7469636174696f6e2070726f746f636f6c2073706563696669657220697320616e20382d626974206e6f6e2d6e6567617469766520696e74656765722074686174206964656e74696669657320616e2061757468656e2d> 12 9460 32 s
+0.0 0.0 m
+newpath
+1033 8703 av
+1152 8703 as
+1152 8957 as
+1033 8957 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 9102.0 m
+0.0000 setgray
+<7469636174696f6e2070726f746f636f6c2e> 1 3484 32 s
+0.0 0.0 m
+newpath
+1033 8957 av
+1152 8957 as
+1152 9465 as
+1033 9465 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 9610.0 m
+0.0000 setgray
+<54> 0 2278 -1 s
+2264.0 9610.0 m
+0.0000 setgray
+<61626c652033b134> 1 2926 32 s
+2927.0 h
+0.0000 setgray
+<206c697374732076616c75657320746861742068617665206265656e20646566696e656420666f72207468652061757468656e7469636174696f6e2070726f746f636f6c20737065636966696572206669656c6420616e64> 13 9477 32 s
+0.0 0.0 m
+newpath
+1033 9465 av
+1152 9465 as
+1152 9719 as
+1033 9719 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 9864.0 m
+0.0000 setgray
+<62726965666c7920646573637269626573207468652061757468656e7469636174696f6e2070726f746f636f6c206964656e74696669656420627920656163682076616c7565205b6e6f6d656e636c6174757265207375626a65637420746f> 11 9443 32 s
+0.0 0.0 m
+newpath
+1033 9719 av
+1152 9719 as
+1152 9973 as
+1033 9973 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 10118.0 m
+0.0000 setgray
+<6368616e67655d2e20416c6c206f746865722076616c7565732061726520726573657276656420666f7220667574757265207573652e> 8 6238 32 s
+0.0 0.0 m
+newpath
+1033 9973 av
+1152 9973 as
+1152 10481 as
+1033 10481 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+6238.0 10118.0 m
+6 sf
+4074.0 10626.0 m
+0.0000 setgray
+<54> 0 4182 -1 s
+4164.0 10626.0 m
+0.0000 setgray
+<61626c652033b134> 1 4837 32 s
+4837.0 h
+0.0000 setgray
+<2e2041757468656e7469636174696f6e205072> 2 6318 32 s
+6311.0 h
+0.0000 setgray
+<6f746f636f6c2053706563696669657273> 1 7608 32 s
+0.0 0.0 m
+newpath
+1033 10481 av
+1152 10481 as
+1152 10862 as
+1033 10862 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+7608.0 10626.0 m
+true /wst:timsps10 10 declareFont
+10 sf
+2159.0 11505.0 m
+2616.0 11878.0 m
+0.0000 setgray
+<31> 0 2704 -1 s
+3345.0 h
+0.0000 setgray
+<4f5346> 0 3668 -1 s
+0.0000 setgray
+<204443452050726976617465204b65792041757468656e7469636174696f6e> 4 6034 32 s
+0.0 0.0 m
+17.0 sw
+newpath
+2159 10862 av
+9512 10862 as
+9512 10862 as
+9512 12133 as
+2159 12133 as
+2159 10862 as
+0.0000 dp40
+newpath
+2159 11201 av
+9512 11201 as
+0.0000 dp40
+newpath
+3176 10862 av
+3176 12133 as
+0.0000 dp40
+true /wst:timsps10b 11 declareFont
+11 sf
+3345.0 11116.0 m
+0.0000 setgray
+<5072> 0 3531 -1 s
+3528.0 h
+0.0000 setgray
+<6f746f636f6c2055736564> 1 4393 32 s
+10 sf
+2616.0 11488.0 m
+0.0000 setgray
+<30> 0 2704 -1 s
+3345.0 h
+0.0000 setgray
+<4e6f6e65> 0 3726 -1 s
+11 sf
+2345.0 11116.0 m
+0.0000 setgray
+<537065636966696572> 0 3010 -1 s
+9525.0 11505.0 m
+10 sf
+0.0 0.0 m
+newpath
+0.0 sw
+1033 10862 av
+1152 10862 as
+1152 12149 as
+1033 12149 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+9525.0 11505.0 m
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<4e6574776f726b> 0 2000 -1 s
+0.0000 setgray
+<20436f6d707574696e6720417263686974656374757265> 2 3939 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 3296 32 s
+7335.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 9468 32 s
+6445.0 1060.0 m
+0.0000 setgray
+<62617273206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+8844.0 13251.0 m
+6301.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 8844 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+9521.0 h
+9327.0 13251.0 m
+0.0000 setgray
+<3135> 0 9521 -1 s
+true /wst:timsps6 8 declareFont
+8 sf
+1270.0 1609.0 m
+0.0 0.0 m
+34.0 sw
+/drawmode PL_SET def
+newpath
+1278 1588 av
+9496 1588 as
+0.0000 dp40
+9525.0 1609.0 m
+true /wst:timsps14b 9 declareFont
+9 sf
+1270.0 1857.0 m
+0.0000 setgray
+<332e33> 0 1578 -1 s
+1578.0 h
+0.0000 setgray
+<20546865205061636b657420426f6479> 3 3437 32 s
+5 sf
+2159.0 2331.0 m
+0.0000 setgray
+<54686973> 0 2504 -1 s
+0.0000 setgray
+<2073656374696f6e207370656369666965732074686520636f6e74656e7473206f6620746865207061636b657420626f6469657320666f7220726571756573742c20726573706f6e73652c206661636b2c206661756c742c2072656a6563742c> 14 9523 32 s
+2159.0 2585.0 m
+0.0000 setgray
+<717569742c20616e6420717561636b207061636b6574732e204f74686572207479706573206f66207061636b65747320636f6e7461696e206f6e6c7920636f6e74726f6c20696e666f726d6174696f6e20616e64207468657265666f7265> 13 9463 32 s
+2159.0 2839.0 m
+0.0000 setgray
+<68617665206e6f20626f6479> 2 3203 32 s
+3190.0 h
+0.0000 setgray
+<2e> 0 3238 -1 s
+2159.0 3347.0 m
+0.0000 setgray
+<54686520636f6e74656e7473206f66207061636b657420626f64696573206172652073706563696669656420696e207465726d73206f66204e445220646174612074797065732e2054686520666f726d617473207573656420746f> 16 9320 32 s
+2159.0 3601.0 m
+0.0000 setgray
+<726570726573656e74207363616c61727320696e2061207061636b657420626f6479206172652074686f7365207370656369666965642062792074686520666f726d6174206c6162656c20696e20746865207061636b657420686561646572> 16 9379 32 s
+9368.0 h
+0.0000 setgray
+<2e> 0 9416 -1 s
+2159.0 4109.0 m
+0.0000 setgray
+<43686170746572203133> 1 3015 32 s
+3016.0 h
+0.0000 setgray
+<20737065636966696573204e44522e2053756273656374696f6e20332e322e34> 4 5581 32 s
+5582.0 h
+0.0000 setgray
+<2064657363726962657320746865206461746120726570726573656e746174696f6e20666f726d6174206c6162656c2e> 6 9193 32 s
+true /wst:timsps12b 10 declareFont
+10 sf
+1270.0 4758.0 m
+0.0000 setgray
+<332e332e31> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<2052657175657374205061636b65742044617461> 3 3632 32 s
+5 sf
+2159.0 5214.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<20626f6479206f6620612072657175657374207061636b657420636f6e7369737473206f6620746865204e445220726570726573656e746174696f6e206f662074686520696e70757420706172616d657465727320666f72> 15 9279 32 s
+2159.0 5468.0 m
+0.0000 setgray
+<74686520726571756573742e> 1 3052 32 s
+10 sf
+1270.0 6117.0 m
+0.0000 setgray
+<332e332e32> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<20526573706f6e7365205061636b65742044617461> 3 3749 32 s
+5 sf
+2159.0 6573.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<20626f6479206f66206120726573706f6e7365207061636b657420636f6e7369737473206f6620746865204e445220726570726573656e746174696f6e206f6620746865206f757470757420706172616d657465727320666f72> 15 9494 32 s
+2159.0 6827.0 m
+0.0000 setgray
+<74686520726573706f6e73652e> 1 3170 32 s
+10 sf
+1270.0 7476.0 m
+0.0000 setgray
+<332e332e33> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<204661636b205061636b65742044617461> 3 3350 32 s
+5 sf
+2159.0 7932.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<20626f6479206f662061206661636b207061636b657420636f6e7461696e73206461746120746861742063616e206265207573656420627920612073656e64657220746f20696e63726561736520746865206566> 18 8828 32 s
+8825.0 h
+0.0000 setgray
+<66696369656e6379> 0 9450 -1 s
+2159.0 8186.0 m
+0.0000 setgray
+<6f662061206d756c74697061636b6574207472616e736d697373696f6e2e2054686520636f6e74656e7473206f662061206661636b207061636b657420626f64792061726520737065636966696564206279204e43412f5250432c> 14 9455 32 s
+2159.0 8440.0 m
+0.0000 setgray
+<62757420757365206f66207468652064617461206973206c65667420746f204e434120696d706c656d656e746174696f6e732e> 9 6108 32 s
+2159.0 8948.0 m
+0.0000 setgray
+<496e2070726576696f75732076657273696f6e73206f66204e43412c206661636b207061636b65747320646964206e6f74206861766520626f646965732e20496620616e20696d706c656d656e746174696f6e206f66204e4341> 15 9407 32 s
+2159.0 9202.0 m
+0.0000 setgray
+<76657273696f6e20322e3020697320746f20696e7465726f706572617465207769746820616e20696d706c656d656e746174696f6e206f6620612070726576696f7573204e43412076657273696f6e2c2074686520696d706c652d> 14 9285 32 s
+2159.0 9456.0 m
+0.0000 setgray
+<6d656e746174696f6e206f66204e43412076657273696f6e20322e30206d7573742062652061626c6520746f2072656365697665206661636b207061636b65747320776974686f757420626f646965732c20616e6420746865> 15 9212 32 s
+2159.0 9710.0 m
+0.0000 setgray
+<696d706c656d656e746174696f6e206f66207468652070726576696f7573204e43412076657273696f6e206d7573742062652061626c6520746f2072656365697665206661636b207061636b6574207769746820626f646965732c> 14 9429 32 s
+2159.0 9964.0 m
+0.0000 setgray
+<74686f7567682069742063616e2069676e6f72652074686520626f646965732e> 5 4602 32 s
+2159.0 10472.0 m
+0.0000 setgray
+<5468652066697273742062797465206f662061206661636b207061636b657420626f647920697320612076657273696f6e206e756d62657220666f722074686520666f726d6174206f6620746865206661636b20626f6479> 18 8930 32 s
+8917.0 h
+0.0000 setgray
+<2e2054686973> 1 9358 32 s
+0.0 0.0 m
+newpath
+0.0 sw
+9644 10327 av
+9763 10327 as
+9763 10581 as
+9644 10581 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 10726.0 m
+0.0000 setgray
+<76657273696f6e206e756d6265722063616e206368616e676520696e646570656e64656e746c79206f66207468652070726f746f636f6c2076657273696f6e206e756d62657220696e20746865207061636b657420686561646572> 13 9485 32 s
+0.0 0.0 m
+newpath
+9644 10581 av
+9763 10581 as
+9763 10835 as
+9644 10835 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 10980.0 m
+0.0000 setgray
+<5b3f3f3f5d2e> 0 2595 -1 s
+0.0 0.0 m
+newpath
+9644 10835 av
+9763 10835 as
+9763 11028 as
+9644 11028 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 11488.0 m
+0.0000 setgray
+<41742076657273696f6e20302c20746865206661636b207061636b657420626f647920636f6e7461696e73> 7 5516 32 s
+true /sps:symbb10 11 declareFont
+11 sf
+2477.0 11939.0 m
+0.0000 setgray
+<77> 0 2558 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<416e204e445220756e7369676e656420736d616c6c20696e746567657220696e6469636174696e67207468652076657273696f6e206e756d626572206f6620746865206661636b207061636b6574> 12 9093 32 s
+2794.0 12195.0 m
+0.0000 setgray
+<626f6479> 0 3182 -1 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 3454 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<626172206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 4269 32 s
+6850.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 9468 32 s
+7493.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+1965.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 4508 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+1270.0 h
+0.0000 setgray
+<3136> 0 1464 -1 s
+true /sps:symbb12 8 declareFont
+8 sf
+2477.0 1693.0 m
+0.0000 setgray
+<77> 0 2574 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<416e20756e696e697469616c697a6564207061642062797465> 3 4760 32 s
+8 sf
+2477.0 2163.0 m
+0.0000 setgray
+<77> 0 2574 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<416e204e445220756e7369676e65642073686f727420696e746567657220696e6469636174696e67207468652073697a6520696e204b42206f662074686520726563656976652077696e646f77206174> 14 9197 32 s
+0.0000 setgray
+<20746865> 1 9481 32 s
+2794.0 2419.0 m
+0.0000 setgray
+<73656e646572206f6620746865206661636b20287365652053756273656374696f6e20332e332e332e31> 6 6016 32 s
+6017.0 h
+0.0000 setgray
+<2920> 1 6130 32 s
+true /sps:symbb10 9 declareFont
+9 sf
+2477.0 2872.0 m
+0.0000 setgray
+<77> 0 2558 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<416e204e445220756e7369676e6564206c6f6e6720696e746567657220696e6469636174696e67207468652073697a6520696e206279746573206f6620746865> 11 7825 32 s
+0.0000 setgray
+<206c6172> 1 8079 32 s
+8076.0 h
+0.0000 setgray
+<67657374> 0 8388 -1 s
+0.0000 setgray
+<207472616e73706f7274> 1 9126 32 s
+2794.0 3127.0 m
+0.0000 setgray
+<70726f746f636f6c206461746120756e69742028545044552920746861742063616e20626520706173736564207468726f75676820746865206c6f63616c207472616e73706f72742073657276696365> 12 8995 32 s
+2794.0 3382.0 m
+0.0000 setgray
+<696e74657266616365206174207468652073656e646572206f6620746865206661636b20287365652053756273656374696f6e20332e332e332e32> 9 7216 32 s
+7217.0 h
+0.0000 setgray
+<29> 0 7282 -1 s
+9 sf
+2477.0 3835.0 m
+0.0000 setgray
+<77> 0 2558 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<416e204e445220756e7369676e6564206c6f6e6720696e746567657220696e6469636174696e67207468652073697a6520696e206279746573206f6620746865206c6172> 12 8079 32 s
+8076.0 h
+0.0000 setgray
+<67657374207472616e73706f7274> 1 9126 32 s
+2794.0 4091.0 m
+0.0000 setgray
+<70726f746f636f6c206461746120756e69742028545044552920746861742063616e2062652073656e742066726f6d207468652073656e646572206f6620746865206661636b20746f20746865207265636569766572> 16 9393 32 s
+2794.0 4346.0 m
+0.0000 setgray
+<6f6620746865206661636b20776974686f7574206265696e6720667261676d656e7465642c20617320657374696d61746564206279207468652073656e646572206f6620746865206661636b2028736565> 14 9041 32 s
+2794.0 4602.0 m
+0.0000 setgray
+<53756273656374696f6e20332e332e332e32> 1 4225 32 s
+4226.0 h
+0.0000 setgray
+<29> 0 4291 -1 s
+9 sf
+2477.0 5055.0 m
+0.0000 setgray
+<77> 0 2558 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<416e204e445220756e7369676e65642073686f727420696e746567657220696e6469636174696e67207468652073657269616c206e756d626572206f662074686520667261676d656e74207472616e736d69732d> 12 9491 32 s
+2794.0 5310.0 m
+0.0000 setgray
+<73696f6e2074686174207468652073656e646572206f6620746865206661636b2069732061636b6e6f776c656467696e6720287365652053756273656374696f6e20332e332e332e33> 11 8421 32 s
+8422.0 h
+0.0000 setgray
+<29> 0 8487 -1 s
+9 sf
+2477.0 5763.0 m
+0.0000 setgray
+<77> 0 2558 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<416e204e445220756e7369676e65642073686f727420696e746567657220696e6469636174696e6720746865206e756d626572206f6620656c656d656e747320696e20746865206172726179206f66> 13 9099 32 s
+2794.0 6018.0 m
+0.0000 setgray
+<73656c6563746976652061636b6e6f776c656467656d656e7420626974206d61736b7320287365652053756273656374696f6e20332e332e332e34> 6 7555 32 s
+7556.0 h
+0.0000 setgray
+<29> 0 7621 -1 s
+9 sf
+2477.0 6471.0 m
+0.0000 setgray
+<77> 0 2558 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<416e206172726179206f66204e445220756e7369676e6564206c6f6e6720696e74656765727320746861742066756e6374696f6e20617320626974206d61736b7320696e6469636174696e6720616e79> 13 9130 32 s
+2794.0 6727.0 m
+0.0000 setgray
+<667261676d656e74732074686174207468652073656e646572206f6620746865206661636b20686173207265636569766564206f7574206f66206f7264657220287365652053756273656374696f6e20332e332e332e34> 14 9439 32 s
+9440.0 h
+0.0000 setgray
+<29> 0 9505 -1 s
+7 sf
+2159.0 7363.0 m
+0.0000 setgray
+<332e332e332e31> 0 2691 -1 s
+2691.0 h
+0.0000 setgray
+<20526563656976652057> 2 3616 32 s
+3613.0 h
+0.0000 setgray
+<696e646f772053697a65> 1 4502 32 s
+5 sf
+2159.0 7808.0 m
+0.0000 setgray
+<5468652077696e646f772073697a6520696e6469636174657320686f77206d756368206164646974696f6e616c2064617461207468652073656e646572206f6620746865206661636b20697320707265706172656420746f> 15 9095 32 s
+2159.0 8062.0 m
+0.0000 setgray
+<726563656976652e205468652077696e646f772073697a65206669656c642063616e20626520757365642062792073656e6465727320616e642072656365697665727320746f20636f6f7264696e617465207468656972207261746573> 15 9325 32 s
+2159.0 8316.0 m
+0.0000 setgray
+<6f66207472616e736d697373696f6e20616e6420726563657074696f6e2e> 3 4495 32 s
+7 sf
+2159.0 8951.0 m
+0.0000 setgray
+<332e332e332e32> 0 2691 -1 s
+2691.0 h
+0.0000 setgray
+<20545044552053697a6573> 2 3724 32 s
+5 sf
+2159.0 9395.0 m
+0.0000 setgray
+<54686520545044552073697a65206669656c64732063616e20626520757365642062792073656e6465727320616e642072656365697665727320746f2064657465726d696e6520746865206c6172> 14 8303 32 s
+8300.0 h
+0.0000 setgray
+<6765737420706f737369626c65> 1 9295 32 s
+2159.0 9649.0 m
+0.0000 setgray
+<545044552e> 0 2714 -1 s
+7 sf
+2159.0 10284.0 m
+0.0000 setgray
+<332e332e332e33> 0 2691 -1 s
+2691.0 h
+0.0000 setgray
+<2053657269616c204e756d626572> 2 3962 32 s
+5 sf
+2159.0 10729.0 m
+0.0000 setgray
+<5468652073657269616c206e756d626572206964656e7469666965732074686520706172746963756c617220667261676d656e74207472616e736d697373696f6e2074686174207468652073656e646572206f6620746865206661636b206973> 14 9426 32 s
+2159.0 10983.0 m
+0.0000 setgray
+<61636b6e6f776c656467696e672e2053657269616c206e756d626572732070726f76696465206f72646572696e6720696e666f726d6174696f6e20746861742063616e6e6f742062652064657465726d696e65642066726f6d> 10 9403 32 s
+2159.0 11237.0 m
+0.0000 setgray
+<667261676d656e74206e756d626572732e20496620746865206c6174656e6379206f66207472616e736d697373696f6e73206973206869676820616e64206d616e7920667261676d656e747320617265206265696e67> 13 8973 32 s
+2159.0 11491.0 m
+0.0000 setgray
+<726573656e742c20612073656e646572206f6620667261676d656e74732063616e207573652073657269616c206e756d6265727320746f2064657465726d696e6520776869636820667261676d656e74732061207265636569766572> 14 9375 32 s
+2159.0 11745.0 m
+0.0000 setgray
+<6c696b656c792068617320726563656976656420616e6420746f2061766f6964206e6565646c6573732072657472616e736d697373696f6e732e> 7 6624 32 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 3939 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 3296 32 s
+7335.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 9468 32 s
+6445.0 1060.0 m
+0.0000 setgray
+<62617273206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+8844.0 13251.0 m
+6301.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 8844 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+9521.0 h
+9327.0 13251.0 m
+0.0000 setgray
+<3137> 0 9521 -1 s
+2159.0 1669.0 m
+0.0000 setgray
+<332e332e332e34> 0 2691 -1 s
+2691.0 h
+0.0000 setgray
+<2053656c6563746976652041636b6e6f776c656467656d656e7420426974204d61736b73> 4 5922 32 s
+5 sf
+2159.0 2114.0 m
+0.0000 setgray
+<53656c6563746976652061636b6e6f776c656467656d656e7420626974206d61736b73206964656e7469667920616e7920667261676d656e74732074686174207468652073656e646572206f6620746865206661636b20686173> 13 9279 32 s
+2159.0 2368.0 m
+0.0000 setgray
+<7265636569766564206f7574206f66206f72646572> 3 3780 32 s
+3772.0 h
+0.0000 setgray
+<2c20746861742069732c20616e7920667261676d656e74732077686f736520667261676d656e74206e756d62657273206172652067726561746572207468616e20746865> 11 9083 32 s
+2159.0 2622.0 m
+0.0000 setgray
+<667261676d656e74206e756d62657220696e2074686520686561646572206f6620746865206661636b2e> 7 5475 32 s
+2159.0 3130.0 m
+0.0000 setgray
+<537570706f73652074686174207468652073656e646572206f662061206661636b2068617320726563656976656420667261676d656e74732030207468726f75676820> 12 7400 32 s
+6 sf
+0.0000 setgray
+<6e> 0 7497 -1 s
+5 sf
+0.0000 setgray
+<2c20627574206e6f7420667261676d656e7420> 4 8934 32 s
+6 sf
+0.0000 setgray
+<6e> 0 9031 -1 s
+5 sf
+0.0000 setgray
+<202b20312c> 2 9381 32 s
+2159.0 3384.0 m
+0.0000 setgray
+<6f662061206d756c74697061636b6574207472616e736d697373696f6e3b20> 4 4549 32 s
+6 sf
+0.0000 setgray
+<6e20> 1 4694 32 s
+5 sf
+0.0000 setgray
+<6973207468657265666f72652074686520667261676d656e74206e756d62657220696e2074686520686561646572206f6620746865206661636b2e> 10 9221 32 s
+2159.0 3638.0 m
+0.0000 setgray
+<4c657420> 1 2466 32 s
+6 sf
+0.0000 setgray
+<6d20> 1 2654 32 s
+5 sf
+0.0000 setgray
+<626520616e20696e64657820666f72206120626974206d61736b20696e2074686520626974206d61736b206172726179> 11 6307 32 s
+6294.0 h
+0.0000 setgray
+<2c20776865726520612076616c7565206f6620> 5 7724 32 s
+6 sf
+0.0000 setgray
+<6d> 0 7864 -1 s
+5 sf
+0.0000 setgray
+<203d20302064656e6f74657320746865206669727374> 5 9452 32 s
+2159.0 3892.0 m
+0.0000 setgray
+<626974206d61736b20696e20746865206172726179> 4 3752 32 s
+3739.0 h
+0.0000 setgray
+<2e204c657420> 2 4142 32 s
+6 sf
+0.0000 setgray
+<62> 0 4239 -1 s
+5 sf
+0.0000 setgray
+<20626520616e20696e64657820666f7220612062697420696e206120626974206d61736b2c20776865726520612076616c7565206f6620> 15 8315 32 s
+6 sf
+0.0000 setgray
+<62> 0 8412 -1 s
+5 sf
+0.0000 setgray
+<203d20302064656e6f746573> 3 9354 32 s
+2159.0 4146.0 m
+0.0000 setgray
+<746865206c65617374207369676e69666963616e742062697420616e6420612076616c7565206f6620> 8 5107 32 s
+6 sf
+0.0000 setgray
+<62> 0 5204 -1 s
+5 sf
+0.0000 setgray
+<203d2033312064656e6f74657320746865206d6f7374207369676e69666963616e74206269742e205468652076616c7565206f6620626974> 11 9402 32 s
+2159.0 4400.0 m
+6 sf
+0.0000 setgray
+<62> 0 2256 -1 s
+5 sf
+0.0000 setgray
+<20696e206d61736b20> 3 2960 32 s
+6 sf
+0.0000 setgray
+<6d20> 1 3148 32 s
+5 sf
+0.0000 setgray
+<696e646963617465732077686574686572207468652073656e646572206f6620746865206661636b206861732072656365697665642074686520667261676d656e74207769746820667261676d656e74> 12 9413 32 s
+2159.0 4654.0 m
+0.0000 setgray
+<6e756d62657220> 1 2800 32 s
+6 sf
+0.0000 setgray
+<6e> 0 2897 -1 s
+5 sf
+0.0000 setgray
+<202b203332> 2 3296 32 s
+6 sf
+0.0000 setgray
+<6d> 0 3436 -1 s
+5 sf
+0.0000 setgray
+<20> 1 3484 32 s
+6 sf
+0.0000 setgray
+<2b> 0 3615 -1 s
+5 sf
+0.0000 setgray
+<20> 1 3663 32 s
+6 sf
+0.0000 setgray
+<62> 0 3760 -1 s
+5 sf
+0.0000 setgray
+<202b20312e20412076616c7565206f66203120696e6469636174657320746861742074686520667261676d656e7420686173206265656e2072656365697665642c20616e642061> 15 9166 32 s
+2159.0 4908.0 m
+0.0000 setgray
+<76616c7565206f66203020696e6469636174657320746861742074686520667261676d656e7420686173206e6f74206265656e2072656365697665642e> 10 6813 32 s
+2159.0 5416.0 m
+0.0000 setgray
+<5468652066697273742062697420696e20746865206669727374206d61736b2028> 7 4490 32 s
+6 sf
+0.0000 setgray
+<6d> 0 4630 -1 s
+5 sf
+0.0000 setgray
+<203d203020616e6420> 4 5308 32 s
+6 sf
+0.0000 setgray
+<62> 0 5405 -1 s
+5 sf
+0.0000 setgray
+<203d203029206d75737420616c77617973206861766520612076616c7565206f6620302c2073696e636520667261676d656e74> 11 9397 32 s
+2159.0 5670.0 m
+6 sf
+0.0000 setgray
+<6e> 0 2256 -1 s
+5 sf
+0.0000 setgray
+<202b203120697320746865206669727374206d697373696e6720667261676d656e742e> 7 4829 32 s
+2159.0 6178.0 m
+0.0000 setgray
+<41206661636b20626f647920636f6e7461696e73206f6e6c79206173206d616e792073656c6563746976652061636b6e6f776c656467656d656e7420626974206d61736b7320617320617265206e656365737361727920746f> 14 9356 32 s
+2159.0 6432.0 m
+0.0000 setgray
+<61636b6e6f776c6564676520667261676d656e7473207265636569766564206f7574206f66206f72646572> 5 5675 32 s
+5664.0 h
+0.0000 setgray
+<2e20546865206c61737420626974206d61736b20696e20746865206661636b20626f6479206d75737420616c77617973> 10 9402 32 s
+2159.0 6686.0 m
+0.0000 setgray
+<68617665206174206c65617374206f6e65206e6f6e7a65726f206269742e205b3f3f3f5d> 6 4854 32 s
+2159.0 7194.0 m
+0.0000 setgray
+<54686520696e666f726d6174696f6e20696e2073656c6563746976652061636b6e6f776c656467656d656e7420626974206d61736b7320697320696e74656e64656420746f2074656c6c207468652073656e646572206f662061> 14 9166 32 s
+2159.0 7448.0 m
+0.0000 setgray
+<6d756c74697061636b6574207472616e736d697373696f6e20776869636820667261676d656e7473206974206d6179206e65656420746f20726573656e642e> 8 7202 32 s
+true /wst:timsps12b 8 declareFont
+8 sf
+1270.0 8097.0 m
+0.0000 setgray
+<332e332e34> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<204661756c74205061636b65742044617461> 3 3386 32 s
+5 sf
+2159.0 8553.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<20626f6479206f662061206661756c74207061636b657420636f6e7461696e7320612073746174757320636f646520696e6469636174696e6720746865206661756c742074686174206120726571756573746564206f7065726174696f6e> 16 9488 32 s
+2159.0 8807.0 m
+0.0000 setgray
+<696e6375727265642e205468652073746174757320636f646520697320726570726573656e74656420627920616e204e445220756e7369676e6564206c6f6e6720696e7465676572> 11 7884 32 s
+7873.0 h
+0.0000 setgray
+<2e> 0 7921 -1 s
+2159.0 9315.0 m
+0.0000 setgray
+<5b446566696e6974696f6e206f66204e4341206661756c74207374617475736573206d6179206265207365706172617465642066726f6d207061636b657420646566696e6974696f6e2e5d> 10 8032 32 s
+2159.0 9823.0 m
+0.0000 setgray
+<54> 0 2278 -1 s
+2264.0 9823.0 m
+0.0000 setgray
+<61626c652033b135> 1 2926 32 s
+2927.0 h
+0.0000 setgray
+<206c69737473207468652073746174757320636f64657320746861742063616e2062652073656e7420696e2061206661756c74207061636b65742e> 12 7136 32 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 3454 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<626172206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 4269 32 s
+6850.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 9468 32 s
+7493.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+1965.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 4508 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+1270.0 h
+0.0000 setgray
+<3138> 0 1464 -1 s
+6 sf
+4674.0 1669.0 m
+0.0000 setgray
+<54> 0 4782 -1 s
+4764.0 1669.0 m
+0.0000 setgray
+<61626c652033b135> 1 5437 32 s
+5437.0 h
+0.0000 setgray
+<2e204661756c742053746174757320436f646573> 3 7008 32 s
+true /wst:timsps10 8 declareFont
+8 sf
+2159.0 6917.0 m
+true /wst:timsps10b 9 declareFont
+9 sf
+2278.0 2159.0 m
+0.0000 setgray
+<537461747573> 0 2748 -1 s
+0.0000 setgray
+<20436f6465> 1 3183 32 s
+4023.0 h
+0.0000 setgray
+<4865782056> 1 4497 32 s
+4481.0 h
+0.0000 setgray
+<616c7565> 0 4794 -1 s
+5209.0 h
+0.0000 setgray
+<4d65616e696e67> 0 5874 -1 s
+8 sf
+2278.0 2582.0 m
+0.0000 setgray
+<537472696e6754> 0 2817 -1 s
+2805.0 h
+0.0000 setgray
+<6f6f4c6f6e67> 0 3353 -1 s
+4023.0 h
+0.0000 setgray
+<3143303130303135> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<4120737472696e6720706172616d6574657220657863656564656420697473206465636c61726564206d6178696d756d2073697a652e> 7 9196 32 s
+2278.0 3057.0 m
+0.0000 setgray
+<496e745a65726f446976696465> 0 3286 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303031> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<546865206f7065726174696f6e20696e63757272656420616e20696e7465676572206469766964652d62792d7a65726f206572726f72> 6 9034 32 s
+5209.0 3252.0 m
+0.0000 setgray
+<647572696e6720657865637574696f6e206f6e207468652073657276657220736964652e> 5 7721 32 s
+2278.0 3565.0 m
+0.0000 setgray
+<416464726573734572726f72> 0 3227 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303032> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<546865206f7065726174696f6e20696e63757272656420616e206164647265737320657863657074696f6e20647572696e67> 6 8836 32 s
+5209.0 3760.0 m
+0.0000 setgray
+<657865637574696f6e206f6e207468652073657276657220736964652e> 4 7217 32 s
+2278.0 4073.0 m
+0.0000 setgray
+<46705a65726f446976696465> 0 3276 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303033> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<546865206f7065726174696f6e20696e637572726564206120666c6f6174696e672d706f696e74206469766964652d62792d7a65726f> 5 9039 32 s
+5209.0 4268.0 m
+0.0000 setgray
+<6572726f7220647572696e6720657865637574696f6e206f6e207468652073657276657220736964652e> 6 8108 32 s
+2278.0 4581.0 m
+0.0000 setgray
+<4670556e646572666c6f77> 0 3227 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303034> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<546865206f7065726174696f6e20696e637572726564206120666c6f6174696e672d706f696e7420756e646572666c6f77206572726f72> 6 9113 32 s
+5209.0 4776.0 m
+0.0000 setgray
+<647572696e6720657865637574696f6e206f6e207468652073657276657220736964652e> 5 7721 32 s
+2278.0 5090.0 m
+0.0000 setgray
+<46704f766572666c6f77> 0 3139 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303035> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<546865206f7065726174696f6e20696e637572726564206120666c6f6174696e672d706f696e74206f766572666c6f77206572726f72> 6 9025 32 s
+5209.0 5285.0 m
+0.0000 setgray
+<647572696e6720657865637574696f6e206f6e207468652073657276657220736964652e> 5 7721 32 s
+0.0 0.0 m
+17.0 sw
+/drawmode PL_SET def
+newpath
+2159 1905 av
+9512 1905 as
+9512 1905 as
+9512 11647 as
+2159 11647 as
+2159 1905 as
+0.0000 dp40
+newpath
+3853 1905 av
+3853 11647 as
+0.0000 dp40
+newpath
+5039 1905 av
+5039 11647 as
+0.0000 dp40
+newpath
+2159 2244 av
+9512 2244 as
+0.0000 dp40
+2278.0 5632.0 m
+0.0000 setgray
+<496e76616c696454> 0 2885 -1 s
+2873.0 h
+0.0000 setgray
+<6167> 0 3039 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303036> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<5468652076616c7565206f66206120756e696f6e206469736372696d696e61746f7220646f6573206e6f74206d6174636820616e79206f66> 10 9247 32 s
+5209.0 5827.0 m
+0.0000 setgray
+<74686520636173652076616c7565732c20616e642074686520756e696f6e20686173206e6f2064656661756c7420636173652e> 9 8730 32 s
+2278.0 6140.0 m
+0.0000 setgray
+<496e76616c6964426f756e64> 0 3246 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303037> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<5468652076616c75657320666f7220636f6e666f726d616e636520626f756e647320616e642076617269616e636520626f756e6473> 7 9231 32 s
+5209.0 6335.0 m
+0.0000 setgray
+<6f6620616e206172726179207765726520696e636f6e73697374656e742e> 4 7286 32 s
+2278.0 6649.0 m
+0.0000 setgray
+<43616e63656c> 0 2766 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303044> 0 4795 -1 s
+5209.0 h
+0.0000 setgray
+<5b5442535d> 0 5650 -1 s
+2278.0 7157.0 m
+0.0000 setgray
+<496c6c6567616c496e737472756374696f6e> 0 3491 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303045> 0 4776 -1 s
+5209.0 h
+0.0000 setgray
+<546865206f7065726174696f6e20696e63757272656420616e20696c6c6567616c20696e737472756374696f6e206572726f7220647572696e67> 7 9205 32 s
+5209.0 7352.0 m
+0.0000 setgray
+<657865637574696f6e206f6e207468652073657276657220736964652e> 4 7217 32 s
+2278.0 7665.0 m
+0.0000 setgray
+<46704572726f72> 0 2837 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303046> 0 4766 -1 s
+5209.0 h
+0.0000 setgray
+<546865206f7065726174696f6e20696e637572726564206120666c6f6174696e672d706f696e74206572726f7220647572696e67> 6 8849 32 s
+5209.0 7860.0 m
+0.0000 setgray
+<657865637574696f6e206f6e207468652073657276657220736964652e> 4 7217 32 s
+2278.0 8173.0 m
+0.0000 setgray
+<496e744f766572666c6f77> 0 3149 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303130> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<546865206f7065726174696f6e20696e63757272656420616e20696e7465676572206f766572666c6f77206572726f7220647572696e67> 7 9137 32 s
+5209.0 8368.0 m
+0.0000 setgray
+<657865637574696f6e206f6e207468652073657276657220736964652e> 4 7217 32 s
+2278.0 8682.0 m
+0.0000 setgray
+<556e73706563> 0 2805 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303132> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<546865206f7065726174696f6e20696e63757272656420616e20756e737065636966696564206572726f7220647572696e672065786563752d> 7 9292 32 s
+5209.0 8877.0 m
+0.0000 setgray
+<74696f6e206f6e207468652073657276657220736964652e> 4 6807 32 s
+2278.0 9190.0 m
+0.0000 setgray
+<52656d6f7465436f6d6d4661696c757265> 0 3803 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303133> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<5b5442535d> 0 5650 -1 s
+true /wst:timsps10i 10 declareFont
+10 sf
+8767.0 11891.0 m
+0.0000 setgray
+<28636f6e74696e75656429> 0 9579 -1 s
+8 sf
+2278.0 9664.0 m
+0.0000 setgray
+<50697065456d707479> 0 3061 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303134> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<416e20617474656d707420776173206d61646520746f20726561642066726f6d2061207069706520746861742068616420616c7265616479> 11 9290 32 s
+5209.0 9859.0 m
+0.0000 setgray
+<7061737365642061207465726d696e6174696e67207a65726f2d6c656e677468206368756e6b2e> 4 8019 32 s
+2278.0 10173.0 m
+0.0000 setgray
+<50697065436c6f736564> 0 3079 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303135> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<416e20617474656d707420776173206d61646520746f20777269746520746f2061207069706520746861742068616420616c7265616479> 11 9143 32 s
+5209.0 10368.0 m
+0.0000 setgray
+<6265656e207465726d696e617465642e> 1 6382 32 s
+2278.0 10681.0 m
+0.0000 setgray
+<506970654f72646572> 0 3002 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303136> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<416e20617474656d707420776173206d61646520746f20726561642066726f6d206f7220777269746520746f20612070697065206f7574206f66> 13 9360 32 s
+5209.0 10876.0 m
+0.0000 setgray
+<6f72646572> 0 5581 -1 s
+5571.0 h
+0.0000 setgray
+<2e> 0 5615 -1 s
+2278.0 11189.0 m
+0.0000 setgray
+<506970654469736369706c696e65> 0 3314 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303137> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<546865206f7065726174696f6e2072657475726e656420746f207468652063616c6c6572206265666f726520616c6c20706970657320686164> 9 9125 32 s
+5209.0 11384.0 m
+0.0000 setgray
+<6265656e20647261696e6564206f722066696c6c65642e> 3 6764 32 s
+9525.0 6917.0 m
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<4e6574776f726b> 0 2000 -1 s
+0.0000 setgray
+<20436f6d707574696e6720417263686974656374757265> 2 3939 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 3296 32 s
+7335.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 9468 32 s
+6445.0 1060.0 m
+0.0000 setgray
+<62617273206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+8844.0 13251.0 m
+6301.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 8844 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+9521.0 h
+9327.0 13251.0 m
+0.0000 setgray
+<3139> 0 9521 -1 s
+6 sf
+4202.0 1669.0 m
+0.0000 setgray
+<54> 0 4310 -1 s
+4292.0 1669.0 m
+0.0000 setgray
+<61626c652033b135> 1 4965 32 s
+4967.0 h
+0.0000 setgray
+<2e204661756c742053746174757320436f6465732028636f6e74696e75656429> 4 7481 32 s
+true /wst:timsps10 8 declareFont
+8 sf
+2159.0 3099.0 m
+true /wst:timsps10b 9 declareFont
+9 sf
+2278.0 2159.0 m
+0.0000 setgray
+<537461747573> 0 2748 -1 s
+0.0000 setgray
+<20436f6465> 1 3183 32 s
+4023.0 h
+0.0000 setgray
+<4865782056> 1 4497 32 s
+4481.0 h
+0.0000 setgray
+<616c7565> 0 4794 -1 s
+5209.0 h
+0.0000 setgray
+<4d65616e696e67> 0 5874 -1 s
+8 sf
+2278.0 2582.0 m
+0.0000 setgray
+<50697065436f6d6d4572726f72> 0 3443 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303138> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<5b5442535d> 0 5650 -1 s
+2278.0 3057.0 m
+0.0000 setgray
+<506970654d656d6f7279> 0 3197 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303139> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<496e737566> 0 5571 -1 s
+5568.0 h
+0.0000 setgray
+<66696369656e74206d656d6f72792077617320737570706c69656420666f72207468652070726f63657373696e67206f662061> 8 9224 32 s
+5209.0 3252.0 m
+0.0000 setgray
+<706970652e> 0 5556 -1 s
+2278.0 3565.0 m
+0.0000 setgray
+<436f6e746578744d69736d61746368> 0 3538 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303141> 0 4795 -1 s
+5209.0 h
+0.0000 setgray
+<416e206964656e7469666965722070617373656420696e206120636f6e746578742068616e646c6520646964206e6f7420636f72726573706f6e64> 9 9368 32 s
+5209.0 3760.0 m
+0.0000 setgray
+<746f20616e79206b6e6f776e20636f6e746578742e> 3 6773 32 s
+2278.0 4073.0 m
+0.0000 setgray
+<52656d6f74654e6f4d656d6f7279> 0 3646 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303142> 0 4785 -1 s
+5209.0 h
+0.0000 setgray
+<5b5442535d> 0 5650 -1 s
+0.0 0.0 m
+17.0 sw
+/drawmode PL_SET def
+newpath
+2159 1905 av
+9512 1905 as
+9512 1905 as
+9512 4277 as
+2159 4277 as
+2159 1905 as
+0.0000 dp40
+newpath
+3853 1905 av
+3853 4277 as
+0.0000 dp40
+newpath
+5039 1905 av
+5039 4277 as
+0.0000 dp40
+newpath
+2159 2244 av
+9512 2244 as
+0.0000 dp40
+9525.0 3099.0 m
+true /wst:timsps12b 10 declareFont
+10 sf
+1270.0 4953.0 m
+0.0000 setgray
+<332e332e35> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<2052656a656374205061636b65742044617461> 3 3479 32 s
+5 sf
+2159.0 5409.0 m
+0.0000 setgray
+<546865> 0 2461 -1 s
+0.0000 setgray
+<20626f6479206f6620612072656a656374207061636b657420636f6e7461696e7320612073746174757320636f646520696e6469636174696e672077687920612063616c6c65652069732072656a656374696e672061207061636b6574> 17 9437 32 s
+2159.0 5663.0 m
+0.0000 setgray
+<66726f6d20612063616c6c6572> 2 3150 32 s
+3139.0 h
+0.0000 setgray
+<2e205468652073746174757320636f646520697320726570726573656e74656420627920616e204e445220756e7369676e6564206c6f6e6720696e7465676572> 11 8217 32 s
+8206.0 h
+0.0000 setgray
+<2e> 0 8254 -1 s
+2159.0 6171.0 m
+0.0000 setgray
+<54> 0 2278 -1 s
+2264.0 6171.0 m
+0.0000 setgray
+<61626c652033b136> 1 2926 32 s
+2927.0 h
+0.0000 setgray
+<206c69737473207468652073746174757320636f64657320746861742063616e2062652073656e7420696e20612072656a656374207061636b65742e> 12 7211 32 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 3454 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<626172206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 4269 32 s
+6850.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 9468 32 s
+7493.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+1965.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 4508 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+1270.0 h
+0.0000 setgray
+<3230> 0 1464 -1 s
+6 sf
+4643.0 1669.0 m
+0.0000 setgray
+<54> 0 4751 -1 s
+4733.0 1669.0 m
+0.0000 setgray
+<61626c652033b136> 1 5406 32 s
+5406.0 h
+0.0000 setgray
+<2e2052656a6563742053746174757320436f646573> 3 7041 32 s
+true /wst:timsps10 8 declareFont
+8 sf
+2159.0 5342.0 m
+5209.0 4785.0 m
+0.0000 setgray
+<546865> 0 5483 -1 s
+0.0000 setgray
+<206f7065726174696f6e206e756d6265722070617373656420696e207468652072657175657374207061636b6574206973> 8 8942 32 s
+5209.0 4980.0 m
+0.0000 setgray
+<67726561746572207468616e206f7220657175616c20746f20746865206e756d626572206f66206f7065726174696f6e7320696e20746865> 10 9091 32 s
+5209.0 5175.0 m
+0.0000 setgray
+<696e746572666163652e> 0 5869 -1 s
+2278.0 4785.0 m
+0.0000 setgray
+<4f7052616e67654572726f72> 0 3315 -1 s
+4023.0 h
+0.0000 setgray
+<3143303130303032> 0 4756 -1 s
+true /wst:timsps10b 9 declareFont
+9 sf
+2278.0 2159.0 m
+0.0000 setgray
+<53746174757320436f6465> 1 3183 32 s
+4023.0 h
+0.0000 setgray
+<4865782056> 1 4497 32 s
+4481.0 h
+0.0000 setgray
+<616c7565> 0 4794 -1 s
+5209.0 h
+0.0000 setgray
+<4d65616e696e67> 0 5874 -1 s
+8 sf
+4023.0 5514.0 m
+0.0000 setgray
+<3143303130303033> 0 4756 -1 s
+2278.0 h
+0.0000 setgray
+<556e6b6e6f776e496e74657266616365> 0 3598 -1 s
+5209.0 h
+0.0000 setgray
+<5468652073657276657220646f6573206e6f74206578706f7274207468652072657175657374656420696e746572666163652e> 7 8767 32 s
+2278.0 5852.0 m
+0.0000 setgray
+<57> 0 2444 -1 s
+2437.0 h
+0.0000 setgray
+<726f6e67426f6f7454> 0 3210 -1 s
+3204.0 h
+0.0000 setgray
+<696d65> 0 3468 -1 s
+4023.0 h
+0.0000 setgray
+<3143303130303036> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<5468652073657276657220626f6f742074696d652070617373656420696e207468652072657175657374207061636b657420646f6573206e6f74> 10 9313 32 s
+5209.0 6047.0 m
+0.0000 setgray
+<6d61746368207468652061637475616c2073657276657220626f6f742074696d652e> 5 7594 32 s
+2278.0 7157.0 m
+0.0000 setgray
+<50726f746f636f6c4572726f72> 0 3248 -1 s
+4023.0 h
+0.0000 setgray
+<3143303130303042> 0 4785 -1 s
+5209.0 h
+0.0000 setgray
+<546865204e43412f52504320636c69656e74206f72207365727665722070726f746f636f6c20686173206265656e2076696f6c617465642e> 8 9319 32 s
+2278.0 7496.0 m
+0.0000 setgray
+<4f75744172> 0 2728 -1 s
+2725.0 h
+0.0000 setgray
+<677354> 0 2989 -1 s
+2977.0 h
+0.0000 setgray
+<6f6f426967> 0 3407 -1 s
+4023.0 h
+0.0000 setgray
+<3143303130303133> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<546865206f757470757420706172616d6574657273206f6620746865206f7065726174696f6e20657863656564207468656972> 7 8851 32 s
+5209.0 7691.0 m
+0.0000 setgray
+<6465636c61726564206d6178696d756d2073697a652e> 2 6924 32 s
+0.0 0.0 m
+17.0 sw
+/drawmode PL_SET def
+newpath
+2159 1905 av
+9512 1905 as
+9512 1905 as
+9512 8767 as
+2159 8767 as
+2159 1905 as
+0.0000 dp40
+newpath
+3853 1905 av
+3853 8767 as
+0.0000 dp40
+newpath
+5039 1905 av
+5039 8767 as
+0.0000 dp40
+newpath
+2159 2244 av
+9512 2244 as
+0.0000 dp40
+2278.0 2549.0 m
+0.0000 setgray
+<56> 0 2405 -1 s
+2385.0 h
+0.0000 setgray
+<657273696f6e4d69736d61746368> 0 3518 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303038> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<5468652073657276657220646f6573206e6f7420737570706f727420746865204e43412f5250432070726f746f636f6c> 7 8850 32 s
+5209.0 2744.0 m
+0.0000 setgray
+<76657273696f6e2073706563696669656420696e207468652072657175657374207061636b65742e2e205b3f5d20> 7 8273 32 s
+2278.0 6429.0 m
+0.0000 setgray
+<59> 0 2405 -1 s
+2387.0 h
+0.0000 setgray
+<6f7543726173686564> 0 3139 -1 s
+4023.0 h
+0.0000 setgray
+<3143303130303039> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<4120726573746172746564207365727665722063616c6c6564206261636b20746f206120636c69656e742c20616e642074686520636c69656e74> 10 9074 32 s
+5209.0 6624.0 m
+0.0000 setgray
+<436f6e766572736174696f6e204d616e61676572206861732072656a6563746564207468652063616c6c6261636b2064756520646f2061> 8 9224 32 s
+5209.0 6819.0 m
+0.0000 setgray
+<7365727665722d626f6f742d74696d65206d69736d617463682e205b72656a656374207061636b65743f3f3f5d> 3 8445 32 s
+2278.0 8004.0 m
+0.0000 setgray
+<53657276657254> 0 2846 -1 s
+2834.0 h
+0.0000 setgray
+<6f6f42757379> 0 3371 -1 s
+4023.0 h
+0.0000 setgray
+<3143303130303134> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<5468652073657276657220697320746f6f206275737920746f2068616e646c65207468652063616c6c2e> 8 8058 32 s
+2278.0 8309.0 m
+0.0000 setgray
+<556e737570706f7274656454> 0 3295 -1 s
+3283.0 h
+0.0000 setgray
+<797065> 0 3537 -1 s
+4023.0 h
+0.0000 setgray
+<3143303130303137> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<5468652073657276657220646f6573206e6f7420696d706c656d656e742074686520726571756573746564206f7065726174696f6e20666f72> 8 9325 32 s
+5209.0 8504.0 m
+0.0000 setgray
+<7468652074797065206f662074686520726571756573746564206f626a6563742e> 5 7457 32 s
+2278.0 3057.0 m
+0.0000 setgray
+<556e7370656352656a656374> 0 3254 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303039> 0 4756 -1 s
+5209.0 h
+0.0000 setgray
+<5468652072657175657374206973206265696e672072656a656374656420666f7220756e73706563696669656420726561736f6e732e> 7 8952 32 s
+2278.0 3904.0 m
+0.0000 setgray
+<57686f41726559> 0 3011 -1 s
+2993.0 h
+0.0000 setgray
+<6f754661696c6564> 0 3609 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303042> 0 4785 -1 s
+5209.0 h
+0.0000 setgray
+<5b5442535d20> 1 5694 32 s
+2278.0 3497.0 m
+0.0000 setgray
+<4261644163744944> 0 3001 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303041> 0 4795 -1 s
+5209.0 h
+0.0000 setgray
+<5b5442535d> 0 5650 -1 s
+2278.0 4328.0 m
+0.0000 setgray
+<4d616e616765724e6f74456e7465726564> 0 3715 -1 s
+4023.0 h
+0.0000 setgray
+<3143303030303043> 0 4785 -1 s
+5209.0 h
+0.0000 setgray
+<5b5442535d> 0 5650 -1 s
+9525.0 5342.0 m
+0.0 0.0 m
+newpath
+0.0 sw
+1033 1905 av
+1152 1905 as
+1152 8780 as
+1033 8780 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+9525.0 5342.0 m
+5 sf
+2159.0 9299.0 m
+0.0000 setgray
+<5b54> 0 2343 -1 s
+2329.0 h
+0.0000 setgray
+<6f> 0 2426 -1 s
+0.0000 setgray
+<2062652061646465643a206e63615f735f696e76616c69645f707265735f636f6e746578745f6964207374617475732e5d> 4 6285 32 s
+true /wst:timsps12b 10 declareFont
+10 sf
+1270.0 9948.0 m
+0.0000 setgray
+<332e332e36> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<2051756974205061636b65742044617461> 3 3315 32 s
+5 sf
+2159.0 10404.0 m
+0.0000 setgray
+<496e> 0 2321 -1 s
+0.0000 setgray
+<2076657273696f6e20322e30206f66204e43412c2071756974207061636b6574732063616e206f7074696f6e616c6c79206861766520626f646965732e2020412071756974207061636b657420776974686f7574206120626f6479> 17 9443 32 s
+2159.0 10658.0 m
+0.0000 setgray
+<7265717565737473206f727068616e65642d63616c6c2073656d616e746963732c207768657265617320612071756974207061636b65742077697468206120626f64792072657175657374732063616e63656c65642d63616c6c> 11 9207 32 s
+2159.0 10912.0 m
+0.0000 setgray
+<73656d616e746963732e205b436f6d7061746962696c697479206265686176696f72205442532e5d> 3 5406 32 s
+2159.0 11420.0 m
+0.0000 setgray
+<496620612071756974207061636b657420686173206120626f6479> 6 4203 32 s
+4190.0 h
+0.0000 setgray
+<2c207468652066697273742062797465206f662074686520626f647920697320612076657273696f6e206e756d62657220666f722074686520666f726d6174206f6620746865> 15 9389 32 s
+0.0 0.0 m
+newpath
+1033 11275 av
+1152 11275 as
+1152 11529 as
+1033 11529 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 11674.0 m
+0.0000 setgray
+<7175697420626f6479> 1 2897 32 s
+2884.0 h
+0.0000 setgray
+<2e20546869732076657273696f6e206e756d6265722063616e206368616e676520696e646570656e64656e746c79206f66207468652070726f746f636f6c2076657273696f6e206e756d62657220696e> 12 9295 32 s
+0.0 0.0 m
+newpath
+1033 11529 av
+1152 11529 as
+1152 11783 as
+1033 11783 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 11928.0 m
+0.0000 setgray
+<746865207061636b657420686561646572> 2 3515 32 s
+3504.0 h
+0.0000 setgray
+<2e> 0 3552 -1 s
+0.0 0.0 m
+newpath
+1033 11783 av
+1152 11783 as
+1152 11976 as
+1033 11976 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+3552.0 11928.0 m
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 3939 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 3296 32 s
+7335.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 9468 32 s
+6445.0 1060.0 m
+0.0000 setgray
+<62617273206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+8844.0 13251.0 m
+6301.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 8844 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+9521.0 h
+9327.0 13251.0 m
+0.0000 setgray
+<3231> 0 9521 -1 s
+5 sf
+2159.0 1669.0 m
+0.0000 setgray
+<41742076657273696f6e20302c207468652071756974207061636b657420626f647920636f6e7461696e73> 7 5484 32 s
+true /sps:symbb10 8 declareFont
+8 sf
+2477.0 2121.0 m
+0.0000 setgray
+<77> 0 2558 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<416e204e445220756e7369676e6564206c6f6e6720696e746567657220696e6469636174696e67207468652076657273696f6e206e756d626572206f66207468652071756974207061636b657420626f6479> 13 9425 32 s
+9412.0 h
+0.0000 setgray
+<2e> 0 9460 -1 s
+8 sf
+2477.0 2574.0 m
+0.0000 setgray
+<77> 0 2558 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<416e204e445220756e7369676e6564206c6f6e6720696e7465676572206964656e74696679696e6720612063616e63656c2d72657175657374206576656e742e> 8 7936 32 s
+2159.0 3083.0 m
+0.0000 setgray
+<5b44657461696c73205442532e5d> 1 3290 32 s
+true /wst:timsps12b 9 declareFont
+9 sf
+1270.0 3732.0 m
+0.0000 setgray
+<332e332e37> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<20517561636b205061636b65742044617461> 3 3503 32 s
+5 sf
+2159.0 4188.0 m
+0.0000 setgray
+<496e> 0 2321 -1 s
+0.0000 setgray
+<2076657273696f6e20322e30206f66204e43412c20717561636b207061636b6574732063616e206f7074696f6e616c6c79206861766520626f646965732e20204120717561636b207061636b657420776974686f75742061> 16 9329 32 s
+2159.0 4442.0 m
+0.0000 setgray
+<626f64792061636b6e6f776c6564676573206f727068616e696e67206f6620612063616c6c2c2077686572656173206120717561636b207061636b65742077697468206120626f64792061636b6e6f776c6564676573> 13 9239 32 s
+2159.0 4696.0 m
+0.0000 setgray
+<63616e63656c6c6174696f6e206f6620612063616c6c2e205b436f6d7061746962696c697479206265686176696f72205442532e5d> 6 6251 32 s
+2159.0 5204.0 m
+0.0000 setgray
+<5468652066697273742062797465206f66206120717561636b207061636b657420697320612076657273696f6e206e756d62657220666f722074686520666f726d6174206f662074686520717561636b20626f6479> 17 8752 32 s
+8739.0 h
+0.0000 setgray
+<2e2054686973> 1 9180 32 s
+0.0 0.0 m
+newpath
+0.0 sw
+/drawmode PL_SET def
+9644 5059 av
+9763 5059 as
+9763 5313 as
+9644 5313 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 5458.0 m
+0.0000 setgray
+<76657273696f6e206e756d6265722063616e206368616e676520696e646570656e64656e746c79206f66207468652070726f746f636f6c2076657273696f6e206e756d62657220696e20746865207061636b6574> 12 8920 32 s
+0.0 0.0 m
+newpath
+9644 5313 av
+9763 5313 as
+9763 5567 as
+9644 5567 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 5712.0 m
+0.0000 setgray
+<686561646572> 0 2676 -1 s
+2665.0 h
+0.0000 setgray
+<2e> 0 2713 -1 s
+0.0 0.0 m
+newpath
+9644 5567 av
+9763 5567 as
+9763 5760 as
+9644 5760 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 6220.0 m
+0.0000 setgray
+<41742076657273696f6e20302c2074686520717561636b207061636b657420626f647920636f6e7461696e73> 7 5645 32 s
+8 sf
+2477.0 6672.0 m
+0.0000 setgray
+<77> 0 2558 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<416e204e445220756e7369676e6564206c6f6e6720696e746567657220696e6469636174696e67207468652076657273696f6e206e756d626572206f662074686520717561636b207061636b6574> 12 9150 32 s
+2794.0 6927.0 m
+0.0000 setgray
+<626f6479> 0 3182 -1 s
+3169.0 h
+0.0000 setgray
+<2e> 0 3217 -1 s
+8 sf
+2477.0 7380.0 m
+0.0000 setgray
+<77> 0 2558 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<416e204e445220756e7369676e6564206c6f6e6720696e7465676572206964656e74696679696e67207468652063616e63656c2d72657175657374206576656e742074686174206973206265696e67> 11 9034 32 s
+2794.0 7636.0 m
+0.0000 setgray
+<61636b6e6f776c65646765642e20> 1 4010 32 s
+8 sf
+2477.0 8088.0 m
+0.0000 setgray
+<77> 0 2558 -1 s
+5 sf
+2794.0 h
+0.0000 setgray
+<416e204e445220626f6f6c65616e20696e6469636174696e672077686574686572207468652073657276657220697320616363657074696e67207468652063616e63656c20726571756573742e> 11 8907 32 s
+2159.0 8598.0 m
+0.0000 setgray
+<5b44657461696c73205442532e5d> 1 3290 32 s
+true /wst:timsps6 10 declareFont
+10 sf
+1270.0 9299.0 m
+0.0 0.0 m
+34.0 sw
+newpath
+1278 9278 av
+9496 9278 as
+0.0000 dp40
+9525.0 9299.0 m
+true /wst:timsps14b 11 declareFont
+11 sf
+1270.0 9548.0 m
+0.0000 setgray
+<332e34> 0 1578 -1 s
+1578.0 h
+0.0000 setgray
+<205468652041757468656e7469636174696f6e2056> 3 3930 32 s
+3907.0 h
+0.0000 setgray
+<65726966696572> 0 4567 -1 s
+5 sf
+2159.0 10022.0 m
+0.0000 setgray
+<41> 0 2299 -1 s
+0.0000 setgray
+<207061636b657420636f6e7461696e7320616e2061757468656e7469636174696f6e207665726966696572206966207468652061757468656e7469636174696f6e2070726f746f636f6c2073706563696669657220696e20746865> 12 9039 32 s
+0.0 0.0 m
+newpath
+0.0 sw
+9644 9877 av
+9763 9877 as
+9763 10131 as
+9644 10131 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 10276.0 m
+0.0000 setgray
+<7061636b657420686561646572206973206e6f6e7a65726f2e205468652073697a652c20666f726d61742c20616e6420636f6e74656e7473206f66207468652061757468656e7469636174696f6e20766572696669657220617265> 13 9058 32 s
+0.0 0.0 m
+newpath
+9644 10131 av
+9763 10131 as
+9763 10385 as
+9644 10385 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 10530.0 m
+0.0000 setgray
+<646570656e64656e7420656e746972656c79206f6e20746865207370656369666965642061757468656e7469636174696f6e2070726f746f636f6c2e> 6 6762 32 s
+0.0 0.0 m
+newpath
+9644 10385 av
+9763 10385 as
+9763 10578 as
+9644 10578 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+6762.0 10530.0 m
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 3454 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<626172206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 4269 32 s
+6850.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 9468 32 s
+7493.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+1965.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 4508 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+1270.0 h
+0.0000 setgray
+<3232> 0 1464 -1 s
+true /wst:timsps6 8 declareFont
+8 sf
+1270.0 1609.0 m
+0.0 0.0 m
+34.0 sw
+/drawmode PL_SET def
+newpath
+1278 1588 av
+9496 1588 as
+0.0000 dp40
+9525.0 1609.0 m
+true /wst:timsps14b 9 declareFont
+9 sf
+1270.0 1857.0 m
+0.0000 setgray
+<332e35> 0 1578 -1 s
+1578.0 h
+0.0000 setgray
+<205061636b65742054> 2 2580 32 s
+2562.0 h
+0.0000 setgray
+<79706573> 0 3028 -1 s
+5 sf
+2159.0 2331.0 m
+0.0000 setgray
+<54686973> 0 2504 -1 s
+0.0000 setgray
+<2073656374696f6e20646573637269626573204e43412f5250432f4447207061636b65742074797065732e2057> 6 6371 32 s
+6355.0 h
+0.0000 setgray
+<652067726f757020746865736520747970657320696e746f207061636b657473207468617420746865> 7 9448 32 s
+2159.0 2585.0 m
+0.0000 setgray
+<636c69656e742073656e647320616e64207061636b657473207468617420746865207365727665722073656e64732e20436c69656e74732063616e2073656e6420726571756573742c2070696e672c2061636b2c206661636b2c20616e64> 15 9234 32 s
+2159.0 2839.0 m
+0.0000 setgray
+<71756974207061636b6574732e20536572766572732063616e2073656e6420726573706f6e73652c206661756c742c2072656a6563742c206e6f63616c6c2c20717561636b2c20616e6420776f726b696e67207061636b6574732e> 12 9070 32 s
+2159.0 3347.0 m
+0.0000 setgray
+<5468652074797065206f662061207061636b6574206973206964656e74696669656420627920746865207061636b65742074797065206669656c6420696e20746865207061636b657420686561646572> 15 8180 32 s
+8172.0 h
+0.0000 setgray
+<2c2061732064657363726962656420696e> 3 9419 32 s
+0.0 0.0 m
+newpath
+0.0 sw
+1033 3202 av
+1152 3202 as
+1152 3456 as
+1033 3456 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+2159.0 3601.0 m
+0.0000 setgray
+<53756273656374696f6e20332e322e32> 1 3445 32 s
+3446.0 h
+0.0000 setgray
+<2e> 0 3494 -1 s
+0.0 0.0 m
+newpath
+1033 3456 av
+1152 3456 as
+1152 3649 as
+1033 3649 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+3494.0 3601.0 m
+true /wst:timsps12b 10 declareFont
+10 sf
+1270.0 4250.0 m
+0.0000 setgray
+<332e352e31> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<205061636b6574732053656e7420627920436c69656e7473> 4 3862 32 s
+5 sf
+2159.0 4706.0 m
+0.0000 setgray
+<54> 0 2278 -1 s
+2264.0 4706.0 m
+0.0000 setgray
+<61626c652033b137> 1 2926 32 s
+2927.0 h
+0.0000 setgray
+<20646573637269626573207479706573206f66207061636b65747320746861742074686520636c69656e7420696e697469617465732e> 8 6805 32 s
+6 sf
+4644.0 5214.0 m
+0.0000 setgray
+<54> 0 4752 -1 s
+4734.0 5214.0 m
+0.0000 setgray
+<61626c652033b137> 1 5407 32 s
+5407.0 h
+0.0000 setgray
+<2e20436c69656e74205061636b65742054> 3 6709 32 s
+6695.0 h
+0.0000 setgray
+<79706573> 0 7039 -1 s
+true /wst:timsps10 11 declareFont
+11 sf
+2159.0 8422.0 m
+true /wst:timsps10b 12 declareFont
+12 sf
+2328.0 5704.0 m
+0.0000 setgray
+<5061636b6574> 0 2837 -1 s
+0.0000 setgray
+<2054> 1 2998 32 s
+2985.0 h
+0.0000 setgray
+<797065> 0 3249 -1 s
+3684.0 h
+0.0000 setgray
+<4465736372697074696f6e> 0 4554 -1 s
+11 sf
+2328.0 6102.0 m
+0.0000 setgray
+<72657175657374> 0 2836 -1 s
+3684.0 h
+0.0000 setgray
+<4120636c69656e742073656e647320612072657175657374207061636b657420746f20696e69746961746520612072656d6f7465206f7065726174696f6e2e20496e2061206d756c74697061636b6574> 13 9167 32 s
+3684.0 6297.0 m
+0.0000 setgray
+<726571756573742c20746865207265717565737420636f6e7369737473206f66206120736572696573206f662072657175657374207061636b6574732077697468207468652073616d652073652d> 13 8988 32 s
+3684.0 6492.0 m
+0.0000 setgray
+<7175656e6365206e756d62657220616e64206d6f6e6f746f6e6963616c6c7920696e6372656173696e6720667261676d656e74206e756d626572732e2054686520626f6479206f662061> 10 9291 32 s
+3684.0 6687.0 m
+0.0000 setgray
+<72657175657374207061636b657420636f6e7461696e73206461746120726570726573656e74696e6720696e70757420706172616d657465727320666f7220746865206f7065726174696f6e2e> 9 9060 32 s
+2328.0 7593.0 m
+0.0000 setgray
+<70696e67> 0 2641 -1 s
+3684.0 h
+0.0000 setgray
+<4120636c69656e742073656e647320612070696e67207061636b6574207768656e2069742077616e747320746f20696e71756972652061626f757420616e206f75747374616e64696e67> 13 8917 32 s
+3684.0 7788.0 m
+0.0000 setgray
+<726571756573742e20412070696e67207061636b657420636f6e7369737473206f66206120686561646572206f6e6c79> 8 7050 32 s
+7039.0 h
+0.0000 setgray
+<2e> 0 7083 -1 s
+2328.0 8245.0 m
+0.0000 setgray
+<61636b> 0 2572 -1 s
+2328.0 9431.0 m
+0.0000 setgray
+<6661636b> 0 2631 -1 s
+2328.0 10795.0 m
+0.0000 setgray
+<71756974> 0 2602 -1 s
+3684.0 8245.0 m
+0.0000 setgray
+<4120636c69656e742073656e647320616e2061636b207061636b657420616674657220697420686173207265636569766564206120726573706f6e736520746f20616e2061742d6d6f73742d6f6e6365> 14 9243 32 s
+3684.0 8440.0 m
+0.0000 setgray
+<726571756573742e20416e2061636b207061636b6574206578706c696369746c792061636b6e6f776c656467657320746861742074686520636c69656e742068617320726563656976656420746865> 11 9214 32 s
+3684.0 8635.0 m
+0.0000 setgray
+<726573706f6e73653b2069742074656c6c73207468652073657276657220746f20636561736520726573656e64696e672074686520726573706f6e736520616e64206469736361726420746865> 12 8920 32 s
+3684.0 8830.0 m
+0.0000 setgray
+<726573706f6e7365207061636b65742e20284120636c69656e742063616e20616c736f20696d706c696369746c792061636b6e6f776c656467652072656365697074206f66206120726573706f6e7365> 11 9322 32 s
+3684.0 9024.0 m
+0.0000 setgray
+<62792073656e64696e672061206e6577207265717565737420746f2074686520736572766572> 7 6376 32 s
+6366.0 h
+0.0000 setgray
+<2e2920416e2061636b207061636b657420636f6e7369737473206f66206120686561646572206f6e6c79> 8 9302 32 s
+9291.0 h
+0.0000 setgray
+<2e> 0 9335 -1 s
+3684.0 10837.0 m
+0.0000 setgray
+<4120636c69656e742073656e647320612071756974207061636b6574207768656e2069742068617320696e63757272656420612071756974206661756c742e20412071756974207061636b65742074656c6c73> 16 9279 32 s
+3684.0 11032.0 m
+0.0000 setgray
+<7468652073657276657220746f2061626f727420657865637574696f6e206f6620612072656d6f7465206f7065726174696f6e2e2054686520626f6479206f6620612071756974207061636b6574> 14 9135 32 s
+3684.0 11227.0 m
+0.0000 setgray
+<636f6e7461696e7320616e206964656e74696669657220666f72207468652063616e63656c20726571756573742e> 6 6768 32 s
+3684.0 9397.0 m
+0.0000 setgray
+<4120636c69656e742073656e64732061206661636b207061636b657420616674657220697420686173207265636569766564206120667261676d656e74206f662061206d756c74697061636b6574> 14 9069 32 s
+3684.0 9592.0 m
+0.0000 setgray
+<726573706f6e73652e2041206661636b207061636b6574206578706c696369746c792061636b6e6f776c656467657320746861742074686520636c69656e742068617320726563656976656420746865> 11 9292 32 s
+3684.0 9787.0 m
+0.0000 setgray
+<667261676d656e743b2069742074656c6c73207468652073657276657220746f2073656e6420746865206e65787420667261676d656e74206f662074686520726573706f6e73652e204120736572766572> 14 9212 32 s
+3684.0 9982.0 m
+0.0000 setgray
+<63616e20696e6869626974207468652073656e64696e67206f662061206661636b2062792073657474696e6720746865206e6f6661636b2062697420666c616720696e2074686520686561646572206f66> 16 9149 32 s
+3684.0 10176.0 m
+0.0000 setgray
+<74686520667261676d656e742e2054686520626f6479206f662061206661636b207061636b657420636f6e7461696e7320696e666f726d6174696f6e20746861742074686520636c69656e7420616e64> 13 9306 32 s
+3684.0 10371.0 m
+0.0000 setgray
+<746865207365727665722063616e2075736520746f206f7074696d697a652073697a657320616e64207261746573206f66207472616e736d697373696f6e2e> 10 8007 32 s
+0.0 0.0 m
+17.0 sw
+newpath
+2159 5450 av
+9512 5450 as
+9512 5450 as
+9512 11380 as
+2159 11380 as
+2159 5450 as
+0.0000 dp40
+newpath
+3514 5450 av
+3514 11380 as
+0.0000 dp40
+newpath
+2159 5789 av
+9512 5789 as
+0.0000 dp40
+3684.0 7025.0 m
+0.0000 setgray
+<54> 0 3792 -1 s
+3780.0 7025.0 m
+0.0000 setgray
+<61626c652033b138> 1 4381 32 s
+4378.0 h
+0.0000 setgray
+<2064657363726962657320746865206964656d706f74656e742c2062726f6164636173742c206d617962652c2062726f6164636173742f6d617962652c20616e64> 7 9112 32 s
+3684.0 7220.0 m
+0.0000 setgray
+<61742d6d6f73742d6f6e6365207375627479706573206f662072657175657374207061636b6574732e> 4 6620 32 s
+9525.0 8422.0 m
+0.0 0.0 m
+newpath
+0.0 sw
+1033 5450 av
+1152 5450 as
+1152 11394 as
+1033 11394 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+9525.0 8422.0 m
+5 sf
+2159.0 11913.0 m
+0.0000 setgray
+<54> 0 2278 -1 s
+2264.0 11913.0 m
+0.0000 setgray
+<61626c652033b138> 1 2926 32 s
+2927.0 h
+0.0000 setgray
+<2064657363726962657320746865207375627479706573206f662072657175657374207061636b6574732e> 6 6202 32 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 3939 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 3296 32 s
+7335.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 9468 32 s
+6445.0 1060.0 m
+0.0000 setgray
+<62617273206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+8844.0 13251.0 m
+6301.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 8844 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+9521.0 h
+9327.0 13251.0 m
+0.0000 setgray
+<3233> 0 9521 -1 s
+6 sf
+4449.0 1669.0 m
+0.0000 setgray
+<54> 0 4557 -1 s
+4539.0 1669.0 m
+0.0000 setgray
+<61626c652033b138> 1 5212 32 s
+5212.0 h
+0.0000 setgray
+<2e2052657175657374205061636b6574205375627479706573> 3 7235 32 s
+true /wst:timsps10 8 declareFont
+8 sf
+2159.0 3988.0 m
+true /wst:timsps10b 9 declareFont
+9 sf
+4031.0 2159.0 m
+0.0000 setgray
+<4d65616e696e67> 0 4696 -1 s
+2337.0 h
+0.0000 setgray
+<52657175657374> 0 2943 -1 s
+0.0000 setgray
+<2053756274797065> 1 3604 32 s
+8 sf
+2337.0 2548.0 m
+0.0000 setgray
+<6964656d706f74656e74> 0 3129 -1 s
+4031.0 h
+0.0000 setgray
+<546865207265717565737420697320666f7220616e206964656d706f74656e74206f7065726174696f6e2e20416e206964656d706f74656e7420726571756573742068617320746865> 11 9251 32 s
+4031.0 2743.0 m
+0.0000 setgray
+<6964656d706f74656e7420666c6167207365742e> 2 5424 32 s
+2337.0 3057.0 m
+0.0000 setgray
+<62726f616463617374> 0 3011 -1 s
+4031.0 h
+0.0000 setgray
+<546865207265717565737420697320746f2062652062726f61646361737420746f20616c6c20686f737473206f6e20746865206c6f63616c206e6574776f726b2e20412062726f616463617374> 14 9352 32 s
+4031.0 3252.0 m
+0.0000 setgray
+<726571756573742068617320746865206964656d706f74656e7420616e642062726f61646361737420666c616773207365742e205468652072657175657374206d757374206265> 11 9063 32 s
+4031.0 3447.0 m
+0.0000 setgray
+<73656e7420696e206f6e65207061636b65742e> 3 5340 32 s
+2337.0 3819.0 m
+0.0000 setgray
+<6d6179626520> 1 2850 32 s
+4031.0 h
+0.0000 setgray
+<54686520636c69656e7420646f6573206e6f7420657870656374206120726573706f6e73652e205468652070726f746f636f6c7320646f206e6f742067756172616e7465652074686174> 12 9245 32 s
+4031.0 4014.0 m
+0.0000 setgray
+<746865207365727665722077696c6c20726563656976652074686520726571756573742e2041206d6179626520726571756573742068617320746865206964656d706f74656e7420616e64> 12 9352 32 s
+4031.0 4209.0 m
+0.0000 setgray
+<6d6179626520666c616773207365742e> 2 5169 32 s
+4031.0 4581.0 m
+0.0000 setgray
+<546865207265717565737420697320746f2062652062726f61646361737420746f20616c6c20686f737473206f6e20746865206c6f63616c206e6574776f726b20616e6420746865> 14 8976 32 s
+4031.0 4776.0 m
+0.0000 setgray
+<636c69656e7420646f6573206e6f7420657870656374206120726573706f6e73652e20412062726f6164636173742f6d6179626520726571756573742068617320746865> 10 8881 32 s
+4031.0 4971.0 m
+0.0000 setgray
+<6964656d706f74656e742c2062726f6164636173742c20616e64206d6179626520666c616773207365742e205468652072657175657374206d7573742062652073656e7420696e> 11 9083 32 s
+4031.0 5166.0 m
+0.0000 setgray
+<6f6e65207061636b65742e> 1 4832 32 s
+2337.0 4581.0 m
+0.0000 setgray
+<62726f6164636173742f6d61796265> 0 3529 -1 s
+2337.0 5513.0 m
+0.0000 setgray
+<6174206d6f7374206f6e6365> 2 3226 32 s
+4031.0 h
+0.0000 setgray
+<546865207265717565737420697320666f7220616e206f7065726174696f6e20746861742063616e6e6f74206265206578656375746564206d6f7265207468616e206f6e63652e20416e> 13 9319 32 s
+4031.0 5708.0 m
+0.0000 setgray
+<61742d6d6f73742d6f6e63652072657175657374206973207468652064656661756c743b20697420646f6573206e6f74206861766520616e79206f6620746865206964656d706f74656e742c> 12 9285 32 s
+4031.0 5903.0 m
+0.0000 setgray
+<62726f6164636173742c20616e64206d6179626520666c616773207365742e> 4 6229 32 s
+0.0 0.0 m
+17.0 sw
+/drawmode PL_SET def
+newpath
+2159 1905 av
+9512 1905 as
+9512 1905 as
+9512 6056 as
+2159 6056 as
+2159 1905 as
+0.0000 dp40
+newpath
+3853 1905 av
+3853 6056 as
+0.0000 dp40
+newpath
+2159 2244 av
+9512 2244 as
+0.0000 dp40
+9525.0 3988.0 m
+0.0 0.0 m
+newpath
+0.0 sw
+9644 1905 av
+9763 1905 as
+9763 6071 as
+9644 6071 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+9525.0 3988.0 m
+true /wst:timsps12b 10 declareFont
+10 sf
+1270.0 6731.0 m
+0.0000 setgray
+<332e352e32> 0 1694 -1 s
+1694.0 h
+0.0000 setgray
+<205061636b6574732053656e742062792053657276657273> 4 3908 32 s
+5 sf
+2159.0 7187.0 m
+0.0000 setgray
+<54> 0 2278 -1 s
+2264.0 7187.0 m
+0.0000 setgray
+<61626c652033b139> 1 2926 32 s
+2927.0 h
+0.0000 setgray
+<20646573637269626573207479706573206f66207061636b6574732074686174207468652073657276657220696e697469617465732e> 8 6848 32 s
+eop
+bop
+0 13970 neg translate
+0 13970 10795 13970 10795 0 0 0 clp
+true /wst:timsps11 5 declareFont
+5 sf
+1321.0 806.0 m
+0.0000 setgray
+<6472616674206f662032352053657074656d6265722031393931> 4 3454 32 s
+1321.0 1060.0 m
+0.0000 setgray
+<626172206d61726b206368616e6765732073696e63652035204d617263682031393931> 6 4269 32 s
+6850.0 806.0 m
+0.0000 setgray
+<4e6574776f726b20436f6d707574696e6720417263686974656374757265> 2 9468 32 s
+7493.0 1060.0 m
+0.0000 setgray
+<76657273696f6e20322e302073706563696669636174696f6e73> 2 9468 32 s
+true /wst:timsps11i 6 declareFont
+6 sf
+1965.0 13251.0 m
+0.0000 setgray
+<4e43412f5250432f4447205061636b657420446566696e6974696f6e> 2 4508 32 s
+true /wst:timsps11b 7 declareFont
+7 sf
+1270.0 h
+0.0000 setgray
+<3234> 0 1464 -1 s
+6 sf
+4628.0 1669.0 m
+0.0000 setgray
+<54> 0 4736 -1 s
+4718.0 1669.0 m
+0.0000 setgray
+<61626c652033b139> 1 5391 32 s
+5391.0 h
+0.0000 setgray
+<2e20536572766572205061636b65742054> 3 6724 32 s
+6710.0 h
+0.0000 setgray
+<79706573> 0 7054 -1 s
+true /wst:timsps10 8 declareFont
+8 sf
+2159.0 5681.0 m
+true /wst:timsps10b 9 declareFont
+9 sf
+2328.0 2159.0 m
+0.0000 setgray
+<5061636b6574> 0 2837 -1 s
+0.0000 setgray
+<2054> 1 2998 32 s
+2985.0 h
+0.0000 setgray
+<797065> 0 3249 -1 s
+3684.0 h
+0.0000 setgray
+<4465736372697074696f6e> 0 4554 -1 s
+8 sf
+2328.0 2510.0 m
+0.0000 setgray
+<726573706f6e7365> 0 2943 -1 s
+2328.0 3650.0 m
+0.0000 setgray
+<776f726b696e67> 0 2915 -1 s
+3684.0 h
+0.0000 setgray
+<41207365727665722073656e6473206120776f726b696e67207061636b657420696e207265706c7920746f20612070696e67207061636b65742e2054686973207265706c7920696e64696361746573> 14 9201 32 s
+3684.0 3845.0 m
+0.0000 setgray
+<7468617420746865207365727665722069732070726f63657373696e672074686520636c69656e7427> 6 6391 32 s
+6381.0 h
+0.0000 setgray
+<732063616c6c2e204120776f726b696e67207061636b657420636f6e7369737473206f662061> 7 9009 32 s
+3684.0 4040.0 m
+0.0000 setgray
+<686561646572206f6e6c79> 1 4510 32 s
+4499.0 h
+0.0000 setgray
+<2e> 0 4543 -1 s
+2328.0 4412.0 m
+0.0000 setgray
+<6e6f63616c6c> 0 2758 -1 s
+3684.0 2510.0 m
+0.0000 setgray
+<41207365727665722073656e6473206120726573706f6e7365207061636b657420696620616e206f7065726174696f6e206578656375746573207375636365737366756c6c79> 10 8626 32 s
+8615.0 h
+0.0000 setgray
+<2e202853657276657273> 1 9290 32 s
+3684.0 2705.0 m
+0.0000 setgray
+<646f206e6f742073656e6420726573706f6e73657320666f72206d61796265206f722062726f6164636173742f6d617962652072657175657374732e292041206d756c74697061636b6574> 10 9181 32 s
+3684.0 2900.0 m
+0.0000 setgray
+<726573706f6e736520636f6e7369737473206f66206120736572696573206f6620726573706f6e7365207061636b6574732077697468207468652073616d652073657175656e6365206e756d626572> 12 9368 32 s
+3684.0 3095.0 m
+0.0000 setgray
+<616e64206d6f6e6f746f6e6963616c6c7920696e6372656173696e6720667261676d656e74206e756d626572732e2054686520626f6479206f66206120726573706f6e7365207061636b6574> 10 9329 32 s
+3684.0 3289.0 m
+0.0000 setgray
+<636f6e7461696e73206461746120726570726573656e74696e67206f757470757420706172616d657465727320666f7220746865206f7065726174696f6e2e> 7 8093 32 s
+2328.0 7055.0 m
+0.0000 setgray
+<6661636b> 0 2631 -1 s
+3684.0 4412.0 m
+0.0000 setgray
+<41207365727665722073656e64732061206e6f63616c6c207061636b657420696e207265706c7920746f20612070696e67207061636b65742e2054686973207265706c7920696e646963617465732074686174> 15 9352 32 s
+3684.0 4607.0 m
+0.0000 setgray
+<7468652073657276657220686173206e6f207265636f7264206f662074686520636c69656e7427> 7 6309 32 s
+6299.0 h
+0.0000 setgray
+<732063616c6c2e2041206e6f63616c6c207061636b657420636f6e7369737473206f66206120686561646572> 8 9283 32 s
+3684.0 4802.0 m
+0.0000 setgray
+<6f6e6c79> 0 3997 -1 s
+3986.0 h
+0.0000 setgray
+<2e> 0 4030 -1 s
+2328.0 8478.0 m
+0.0000 setgray
+<717561636b> 0 2748 -1 s
+3684.0 7055.0 m
+0.0000 setgray
+<41207365727665722073656e64732061206661636b207061636b657420616674657220697420686173207265636569766564206120667261676d656e74206f662061206d756c74697061636b6574> 14 9108 32 s
+3684.0 7250.0 m
+0.0000 setgray
+<726571756573742e2041206661636b207061636b6574206578706c696369746c792061636b6e6f776c6564676573207468617420746865207365727665722068617320726563656976656420746865> 11 9224 32 s
+3684.0 7445.0 m
+0.0000 setgray
+<667261676d656e7420616e642074656c6c732074686520636c69656e7420746f2073656e6420746865206e65787420667261676d656e74206f662074686520726571756573742e204120636c69656e74> 14 9134 32 s
+3684.0 7640.0 m
+0.0000 setgray
+<63616e20696e6869626974207468652073656e64696e67206f662061206661636b2062792073657474696e6720746865206e6f6661636b2062697420666c616720696e2074686520686561646572206f66> 16 9149 32 s
+3684.0 7834.0 m
+0.0000 setgray
+<74686520667261676d656e742e2054686520626f6479206f662061206661636b207061636b657420636f6e7461696e7320696e666f726d6174696f6e20746861742074686520636c69656e7420616e64> 13 9306 32 s
+3684.0 8029.0 m
+0.0000 setgray
+<746865207365727665722063616e2075736520746f206f7074696d697a652073697a657320616e64207261746573206f66207472616e736d697373696f6e2e> 10 8007 32 s
+3684.0 8478.0 m
+0.0000 setgray
+<41207365727665722073656e6473206120717561636b207061636b65742061667465722069742068617320726563656976656420612071756974207061636b65742e204120717561636b207061636b6574> 15 9360 32 s
+3684.0 8673.0 m
+0.0000 setgray
+<6578706c696369746c792061636b6e6f776c656467657320746861742074686520736572766572206861732061626f7274656420612072656d6f7465206f7065726174696f6e2e20546865> 10 9006 32 s
+3684.0 8868.0 m
+0.0000 setgray
+<626f6479206f66206120717561636b207061636b657420636f6e7461696e7320746865206964656e74696669657220666f72207468652063616e63656c2072657175657374206265696e67> 12 8884 32 s
+3684.0 9063.0 m
+0.0000 setgray
+<61636b6e6f776c656467656420616e64206120626f6f6c65616e2076616c756520696e6469636174696e672077686574686572207468652073657276657220686173206163636570746564> 10 9175 32 s
+3684.0 9257.0 m
+0.0000 setgray
+<7468652063616e63656c20726571756573742e> 2 4988 32 s
+0.0 0.0 m
+17.0 sw
+/drawmode PL_SET def
+newpath
+2159 1905 av
+9512 1905 as
+9512 1905 as
+9512 9445 as
+2159 9445 as
+2159 1905 as
+0.0000 dp40
+newpath
+3514 1905 av
+3510 9445 as
+0.0000 dp40
+newpath
+2159 2244 av
+9504 2244 as
+0.0000 dp40
+2328.0 5174.0 m
+0.0000 setgray
+<6661756c74> 0 2651 -1 s
+2328.0 6123.0 m
+0.0000 setgray
+<72656a656374> 0 2719 -1 s
+3684.0 6615.0 m
+0.0000 setgray
+<54> 0 3792 -1 s
+3780.0 6615.0 m
+0.0000 setgray
+<61626c652033b136> 1 4381 32 s
+4378.0 h
+0.0000 setgray
+<20646566696e65732074686520736574206f662072656a6563742073746174757320636f6465732e> 7 6986 32 s
+3684.0 5174.0 m
+0.0000 setgray
+<41207365727665722073656e64732061206661756c74207061636b657420696620616e206f7065726174696f6e20696e637572732061206661756c74207768696c6520657865637574696e67206f6e> 14 9128 32 s
+3684.0 5369.0 m
+0.0000 setgray
+<7468652073657276657220736964652e2054686520626f6479206f662061206661756c74207061636b657420636f6e7461696e732061206661756c742073746174757320636f64652e> 13 8624 32 s
+3684.0 6123.0 m
+0.0000 setgray
+<41207365727665722073656e647320612072656a656374207061636b657420696620616e206f7065726174696f6e2063616e6e6f742062652065786563757465642e2054686520626f6479206f662061> 15 9313 32 s
+3684.0 6318.0 m
+0.0000 setgray
+<72656a656374207061636b657420636f6e7461696e7320612072656a6563742073746174757320636f64652e> 6 6629 32 s
+3684.0 5683.0 m
+0.0000 setgray
+<54> 0 3792 -1 s
+3780.0 5683.0 m
+0.0000 setgray
+<61626c652033b135> 1 4381 32 s
+4378.0 h
+0.0000 setgray
+<20646566696e65732074686520736574206f66206661756c742073746174757320636f6465732e> 7 6918 32 s
+9525.0 5681.0 m
+0.0 0.0 m
+newpath
+0.0 sw
+1033 1905 av
+1152 1905 as
+1152 9457 as
+1033 9457 as
+closepath
+gsave
+0.0000 setgray
+eofill
+grestore
+9525.0 5681.0 m
+eop
+initialstate restore
+%%Trailer
+%%DocumentFonts: Times-Roman
+%%+ Times-Italic
+%%+ Times-Bold
+%%+ Courier
+%%+ Helvetica
+%%+ Helvetica-Bold
+%%+ Symbol

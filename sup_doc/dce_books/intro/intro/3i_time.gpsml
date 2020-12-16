@@ -1,0 +1,466 @@
+...\"  @OSF_COPYRIGHT@
+...\"  COPYRIGHT NOTICE
+...\"  Copyright (c) 1990, 1991, 1992, 1993 Open Software Foundation, Inc.
+...\"  ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE in the
+...\"  src directory for the full copyright text.
+...\"
+...\"
+...\" HISTORY
+...\" $Log: 3i_time.gpsml,v $
+...\" Revision 1.1.6.1  1996/10/14  16:39:14  weir
+...\" 	No change
+...\" 	[1996/10/14  16:38:25  weir]
+...\"
+...\" Revision 1.1.4.8  1995/06/02  15:25:00  buckler
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/06/01  20:59:25  buckler]
+...\" 
+...\" 	Incorporated 1.1 edits.
+...\" 	[1995/05/05  22:16:27  buckler]
+...\" 
+...\" Revision 1.1.4.7  1994/11/04  00:05:01  neilson
+...\" 	Substituted macros for book names in cross refs.
+...\" 	[1994/11/03  12:24:14  neilson]
+...\" 
+...\" Revision 1.1.4.6  1994/09/26  16:03:15  willie
+...\" 	{enh, 11783, R1.1}
+...\" 	Fixed reference from Admin. Ref. to Command Ref.
+...\" 	[1994/09/26  16:02:39  willie]
+...\" 
+...\" Revision 1.1.4.5  1993/01/29  17:18:16  cjd
+...\" 	Embedded copyright notice
+...\" 	[1993/01/29  17:01:53  cjd]
+...\" 
+...\" Revision 1.1.4.4  1992/12/01  19:46:14  steiner
+...\" 	Added description of DTS API, per CR 2899.
+...\" 	[1992/12/01  19:45:56  steiner]
+...\" 
+...\" Revision 1.1.4.3  1992/11/24  15:45:05  steiner
+...\" 	Fixed coding conventions.
+...\" 	[1992/11/24  15:27:08  steiner]
+...\" 
+...\" Revision 1.1.4.2  1992/09/01  15:59:43  weir
+...\" 	Moved to 1.0.2 tree
+...\" 	[1992/09/01  15:48:32  weir]
+...\" 
+...\" Revision 1.1.2.2  1992/03/06  16:31:15  steiner
+...\" 	Eddie's edits.
+...\" 	[1992/03/06  15:20:15  steiner]
+...\" 
+...\" Revision 1.1  1992/01/29  15:43:11  damon
+...\" 	Initial revision
+...\" 
+...\" $EndLog$
+...\"
+.hw time-stamp
+.H 2 "DCE Distributed Time Service"
+.iX "-![" "DTS"
+.P
+A distributed computing
+system has many advantages but also brings with it new
+problems.
+One of them is keeping the clocks on different nodes synchronized.
+In a single system, there is one clock
+that provides the time of day to all applications.
+Computer hardware
+clocks are not completely accurate, but there is always one consistent
+idea of what time it is for all processes running on the system.
+.P
+In a
+distributed system, however, each node has its own clock.
+Even if it were possible to set all of the clocks in the distributed
+system to one consistent time
+at some point,
+those clocks would drift away from that time at different rates.
+As a result, the different nodes of a distributed system have
+different ideas of what time
+it is.  This is a problem, for example,
+for distributed applications that care about
+the ordering of events.
+It is difficult to determine whether Event A on Node X occurred before
+Event B on Node Y because
+different nodes have different notions of the current time.
+.P
+.ne 9
+DCE DTS addresses this problem in two ways:
+.ML
+.LI
+DTS
+provides a way to periodically
+synchronize the clocks on the different hosts in a
+distributed system.
+.iX "time" "synchronization"
+.LI
+DTS also provides a way of keeping that synchronized
+notion of time reasonably close to the
+\*Ecorrect\*O
+time.
+.iX "time" "correctness"
+(In DTS, correct time is
+considered to be
+UTC, an international
+standard.)
+.iX "UTC"
+.iX "-: UTC" "Coordinated Universal Time"
+.iX "standards" "and DTS"
+.LE
+.P
+These services
+together allow cooperating nodes to have the same notion of
+what time it is, and to also have that time be meaningful in the rest of the
+world.
+.P
+Distributed time is inherently more complex than
+time originating from a single source since clocks cannot be continuously
+synchronizing, there is always some discrepancy in their ideas
+of the current time as they drift between synchronizations.  In
+addition, indeterminacy is introduced in the communications
+necessary for synchronization since clocks synchronize by sending messages
+about the time back and forth, but that message passing itself takes a
+certain (unpredictable) amount of time.  So in addition to being able to
+express the time of day, a distributed notion of time must also include
+an
+\*Einaccuracy\*O
+.iX "inaccuracy" "time"
+factor; that is, how close the timestamp is to the real time.
+As a result, keeping time in a distributed environment requires not only
+new synchronization
+mechanisms, but also a new form of expression of time\*(EMone
+that includes the
+inaccuracy of the given time.
+In DTS, distributed time is therefore expressed
+as a range, or interval, rather than as a single point.
+.H 3 "What is DTS?"
+.iX "DTS" "components"
+.P
+There are several different components that constitute DCE DTS:
+.ML
+.LI
+Time clerk
+.LI
+Time servers
+.ML
+.LI
+Local time server
+.LI
+Global time server
+.LI
+Courier time server
+.LI
+Backup courier time server
+.LE
+.nL
+.ne 5
+.LI
+DTS API
+.LI
+Time-Provider Interface (TPI)
+.LI
+Time format, which includes inaccuracy
+.LE
+.P
+The active components are the time clerk and different kinds of
+time servers.
+There are two interfaces: a programming interface (DTS API) and an interface
+(TPI) to an external time-provider.
+Finally, DTS defines a new format for expressing time.
+.H 4 "Time Clerk"
+The time clerk is the client side of DTS.
+It runs on a client machine, such as a workstation, and keeps the
+machine's local time synchronized by asking time servers for the
+correct time and adjusting the local time accordingly.
+.P
+The time clerk
+is configured to know
+the limit of the local system's hardware clock.
+When enough
+time has passed that the system's time is above a certain inaccuracy
+threshold (that is, the clock may have drifted far enough away from
+the correct
+time), the time clerk issues a
+\*Esynchronization\*O.
+.iX "time" "synchronization"
+It queries
+various time servers for their opinion of the correct time of day,
+calculates the probable correct time and its inaccuracy based on the
+answers it receives, and updates the local system's time.
+.P
+The update can be gradual or abrupt.  If an abrupt
+update is made, the software register holding the current time is
+modified to reflect the new time.  Usually, however, it is desirable to
+update the clock gradually and, in this case, the
+tick
+increment is
+modified until the correct time is reached.  In other words, if a clock
+is normally incremented 10 milliseconds at each clock interrupt, and the
+clock is behind, then the clock register will instead be incremented 11
+milliseconds at each clock tick until it catches up.
+.P
+Figure 3-16 shows a LAN with two time clerks (C) and three time servers
+(S).
+Each of the time clerks queries two of the time servers when
+synchronizing.
+The time servers all query each other.
+.PP
+.ne 1.5i
+.FG "DTS Time Clerks and Servers"
+...\" .so intro/pic/3i_time_14.pic
+.PS
+.in +.5i
+scale = 80
+line <-> dotted from 32, 4 \
+	to 80, 4 
+line <-> dotted from 56, 80 \
+	to 84, 16 
+line <-> dotted from 52, 80 \
+	to 24, 16 
+line ->  from 100, 48 \
+	to 92, 16 
+line ->  from 96, 64 \
+	to 64, 84 
+line ->  from 8, 48 \
+	to 20, 16 
+line ->  from 12, 64 \
+	to 48, 84 
+"\fR\s10C\s0\fP"  at 8, 56
+"\fR\s10C\s0\fP"  at 104, 56
+"\fR\s10S\s0\fP"  at 88, 8
+"\fR\s10S\s0\fP"  at 24, 8
+"\fR\s10S\s0\fP"  at 56, 88
+circle radius 8 at 104, 56
+circle radius 8 at 8, 56
+circle radius 8 at 88, 8
+circle radius 8 at 24, 8
+circle radius 8 at 56, 88
+.in -.5i
+.PE
+.H 4 "Time Servers"
+A time server
+is a node that is designated to answer queries about the
+time.
+The number of time servers in a DCE cell is configurable;
+three per
+LAN is a typical number.
+time clerks query these time servers for the time, and the time servers query
+one another, computing the new system time and adjusting their own
+clocks as appropriate.  One or more of the time servers can be attached to an
+external time-provider (described later in this section).
+.P
+A distinction is made between
+local time servers
+(time servers on a given LAN) and
+global time servers.
+This is because they are located differently by their clients.
+A client may need to contact a global time server if, for
+example, the client wants to get time from three servers, but only two servers
+are available on the LAN.  In addition, it may be desirable to configure
+a DTS system to have two LAN servers and one global time server synchronizing
+with each other, rather than just having time servers within the LAN
+synchronizing with each other.  This is where
+couriers
+are needed.
+.P
+A courier time server
+is a time server that synchronizes with a global time
+server; that is, a time server outside the courier's LAN.  It thus
+imports
+an outside time to the LAN by synchronizing with the outside
+time server.  Other time servers in the LAN can be designated as
+backup courier time servers.
+If the courier is not available, then one of the
+backup couriers serves in its place.
+.P
+Figure 3-17 shows two LANs (LAN A and LAN B) and their time servers (S).
+In each LAN, one of the time servers acts as a courier time server (Co)
+by
+querying a global time server (G) (that is, a time server outside of either
+LAN) for the current time.
+.PP
+.ne 2.25i
+.FG "Local, Courier, and Global Time Servers"
+...\" .so intro/pic/3i_time_15.pic
+.PS
+.in +.5i
+scale = 80
+line <->  from 74, 40 \
+	to 158, 12 
+line <->  from 258, 40 \
+	to 174, 12 
+line <->  from 306, 92 \
+	to 270, 52 
+line <->  from 230, 92 \
+	to 258, 52 
+line <->  from 102, 92 \
+	to 70, 52 
+line <->  from 30, 92 \
+	to 58, 52 
+line <->  from 234, 100 \
+	to 298, 100 
+line <->  from 34, 100 \
+	to 98, 100 
+"\fR\s10LAN B\s0\fP"  at 268, 158
+"\fR\s10LAN A\s0\fP"  at 66, 158
+circle radius 66 at 266, 80
+circle radius 66 at 66, 80
+"\fR\s10G\s0\fP"  at 166, 6
+"\fR\s10Co\s0\fP"  at 66, 44
+"\fR\s10Co\s0\fP"  at 266, 44
+"\fR\s10S\s0\fP"  at 306, 100
+"\fR\s10S\s0\fP"  at 226, 100
+"\fR\s10S\s0\fP"  at 106, 100
+"\fR\s10S\s0\fP"  at 26, 100
+circle radius 8 at 166, 8
+circle radius 8 at 266, 44
+circle radius 8 at 66, 44
+circle radius 8 at 306, 100
+circle radius 8 at 226, 100
+circle radius 8 at 106, 100
+circle radius 8 at 26, 100
+.in -.5i
+.PE
+.H 4 "DTS Application Programming Interface"
+DTS provides an API library that allows programmers to manipulate
+timestamps.
+For example, programmers can obtain a timestamp representing the
+current time, translate timestamps to different formats, and compare
+two timestamps.
+.H 4 "Time-Provider Interface"
+So far, all the components described are those supporting the
+synchronization of a distributed system's clocks.  There must also be a
+way to ensure they are synchronized to the
+\*Ecorrect\*O
+time.  The notion
+of the correct time must come from an outside source, which is the
+external time-provider.
+.iX "external time-provider"
+This may be a hardware device such as one that receives time
+from radio or telephone sources.  This external time is given to a time
+server, which then communicates it to other servers.  Such an external
+time-provider can be very accurate.  If no such device is available, the
+external time source can be the system administrator, who consults a
+trustworthy time source and enters it into the system.  This
+cannot, of course, be as accurate as an automatic time source, but it
+may be sufficient in some cases.
+.P
+DTS supports the ability to interface with an external time-provider
+through the
+time-provider interface.
+The external time-provider itself, however, is a hardware device (or
+a person), and is therefore outside the scope of DCE.
+.nL
+.ne 10
+.H 4 "DTS Time Format"
+.iX "time" "DTS format"
+The
+time format
+used in DTS is a standard one: UTC, which notes
+the time since October 15, 1582, the beginning of the Gregorian calendar.
+This time is interpreted using
+the Time Differential Factor (TDF) for use in different time zones.
+.iX "-: TDF" "Time Differential Factor"
+.iX "TDF"
+For example, the TDF in New York City
+is -5 hours.
+The TDF for Greenwich, England is 0.
+.H 3 "End User's Perspective"
+.iX "DTS" "end user's perspective"
+.P
+From a user's point of view, the advantage of having a distributed
+time service is
+that more applications work as expected
+in a distributed environment.  For
+example, the UNIX
+\*Lmake\*O
+program compiles new binary files if it
+discovers that the source file has been changed since the last time the
+binary was compiled.  In a distributed system, this may not work
+properly if the source is on one machine and the binary is on another,
+and the two machines have different ideas of what time it is (and of
+what time it was when their files were updated).  Having DTS means that
+the nodes have roughly the same notion of time, and the
+\*Lmake\*O
+program works as expected.
+.H 3 "Programming with DTS"
+.iX "DTS" "programming with"
+.P
+There are two ways a programmer can be affected by the presence of DTS
+in a system.
+It is possible for an application to retrieve
+the time from the system in the same way as before DTS was introduced.
+But with DTS, the
+system's time is more correct and is synchronized with
+other nodes' clocks in the distributed system.
+.P
+It is also possible for the programmer to
+use the DTS API to
+directly deal with distributed time.  Since DTS time is represented
+differently than single-node time\*(EMit includes inaccuracy\*(EMnew
+routines are provided for comparing times and for converting from DTS
+time format to the native system's time format.
+The API also includes routines for retrieving the current time,
+performing calculations on times, and handling time zone information.
+.P
+.ne 12
+If programmers choose to use DTS directly, they must handle a new
+contingency when comparing times.
+When asking the question ``Which time is earlier, Time A
+or Time B?'' it is possible to get the answer ``We do not know.''
+When the two time intervals overlap, there is no way of determining
+which occurred first.
+Programmers can handle this in two ways:
+they can ignore the inaccuracy and compare the two median times,
+or (the safer alternative) they can acknowledge that either time
+could have been first and take the more conservative action.
+For example, if it cannot be determined when running the
+\*Lmake\*O
+program, whether the source or the executable was modified last,
+the compilation can be rerun just in case the source was modified
+after the executable was generated.
+.H 3 "DTS Administration"
+.iX "DTS" "administration"
+.P
+Administering a distributed time service is more involved than
+administering the time in a single node.
+In a single node, time administration
+typically consists of setting the time and date when a
+system is first started up and then updating the time occasionally to
+compensate for clock drift.
+.P
+DTS requires more set-up and configuration work for the administrator,
+although, once it is up and running, the administrative maintenance tasks
+are infrequent.
+.H 3 "Interaction with the Network Time Protocol"
+.P
+The Network Time Protocol (NTP), an Internet recommended standard that
+.iX "NTP"
+.iX "-: NTP" "Network Time Protocol"
+is widely used in the Internet,
+is another method of synchronizing time in a distributed environment.
+It is possible for NTP servers to provide time to a DTS system, and for DTS
+servers to provide time to an NTP system.
+See the chapter on NTP in the
+\*(Ag
+for additional information.
+.H 3 "Additional Information on DTS"
+.P
+.iX "DTS" "additional information"
+For additional information on DCE DTS,
+see the following:
+.ML
+.LI
+The DTS chapters of the
+\*(Dg
+and the
+\*(Ag
+.LI
+The
+\*L(3dts)\*O
+reference pages of the
+\*(Dr
+.LI
+The
+\*L(8dts)\*O
+reference pages of the
+\*(Ar
+.LE
+.iX "-]" "DTS"

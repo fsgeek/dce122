@@ -1,0 +1,773 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: binding.gpsml,v $
+...\" Revision 1.1.2.11  1995/06/27  17:04:01  buckler
+...\" 	1.1 edits and Prentice Hall reformat
+...\" 	[1995/06/27  17:03:07  buckler]
+...\"
+...\" Revision 1.1.2.10  1994/11/15  20:47:56  neilson
+...\" 	Converted book title references to macro form.
+...\" 	[1994/11/15  18:58:01  neilson]
+...\" 
+...\" Revision 1.1.2.9  1994/11/15  16:25:43  weir
+...\" 	No change
+...\" 	[1994/11/15  16:25:06  weir]
+...\" 
+...\" Revision 1.1.2.8  1994/10/19  20:48:08  weir
+...\" 	Review comments
+...\" 	[1994/10/19  20:47:12  weir]
+...\" 
+...\" Revision 1.1.2.7  1994/10/19  16:02:42  weir
+...\" 	Review comments and edits
+...\" 	[1994/10/19  16:01:49  weir]
+...\" 
+...\" Revision 1.1.2.6  1994/10/11  15:43:34  jshirley
+...\" 	{def,10526,R1.1} RPC reorg. for App.Dev.  Gd.  Moved methods info to here.
+...\" 	[1994/10/11  15:43:14  jshirley]
+...\" 
+...\" Revision 1.1.2.5  1994/10/11  14:05:43  weir
+...\" 	Updates
+...\" 	[1994/10/11  14:04:48  weir]
+...\" 
+...\" Revision 1.1.2.4  1994/09/23  19:57:44  weir
+...\" 	Updates for review
+...\" 	[1994/09/23  19:56:53  weir]
+...\" 
+...\" Revision 1.1.2.3  1994/08/17  20:56:19  weir
+...\" 	First set of updates
+...\" 	[1994/08/17  20:55:38  weir]
+...\" 
+...\" Revision 1.1.2.2  1994/06/13  18:21:16  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  18:18:36  devobj]
+...\" 
+...\" Revision 1.1.2.1  1994/03/11  23:03:34  rom
+...\" 	{enh, 10129, R1.1}
+...\" 	Initial split of App Dev Guide into three books and creation of
+...\" 	Intro and Style Guide.
+...\" 	[1994/03/11  23:00:58  rom]
+...\" 
+...\" $EndLog$
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" /********************************************************************/
+...\" 
+...\" ----------------------------------------------------------------------
+.H 1 "Binding"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Binding is the process by which an RPC client establishes a relationship with a
+server that supports an interface, object, or some other resource the client is
+interested in.  Since clients operate on server-held resources by making RPCs,
+you can think of binding, specifically, as creating the state required for an
+RPC to be made.  In practice, the work of binding clients to servers normally
+involves name and endpoint mapping services.  Strictly speaking, however, neither
+of these services is required for binding, since well-known bindings and endpoints
+can be used (in the form of string bindings).  This chapter discusses the underlying
+binding model, apart from the use of name and endpoint services.  It forms an
+essential introduction for the discussion of name and endpoint services that
+follows in Chapter 5.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "The Binding Model"
+...\" ----------------------------------------------------------------------
+...\" 
+Binding refers to the establishment of a relationship between a client and a server
+that permits the client to make a remote procedure call to the server.  The term
+\*Ebinding\*O usually refers specifically to a protocol relationship between a client
+and either the server host or a specific endpoint on the server host, and \*Ebinding
+information\*O means the set of protocol and addressing information required to establish
+such a binding.  But, for a remote procedure call, such a binding occurs in a context
+that involves other important elements, paralleling the notion of a binding in a local
+procedure call.  In order for an RPC to occur, a relationship must be established that
+ties a specific procedure call on the client side with the manager code that it invokes
+on the server side.  This requires both the binding information itself and a number of
+additional elements (see Figure 4-1).  The complete list is as follows:
+...\" 
+.ML
+.LI
+A protocol sequence that identifies the RPC and underlying transport protocols
+.LI
+An RPC protocol version identifier
+.LI
+A transfer syntax identifier
+.LI
+A server host network address
+.LI
+An endpoint of a server instance on the host
+.LI
+An object UUID that can optionally be used for selection among servers and/or
+manager routines
+...\" 
+.LI
+An interface UUID that identifies the interface to which the called routine
+belongs
+...\" 
+.LI
+An interface version number that defines compatibility between interface
+versions
+...\" 
+.LI
+An operation number that identifies a specific operation within the interface
+...\" 
+.LE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.PP
+.ne 5.0i
+.FG "Information Required to Complete an RPC"
+.pI ../style_gd/figures/rpc_info.ps 0 0 1
+...\" 
+.P
+The binding information itself covers the first five elements of 
+the list\(emthe protocol and address information required for RPC communications to occur
+between a client and server.  (Figure 4-1 also shows the object UUID as part
+of the binding information.  This applies to clients, as explained in Section
+4.1.2.)  In RPC terminology, such a binding can be partial or full.  A \*Epartial
+binding\*O is one that contains the first four elements of the list, but lacks
+an endpoint.  A \*Efull binding\*O contains an endpoint as well.  The distinction
+is that a partial binding is sufficient to establish communications between a
+client and a server host, whereas a full binding allows communications to a
+specific endpoint on the server host.
+.P
+In order to complete an RPC call, all of the elements listed in Figure 4-1
+must be present.  The binding process consists of a series of steps taken by the
+client and server to create, make available, and assemble all the necessary
+information, followed by the actual RPC, which creates the final binding and
+routing using the elements established by the previous steps.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Server Binding Model"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Figure 4-2 shows the set of relationships that a server must establish to
+receive remote procedure calls.  As Figure 4-2 indicates, these are maintained
+in several places:
+...\" 
+.ML
+...\" 
+.LI
+By the server runtime
+...\" 
+.LI
+In the stub and application code
+...\" 
+.LI
+By the endpoint mapper
+...\" 
+.LI
+By a name service
+...\" 
+.LE
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.PP
+.ne 7i
+.FG "Server Binding Relationships"
+.pI ../style_gd/figures/rpc_server_binding_1.ps 6.5i 6.6i
+.pI ../style_gd/figures/rpc_server_binding_2.ps 0 0 1
+...\" 
+...\" 
+.P
+.ne 8
+The steps that server applications take to establish these mappings are not
+discussed here since they are fully documented in the \*(Dk.
+Once established, this set of relationships allows the
+server runtime to construct a complete binding, with routing to a specific
+server operation, for a call that contains the following information:
+...\" 
+.ML
+...\" 
+.LI 
+Full or partial binding information
+...\" 
+.LI
+An interface identifier
+...\" 
+.LI
+An object UUID, which may be nil
+...\" 
+.LI
+An operation number
+...\" 
+.LE
+...\" 
+...\" 
+...\" .P
+...\" The algorithms used are described in some detail in Section XX.XX.XX [?]
+...\" That discussion will show how the relationships established make
+...\" possible a large number of paths to the interface and manager
+...\" that are ultimately selected.
+...\" 
+.P
+Note that the server runtime itself maintains only a very limited set of
+relationships: interface identifier/type UUID/manager EPV and object UUIDs/type
+UUIDs.  It is especially worth noting that the runtime maintains no relationships
+between the protocol-address bindings it has created and any of the other
+information.  The server merely advertises the relationships it wants to export
+in a name service and registers them in the endpoint map.  Bindings are exported
+and registered along with interface identifiers and, possibly object UUIDs.
+.P
+When the exported and registered information is used by clients to find the
+server, client calls arriving at the server endpoints should contain interface
+identifier/object UUID pairs that the server can, in fact, service, although the
+RPC mechanism itself can provide no guarantee of this.  This means that name
+service and endpoint map operations, while they are not, strictly speaking, a
+required part of an RPC call, usually play an important role in constructing
+bindings.
+.P
+The indirect mapping from object UUID to type UUID to EPV (and hence to the
+manager called) also gives the server some flexibility in organizing its resources
+based on object UUIDs.  This is explained in Section 4.1.3.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Client Binding Model"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+To make a call, the client needs a compatible binding: that is, one that offers
+the interface and version desired, uses a mutually supported protocol sequence,
+and if requested, is associated with a specific object UUID.
+.P
+.ne 8
+Clients typically find compatible bindings by making calls to RPC API routines
+that search the name service.  Typically, the client specifies the interface and
+object UUIDs desired, and the runtime takes responsibility for finding bindings
+with protocol sequences that it can use. 
+.P
+For each binding that the client imports, the runtime provides a server binding
+handle that refers to the binding information maintained by the client runtime.
+This includes the protocol sequence and address information for the server
+host and possibly includes an object UUID.
+.P
+Once the client has found a compatible binding, it makes a call using the binding
+handle for that binding.  When the call is made, the client runtime has available
+to it the binding information and any object UUID referred to by the binding handle.
+Also available in the stub code are the interface identifier of the interface on
+which the call was made, and the operation number of the routine being called.
+Recall that the last three items of this information\(emthe object
+UUID/interface identifier/operation number\(emare precisely what the server
+needs to route the call to a specific manager operation.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Call Routing"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Once the server and client have taken all the necessary steps to set up server
+and client side relationships, the call mechanism can use them to construct a
+complete binding and call routing when the call is made.  When the client makes
+a call with a binding that lacks an endpoint (typically the case for
+bindings imported from the name service), the endpoint is acquired from the
+endpoint mapper on the target host.  The endpoint mapper finds a suitable endpoint
+by searching the local endpoint map for a binding that provides the requested
+interface UUID, and if requested, object UUID.
+.P
+.ne 8
+The endpoint map interface and protocol information must match in order for an
+endpoint to be found, but an object UUID match may not be required.  A server
+can provide a default UUID match by registering the nil UUID.  Calls with a nil
+or unmatched object UUID will get the default endpoint.
+.P
+Once an endpoint is selected, a call can be routed to one of the endpoints being
+used by a compatible server instance.  The server can unambiguously select the
+correct interface and operation by using the interface identifier and operation
+number contained in the call.  Recall, however, that the RPC mechanism makes it
+possible for a server to implement multiple managers for an interface.  Hence it
+may be necessary to select the correct manager.  Manager selection is based on the
+object UUID contained in the call.  The selection mechanism depends on two of the
+relationships established by the server: the object UUID/type UUID mapping and
+the interface ID/type UUID/manager UUID mapping.  
+.P
+For routing, the server provides a default path by registering a default manager
+for the nil type UUID.  Calls containing the nil object UUID, or any UUID for which
+the server has not set another type UUID, will be directed to the default manager.
+.P
+Once the manager is selected, the call is dispatched via the selected manager EPV
+using the operation number contained in the call.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 3 "Routing Policy"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+There are many ways in which clients and servers can arrange the details of
+binding among themselves, including: how bindings are exported and imported,
+whether object UUIDs are used, and how object-type mappings are established.
+High-level resource policy issues relating to the name service and endpoint
+mapper are discussed in Chapter 5.  In the present chapter, some of the lower-level
+routing policy questions that arise from the binding model itself will be discussed.
+These, in fact, have a substantial impact on how the namespace is used by
+applications.
+.P
+.ne 10
+The most important issues concern the role of UUIDs in the binding model.
+Interface identifiers, which consist of a UUID and version number, have a
+well-defined and unambiguous role.  But object UUIDs are somewhat overloaded
+by the binding model.  An object UUID may be used to select bindings from the
+name service, to select endpoints from the endpoint mapper, and to map a call
+to the correct manager type within the server.  Furthermore, a server may use
+object UUIDs in some application-specific way to identify and manipulate the
+objects it manages.
+.P
+There is great potential for conflict between the use of object UUIDs to select
+bindings and endpoints and their use to identify objects and routes to manager
+types.  This conflict is particularly evident in the case of servers that provide
+so-called ubiquitous interfaces, such as the \*Lrdacl\*O interface.  Because many
+servers on a host are likely to export such an interface, it is essential to
+have an object UUID to identify the correct endpoint in the endpoint map.
+Without an object UUID, the endpoint mapper can only return the endpoint
+of some server that exports the requested interface, very likely the wrong
+one.
+...\" 
+...\" 
+...\" 
+.P
+An alternative strategy does exist: a client 
+can call \*Lrpc_\%ep_\%resolve_\%binding(\|)\*O
+using a nonubiquitous interface that it knows the server of interest does export.  The
+call to the ubiquitous interface can then be made with the resolved binding.  Clients
+often use this technique to call the remote \*rpc_mgmt_\*V*\*O routines.  Nevertheless, the
+objection remains that it is still impossible to select among endpoints of servers or
+server instances that export the same nonubiquitous interface.
+...\" 
+...\"  other objections?
+...\" 
+...\" 
+...\" 
+.P
+The most straightforward solution is for a server to export a UUID
+...\" 
+...\" or one for each endpoint?
+...\" 
+to the namespace where it functions as an unambiguous tag for the servers'
+endpoints.  Clients can find this UUID either by importing it from a named
+entry or it may be made well-known, effectively becoming a stable, well-known
+tag for the server's volatile endpoints.  When endpoint UUIDs are well-known, they
+become useful for finding servers even when the client is interested in a
+nonubiquitous interface.  Exactly how servers export and clients find these UUIDs
+depends on the resource model adopted, as discussed in Chapter 5.
+.P
+.ne 10
+This obvious use of UUIDs as endpoint identifiers, however, potentially conflicts
+with their use as object identifiers.  According to the RPC binding model, when clients
+import bindings based on object UUIDs, these UUIDs are incorporated into call bindings
+where they may used for endpoint selection, for manager selection, and possibly for
+some application-specific purpose.  If an application exports its object UUIDs to the
+namespace, then they are used both to identify objects and to identify endpoints.
+This means that, at a minimum, a server would need to maintain a potentially large
+number of mappings to the same endpoints. 
+.P
+Moreover, especially when servers manage many objects or create them dynamically,
+clients will typically know objects by names rather than by UUIDs.  Servers can
+provide such mappings via the namespace itself by exporting each object UUID to
+a different namespace entry, but this even further complicates the server's job of
+maintaining its exports and mappings.
+...\" 
+...\" Other objections?
+...\" 
+.P
+The obvious solution to these problems is to have servers maintain their object
+UUIDs and name-to-object UUID mappings internally.  The basic RPC binding mechanism
+does not provide much support for this approach: there is no generic way for servers
+to make objects or names available to clients except through the name service.  Also,
+a UUID used to identify a server endpoint is probably useless for call routing to a
+manager type within a server.  However, the higher-level object management interfaces
+discussed in Chapter 5 provide this functionality.
+.P
+This leads to two important recommendations:
+...\" 
+...\" 
+.ML
+...\" 
+.LI
+Servers should export to the namespace at least one UUID as a tag for its
+endpoints, and should register the UUID with the endpoint map.
+...\" 
+.LI
+Servers which support multiple objects should also support the object management
+interface(s) discussed in Chapter 5, instead of exporting multiple object UUIDs
+to the namespace.
+...\" 
+.LE
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Binding Handles"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+Binding handles, although they appear as parameters of RPCs, are in fact purely
+local to the server or client applications that use them.  A binding handle is
+simply a reference to binding information that is cached by the local runtime.
+The runtime uses this binding information to construct its side of a client-server
+association.  Even when a binding handle appears as an explicit parameter of an RPC,
+it is not marshalled or unmarshalled as call data in the same way as other call
+parameters.
+.P
+On the client side, a binding handle parameter simply permits an application to
+indicate explicitly to the runtime which cached binding should be used for the
+call.
+.P
+On the server side, a binding handle parameter provides a manager operation with
+a reference to cached binding information for the calling client so that the manager
+can, for example, extract authorization information about the client.
+.P
+In calls to ubiquitous interfaces, such as the \*Lrpc_mgmt\*O interface, partial
+bindings without an object UUID are rarely adequate, since the endpoint mapper
+cannot know which server supporting the ubiquitous interface is of interest to
+the client.  The usual model is that the ubiquitous interface is not exported to
+the name space.  Instead, the client imports bindings based either on another
+interface supported by the server or an object UUID.  If servers follow the
+recommendation to export at least one UUID with their bindings, no additional
+preparation will be necessary to allow their clients to successfully call the
+ubiquitous interfaces the offer.  If they do not export the UUID, they will have
+to adopt the \*Lrpc_ep_resolve_binding(\|)\*O method described in Section 4.1.4.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.H 2 "Binding Methods"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+.iX "binding" "management methods"
+In view of what was said earlier about binding handles, the binding
+method chosen also will be a purely local matter for the client
+application and stubs.  For example, it is perfectly feasible for a
+server manager to make explicit use of
+binding information via a binding handle parameter in a remote call,
+even though the client does not use an explicit handle for the call.
+.P
+DCE RPC provides the automatic, implicit, and explicit methods for
+clients to manage bindings for remote procedure calls:
+.ML
+.LI
+...\" .gL "automatic method"
+Automatic method
+.iX "automatic binding"
+.PP
+This is the simplest method of managing the binding for remote
+procedure calls of an entire interface.
+With the automatic method, the server exports its binding information to 
+a namespace, and the client stub automatically manages a binding for the
+application code.
+.PP
+The automatic method completely hides binding management from client
+application code.  The stub imports the binding information and
+maintains a binding handle. 
+The stub passes the binding handle to the runtime with the remote
+procedure call, and the runtime
+uses the binding handle to retrieve the associated binding information. 
+If the client makes a series of remote procedure calls to the same
+interface, the stub passes the same binding handle with each call. 
+.PP
+With the automatic method, a disrupted call can sometimes be automatically
+rebound.  The automatic rebinding requires either that the remote procedure
+never begins to execute or that the operation is idempotent. 
+If the call meets either of these requirements, 
+the RPC runtime automatically tries to rebind
+the client to another server (if one is available). 
+.PP
+...\" .PP
+...\" To make authenticated calls with the automatic binding method,
+...\" the client 
+...\" calls the \*Lrpc_ss_register_auth_info(\|)\*O routine before making
+...\" the remote procedure call.  This routine places the client authentication
+...\" information in the interface specification for the client runtime to access. 
+...\" .nS note
+...\" The \*Lrpc_ss_register_auth_info(\|)\*O routine is unavailable
+...\" in DCE RPC Version 1.0.
+...\" .nE 
+.LI
+...\" .gL "implicit method"
+.iX "implicit binding"
+Implicit method
+.PP
+This is a relatively simple method of managing a binding for an entire
+interface.  With the implicit
+method, prior to making any remote procedure calls, the client
+application code obtains server binding information from a namespace
+or a string binding.
+The client assigns a server binding handle to a global variable in the
+client application (for each interface using this method). 
+When calling a remote procedure using the implicit method, 
+the client stub passes the specific
+interface's global binding handle to the runtime.  
+.nS note
+Multithreaded clients must be careful not to allow one
+thread to change the value of the shared global binding handle while another
+thread is using it.
+.nE
+.LI
+...\" .gL "explicit method"
+Explicit method
+.iX "explicit binding"
+.PP
+This is a more complex yet more flexible method of managing a binding.  
+As with the
+implicit method, the explicit method requires that the client application code
+call runtime routines to initialize a binding handle.  In the explicit method,
+however, this binding handle is supplied by the application code as a parameter
+to the remote procedure call.  By allowing a client to manage bindings for
+individual calls, the explicit method enables clients to meet specialized
+binding requirements. 
+.LE 
+.PP
+Figure 4-3 shows the distribution of responsibility for binding
+management in applications for each of the three methods. 
+The top portion of each box represents the client application code
+written by the developer. 
+The bottom portion of each box represents the client stub code
+generated from an IDL interface definition. 
+.PP
+.ne 4.5i
+.FG "Methods of Binding Management"
+...\" DEC-file name .P! pictures/rpc-binding-mgmt-simple.ps 4.0i
+.pI ../style_gd/figures/binding_methods.ps 0 0 1
+.PP
+.ne 8
+You can see from this figure that with the automatic method, 
+binding management belongs completely to
+the client-stub code generated by the DCE IDL compiler. 
+The implicit method provides the
+application developer with some control over binding management
+without having to pass a binding handle as a call argument.
+With the explicit method, the application developer is completely
+responsible for binding management. 
+The automatic method requires the server to store binding information in server
+entries in a namespace; the implicit and explicit methods work with
+any source of binding information.   
+.P
+A client can use a combination of methods, even for an individual
+interface or if it uses more than one interface.
+for example, one interface might use the automatic method,
+another interface could use the implicit method, and a third could use
+the explicit method.  In addition, some
+procedures for the interfaces that use automatic or implicit methods 
+could use the explicit method instead.
+The method(s) of binding management for an interface is specified using the
+interface definition, the attribute configuration file (ACF), or both.  In the
+interface definition, the explicit method can be specified for the whole
+interface, or for an operation by declaring a binding handle (using the
+IDL type \*Lhandle_t\*O) as the first parameter of the operation declaration. 
+.PP
+The automatic and implicit methods are interface-wide and therefore mutually
+exclusive; that is, for a given interface, a client can use only one of these
+interface-wide methods.  A client that uses either the automatic or implicit
+method for an interface can also use the explicit method for some or all of the
+remote procedure calls to that interface.  If the remote procedure
+call has a binding handle parameter, the explicit method takes precedence
+over either the automatic or implicit methods of managing bindings. 
+.P
+Explicit and implicit binding both give the client application means to select and
+modify the binding information used by calls.  Explicit binding allows the client to
+specify binding information per call.  This method may be established either by
+declaring a binding handle parameter as the first parameter for a call in the IDL,
+or by applying the \*L[explicit_binding]\*O attribute in the associated ACF, either
+to the interface as a whole, or to specific operations.
+.P
+Implicit binding allows the client to establish a default binding for an interface.
+When the \*L[implicit_binding]\*O attribute is applied to a data item in the ACF,
+then each call that does not specify an explicit binding parameter (either in the
+IDL or via the \*L[explicit_binding]\*O attribute in the ACF) uses the default
+binding information referenced by the implicit binding data item.
+.P
+.ne 10
+With automatic binding, the client stub finds a useable binding for each RPC.
+Automatic binding is the default for any operation when the following three
+things are true:
+...\" 
+...\" 
+.ML
+.LI
+Implicit or explicit binding has not been specified in the ACF for the interface
+.LI
+The call does not specify an explicit binding handle parameter
+.LI
+The ACF does not specify explicit binding for the call
+.LE
+...\" 
+...\" 
+.P
+The semantics of automatic binding may differ between the first and subsequent
+calls on an interface.  When the runtime does not have a cached compatible binding,
+the stub will perform a namespace search to find and import one.  The imported
+binding will be cached for use in subsequent calls.  If the client-server
+connection for the cached binding fails, the client stub will attempt to find
+a new binding.  Therefore, it is possible that later calls will not be made on
+the same binding, and possibly will even be made to a different server.
+.P
+A server binding handle that the runtime provides directly to an application is
+a 
+...\" .gL "primitive binding handle"
+.iX "primitive binding handle"
+\*Eprimitive binding handle\*O.  To declare a primitive binding handle, 
+application code uses the predefined RPC binding handle data type
+.iX "RPC" "data types"
+.iX "data types" "\*Lrpc_binding_handle_t(\|)\*O"
+.iX "RPC" "data types"
+.iX "data types" "\*Lhandle_t\*O"
+\*Lrpc_binding_handle_t\*O,
+and an interface definition uses the IDL data type
+\*Lhandle_t\*O.  Primitive binding handles offer a simple means of referring to 
+binding information, which works in most cases.  The automatic method
+of binding management always uses primitive binding handles. 
+.PP
+Applications that use the implicit or explicit methods of binding management
+can choose to store primitive binding handles in an application-specific data
+structure known as a 
+...\" .gL "customized binding handle"
+\*Ecustomized binding handle\*O.
+.iX "customized binding handle"
+Customized binding handles enable application developers to manage 
+binding information to meet the special needs of a specific application. 
+For example, a customized binding handle can be the handle of a file whose
+records contain the information required to construct a string binding. 
+.PP
+.iX "handle" "customized binding"
+Using customized binding handles requires 
+the application developer to perform several special tasks.
+The RPC interface definition must include a
+declaration of the customized binding handle as a data structure with a handle
+data type; this is done by 
+using the \*Lhandle\*O attribute.  The client application code must
+contain specialized procedures that the client stub calls to obtain a primitive
+binding handle from the customized handle and to release any resources, such as
+memory, used for the customized handle. 
+.PP
+When a customized binding handle is used with the explicit method,
+responsibility for  setting the binding handle shifts to the client stub.  The
+client code provides procedures for obtaining the primitive binding handle from
+the customized handle and for freeing the primitive binding handle after
+the call completes.  However, it is the stub that calls these procedures to set
+and free the primitive binding handle. 
+.P
+Calls made with a context handle and no explicit binding handle also have
+automatic binding semantics.  That is, such calls will use the cached binding
+associated with the context handle.  Of course, this binding may have been
+constructed by the client application and passed, either as an explicit or
+implicit binding, to the call that returned the context handle.  Also, the
+stub will not attempt to renew such a cached binding if the client-server
+connection fails.  Even if the server is still running and the connection
+could be reestablished, the server will have rundown the context it is
+holding for the client, so that the context handle will no longer be valid.
+When implicit binding is in effect, a call made with a context handle and
+without an explicit binding parameter will use the cached binding associated
+with the context handle rather than the implicit binding.
+.P
+The following table summarizes the binding semantics applied to a client
+operation:
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+.PP
+.ne 6.5i
+.TB "Binding Semantics"
+.ps 9
+.vs 12
+.TS 
+tab(#) box center;
+ lB | lB | lB | lB | lB | lB 
+ lB | lB | lB | lB | lB | lB 
+ lB | lB | lB | lB | lB | lB 
+ lB | lB | lB | lB | lB | lB 
+ c | c | c | c | c | l.
+ACF#ACF#ACF#ACF/IDL#IDL#Binding
+=
+auto_handle#implicit_handle#explicit_handle#explicit_handle#context#Semantics
+attribute?#attribute?#attribute#attribute#handle?#
+##on interface?#on operation?##
+...\" 
+...\" 
+_
+No#No#No#No#No#Auto#
+No#No#No#No#Yes#Auto
+#####(context handle)
+No#No#No#Yes#No#Explicit#
+No#No#No#Yes#Yes#Explicit#
+_
+Yes#No#No#No#No#Auto#
+Yes#No#No#Yes#No#Explicit#
+Yes#No#No#No#Yes#Auto
+#####(context handle)
+Yes#No#No#Yes#Yes#Explicit#
+_
+No#Yes#No#No#No#Implicit#
+No#Yes#No#Yes#No#Explicit#
+No#Yes#No#No#Yes#Auto (context handle)#
+No#Yes#No#Yes#Yes#Explicit#
+_
+No#No#Yes#No#No#Explicit#
+No#No#Yes#Yes#No#Explicit#
+No#No#Yes#No#Yes#Explicit#
+No#No#Yes#Yes#Yes#Explicit#
+.TE
+.ps 12
+.vs 14
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+...\" .H 3 "Authentication and Binding Methods"
+...\" ----------------------------------------------------------------------
+...\" 
+.P
+When a binding handle is selected automatically by the client stub, there is no
+way for the application to specify authentication data.  In principle, it would
+be possible to have the client authenticate itself to the server in such a case,
+although a client that does not care about which server it calls obviously cannot
+authenticate the server.  In practice, calls made with automatic bindings are simply
+unauthenticated.  Therefore, if your application cares about authentication, it
+should avoid using automatic binding.
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+...\" .H 2 "Exporting Multiple Interfaces"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .P
+...\" [A few paragraphs]
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------
+...\" .H 2 "Interface Contents and Compatibility"
+...\" ----------------------------------------------------------------------
+...\" 
+...\" .P
+...\" [A few more paragraphs]
+...\" 
+...\" 
+...\" 
+...\" 
+...\" 
+...\" ----------------------------------------------------------------------

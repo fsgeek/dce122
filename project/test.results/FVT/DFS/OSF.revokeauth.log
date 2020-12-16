@@ -1,0 +1,102 @@
+
+---------------------------------------------------------
+
++ sectest.pl: Begin test initialization.
+
+
++ Creating local-cell filesets required for tests
+cm checkfilesets
+All backup filesets checked.
+fts create -ftname cmXSecTest -server slab -aggregate epi0
+cmXSecTest
+	readWrite   ID 0,,46  valid
+	readOnly    ID 0,,47  invalid
+	backup      ID 0,,48  invalid
+number of sites: 1
+   server           flags     aggr   siteAge principal      owner
+slab.transarc.com   RW       epi0    0:00:00 hosts/slab     <nil>               
+Fileset 0,,46 created on aggregate epi0 of slab
+fts crmount -dir /.../slab.dce.transarc.com/fs/cmXSecTest.RW -fileset cmXSecTest -rw
+chmod 777 /.../slab.dce.transarc.com/fs/cmXSecTest.RW
+dcecp -c acl modify /.../slab.dce.transarc.com/fs/cmXSecTest.RW -add {any_other rx}
+
+fts setrepinfo -fileset cmXSecTest -sched
+fts setrepinfo -fileset cmXSecTest -minrepdelay 60s -defaultsiteage 180s
+fts addsite -fileset cmXSecTest -server slab -aggregate epi0
+Added replication site slab epi0 for fileset cmXSecTest
+fts addsite -fileset cmXSecTest -server melkor -aggregate epi0
+Added replication site melkor epi0 for fileset cmXSecTest
+fts crmount -dir /.../slab.dce.transarc.com/fs/cmXSecTest.RO -fileset cmXSecTest.readonly 
+
++ Sleeping 30 seconds to ensure sites are created
+
++ Creating local-cell files required for tests
+Creating file /.../slab.dce.transarc.com/fs/cmXSecTest.RW/Testfile.txt
+chmod 666 /.../slab.dce.transarc.com/fs/cmXSecTest.RW/Testfile.txt
+dcecp -c acl modify /.../slab.dce.transarc.com/fs/cmXSecTest.RW/Testfile.txt -add {any_other r}
+
+fts update -fileset cmXSecTest -all
+fts update: Repserver on slab.transarc.com requested to update fileset 0,,47
+fts update: Repserver on melkor.transarc.com requested to update fileset 0,,47
+
++ Sleeping 30 seconds to ensure replicas are updated
+
+---------------------------------------------------------
+
++ sectest.pl: Starting test revokeauth
+
+]0;gait @ melkor
+		Token-revoke RPC Authentication Test
+
+secTestRevokeAuth.pl: dfstrace setset -set fshost -active (on slab)
+secTestRevokeAuth.pl: dfstrace clear (on slab)
+
+secTestRevokeAuth.pl: fts clone cmXSecTest
+Created backup fileset for cmXSecTest
+
+secTestRevokeAuth.pl: Searching FX log for set-context principal (on slab)
+secTestRevokeAuth.pl: Found set-context principal (/.../slab.dce.transarc.com/hosts/melkor/self)
+
+secTestRevokeAuth.pl: dfstrace clear (on slab)
+
+secTestRevokeAuth.pl: dfsexport -aggr epi0 -detach (on slab)
+secTestRevokeAuth.pl: dfsexport -aggr epi0 (on slab)
+
+secTestRevokeAuth.pl: Searching FX log for set-context principal (on slab)
+secTestRevokeAuth.pl: Found set-context principal (/.../slab.dce.transarc.com/hosts/slab/self)
+
+secTestRevokeAuth.pl: dfstrace clear (on slab)
+
+secTestRevokeAuth.pl: /bin/bos restart /.../slab.dce.transarc.com/hosts/slab -proc repserver
+secTestRevokeAuth.pl: Sleeping 30 seconds to let repserver start (on slab)
+
+secTestRevokeAuth.pl: Searching FX log for set-context principal (on slab)
+secTestRevokeAuth.pl: Found set-context principal (/.../slab.dce.transarc.com/hosts/slab/dfs-server)
+
+
+secTestRevokeAuth.pl: Test to generate CM set-context RPC not implemented
+
+sectest.pl: Test revokeauth completed without error
+
+
+---------------------------------------------------------
+
++ sectest.pl: Restoring environment.
+
+
++ Removing files, filesets and mount-points created for tests.
+fts delmount -dir /.../slab.dce.transarc.com/fs/cmXSecTest.RO
+fts rmsite -fileset cmXSecTest -server melkor -aggregate epi0
+Removed replication site melkor 1 for fileset cmXSecTest
+fts rmsite -fileset cmXSecTest -server slab -aggregate epi0
+Removed replication site slab 2 for fileset cmXSecTest
+fts delmount -dir /.../slab.dce.transarc.com/fs/cmXSecTest.RW
+fts delete -fileset cmXSecTest -server slab -aggregate epi0
+Fileset 0,,46 on aggregate epi0 server slab deleted
+
+---------------------------------------------------------
+
++ sectest.pl: Testing complete.
+
+
++ sectest.pl: All tests completed without error

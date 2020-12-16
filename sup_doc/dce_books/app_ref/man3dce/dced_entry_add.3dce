@@ -1,0 +1,181 @@
+...\" @OSF_COPYRIGHT@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990, 1991, 1992, 1993, 1994 Open Software Foundation, Inc.
+...\" ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE for
+...\" the full copyright text.
+...\" 
+...\" 
+...\" HISTORY
+...\" $Log: dced_entry_add.3dce,v $
+...\" Revision 1.1.4.1  1996/11/18  17:00:50  wardr
+...\" 	{edit,R1.2.2}
+...\" 	Init capped heads and added PDG pointer
+...\" 	[1996/11/18  16:57:15  wardr]
+...\"
+...\" Revision 1.1.2.8  1995/05/31  17:06:06  buckler
+...\" 	1.1 edits.
+...\" 	PRENTICE HALL reformat.
+...\" 	[1995/05/30  22:56:34  buckler]
+...\" 
+...\" Revision 1.1.2.7  1994/10/20  03:06:05  jshirley
+...\" 	Final edits.
+...\" 	[1994/10/20  03:03:37  jshirley]
+...\" 
+...\" Revision 1.1.2.6  1994/10/17  16:30:50  jshirley
+...\" 	Did update for final review.
+...\" 	[1994/10/17  16:29:58  jshirley]
+...\" 
+...\" Revision 1.1.2.5  1994/10/14  17:10:58  hileman
+...\" 	Removed tabs and sorted codes for status codes.
+...\" 	[1994/10/14  17:10:40  hileman]
+...\" 
+...\" 	Fixed status code format.
+...\" 	[1994/10/14  17:04:58  hileman]
+...\" 
+...\" Revision 1.1.2.4  1994/10/14  17:00:55  hileman
+...\" 	Added status codes.
+...\" 	[1994/10/14  17:00:32  hileman]
+...\" 
+...\" Revision 1.1.2.3  1994/06/13  17:02:52  devobj
+...\" 	cr10872 - fix copyright
+...\" 	[1994/06/13  16:46:56  devobj]
+...\" 
+...\" Revision 1.1.2.2  1994/05/24  18:16:02  jshirley
+...\" 	{def, CR9830, R1.1}
+...\" 	Incorporated first review comments.
+...\" 	[1994/05/24  18:14:16  jshirley]
+...\" 
+...\" Revision 1.1.2.1  1994/05/04  01:25:08  jshirley
+...\" 	Created file.
+...\" 	[1994/05/04  01:24:30  jshirley]
+...\" 
+...\" $EndLog$
+.TH dced_entry_add 3dce 
+...\".iX "\*Ldced_entry_add(\|)\*O"
+.SH "Name"
+\*Ldced_entry_add\*O - 
+Adds a \*Lkeytab\*O or \*Lhostdata\*O entry to a host's \*Ldced\*O for an
+existing file on that host
+.SH "Synopsis"
+.sS
+\*L#include <dce/dced.h>
+.sp .4v
+\*Lvoid dced_entry_add(
+.nL
+	\*Ldced_binding_handle_t \*Vdced_bh\*L,
+.nL
+	\*Ldced_entry_t *\*Ventry\*L,
+.nL
+	\*Lerror_status_t *\*Vstatus\*L);
+.sE
+.nL
+.ne 1.5i
+.SH "Parameters"
+.SS "Input"
+.VL
+.LI "\*Vdced_bh\*O"
+Specifies the \*Ldced\*O binding handle for a \*Ldced\*O service on a specific host.
+.LE
+.SS "Input/Output"
+.VL
+.LI "\*Ventry\*O"
+Specifies the data entry to add to the service.
+.LE
+.SS "Output"
+.VL
+.LI "\*Vstatus\*O"
+Returns the status code from this routine.  This status code
+indicates whether the routine completed successfully or, if not, why not.
+.LE
+.nL
+.ne 1.5i
+.SH "Description"
+The \*Ldced_entry_add(\|)\*O routine adds a data entry to a \*Ldced\*O
+service.  The data it refers to must already exist in a file on the
+\*Ldced\*O's host.  You can only add \*Lhostdata\*O or \*Lkeytab\*O entries.
+.PP
+A service's data entries do not contain the actual data.
+Instead, they contain a UUID, a name for the entry, 
+a brief description of the item, 
+and a storage tag that describes the location of the actual data.
+In the cases of the \*Lhostdata\*O and \*Lkeytab\*O services, 
+the data for each entry is stored in a file.
+The \*Ldced\*O uses this two-level scheme so that it can manipulate different
+kinds of data in the same way and so names are independent of local
+file system requirements.
+.PP
+The \*Lhostdata\*O and \*Lkeytab\*O services each have
+their respective routines to create new data and at the same time,
+add a new entry to the appropriate service.  
+These routines are \*Ldced_hostdata_create(\|)\*O and 
+\*Ldced_keytab_create(\|).\*O
+.PP
+Prior to calling the \*Ldced_entry_add(\|)\*O routine, 
+the application must have established a valid \*Ldced\*O binding handle for
+the \*Lhostdata\*O or \*Lkeytab\*O service by calling either the 
+\*Ldced_binding_create(\|)\*O or 
+\*Ldced_binding_from_rpc_binding(\|)\*O routine.
+.nL
+.ne 1.5i
+.SH "Examples"
+The following example shows how to add a printer configuration file to
+the \*Lhostdata\*O service.  The example creates a \*Ldced\*O binding to the local
+\*Lhostdata\*O service, an entry data structure is filled in with the
+storage tag containing the full path of the existing configuration
+file, and finally, the \*Ldced_entry_add(\|)\*O routine is called.
+.ps 11
+.vs 13
+.oS
+dced_binding_handle_t dced_bh;
+error_status_t        status;
+dced_entry_t          entry;
+
+dced_binding_create(dced_c_service_hostdata, 
+	dced_c_binding_syntax_default,
+	&dced_bh, 
+	&status);
+uuid_create(&(entry.id), &status);
+entry.name = (dced_string_t)("NEWERprinter");
+entry.description = (dced_string_t)("Configuration for a new printer.");
+entry.storage_tag = (dced_string_t)("/etc/NEWprinter");
+
+dced_entry_add(dced_bh, &entry, &status);
+ .
+ .
+ .
+.oE
+.ps 12
+.vs 14
+.SH "Errors"
+.PP
+The following describes a partial list of errors that might be returned.
+Refer to the \*(Tg for complete descriptions of all error
+messages.
+.VL
+.LI "\*Lerror_status_ok\*O"
+.LI "\*Ldb_s_readonly\*O"
+.LI "\*Ldb_s_store_failed\*O"
+.LI "\*Ldced_s_already_exists\*O"
+.LI "\*Ldced_s_bad_binding\*O"
+.LI "\*Ldced_s_import_cant_access\*O"
+.LI "\*Ldced_s_no_support\*O"
+.nL
+.ne 6
+.LI "\*Lrpc_s_binding_has_no_auth\*O
+.LI "\*Lsec_acl_invalid_permission\*O"
+.LI "\*Luuid_s_no_address\*O"
+.LE
+.nL
+.ne 1.5i
+.SH "Related Information"
+.ad l
+Functions: 
+\*Ldced_binding_create(3dce)\*O, 
+\*Ldced_binding_from_rpc_binding(3dce)\*O,
+\*Ldced_entry_remove(3dce)\*O,
+\*Ldced_hostdata_create(3dce)\*O, 
+\*Ldced_keytab_create(3dce)\*O.
+.ad b
+.PP
+Books:
+\*(Dg.

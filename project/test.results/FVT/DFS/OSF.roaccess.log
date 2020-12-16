@@ -1,0 +1,473 @@
+cmMHSTest.18304
+	readWrite   ID 0,,53  valid
+	readOnly    ID 0,,54  invalid
+	backup      ID 0,,55  invalid
+number of sites: 1
+   server           flags     aggr   siteAge principal      owner
+slab.transarc.com   RW       epi0    0:00:00 hosts/slab     <nil>               
+Fileset 0,,53 created on aggregate epi0 of /.:/hosts/slab
+Added replication site /.:/hosts/slab epi0 for fileset cmMHSTest.18304
+Added replication site /.:/hosts/gemini epi1 for fileset cmMHSTest.18304
+fts update: Repserver on slab.transarc.com requested to update fileset 0,,54
+fts update: Repserver on gemini.transarc.com requested to update fileset 0,,54
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+
+
+
+All backup filesets checked.
+All backup filesets checked.
+192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 158.98.15.1
+
+---------------------------------------------------------
+
++ mhstest.pl: Begin test initialization.
+
+
++ Looking-up client-host IP addresses.
+
++ Performing server-host domain-name to IP-address mapping.
+
++ Performing gateway domain-name to IP-address mapping.
+
++ Reading server-host binding information from CDS.
+dcecp -c rpcentry show /.:/hosts/slab/self
+dcecp -c rpcentry show /.:/hosts/gemini/self
+
++ Reading server-host address information from FLDB.
+fts lsserv -server /.:/hosts/slab
+fts lsserv -server /.:/hosts/gemini
+
++ Reading server-host aggregate information.
+fts lsaggr -server /.:/hosts/slab
+fts lsaggr -server /.:/hosts/gemini
+
++ Reading flserver list from DFS junction in CDS.
+dcecp -c rpcgroup list /.:/fs
+
++ Verifying that all info meets test config requirements.
+
++ Reordering server-host connection information if required.
+
++ Creating filesets required for tests
+fts create -ftname cmMHSTest.18304 -server /.:/hosts/slab -aggregate epi0
+fts crmount -dir /:/cmMHSTest.RW -fileset cmMHSTest.18304 -rw
+chmod 777 /:/cmMHSTest.RW
+fts setrepinfo -fileset cmMHSTest.18304 -scheduled
+fts addsite -fileset cmMHSTest.18304 -server /.:/hosts/slab -aggregate epi0
+fts addsite -fileset cmMHSTest.18304 -server /.:/hosts/gemini -aggregate epi1
+fts crmount -dir /:/cmMHSTest.RO -fileset cmMHSTest.18304.readonly 
+
++ Sleeping 30 seconds to ensure sites are created
+
++ Creating files required for tests
+Creating file /:/cmMHSTest.RW/cmMHSTestfile.txt
+fts update -fileset cmMHSTest.18304 -all
+
++ Sleeping 30 seconds to ensure replicas are updated
+
++ Setting initial server-host client-route configurations.
+/bin/rsh gemini /etc/ifconfig en1 up
+/bin/rsh gemini /etc/route add -host 158.98.15.6 192.55.207.164 1
+/bin/rsh slab /etc/ifconfig en1 up
+/bin/rsh slab /etc/route add -host 158.98.15.6 192.55.207.164 1
+
++ Adjusting server-host binding information in CDS.
+dcecp -c rpcentry unexport /.:/hosts/slab/self -interface {e1af8308-5d1f-11c9-91a4-08002b14a0fa 3.0}
+dcecp -c rpcentry export /.:/hosts/slab/self -interface {e1af8308-5d1f-11c9-91a4-08002b14a0fa 3.0} -binding {ncadg_ip_udp 158.98.15.3 135}
+dcecp -c rpcentry export /.:/hosts/slab/self -interface {e1af8308-5d1f-11c9-91a4-08002b14a0fa 3.0} -binding {ncadg_ip_udp 192.55.207.62 135}
+
++ Adjusting server-host address information in FLDB.
+fts edserv -server 158.98.15.3 -addaddr 192.55.207.62
+fts edserv -server 158.98.15.5 -addaddr 192.55.207.61
+fts edserv -server 158.98.15.5 -rmaddr
+
++ Setting cache-manager address-preference ranks.
+cm setpreferences -server 192.55.207.62 1000
+cm setpreferences -server 192.55.207.62 1000 -fldb
+cm setpreferences -server 192.55.207.61 2000
+cm setpreferences -server 192.55.207.61 2000 -fldb
+cm setpreferences -server 158.98.15.3 3000
+cm setpreferences -server 158.98.15.3 3000 -fldb
+cm checkfilesets
+
+---------------------------------------------------------
+
++ mhstest.pl: Starting test roaccess
+
+
+		Multi-server binding test - Replicated Fileset Access
+
++ Performing test initialization
+dfstrace setset -set cm -active
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+
++ Beginning test phase 0
+cm checkfilesets
+dfstrace clear
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via slab-207 (192.55.207.62)
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55.207.62
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) DOWN
+/bin/rsh slab /etc/route delete -host 158.98.15.6 192.55.207.164
+/bin/rsh slab /etc/route add -host 158.98.15.6 158.98.15.1 1
+/bin/rsh slab /etc/ifconfig en1 down
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via gemini-207 (192.55.207.61) AFTER fail-over from slab-207 (192.55.207.62)
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for failure of 192.55.207.62
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55.207.61
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring gemini-207 (192.55.207.61,en1) DOWN
+/bin/rsh gemini /etc/route delete -host 192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 158.98.15.1
+158.98.15.1 host 158.98.15.6: gateway 158.98.15.1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+158.98.15.1 host 158.98.15.6: gateway 158.98.15.1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+All backup filesets checked.
+192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 158.98.15.1
+192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 158.98.15.1
+158.98.15.1 host 158.98.15.6: gateway 158.98.15.1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+158.98.15.6 192.55.207.164
+/bin/rsh gemini /etc/route add -host 158.98.15.6 158.98.15.1 1
+/bin/rsh gemini /etc/ifconfig en1 down
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via slab (158.98.15.3) AFTER file-server at gemini-207 is declared DOWN
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for server down after failure of 192.55.207.61
+dfstrace dump -set cm : searching for multi-server binding to FX at 158.98.15.3
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring gemini-207 (192.55.207.61,en1) UP
+/bin/rsh gemini /etc/ifconfig en1 up
+/bin/rsh gemini /etc/route delete -host 158.98.15.6 158.98.15.1
+/bin/rsh gemini /etc/route add -host 158.98.15.6 192.55.207.164 1
+
++ Sleeping dead-server poll time (240 seconds)
+
++ File-server at gemini-207 should now be UP
+dfstrace dump -set cm : searching for server up after contact via 192.55.207.61
+dfstrace clear
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via gemini-207 (192.55.207.61)
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55.207.61
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) UP
+/bin/rsh slab /etc/ifconfig en1 up
+/bin/rsh slab /etc/route delete -host 158.98.15.6 158.98.15.1
+/bin/rsh slab /etc/route add -host 158.98.15.6 192.55.207.164 1
+
++ Sleeping address-revival poll time (960 seconds)
+
++ File-server connection slab-207 (192.55.207.62) should now be UP
+dfstrace dump -set cm : searching for revival of 192.55.207.62
+dfstrace clear
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via slab-207 (192.55.207.62)
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55.207.62
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
++ Removing file-server address slab-207 (192.55.207.62) from FLDB
+fts edserv -server 192.55.207.62 -rmaddr
+
++ Beginning test phase 1
+cm checkfilesets
+dfstrace clear
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via gemini-207 (192.55.207.61)
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55.207.61
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) DOWN
+/bin/rsh slab /etc/route delete -host 158.98.15.6 192.55.207.164
+/bin/rsh slab /etc/route add -host 158.98.15.6 158.98.15.1 1
+/bin/rsh slab /etc/ifconfig en1 down
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via gemini-207 (192.55.207.61)
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55.207.61
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring gemini-207 (192.55.207.61,en1) DOWN
+/bin/rsh gemini /etc/route delete -host 158.98.15.6 192.55.207.164
+/bin/rsh gemini /etc/route add -host 158.98.15.6 158.98.15.1 1
+/bin/rsh gemini /etc/ifconfig en1 down
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via slab (158.98.15.3) AFTER file-server at gemini-207 is declared DOWN
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for server down after failure of 192.55.207.61
+dfstrace dump -set cm : searching for multi-server binding to FX at 158.98.15.3
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring gemini-207 (192.55.207.61,en1) UP
+/bin/rsh gemini /etc/ifconfig en1 up
+/bin/rsh gemini /etc/route delete -host 158.98.15.6 158.98.15.1
+/bin/rsh gemini /etc/route add -host 158.98.15.6 192.55.207.164 1
+
++ Sleeping dead-server poll time (240 seconds)
+
++ File-server at gemini-207 should now be UP
+dfstrace dump -set cm : searching for server up after contact via 192.55.207.61
+dfstrace clear
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via gemini-207 (192.55.207.61)
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55158.98.15.1 host 158.98.15.6: gateway 158.98.15.1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+All backup filesets checked.
+192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 158.98.15.1
+192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 158.98.15.1
+158.98.15.1 host 158.98.15.6: gateway 158.98.15.1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+158.98.15.1 host 158.98.15.6: gateway 158.98.15.1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+All backup filesets checked.
+.207.61
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) UP
+/bin/rsh slab /etc/ifconfig en1 up
+/bin/rsh slab /etc/route delete -host 158.98.15.6 158.98.15.1
+/bin/rsh slab /etc/route add -host 158.98.15.6 192.55.207.164 1
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via gemini-207 (192.55.207.61)
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55.207.61
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
++ Adding file-server address slab-207 (192.55.207.62) to FLDB
+fts edserv -server 158.98.15.3 -addaddr 192.55.207.62
+cm setpreferences -server 192.55.207.62 1000
+cm setpreferences -server 192.55.207.62 1000 -fldb
+
++ Beginning test phase 2
+cm checkfilesets
+dfstrace clear
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via slab-207 (192.55.207.62)
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55.207.62
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) DOWN
+/bin/rsh slab /etc/route delete -host 158.98.15.6 192.55.207.164
+/bin/rsh slab /etc/route add -host 158.98.15.6 158.98.15.1 1
+/bin/rsh slab /etc/ifconfig en1 down
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via gemini-207 (192.55.207.61) AFTER fail-over from slab-207 (192.55.207.62)
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for failure of 192.55.207.62
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55.207.61
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring gemini-207 (192.55.207.61,en1) DOWN
+/bin/rsh gemini /etc/route delete -host 158.98.15.6 192.55.207.164
+/bin/rsh gemini /etc/route add -host 158.98.15.6 158.98.15.1 1
+/bin/rsh gemini /etc/ifconfig en1 down
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via slab (158.98.15.3) AFTER file-server at gemini-207 is declared DOWN
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for server down after failure of 192.55.207.61
+dfstrace dump -set cm : searching for multi-server binding to FX at 158.98.15.3
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring gemini-207 (192.55.207.61,en1) UP
+/bin/rsh gemini /etc/ifconfig en1 up
+/bin/rsh gemini /etc/route delete -host 158.98.15.6 158.98.15.1
+/bin/rsh gemini /etc/route add -host 158.98.15.6 192.55.207.164 1
+
++ Sleeping dead-server poll time (240 seconds)
+
++ File-server at gemini-207 should now be UP
+dfstrace dump -set cm : searching for server up after contact via 192.55.207.61
+dfstrace clear
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via gemini-207 (192.55.207.61)
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55.207.61
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) UP
+/bin/rsh slab /etc/ifconfig en1 up
+/bin/rsh slab /etc/route delete -host 158.98.15.6 158.98.15.1
+/bin/rsh slab /etc/route add -host 158.98.15.6 192.55.207.164 1
+
++ Sleeping address-revival poll time (960 seconds)
+
++ File-server connection slab-207 (192.55.207.62) should now be UP
+dfstrace dump -set cm : searching for revival of 192.55.207.62
+dfstrace clear
+
++ Reading /:/cmMHSTest.RO/cmMHSTestfile.txt - should succeed via slab-207 (192.55.207.62)
+cat /:/cmMHSTest.RO/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55.207.62
+cm flush /:/cmMHSTest.RO/cmMHSTestfile.txt
+dfstrace clear
+
+---------------------------------------------------------
+
++ mhstest.pl: Starting test rwaccess
+
+
+		Multi-server binding test - Read-write Fileset Access
+
++ Performing test initialization
+dfstrace setset -set cm -active
+cm flush /:/cmMHSTest.RW/cmMHSTestfile.txt
+
++ Beginning test phase 0
+cm checkfilesets
+dfstrace clear
+
++ Reading /:/cmMHSTest.RW/cmMHSTestfile.txt - should succeed v192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 158.98.15.1
+158.98.15.1 host 158.98.15.6: gateway 158.98.15.1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+All backup filesets checked.
+192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 158.98.15.1
+158.98.15.1 host 158.98.15.6: gateway 158.98.15.1
+0821-281 old usage of trailing digit, assuming route via gateway
+1 host 158.98.15.6: gateway 192.55.207.164
+192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+158.98.15.1 host 158.98.15.6: gateway 158.98.15.1: 0821-282 not in table
+192.55.207.164 host 158.98.15.6: gateway 192.55.207.164
+158.98.15.1 host 158.98.15.6: gateway 158.98.15.1: 0821-282 not in table
+
+
+Removed replication site /.:/hosts/gemini 2 for fileset cmMHSTest.18304
+Removed replication site /.:/hosts/slab 2 for fileset cmMHSTest.18304
+Fileset 0,,53 on aggregate epi0 server /.:/hosts/slab deleted
+ia slab-207 (192.55.207.62)
+cat /:/cmMHSTest.RW/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55.207.62
+cm flush /:/cmMHSTest.RW/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) DOWN
+/bin/rsh slab /etc/route delete -host 158.98.15.6 192.55.207.164
+/bin/rsh slab /etc/route add -host 158.98.15.6 158.98.15.1 1
+/bin/rsh slab /etc/ifconfig en1 down
+
++ Reading /:/cmMHSTest.RW/cmMHSTestfile.txt - should succeed via slab (158.98.15.3) AFTER fail-over from slab-207 (192.55.207.62)
+cat /:/cmMHSTest.RW/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for failure of 192.55.207.62
+dfstrace dump -set cm : searching for multi-server binding to FX at 158.98.15.3
+cm flush /:/cmMHSTest.RW/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) UP
+/bin/rsh slab /etc/ifconfig en1 up
+/bin/rsh slab /etc/route delete -host 158.98.15.6 158.98.15.1
+/bin/rsh slab /etc/route add -host 158.98.15.6 192.55.207.164 1
+
++ Sleeping address-revival poll time (960 seconds)
+
++ File-server connection slab-207 (192.55.207.62) should now be UP
+dfstrace dump -set cm : searching for revival of 192.55.207.62
+dfstrace clear
+
++ Reading /:/cmMHSTest.RW/cmMHSTestfile.txt - should succeed via slab-207 (192.55.207.62)
+cat /:/cmMHSTest.RW/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55.207.62
+cm flush /:/cmMHSTest.RW/cmMHSTestfile.txt
+dfstrace clear
+
++ Removing file-server address slab (158.98.15.3) from FLDB
+fts edserv -server 158.98.15.3 -rmaddr
+
++ Beginning test phase 1
+cm checkfilesets
+dfstrace clear
+
++ Reading /:/cmMHSTest.RW/cmMHSTestfile.txt - should succeed via slab-207 (192.55.207.62)
+cat /:/cmMHSTest.RW/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for multi-server binding to FX at 192.55.207.62
+cm flush /:/cmMHSTest.RW/cmMHSTestfile.txt
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) DOWN
+/bin/rsh slab /etc/route delete -host 158.98.15.6 192.55.207.164
+/bin/rsh slab /etc/route add -host 158.98.15.6 158.98.15.1 1
+/bin/rsh slab /etc/ifconfig en1 down
+
++ Reading /:/cmMHSTest.RW/cmMHSTestfile.txt - should fail with file-server at slab-207 declared DOWN
+cat /:/cmMHSTest.RW/cmMHSTestfile.txt > /dev/null
+dfstrace dump -set cm : searching for server down after failure of 192.55.207.62
+dfstrace clear
+
++ Configuring slab-207 (192.55.207.62,en1) UP
+/bin/rsh slab /etc/ifconfig en1 up
+/bin/rsh slab /etc/route delete -host 158.98.15.6 158.98.15.1
+/bin/rsh slab /etc/route add -host 158.98.15.6 192.55.207.164 1
+
++ Sleeping dead-server poll time (240 seconds)
+
++ File-server at slab-207 should now be UP
+dfstrace dump -set cm : searching for server up after contact via 192.55.207.62
+Did not find server up after contact via 192.55.207.62
+
++ Bailing due to error...will attempt to restore environment, as needed
+/bin/rsh slab /etc/route delete -host 158.98.15.6 192.55.207.164
+/bin/rsh slab /etc/route delete -host 158.98.15.6 158.98.15.1
+/bin/rsh gemini /etc/route delete -host 158.98.15.6 192.55.207.164
+/bin/rsh gemini /etc/route delete -host 158.98.15.6 158.98.15.1
+dcecp -c rpcentry unexport /.:/hosts/slab/self -interface {e1af8308-5d1f-11c9-91a4-08002b14a0fa 3.0}
+dcecp -c rpcentry export /.:/hosts/slab/self -interface {e1af8308-5d1f-11c9-91a4-08002b14a0fa 3.0} -binding {ncadg_ip_udp 158.98.15.3 135}
+fts edserv -server 192.55.207.62 -addaddr 158.98.15.3
+fts edserv -server 158.98.15.3 -addaddr 192.55.207.62
+fts edserv -server 192.55.207.62 -rmaddr
+fts edserv -server 192.55.207.61 -addaddr 158.98.15.5
+fts edserv -server 158.98.15.5 -addaddr 192.55.207.61
+fts edserv -server 192.55.207.61 -rmaddr
+fts delmount -dir /:/cmMHSTest.RO
+fts rmsite -fileset cmMHSTest.18304 -server /.:/hosts/gemini -aggregate epi1
+fts rmsite -fileset cmMHSTest.18304 -server /.:/hosts/slab -aggregate epi0
+fts delmount -dir /:/cmMHSTest.RW
+fts delete -fileset cmMHSTest.18304 -server /.:/hosts/slab -aggregate epi0

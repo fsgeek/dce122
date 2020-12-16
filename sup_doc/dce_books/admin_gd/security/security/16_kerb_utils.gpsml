@@ -1,0 +1,476 @@
+...\" COPYRIGHT NOTICE
+...\" Copyright (c) 1990-1996 Open Software Foundation, Inc. 
+...\" ALL RIGHTS RESERVED (DCE). See the file named COPYRIGHT.DCE in the 
+...\" src directory for the full copyright text. 
+...\" 
+...\" HISTORY
+...\" $Log: 16_kerb_utils.gpsml,v $
+...\" Revision 1.1.2.4  1996/12/17  19:54:25  damon
+...\" 	Expanded OSF C O P Y R I G H T   N O T I C E
+...\" 	[1996/12/17  19:53:31  damon]
+...\"
+...\" Revision 1.1.2.3  1996/10/08  15:07:01  sherman
+...\" 	{edit,R1.2.2}
+...\" 	Added OSF edits
+...\" 	[1996/10/08  15:05:05  sherman]
+...\" 
+...\" Revision 1.1.2.2  1996/10/02  15:11:33  sherman
+...\" 	{edit,R1.2.2}
+...\" 	Fixed some typos and added a review comment
+...\" 	[1996/10/02  15:10:37  sherman]
+...\" 
+...\" Revision 1.1.2.1  1996/09/24  14:18:55  sherman
+...\" 	 {enh,13624,R1.2.2}
+...\" 	 New chapter on Kerberos interoperability with DCE and remote utilities.
+...\" 	[1996/09/24  14:18:28  sherman]
+...\" 
+...\" $EndLog$
+...\" 
+.H 1 "Kerberos Interoperability with DCE and Secure Remote Utilities "
+.zA "enh,13624,R1.2.2,New chapter on kerb 5 interop"
+.P
+The authentication portion of the DCE Security Service is primarily
+based on Version 5 of the Kerberos network authentication system, which
+is described in Internet Engineering Task Force (IETF) RFC 1510.  
+For the most part, this basis has allowed the
+DCE Security Server to operate as a Kerberos Key Distribution Center
+(KDC) for Kerberos V5 clients.  In prior releases of DCE (Versions
+1.2.1 and earlier), this interoperability was not officially supported or
+documented. 
+.P
+This chapter explains interoperability features and configuration of DCE 
+and Kerberos V5.  The following main features are provided with the current 
+release of DCE:
+...\"  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+...\"  ---  Note to writer: `current release' is DCE 1.2.2, 1996.  --- 
+...\"  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ML
+.LI
+Berkeley Software Distribution (BSD) remote utility interoperability:  
+Secure versions of the BSD 4.4-Lite 
+remote utilities are provided. These use Kerberos V5 authentication.
+.LI
+KDC interoperability:  The DCE Security Service 
+can be used as a Kerberos KDC for Kerberos V5 clients.
+.LI
+Credential cache and keytab file compatibility:  DCE 
+and Kerberos V5 applications are able to share credential
+cache and keytab files without losing data.
+.LE
+.H 2 "The Secure Remote Utilities"
+.iX "remote utilities"
+.iX "remote login"
+.iX "login" "remote"
+.P
+The current release of DCE provides secure versions of the following 
+utilities, based on the BSD 4.4-Lite versions:
+.ML
+.iX "rlogin/rlogind"
+.iX "rsh/rshd"
+.LI
+\*Lrlogin/rlogind\*O
+.LI
+\*Lrsh/rshd\*O
+.LE
+.P
+When a client uses a secure remote Kerberos V5 utility such as 
+\*Lrsh\*O or \*Lrlogin\*O to
+connect to the server daemon, the server
+daemon requests authentication. The remote utilities authenticate
+the identity of the client and server to each other
+in a secure way. The secure remote utilities also authorize users
+to access an account on a remote system. This is done through
+the transmission of encrypted tickets rather than through the traditional 
+password mechanism. The
+traditional password mechanism, used with nonsecure remote utilities,
+sends the password in a readable form (unencrypted) over the network. This
+creates a security risk from intruders who may be listening over the network.
+The main benefit of running the secure remote utilities is that
+user authorization no longer requires transmitting a password in a readable
+form over the network.
+.P
+For the secure \*Lrlogin\*O utility and \*Lrlogind\*O server, Kerberos V5
+authentication involves sending encrypted tickets instead of a readable
+password over the network to verify and identify the user. 
+The secure \*Lrsh\*O utility, when used with a command, and the \*Lrshd\*O 
+server ensure that the user is authorized
+to access the remote account. If \*Lrsh\*O is used without a specified command,
+\*Lrlogin\*O and \*Lrlogind\*O are invoked.
+.P
+If any secure remote utility is installed in an environment in which some
+of the remote systems are not secure, the clients will try accessing 
+those remote systems without using Kerberos authentication.
+.H 3 "Related Kerberos Terms and Concepts"
+.P
+Although realms, cells, principals, and authorization are discussed in the
+Authentication chapter of the \*VOSF DCE Application Development Guide\*O, 
+they are described here briefly
+as they relate to the secure remote utilities.
+.H 4 "Realms and Cells"
+.P
+In Kerberos, a realm defines an administrative boundary and has a unique name. 
+A realm consists of the KDC and all the security clients (application servers 
+and application clients) registered to that KDC.
+.P
+When using the DCE Security Server as a KDC, the term ``cell'' is used.
+A cell is roughly equivalent to a realm.
+.P
+By convention, Kerberos uses uppercase realm names, which appear as
+suffixes in principal names such as \*Ldavid@MYREALM.COM\*O.
+.P
+A DCE cell name must be lowercase and have a prefix of
+leading \*L/.../\*O in a principal name, such 
+as \*L/.../my_kdc_cell.com/david\*O.
+.H 4 "Principals"
+.P
+Each principal that participates in Kerberos V5
+authentication and authorization must be in the KDC
+database, which is the security registry database for DCE. 
+The KDC database does not distinguish between types of principal
+names. However, distinguishing between two kinds of principal names 
+\(em 
+user principal names and service principal names \(em is useful.
+.P
+A user principal name is associated with a specific user of the secure
+remote utilities. 
+A user principal name consists of a user ID and a realm (or cell) name.
+Each user must have a user principal name in the KDC database. An
+example of a Kerberos user principal name is \*Lsusan@MYREALM.COM\*O. An
+example of a DCE user principal name is
+\*L/.../my_kdc_cell/susan\*O.
+.P
+A service principal name is one that authorizes a client to use a
+particular service, including the specific application server machine that the 
+service will access, and the realm name.
+For \*Lrlogin\*O and \*Lrsh\*O, the service principal name is \*Lhost\*O.
+An example of a Kerberos service principal name for \*Lrlogin\*O is
+\*Lhost/abc_system.com@REALM_A.COM\*O.
+An example of a DCE service principal name for rlogin is
+\*L/.../cell_a.com/host/abc_system.com\*O.
+.H 4 "Authorization"
+.P
+Kerberos V5 authorization is the process by which users verify that they may 
+access remote accounts on specified servers. Authorization depends on 
+successful
+user principal validation through the Kerberos V5 authentication protocol.
+.P
+For Kerberos V5 authorization to succeed, a mapping must exist on the 
+application server that authorizes the user principal to operate as the 
+login user. The term
+``login user'' refers to the user whose account is being accessed on the remote
+host. This is not necessarily the same user who originally issued 
+the \*Lkinit\*O or \*Ldce_login\*O command.
+.P
+Assume David has already issued the \*Lkinit\*O command. In this example,
+David enters the following command, in which Susan is the login user:
+.oS
+$ \*Lrlogin -l susan hostA\*C
+.oE
+Authorization is successful if both of the following requirements are met:
+.ML
+.LI
+The login user must have an entry in the \*L/etc/passwd\*O file on the 
+application server (remote host).
+.LI
+One of the following conditions must be true:
+.ML
+.LI
+A \*L$HOME/.k5login\*O file must exist in the login user's home directory on
+the application server and contain an entry for the authenticated user
+principal. This file must be owned by the login user, and only the login user
+can have write permission.
+.LI
+A Kerberos V5 authorization name database file called \*L/krb5/aname\*O must 
+exist on the
+application server and contain a mapping of the user principal to the login
+user. This condition requires additional tools only available in a full 
+Kerberos environment.
+.LI
+The user name in the user principal must be the same as the login user name,
+and the client and server systems must be in the same realm.
+.LE
+.LE
+.H 3 "Components of the Secure Environment"
+.iX "Key Distribution Center"
+The security server, which is the trusted host to which security clients 
+authenticate themselves, is referred to as the Key Distribution Center
+(KDC). The DCE Security Service fulfills the role of the KDC.
+.P
+Security clients are hosts that run the secure remote utility clients and
+daemons. Security clients communicate
+with the security server for authentication. The two types of security
+clients are application clients and application servers.
+.P
+Application clients can run the secure remote utilities \*Lrcp\*O, \*Lrlogin\*O, 
+and \*Lrsh\*O.
+The Kerberos utilities \*Lkinit\*O, \*Lklist\*O, and \*Lkdestroy\*O
+also run on the application client. In some cases, an application client 
+is referred to as a local host.
+.P
+Application servers can run the secure remote utility daemons \*Lrlogind\*O and
+\*Lrshd\*O. In some cases, an application server is
+referred to as a remote host.
+.P
+The secure remote utility takes the following steps to be authenticated by the 
+KDC:
+.AL
+.LI
+The user first issues the \*Lkinit\*O or \*Ldce_login\*O 
+command to the KDC and obtains a ticket-granting ticket (TGT) from 
+the authentication server (AS) portion of the KDC.
+.LI
+When the user invokes one of the secure remote utilities,
+the client requests a service
+ticket from the ticket granting server (TGS) portion of the KDC. As part of
+the request, the client sends to the TGS the acquired TGT,
+the name of the application server (remote host), and an encrypted
+authenticator. 
+.P
+The same TGT can be used to acquire multiple service tickets.
+.LI
+The TGS generates new credentials that both the server and client 
+use to authenticate each other. Included in the TGS credentials is a subsession
+key, which is a new key that is an encrypted form of the old session key
+that the client sent to the TGS. Also, the TGS sends the requested service
+ticket to the client. This ticket holds a copy of the subsession key and
+an encrypted form of the target server's secret key.
+.LI
+The client sends to the application server the service ticket
+and a new authenticator that is encrypted with the subsession key. 
+The application
+server decrypts the service ticket with its own secret key and extracts the
+subsession key. This subsession key is now a \*Vshared secret\*O between the
+client and the application server.
+.LI
+At the client's request, the application server can also return
+to the client credentials encrypted in the subsession key. This implies
+a mutual authentication between the client and the application server. This
+optional Kerberos V5 mutual authentication step is performed in each of the
+secure remote utilities.
+.LE
+.H 3 "Forwarding Tickets"
+.P
+.iX "TGT" "forwarding"
+Service ticket credentials that a user obtains are for accessing a remote system.
+What if, however, the user wants to use a secure service to access a remote
+system and then run a secure service from that remote system to a second
+remote system? This can be risky because it would require possession of a 
+valid TGT for the first remote system. Therefore, running \*Lkinit\*O on the 
+first 
+remote system to
+obtain a TGT would cause the user's password to be transmitted in a
+readable form over the network.
+.P
+To avoid this problem and provide more security, Kerberos offers the option to 
+create TGTs that have special attributes allowing the TGTs to be forwarded to 
+remote systems within the realm.
+.P
+The \*Lrlogin\*O and \*Lrsh\*O utilities offer TGT forwarding options
+\*L-f\*O and \*L-F\*O. Before the forwarding options
+can be recognized, two prerequisite flags must be enabled.
+.ML
+.LI
+First, the KDC's forwardable ticket option must be enabled. 
+For the DCE Security Server, use
+the \*Ldcecp account modify\*O command to set the \*Lforwardabletkt\*O 
+account attribute.
+.LI
+Second, \*Lkinit\*O must be invoked with the forwardable flag (\*L-f\*O) 
+enabled. If the \*L-f\*O
+option is selected when \*Lkinit\*O is run, the TGT for the local system can be
+forwarded to the remote system and clients will not need to reauthenticate
+themselves from the remote system to the KDC.
+.P
+DCE clients must use \*Lkinit -f\*O to enable forwarding because the
+\*Ldce_login\*O utility does not have options for ticket attributes.
+.LE
+.P
+Provided these two flags are enabled, the forwarding options of \*Lrlogin\*O and
+\*Lrsh\*O can take effect. When the \*Lrlogin\*O or \*Lrsh\*O
+client invokes the \*L-f\*O option, forwarding of the TGT occurs to only 
+one remote system (one free hop). When the \*Lrlogin\*O or \*Lrsh\*O
+client invokes the \*L-F\*O option, forwarding the TGT 
+can continue to more than one
+system (potentially unlimited free hops).
+.P
+Multiple free hops are possible because using the \*L-F\*O option leaves the
+forwardable attribute enabled in the forwarded TGT ticket, whereas using
+the \*L-f\*O option does not. Thus, the client can forward the TGT to an 
+unlimited
+number of remote systems if the \*L-F\*O option is used every time. 
+Once the \*L-f\*O
+option is used, the forwarding chain stops at the next node.
+.P
+If the Kerberos V5 credentials are forwarded to a
+DCE client, they will be promoted to DCE credentials, allowing the user
+to run DCE applications on that remote host.  The \*Lk5dcelogin\*O utility,
+which is invoked by \*Lrlogind\*O on the remote host, converts the Kerberos V5
+credentials to DCE credentials without prompting for a password. See the
+\*Lk5dcelogin\*O reference page for syntax information.
+.H 3 "Remote Utility Interoperability"
+.P
+The DCE 1.2.2 versions of \*Lrlogin\*O, \*Lrlogind\*O, \*Lrsh\*O, 
+and \*Lrshd\*O are fully
+interoperable with remote utilities based on the MIT source. 
+Using a DCE KDC, \*Lrlogin\*O and \*Lrsh\*O interoperate with 
+Kerberos V5 \*Lrlogind\*O and \*Lrshd\*O. In addition, the
+Kerberos Version 5 of \*Lrlogin\*O and \*Lrsh\*O work with 
+DCE versions of \*Lrlogind\*O and \*Lrshd\*O.
+.H 3 "Encrypted Sessions"
+.P
+A user may be transmitting sensitive or private data during the remote
+session. By specifying the \*L-x\*O option to \*Lrlogin*O, \*Lrsh\*O, all session 
+data transmitted
+between the remote hosts will be encrypted with the shared session key. This
+option is subject to export control and may not be available outside 
+the United States and Canada.
+.H 2 "KDC Interoperability"
+.P
+IETF RFC 1510 defines the mandatory
+interoperability requirements of a Kerberos V5 implementation.
+Although the DCE Security Server can be used as a DCE KDC for Kerberos V5
+clients, the following restrictions still apply:
+.ML
+.LI
+Algorithms not supported by the DCE KDC are the following:
+.ML
+.LI
+DES-CBC-MD5 encryption
+.LI
+CRC-32 checksum
+.LI
+DES-MAC checksum
+.LI
+DES-MAC-K checksum
+.LI
+DES-MD5 checksum
+.LE
+.LI
+Interrealm communication, including transitive trust between a DCE cell and
+a Kerberos V5 realm, is not supported.
+.LI
+Kerberos V5 does not support DCE third-party preauthentication. Therefore,
+a principal is unable to retrieve a TGT from a DCE KDC if the
+\*Vpre_auth_req\*O ERA attached to a principal has a value of 2
+(\*LPA-ENC-THIRD-PARTY\*O).
+.LE
+.H 3 "Configuration"
+.P
+The \*Ldce_config\*O utility has been enhanced to facilitate the 
+interoperability of
+Kerberos V5 clients with a DCE Security server. The additions allow
+Kerberos V5 clients to interoperate with a DCE KDC  without any further 
+configuration steps.
+When a host is configured as a DCE Security server or client, the
+following steps are performed for Kerberos V5 interoperability:
+.AL
+.LI
+Service entries for the secure remote utilities are added
+to the \*L/etc/services\*O file (\*Lklogin\*O, \*Lkshell\*O, 
+\*Lekshell\*O, \*Leklogin\*O).
+.LI
+Entries for the secure remote utilities are added to
+the \*L/etc/inetd.conf\*O file. The \*Linetd\*O command 
+is then restarted to read the new entries.
+.LI
+The host principal key and account required by the secure
+remote utilities are created.
+.LI
+The \*L/krb5/krb.realms\*O file, which describes where to find the KDC,
+is created and the default realm is added.
+.LI
+The \*L/etc/krb5.conf\*O file, which contains necessary configuration 
+information, is created.
+.LI
+The \*L/etc/v5srvtab\*O file, which is the default keytab used by Kerberos V5
+clients, is linked to the \*L/krb5/srvtab\*O file, which is the default
+keytab used by DCE clients.
+.LE
+.H 2 "Credential Cache and Keytab File Compatibility"
+.P
+In order for a DCE client and a Kerberos V5 client to coexist on
+the same host, they may need to be able to share credentials and keys.
+DCE Version 1.2.2 provides compatible credential and keytab file formats to
+allow for this coexistence.
+.P
+As of the fifth beta release of Kerberos V5, three versions of
+formats for the credential cache file and two for the keytab file exist.
+.P
+Not all of the file formats are compatible with one another. For example,
+an older Kerberos V5 client that writes credential cache files
+in the Version 1 format will not be able to read credential caches
+in a Version 2 or 3 format. Tables 44-1 and 44-2 describe the 
+compatibility of credential cache and keytab files.
+.P 
+.ne 4i
+.TB "Credential Cache Files"
+.TS
+center,box,tab(@);
+lB | lB | lB | lB 
+c | lB | lB | lB 
+l | l | l | l
+l | l | l | l
+l | l | l | l
+l | l | l | l.
+Release@Kerberos V5@Kerberos V5@Kerberos V5
+@(Version 1)@(Version 2)@(Version 3)
+=
+DCE 1.0 or Kerberos V5 beta 1@yes@no@no
+Kerberos V5 beta 2-3@no@yes@no
+DCE 1.1-1.2.1 or Kerberos V5 beta 4@yes@yes@no
+DCE 1.2.2 or Kerberos V5 beta 5-7@yes@yes@yes
+.TE
+.sp .5
+.P
+A defect in the Beta 2 and Beta 3 releases of Kerberos V5 prevented
+compatibility with files created in the Version 1 format, which was fixed in
+Beta 4.
+.P 
+.ne 4i
+.TB "Keytab Files"
+.TS
+center,box,tab(@);
+lB | lB | lB 
+c | lB | lB 
+l | l | l
+l | l | l
+l | l | l.
+Release@Kerberos V5@Kerberos V5
+@(Version 1)@(Version 2)
+=
+DCE 1.0 or Kerberos V5 beta 1@yes@no
+Kerberos V5 beta 2-3@no@yes
+DCE 1.1-1.2.2 or Kerberos V5 beta 4-7@yes@yes
+.TE
+.P
+The credential cache and keytab file format that
+DCE clients use can be set with the \*Ldcecp hostvar set\*O command. 
+The default
+format for both files is Version 1. You may change this on a per-host
+basis to allow Kerberos
+V5 applications to run on your DCE client and to share
+keytab and credential files.
+.P
+For example, use the following \*Ldcecp\*O command to set the version number 
+format of the Kerberos V5 credential cache file to 3:
+.oS
+\*Cdcecp> \*Lhostvar set -krbccachevno 3
+\*Cdcecp> 
+.oE
+.P
+To set the version number format of the Kerberos V5 keytab file to 2:
+.oS
+\*Cdcecp> \*Lhostvar set -krbktvno 2
+\*Cdcecp> 
+.oE
+.P
+To display the current settings:
+.oS
+\*Cdcecp> \*Lhostvar show -krbccachevno -krbktvno
+\*Cdcecp> 
+.oE
+.P
+See the \*Ldcecp\*O reference page for more information.
+For the changes to take effect, stop and restart the DCE daemons on the host.
+.zZ "enh,13624,R1.2.2,New chapter on kerb 5 interop"
+

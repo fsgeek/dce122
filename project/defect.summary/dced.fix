@@ -1,0 +1,1774 @@
+CR Number                     : 13563
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : secval pesite update thread
+Short Description             : dced dumps core attempting to update the pesite file
+Reported Date                 : 7/9/96
+Found in Baseline             : 1.2.1
+Found Date                    : 7/9/96
+Severity                      : B
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.2
+Affected File(s)              : admin/dced/server/pe_update.c
+Diff supplied by              : provider
+Diff release                  : 1.2.1
+Sensitivity                   : public
+
+[7/9/96 public]
+
+dced dumps core attempting to update the pesite file and the file open fails.
+In addition, several minor changes to make function names static.
+Will be dropped in next DCE 1.2.2 baselevel.
+
+*** pe_update.c@@/main/3        Tue Apr  2 19:39:06 1996
+- --- pe_update.c       Tue Jun 25 16:45:58 1996
+***************
+*** 104,110 ****
+  /*
+   * Retrieve a copy of the replica list
+   */
+! error_status_t scd_refresh_replist(ctx, context)
+      struct pe_update_context *ctx;
+      sec_rgy_handle_t  context;
+  {
+- --- 120,126 ----
+  /*
+   * Retrieve a copy of the replica list
+   */
+! static error_status_t scd_refresh_replist(ctx, context)
+      struct pe_update_context *ctx;
+      sec_rgy_handle_t  context;
+  {
+***************
+*** 185,191 ****
+      return pb->weight - pa->weight;
+  }
+  
+! error_status_t scd_sort_pesite(struct pe_update_context *ctx) 
+  {
+      int npslines = ctx->npslines;
+      int i, j;
+- --- 201,207 ----
+      return pb->weight - pa->weight;
+  }
+  
+! static error_status_t scd_sort_pesite(struct pe_update_context *ctx) 
+  {
+      int npslines = ctx->npslines;
+      int i, j;
+***************
+*** 223,242 ****
+      return error_status_ok;
+  }
+  
+! error_status_t scd_print_pesite(struct pe_update_context *ctx, char *file)
+  {
+      int i;
+      int npslines = ctx->npslines;
+!     FILE *outfile, *infile;
+      char *outfilename = malloc (strlen(file)+5);
+      char buf[1024];
+      int ret;
+!     
+      int cellnamelen = strlen ((const char *)ctx->real_cellname);
+      strcpy(outfilename, file);
+      strcat(outfilename, ".new");
+  
+      outfile = fopen(outfilename, "w");
+          
+      for (i=0; i < npslines; i++) 
+      {
+- --- 239,265 ----
+      return error_status_ok;
+  }
+  
+! static error_status_t scd_print_pesite(struct pe_update_context *ctx, char 
+*file)
+  {
+      int i;
+      int npslines = ctx->npslines;
+!     FILE *outfile = NULL, *infile;
+      char *outfilename = malloc (strlen(file)+5);
+      char buf[1024];
+      int ret;
+!     error_status_t st = -1;
+! 
+      int cellnamelen = strlen ((const char *)ctx->real_cellname);
++ 
++     if (outfilename == NULL)
++       goto bail;
++ 
+      strcpy(outfilename, file);
+      strcat(outfilename, ".new");
+  
+      outfile = fopen(outfilename, "w");
++     if (outfile == NULL)
++         goto bail;
+          
+      for (i=0; i < npslines; i++) 
+      {
+***************
+*** 267,280 ****
+        return errno;
+      else 
+        return error_status_ok;
+!   bail:
+!     (void)fclose(outfile);
+!     (void)unlink(outfilename);
+!     free(outfilename);
+!     return -1;                        /* !!! need stcode */
+  }
+  
+! char *ipstr_to_hostname(unsigned char *addr)
+  {
+  #if 0
+      struct hostent h;
+- --- 290,308 ----
+        return errno;
+      else 
+        return error_status_ok;
+! 
+! bail:
+!     if (outfile) {
+!         (void)fclose(outfile);
+!     }
+!     if (outfilename) {
+!         (void)unlink(outfilename);
+!         free(outfilename);
+!     }
+!     return st;
+  }
+  
+! static char *ipstr_to_hostname(unsigned char *addr)
+  {
+  #if 0
+      struct hostent h;
+***************
+*** 302,312 ****
+  
+  /* Update krb.conf file in place */
+  
+! error_status_t scd_print_krb_conf(struct pe_update_context *ctx, char *file)
+  {
+      int i;
+      int npslines = ctx->npslines;
+!     FILE *outfile, *infile;
+      char *outfilename = malloc (strlen(file)+5);
+      char buf[1024];
+      int ret;
+- --- 330,340 ----
+  
+  /* Update krb.conf file in place */
+  
+! static error_status_t scd_print_krb_conf(struct pe_update_context *ctx, char 
+*file)
+  {
+      int i;
+      int npslines = ctx->npslines;
+!     FILE *outfile = NULL, *infile;
+      char *outfilename = malloc (strlen(file)+5);
+      char buf[1024];
+      int ret;
+***************
+*** 313,323 ****
+      extern char *sec_krb_realm_from_dce_cell();
+      char *realmname = sec_krb_realm_from_dce_cell(ctx->real_cellname);
+      int realmnamelen = strlen(realmname);
+!       
+      strcpy(outfilename, file);
+      strcat(outfilename, ".new");
+  
+      outfile = fopen(outfilename, "w");
+          
+      if (infile = fopen(file, "r")) 
+      {
+- --- 341,356 ----
+      extern char *sec_krb_realm_from_dce_cell();
+      char *realmname = sec_krb_realm_from_dce_cell(ctx->real_cellname);
+      int realmnamelen = strlen(realmname);
+! 
+!     if (outfilename == NULL)
+!       goto bail;
+! 
+      strcpy(outfilename, file);
+      strcat(outfilename, ".new");
+  
+      outfile = fopen(outfilename, "w");
++     if (outfile == NULL)
++         goto bail;
+          
+      if (infile = fopen(file, "r")) 
+      {
+***************
+*** 352,368 ****
+        return errno;
+      else 
+        return error_status_ok;
+!   bail:
+!     (void)fclose(outfile);
+!     (void)unlink(outfilename);
+!     free(outfilename);
+!     return -1;                        /* !!! need stcode */
+  }
+  
+  /* bias against selecting master; perhaps should be comparable to
+   * weight against selecting node on different subnet..
+   */
+! int master_badness = 0;
+  
+  static int compute_replica_weight (rs_replica_item_t *repitem) 
+  {
+- --- 385,406 ----
+        return errno;
+      else 
+        return error_status_ok;
+! 
+! bail:
+!     if (outfile) {
+!         (void)fclose(outfile);
+!     }
+!     if (outfilename) {
+!         (void)unlink(outfilename);
+!         free(outfilename);
+!     }
+!     return -1;                  /* !!! need stcode */
+  }
+  
+  /* bias against selecting master; perhaps should be comparable to
+   * weight against selecting node on different subnet..
+   */
+! static int master_badness = 0;
+  
+  static int compute_replica_weight (rs_replica_item_t *repitem) 
+  {
+***************
+*** 414,420 ****
+      return weight;
+  }
+  
+! error_status_t scd_convert_replist(struct pe_update_context *ctx) 
+  {
+      int i, psl;
+      ctx->npslines = 0;
+- --- 452,458 ----
+      return weight;
+  }
+  
+! static error_status_t scd_convert_replist(struct pe_update_context *ctx) 
+  {
+      int i, psl;
+      ctx->npslines = 0;
+***************
+*** 508,514 ****
+      return error_status_ok;
+  }
+  
+! void free_ctx_contents(struct pe_update_context *ctx)
+  {
+      error_status_t st;
+      int i, j;
+- --- 546,552 ----
+      return error_status_ok;
+  }
+  
+! static void free_ctx_contents(struct pe_update_context *ctx)
+  {
+      error_status_t st;
+      int i, j;
+***************
+*** 576,581 ****
+- --- 614,620 ----
+      sec_rgy_cell_bind (ctx->real_cellname, &auth_info, &context, &st);
+      if (st != error_status_ok) 
+      {
++       free_ctx_contents(ctx);
+        return st;
+      }
+      st = scd_refresh_replist(ctx, context);
+
+
+
+CR Number                     : 13533
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : dced memory leaks
+Reported Date                 : 6/20/96
+Found in Baseline             : 1.1
+Found Date                    : 6/20/96
+Severity                      : C
+Priority                      : 3
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.2
+Fixed In Baseline             : 1.2.2, 1.1maint
+Affected File(s)              : acls.c oeops.c hdmisc.c
+Diff supplied by              : provider
+Diff release                  : 1.2.2
+Sensitivity                   : public
+
+[6/20/96 public]
+
+dced leaks memory in the following two places:  acls.c - acl_patcher
+calls rpc_ss_enable_allocate, but never calls rpc_ss_disable_allocate.
+
+Change: admin/dced/server/acls.c from 12.3 to 12.5
+*** admin/dced/server/acls.c
+***************
+*** 956,959 ****
+--- 962,966 ----
+      if (st2 != error_status_ok)
+        dce_svc_printf(DCED_S_UNLOCK_FAIL_MSG, "acl_lock", "acl_patcher", (long)st2);
+      free(patches);
++     rpc_ss_disable_allocate();
+  }
+
+
+
+And oeops.c leaks in epdb_database_read - the space allocated for the 
+temporary variable ent should be free'd upon each iteration of the for
+loop.
+
+Change: admin/dced/server/oeops.c from 12.8 to 12.9
+*** admin/dced/server/oeops.c
+***************
+*** 374,379 ****
+--- 381,387 ----
+      if (*st != error_status_ok)
+        return;
+      for ( ; ; ) {
++       error_status_t alloc_st;
+          dce_db_iter_next_by_uuid(h->db, &u, st);
+          if (*st == db_s_no_more)
+            break;
+***************
+*** 383,392 ****
+            dce_db_status_to_ept_status(st);
+            return;
+        }
+!       if (ent.flags & db_entry_c_deleted)
+            continue;
+!       if (ent.flags & db_entry_c_local)
+            continue;
+  
+        if ((new = malloc(sizeof *new)) == NULL) {
+            *st = ept_s_cant_perform_op;
+--- 391,404 ----
+            dce_db_status_to_ept_status(st);
+            return;
+        }
+!       if (ent.flags & db_entry_c_deleted) {
+!           rpc_sm_free(&ent, &alloc_st);
+            continue;
+!       }
+!       if (ent.flags & db_entry_c_local) {
+!           rpc_sm_free(&ent, &alloc_st);
+            continue;
++       }
+  
+        if ((new = malloc(sizeof *new)) == NULL) {
+            *st = ept_s_cant_perform_op;
+***************
+*** 403,408 ****
+--- 415,421 ----
+        new->readers = 0;
+        new->comm_failures = 0;
+        dblist_add(&h->lists_mgmt, new);
++       rpc_sm_free(&ent, &alloc_st);
+      }
+      dce_db_iter_done(h->db, st);
+      dce_db_status_to_ept_status(st);
+
+[7/1/96 public]
+
+The above fix for epdb_database_read is incorrect.  The fix should
+use rpc_ss_enable/disable_allocate().  The delta for this approach is:
+
+***************
+*** 347,355 ****
+      if (*st != error_status_ok)
+        return;
+  
+      dce_db_iter_start(h->db, st);
+!     if (*st != error_status_ok)
+        return;
+      for ( ; ; ) {
+          dce_db_iter_next_by_uuid(h->db, &u, st);
+          if (*st == db_s_no_more)
+--- 412,423 ----
+      if (*st != error_status_ok)
+        return;
+  
++     rpc_ss_enable_allocate();
+      dce_db_iter_start(h->db, st);
+!     if (*st != error_status_ok) {
+!       rpc_ss_disable_allocate();
+        return;
++     }
+      for ( ; ; ) {
+          dce_db_iter_next_by_uuid(h->db, &u, st);
+          if (*st == db_s_no_more)
+***************
+*** 358,372 ****
+        dce_db_fetch_by_uuid(h->db, u, &ent, st);
+        if (*st != error_status_ok) {
+            dce_db_status_to_ept_status(st);
+            return;
+        }
+!       if (ent.flags & db_entry_c_deleted)
+            continue;
+!       if (ent.flags & db_entry_c_local)
+            continue;
+  
+        if ((new = malloc(sizeof *new)) == NULL) {
+            *st = ept_s_cant_perform_op;
+            return;
+        }
+        *new = ent;
+--- 426,444 ----
+        dce_db_fetch_by_uuid(h->db, u, &ent, st);
+        if (*st != error_status_ok) {
+            dce_db_status_to_ept_status(st);
++           rpc_ss_disable_allocate();
+            return;
+        }
+!       if (ent.flags & db_entry_c_deleted) {
+            continue;
+!       }
+!       if (ent.flags & db_entry_c_local) {
+            continue;
++       }
+  
+        if ((new = malloc(sizeof *new)) == NULL) {
+            *st = ept_s_cant_perform_op;
++           rpc_ss_disable_allocate();
+            return;
+        }
+        *new = ent;
+***************
+*** 375,380 ****
+--- 447,453 ----
+        tower_to_addr(new->tower, &new->addr, st);
+        if (*st != error_status_ok) {
+            *st = ept_s_invalid_entry;
++           rpc_ss_disable_allocate();
+            return;
+        }
+        new->readers = 0;
+
+***************
+*** 383,598 ****
+      }
+      dce_db_iter_done(h->db, st);
+      dce_db_status_to_ept_status(st);
+  }
+  
+  void
+  epdb_write_entry(
+--- 456,631 ----
+      }
+      dce_db_iter_done(h->db, st);
+      dce_db_status_to_ept_status(st);
++     rpc_ss_disable_allocate();
++     return;
+  }
+  
+  void
+  epdb_write_entry(
+
+[7/9/96 public]
+Merged into the 1.2.2 baseline. Note that a similar problem was fixed in
+hdmisc.c. Diffs follow.
+
+*** hdmisc.c@@/main/HPDCE02/jrr_patch_1/0       Tue Jul  2 10:33:12 1996
+--- hdmisc.c    Tue Jul  2 10:34:38 1996
+***************
+*** 96,104 ****
+--- 96,107 ----
+        postprocs.count = postprocs.size = 0;
+      }
+  
++     rpc_ss_enable_allocate();
++ 
+      dce_db_fetch_by_uuid(hd_db, &dced_g_uuid_hostdata_post_proc, &id_d,
+st);
+      if (*st == db_s_key_not_found) {
+        *st = dced_s_no_postprocessors;
++         rpc_ss_disable_allocate();
+        return;
+      }
+      CHECK_STAT_RET(*st);
+***************
+*** 106,113 ****
+--- 109,119 ----
+      if ((F = fopen((char *)id_d.data.storage_tag, "r")) == NULL) {
+        if (errno != ENOENT)
+            *st = dced_s_postprocessor_file_fail;
++         rpc_ss_disable_allocate();
+        return;
+      }
++ 
++     rpc_ss_disable_allocate();
+  
+      /* Allocate space for an initial array */
+      postprocs.size = 20;
+
+
+
+CR Number                     : 12736
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : UHYP:dce1.1 unintegrated - cdscp show server core dumped -  2759 Floating exception
+Reported Date                 : 10/27/94
+Found in Baseline             : 1.1
+Found Date                    : 10/27/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : admin/dced/server/epops.c
+Sensitivity                   : public
+
+[10/27/94 public]
+Core smoketest failed on all platforms:
+
+extract from file run_commands.log in directory /u1/RAT_tools on budapest:
+
+Password must be changed!
+cdscp show server
+/u1/RAT_tools/run_commands: 2759 Floating exception - core dumped
+
+[10/27/94 public]
+Fix was to use a local variable for status code in utility functions.
+
+
+
+CR Number                     : 12729
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 12627,12823
+Project Name                  : dce
+H/W Ref Platform              : mx300,other
+S/W Ref Platform              : sinix,other
+Component Name                : dced
+Subcomponent Name             : secval
+Short Description             : dced_wait_for_sec() calls sec_rgy_site_bind() little too early
+Reported Date                 : 10/26/94
+Found in Baseline             : 1.1unintegrated
+Found Date                    : 10/25/94
+Severity                      : A
+Priority                      : 2
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 1.1maint
+Affected File(s)              : admin/dced/server/main.c
+Sensitivity                   : public
+
+[10/26/94 public]
+
+   The dced is exibiting some time synchronization problem. The function
+   dced_wait_for_sec() calls sec_rgy_site_bind() little too early as it
+   hangs because secd was not in a good state by then. By putting a
+   dced_sleep() of 30 seconds helped prevent this problem. This fix is adhoc
+   and needs a better solution.
+
+   This problem was causing the dce_config to loop that checks for the
+   creation of the file sec_client.binding.
+
+[10/26/94 public]
+It needs to be determined if calling sec_rgy_site_bind() with the secd
+not up is a valid thing to do, if so then this should be a security
+bug.  Note that there is another OT (12627) which demonstrates a hang
+in a call by dced to secd (that call is different, sec_login_validate_first())
+
+As discussed, if this use of sec_rgy_site_bind() is invalid:
+
+  a. It should be documented with a big, red stamp across the man page.
+  b. It might be possible to use ...is_server_listening() to the secd
+
+Why does hang not occur on the other platforms?  Certainly the speed
+of the platforms may be different (isn't SNI a 486?, different clock?)
+but possibly the PROT_SEQ is differnt or maybe the TCP/IP implementation
+causes it to behave differently?  Someone pointed out that SVR4 would be
+using a streams implementation of TCP whereas OSF/1 would be more Berkeley-ish.
+Have other RPC bevahiour differences been noted on the SNI?
+
+[03/22/95 public]
+
+After some investigation, we have figured that the svc routines causes
+initialization of thread environment before the fork is called in
+background() invoked in main(). This was sometimes causing hang in the
+child. So the proposed solution is to move the fork well ahead of using
+all *svc* routines. I have split the background() routine into
+1) background_parent() to fork out a child and then wait for its initialization,
+and 2) background_child() to start up dced environment in the order it
+was meant to be done. Additional routine need_background() checks to see
+if dced needs to be put into background.
+
+Following is the diff of proposed change. Please review and give us
+feedback before we make it a part of 1.1 maintenance code. The changes
+are conditionalized using '#ifdef SNI_SVR4' for convenience:
+
+*** /project/dce/build/dce1.1-maint/src/admin/dced/server/main.c	Thu Feb 16 16:53:11 1995
+--- main.c	Tue Mar 21 17:32:21 1995
+***************
+*** 298,304 ****
+--- 288,300 ----
+  static void	register_servers(service_table_t*, int,error_status_t*);
+  static void	unregister_server(service_table_t*, error_status_t*);
+  static void	*signal_catcher(void *);
++ #ifdef SNI_SVR4
++ static void	background_parent(void);
++ static void	background_child(void);
++ static int	need_background(int, char **);
++ #else
+  static void	background(void);
++ #endif
+  static void 	*bootstrap_mgmt(void *arg);
+  
+  /* Global definitions. */
+***************
+*** 439,444 ****
+--- 435,444 ----
+      int			i;
+      char		**pp;
+  
++ #ifdef SNI_SVR4
++     if (need_background(ac, av))
++ 	background_parent();
++ #endif
+      /* Basic setup. */
+      dce_svc_set_progname("dced", &st);
+      dce_msg_define_msg_table(dced_svc_g_table,
+***************
+*** 452,458 ****
+--- 452,462 ----
+      if (!debug && chdir(dced_dir) < 0)
+  	dce_svc_printf(DCED_S_CANT_INIT_SOMETHING_MSG, "working directory", (long)errno);
+      if (!in_foreground)
++ #ifdef SNI_SVR4
++ 	background_child();
++ #else
+  	background();
++ #endif
+  
+      if (!initialize_databases) {
+  	read_object_uuid(&st);
+***************
+*** 671,677 ****
+  #endif	/* defined(SIGDANGER) */
+  	SIGHUP, SIGINT, SIGQUIT, SIGTERM
+      };
+!     sigset_t		catch_these;
+      int			i;
+      error_status_t	st;
+  
+--- 675,681 ----
+  #endif	/* defined(SIGDANGER) */
+  	SIGHUP, SIGINT, SIGQUIT, SIGTERM
+      };
+!     sigset_t		catch_these, old_set;
+      int			i;
+      error_status_t	st;
+  
+***************
+*** 680,686 ****
+--- 684,696 ----
+  	sigemptyset(&catch_these);
+  	for (i = 0; i < sizeof catch_sigs / sizeof catch_sigs[0]; i++)
+  	    sigaddset(&catch_these, catch_sigs[i]);
++ #ifdef SNI_SVR4
++ 	sigprocmask (SIG_BLOCK, &catch_these, &old_set);
++ #endif
+  	i = sigwait(&catch_these);
++ #ifdef SNI_SVR4
++ 	sigprocmask (SIG_SETMASK, &old_set, NULL);
++ #endif
+  	/* Note continue below, to re-do the loop. */
+  	switch (i) {
+  	default:
+***************
+*** 754,760 ****
+--- 764,850 ----
+      dce_svc_printf(DCED_S_IS_LISTENING_MSG);
+  }
+  
++ #ifdef SNI_SVR4
++ static int		pipes[2];
++ 
+  static void
++ background_parent(
++     void
++ )
++ {
++     pid_t		pid;
++     char		dummy;
++     int			i, child;
++ 
++     if (pipe(pipes) < 0)
++ 	exit(1);
++ 
++     pid = fork();
++ 
++     if (pid < 0)
++ 	fprintf(stderr, "dced failed fork fork with error:%s.\n",
++                 strerror(errno));
++ 
++     if (pid > 0) {
++ 	/* We're the parent.  Block in read() until the child exits. */
++ 	close(pipes[1]);
++ 	read(pipes[0], &dummy, sizeof dummy);
++ 
++ 	/* How is the child? */
++ 	child = waitpid(pid, &i, WNOHANG);
++ 	if (child == 0) {
++ 	    /* No child exited, so dced is still running.  Good. */
++ 	    _exit(0);
++ 	}
++ 
++ 	if (child == pid)
++ 	    fprintf(stderr, "dced child (pid %l) exited with status %d.\n",
++                     (long)pid, i);
++ 	else
++ 	    fprintf(stderr, "dced wait for pid %l returned %d and error:%s.\n",
++                     (long)pid, child, strerror(errno));
++ 	fflush(stderr);
++ 	_exit(1);
++     }
++ }
++ 
++ static void
++ background_child(
++     void
++ )
++ {
++     pthread_t		tid;
++     int			i;
++     pthread_attr_t	my_attr;
++ 
++     /* Child.  Close pipe, spawn listener-checker. */
++     close(pipes[0]);
++ #if	defined(THREAD_STACK_SIZE)
++     pthread_attr_create(&my_attr);
++     pthread_attr_setstacksize(&my_attr, THREAD_STACK_SIZE);
++ #else
++     my_attr = pthread_attr_default;
++ #endif	/* defined(THREAD_STACK_SIZE) */
++     if (pthread_create(&tid, my_attr, check_listener, (void *)pipes) < 0)
++ 	dce_svc_printf(DCED_S_CANT_INIT_SOMETHING_MSG, "check_listener", (long)errno);
++     pthread_detach(&tid);
++ 
++     /* Go away, tty. */
++     if ((i = open("/dev/null", O_RDONLY)) >= 0) {
++ 	(void)dup2(i, 0);
++ 	(void)close(i);
++     }
++     if ((i = open("dced.log", O_WRONLY | O_CREAT | O_TRUNC, 0644)) >= 0) {
++ 	(void)dup2(i, 1);
++ 	(void)dup2(i, 2);
++ 	(void)close(i);
++     }
++     setsid();
++ }
++ 
++ #else /* SNI_SVR4 */
++ 
++ static void
+  background(
+      void
+  )
+***************
+*** 822,827 ****
+--- 912,919 ----
+      setsid();
+  }
+  
++ #endif /* SNI_SVR4 */
++ 
+  static void
+  dced_wait_for_secval(
+      error_status_t	*st
+***************
+*** 882,887 ****
+--- 974,994 ----
+  
+      return NULL;
+  }
++ 
++ #ifdef SNI_SVR4
++ static int
++ need_background(int ac, char **av)
++ {
++     int i, res = TRUE;
++ 
++     for (i=1; res && i<ac; i++) {
++ 	if (strlen(av[i]) == 2 && av[i][0] == '-' &&
++             (av[i][1] == 'd' || av[i][1] == 'f' || av[i][1] == 'i'))
++ 	   res = FALSE;
++     }
++     return(res);
++ }
++ #endif
+  
+  static void
+  parse_args(int ac, char **av)
+
+[03/22/95 public]
+That need_background hack is awful.   It won't work since it requires
+the -[dfi] flags to be written by themselves.  Legal invocations,
+	dced -pd
+aren't caught.
+
+Too bad, since the rest of the work-around is palatable.
+
+I think this is basically an SVR4 threads issue.
+
+[03/22/95 public]
+OK. I have changed need_background() hack with a smaller hack with optind.
+The new need_background looks like this:
+
+#ifdef SNI_SVR4
+static int
+need_background(int ac, char **av)
+{
+    int c, res = TRUE;
+
+    while (res && (c = getopt(ac, av, "bdefhipsw:c")) != -1) {
+        switch (c) {
+        default:
+            break;
+        case 'd':
+        case 'f':
+        case 'i':
+            res = FALSE;
+            break;
+        }
+    }
+
+    /* Restore optind to reparse the arguments */
+    optind = 1;
+    return(res);
+}
+#endif
+
+Rich, looking at the related OT12627 that Rob mentioned, it may not be SVR4
+only problem or even they may not be related.
+
+[03/22/95 public]
+Mucking with the internals of getopt is worse then what you originally had.
+It should be possible to restruct parse_args so that it can be called earlier.
+(It's okay to init SVC in the failure case since we're going to exit.)
+I believe 12627 is unrelated as it refers to a hang after work has
+been done.  There is no evidence that this is other then an SVR4/threads
+porting issue.
+
+[03/24/95 public]
+Re: parse_args, I'll come up with the fix that don't require getopt mucking.
+However some interesting test came from IBM that indicates CMA problems with
+pipe, read, fork, exec combination on AIX and HP-UX. OT# 12823. Please check
+it out.
+
+[03/27/95 public]
+OK. Last try:
+#ifdef SNI_SVR4
+static int
+need_background(int ac, char **av)
+{
+    int idx, res = TRUE;
+
+    for (idx=1; res && idx<ac; idx++) {
+        if (av[idx][0] == '-' && av[idx][1] != 'w' &&
+            ( strchr(av[idx], 'd') ||
+              strchr(av[idx], 'f') ||
+              strchr(av[idx], 'i') )) {
+            res = FALSE;
+        }
+    }
+    return(res);
+ }
+#endif
+
+By the way, if after putting fix for OT 12823 makes dced hang after fork, then
+we would have to make this ifdef'ed solution generally available.
+
+[03/28/95 public]
+Sigh.  Please don't hack arg-parsing.
+
+Change parse_args so that instead of doing anything it sets a few new
+global variables.  (Hint:  you don't need an array of strings to hold
+any protseqs, just a single char** set to argv.)
+
+[03/28/95 public]
+Here is the final version of the fix. I was trying to avoid globals as much
+possible.
+
+*** /project/dce/build/dce1.1-maint/src/admin/dced/server/main.c	Thu Feb 16 16:53:11 1995
+--- main.c	Tue Mar 28 13:20:22 1995
+***************
+*** 298,304 ****
+--- 298,310 ----
+  static void	register_servers(service_table_t*, int,error_status_t*);
+  static void	unregister_server(service_table_t*, error_status_t*);
+  static void	*signal_catcher(void *);
++ #ifdef SNI_SVR4
++ static void	background_parent(void);
++ static void	background_child(void);
++ static void	process_args(int, char **);
++ #else
+  static void	background(void);
++ #endif
+  static void 	*bootstrap_mgmt(void *arg);
+  
+  /* Global definitions. */
+***************
+*** 340,346 ****
+--- 346,360 ----
+  static boolean		in_foreground;		/* run in foreground? */
+  static boolean		endpoints = TRUE;
+  static char		**protseqs;
++ #ifdef SNI_SVR4
++ static boolean          purging;
++ static int              showusage;
++ static idl_char         *svcroute;
+  
++ #define HELPUSAGE	1
++ #define ERRORUSAGE	2
++ #endif /* SNI_SVR4 */
++ 
+  /* ______________________________________________________________________ */
+  
+  static void
+***************
+*** 439,444 ****
+--- 453,463 ----
+      int			i;
+      char		**pp;
+  
++ #ifdef SNI_SVR4
++     parse_args(ac, av);
++     if (!in_foreground)
++ 	background_parent();
++ #endif
+      /* Basic setup. */
+      dce_svc_set_progname("dced", &st);
+      dce_msg_define_msg_table(dced_svc_g_table,
+***************
+*** 448,458 ****
+--- 467,485 ----
+      if (st != error_status_ok)
+  	dce_svc_printf(DCED_S_CANT_INIT_SOMETHING_MSG, "global data", (long)st);
+  
++ #ifdef SNI_SVR4
++     process_args(ac, av);
++ #else
+      parse_args(ac, av);
++ #endif
+      if (!debug && chdir(dced_dir) < 0)
+  	dce_svc_printf(DCED_S_CANT_INIT_SOMETHING_MSG, "working directory", (long)errno);
+      if (!in_foreground)
++ #ifdef SNI_SVR4
++ 	background_child();
++ #else
+  	background();
++ #endif
+  
+      if (!initialize_databases) {
+  	read_object_uuid(&st);
+***************
+*** 671,677 ****
+  #endif	/* defined(SIGDANGER) */
+  	SIGHUP, SIGINT, SIGQUIT, SIGTERM
+      };
+!     sigset_t		catch_these;
+      int			i;
+      error_status_t	st;
+  
+--- 698,704 ----
+  #endif	/* defined(SIGDANGER) */
+  	SIGHUP, SIGINT, SIGQUIT, SIGTERM
+      };
+!     sigset_t		catch_these, old_set;
+      int			i;
+      error_status_t	st;
+  
+***************
+*** 680,686 ****
+--- 707,715 ----
+  	sigemptyset(&catch_these);
+  	for (i = 0; i < sizeof catch_sigs / sizeof catch_sigs[0]; i++)
+  	    sigaddset(&catch_these, catch_sigs[i]);
++ 	sigprocmask (SIG_BLOCK, &catch_these, &old_set);
+  	i = sigwait(&catch_these);
++ 	sigprocmask (SIG_SETMASK, &old_set, NULL);
+  	/* Note continue below, to re-do the loop. */
+  	switch (i) {
+  	default:
+***************
+*** 754,760 ****
+--- 783,869 ----
+      dce_svc_printf(DCED_S_IS_LISTENING_MSG);
+  }
+  
++ #ifdef SNI_SVR4
++ static int		pipes[2];
++ 
+  static void
++ background_parent(
++     void
++ )
++ {
++     pid_t		pid;
++     char		dummy;
++     int			i, child;
++ 
++     if (pipe(pipes) < 0)
++ 	exit(1);
++ 
++     pid = fork();
++ 
++     if (pid < 0)
++ 	fprintf(stderr, "dced failed fork fork with error:%s.\n",
++                 strerror(errno));
++ 
++     if (pid > 0) {
++ 	/* We're the parent.  Block in read() until the child exits. */
++ 	close(pipes[1]);
++ 	read(pipes[0], &dummy, sizeof dummy);
++ 
++ 	/* How is the child? */
++ 	child = waitpid(pid, &i, WNOHANG);
++ 	if (child == 0) {
++ 	    /* No child exited, so dced is still running.  Good. */
++ 	    _exit(0);
++ 	}
++ 
++ 	if (child == pid)
++ 	    fprintf(stderr, "dced child (pid %l) exited with status %d.\n",
++                     (long)pid, i);
++ 	else
++ 	    fprintf(stderr, "dced wait for pid %l returned %d and error:%s.\n",
++                     (long)pid, child, strerror(errno));
++ 	fflush(stderr);
++ 	_exit(1);
++     }
++ }
++ 
++ static void
++ background_child(
++     void
++ )
++ {
++     pthread_t		tid;
++     int			i;
++     pthread_attr_t	my_attr;
++ 
++     /* Child.  Close pipe, spawn listener-checker. */
++     close(pipes[0]);
++ #if	defined(THREAD_STACK_SIZE)
++     pthread_attr_create(&my_attr);
++     pthread_attr_setstacksize(&my_attr, THREAD_STACK_SIZE);
++ #else
++     my_attr = pthread_attr_default;
++ #endif	/* defined(THREAD_STACK_SIZE) */
++     if (pthread_create(&tid, my_attr, check_listener, (void *)pipes) < 0)
++ 	dce_svc_printf(DCED_S_CANT_INIT_SOMETHING_MSG, "check_listener", (long)errno);
++     pthread_detach(&tid);
++ 
++     /* Go away, tty. */
++     if ((i = open("/dev/null", O_RDONLY)) >= 0) {
++ 	(void)dup2(i, 0);
++ 	(void)close(i);
++     }
++     if ((i = open("dced.log", O_WRONLY | O_CREAT | O_TRUNC, 0644)) >= 0) {
++ 	(void)dup2(i, 1);
++ 	(void)dup2(i, 2);
++ 	(void)close(i);
++     }
++     setsid();
++ }
++ 
++ #else /* SNI_SVR4 */
++ 
++ static void
+  background(
+      void
+  )
+***************
+*** 822,827 ****
+--- 931,938 ----
+      setsid();
+  }
+  
++ #endif /* SNI_SVR4 */
++ 
+  static void
+  dced_wait_for_secval(
+      error_status_t	*st
+***************
+*** 883,892 ****
+--- 994,1087 ----
+      return NULL;
+  }
+  
++ #ifdef SNI_SVR4
++ 
+  static void
+  parse_args(int ac, char **av)
+  {
+      int			c;
++     error_status_t	st;
++ 
++     bootstrap = FALSE;
++     do_secval = TRUE;
++     purging = FALSE;
++     privacy_required = TRUE;
++     while ((c = getopt(ac, av, "bdefhipsw:c")) != -1) {
++ 	switch (c) {
++ 	default:
++             showusage = ERRORUSAGE;
++             return;
++ 	    /* NOTREACHED */
++ 	case 'b':	bootstrap = TRUE;		break;
++ 	case 'd':	debug = TRUE;			break;
++ 	case 'e':	endpoints = FALSE;		break;
++ 	case 'f':	in_foreground = TRUE;		break;
++ 	case 'h':
++             showusage = HELPUSAGE;
++             return;
++ 	    /* NOTREACHED */
++ 	case 'i':	initialize_databases = TRUE;	break;
++ 	case 'p':	purging = TRUE;			break;
++ 	case 's':	do_secval = FALSE;		break;
++ 	case 'c':	privacy_required = FALSE;	break;
++ 	case 'w':
++             svcroute = (idl_char *)optarg;
++             break;
++ 	}
++     }
++     if ((purging && (!do_secval || initialize_databases))
++      || (av[optind] && !endpoints)) {       /* av[optind] would be *protseqs */
++         showusage = ERRORUSAGE;
++         return;
++     }
++     if (initialize_databases || debug)
++ 	in_foreground = TRUE;
++ }
++ 
++ static void
++ process_args(int ac, char **av)
++ {
++     error_status_t	st;
++ 
++     if (showusage == ERRORUSAGE) {
++         dce_pgm_fprintf(stderr, dced_s_usage);
++         exit(1);
++     }
++ 
++     if (showusage == HELPUSAGE) {
++ 	dce_printf(dced_s_usage);
++ 	exit(0);
++     }
++ 
++     if (svcroute) {
++ 	dce_svc_routing(svcroute, &st);
++ 	if (st != error_status_ok) {
++             dce_pgm_fprintf(stderr, st);
++             exit(1);
++         }
++     }
++ 
++     ac -= optind;
++     av += optind;
++     if (av[0])
++ 	for (protseqs = av; *av; av++) {
++ 	    rpc_network_is_protseq_valid((idl_char *)*av, &st);
++ 	    if (st != error_status_ok)
++ 		dce_svc_printf(DCED_S_BAD_PROTSEQ_MSG, *av);
++ 	}
++ 
++     if (purging || do_secval) {
++       sv_purge_context();
++       remove_bindings_file();
++     }
++ }
++ 
++ #else
++ 
++ static void
++ parse_args(int ac, char **av)
++ {
++     int			c;
+      boolean		purging;
+      error_status_t	st;
+  
+***************
+*** 942,947 ****
+--- 1137,1144 ----
+  	in_foreground = TRUE;
+        
+  }
++ 
++ #endif /* SNI_SVR4 */
+  
+  void
+  export_to_namespace(
+
+[7/14/95 public]
+
+Has anyone looked at a possible atfork() problem on SVR4?
+
+[7/28/95 public]
+
+FROM DEC:
+
+	It seems to me that there's a race condition between the
+bootstrap_mgmt() thread in dced and dce_config.  I think we've
+actually run into the wrong side of it, too.  Briefly, when started in
+bootstrap mode ('dced -b'), and using the default value of 'do_secval',
+the bootstrap_mgmt() thread does
+
+	wait for security to come up
+	patch acls
+	keep trying to start the secval service until we succeed
+	keep trying to register our authentication information until we succeed
+	register any remaining server IFs that are still unregistered, namely
+		rsec_cert
+		rsec_login
+		roverride
+		secval
+		hostdata
+		rkeytab
+		srvrconf
+		srvrexec
+		serviceability
+	export services to CDS namespace.
+
+The problem is that while this is going on, dce_config reaches the point
+where it tries to start the secval service; as a prerequisite for this
+attempt, it checks for the existence of the sec_clientd.bindings file;
+as soon as that file exists, it attempts to do a 'dcecp secval activate'
+(or a 'dcecp secval status').  But sec_clientd.bindings is written during
+the
+
+	'keep trying to start the secval service until we succeed'
+
+line in bootstrap_mgmt(); so the file appears before the secval server
+interface is registered with the RPC runtime, and (as we've found out)
+this can cause the 'dcecp secval status' to give an unexpected error.
+	We've solved this locally by moving the call to write_bindings()
+into dced/server/main.c, immediately following the 
+
+	'register any remaining server IFs'
+
+line in bootstrap_mgmt().  That way, we are assured that all of the
+server interfaces are registered with the RPC runtime before dce_config
+tries to use them.
+
+========================= src/admin/dced/server/main.c ======================
+
+*** back/main.c	Sun Jul  2 23:16:22 EDT 1995
+--- ./main.c	Thu Jul 27 19:34:26 EDT 1995
+***************
+*** 932,941 ****		(In bootstrap_mgmt())
+--- 940,951 ----
+  	    dce_svc_printf(DCED_S_CANT_INIT_SOMETHING_MSG, "wait_for_register", (long)st);
+  	register_servers(&services[i], sizeof_services_table - i, &st);
+  	if (st != error_status_ok)
+  	    dce_svc_printf(DCED_S_CANT_INIT_SOMETHING_MSG, "register servers", (long)st);
+      }
++ 
++     write_dced_bindings(&st);
+  
+      export_to_namespace(&services[i], sizeof_services_table - i, &st);
+      if (st != error_status_ok)
+  	dce_svc_printf(DCED_S_CANT_INIT_SOMETHING_MSG, "NS export", (long)st);
+  
+====================== src/admin/dced/server/sv_clientd.c ===================
+
+*** back/sv_clientd.c	Wed Jan 11 09:58:19 EST 1995
+--- ./sv_clientd.c	Thu Jul 27 19:34:43 EDT 1995
+***************
+*** 157,167 ****
+  char			*sv_override_file_name;
+  char			*sv_group_override_file_name;
+  char			*sv_clientd_binding;
+  char			*sv_preauth_dir;
+
+! static void write_bindings( error_status_t * );
+  
+  /*
+   * Tack DCELOCAL in front of path
+   */
+  static char * 
+--- 162,172 ----
+  char			*sv_override_file_name;
+  char			*sv_group_override_file_name;
+  char			*sv_clientd_binding;
+  char			*sv_preauth_dir;
+  
+! void write_dced_bindings( error_status_t * );
+  
+  /*
+   * Tack DCELOCAL in front of path
+   */
+  static char * 
+***************
+*** 528,541 ****
+  
+    unlink(sv_clientd_binding);
+  }
+  
+  /*
+!  *  write_bindings - Record bindings in local file.
+   */
+! static void
+! write_bindings( error_status_t	*st )
+  {
+    int	fd;
+    FILE	*F;
+  
+    fd = open(sv_clientd_binding, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+--- 533,546 ----
+  
+    unlink(sv_clientd_binding);
+  }
+  
+  /*
+!  *  write_dced_bindings - Record bindings in local file.
+   */
+! void
+! write_dced_bindings( error_status_t	*st )
+  {
+    int	fd;
+    FILE	*F;
+  
+    fd = open(sv_clientd_binding, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+***************
+*** 574,585 ****
+    load_override_files(st);
+    if (*st != error_status_ok) {
+      dce_svc_printf(DCED_S_SV_LOAD_OVERRIDE_FAIL_MSG, *st);
+      return;
+    }
+-   write_bindings(st);
+-   if (*st != error_status_ok) return;
+  
+    if (pthread_create(&mcontext_handle, thread_attr,
+  		     maintain_machine_context, NULL) < 0) {
+      dce_svc_printf(DCED_S_THREAD_ERROR_MSG, strerror(errno));
+      return;
+--- 579,588 ----
+
+
+
+CR Number                     : 12723
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : fvt test
+Short Description             : UHYP:dced fvt object_read_2 does not properly cleanup.
+Reported Date                 : 10/25/94
+Found in Baseline             : 1.1b23
+Found Date                    : 10/25/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : object_read.c
+Sensitivity                   : public
+
+[10/25/94 public]
+This FVT does not cleanup properly.  May sometimes cause cascading test 
+failures.
+
+[10/25/94 public]
+Fix submitted to unintegrated.
+
+
+
+CR Number                     : 12714
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : 
+Short Description             : UHYP:dced restart on failure doesn't
+Reported Date                 : 10/24/94
+Found in Baseline             : 1.1b23
+Found Date                    : 10/24/94
+Severity                      : B
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : admin/dced/server/sxops.c,main.c
+Sensitivity                   : public
+
+[10/24/94 public]
+
+When DCDREL002 is run on a single node the "restart on failure" function
+does not appear to work as expected for the DCDREL002 test servers. Repeating
+the same sequence of events manually with logging turned on shows that the
+server is being restarted and that it then exits (or gets removed?). The 
+log file for NOTICEs contains the lines:
+
+1994-10-24-17:43:17.056-04:00I0.911 dced NOTICE dhd srvrexec sxops.c 315
+0x40028a28 Re-starting server 'dcdrel002_server.1'
+1994-10-24-17:43:17.060-04:00I0.911 dced NOTICE dhd srvrexec sxops.c 221
+0x40028a28 Reaping exiting server 'dcdrel002_server.1'
+
+Which followed the initial exit of the server on request, noted in the 
+WARNING log:
+
+1994-10-24-17:43:17.042-04:00I0.911 dced WARNING dhd srvrexec sxops.c 304
+0x40028a28 Server 'dcdrel002_server.1' exited with status 255
+
+[10/24/94 public]
+Potential problem from brief code inspection:
+
+In sxops.c, Line 305 in BL-23 (line 320 in unintegrated), the call to
+remove_server() preceeds the use of an element of the structure.  
+remove_server() sets structure ptr to point to s_null_server which is
+a zero filled copy of a server struct.  The next statement (call to
+serverconf_start()) references elements in the structure.
+
+This seems like a bad thing to do, the fix might be to call remove_server()
+after the srvrconf_start()?
+
+[10/24/94 public]
+Rob's right, the sxops.c:241 calls dced_server_free_ptrs() which in 
+turn zeros everything. 
+The fix is to copy sp->data.exec_data.tagged_union.running_data.sc_uuid
+to a new variable sc_uuid at the time sp->data.fixed and sp->data.attributes
+got copied and then use this sc_uuid to call srvrconf_start().
+
+[10/25/94 public]
+
+Ping, can we get this fixed/tested today or early tomorrow?  Let me know...
+
+[10/25/94 public]
+Well, the fix seems to unveil another problem -): dced server dumps core 
+with segmentation fault. The core file doesn't give any useful information 
+at this point.
+
+[10/26/94 public]
+Ping's fix was the first part; the second part was to call
+rpc_ss_enable_allocate() in the function who calls srvrexec__reap.  I'm
+submitting both parts.
+
+[10/26/94 public]
+Although the fix works, as Rob points out, it could be a bad thing to
+have the signal_catcher to call this srvrconf_start() and it in turn calls
+rpc_sm_allocate()s. It makes code not reentrantable and in danger of deadlock.
+A better solution could be to have the srvrexec__reap() triggered a restart
+instead of restart by the srvrexec__reap() itself.
+
+[10/26/94 public]
+This is not an issue.  The reap() function is not really a signal handler
+that Rob is concerned about.  Handling signals via a dedicated thread and
+calling sigwait() are safe.  So Ping's note of 10/26 is not an issue.
+
+
+
+CR Number                     : 12662
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : hppa, i486
+S/W Ref Platform              : osf1, hpux
+Component Name                : dced
+Subcomponent Name             : /test/functional/admin/dced/ts/util_api
+Short Description             : UHYP:dced FVT compile errors
+Reported Date                 : 10/19/94
+Found in Baseline             : 1.1
+Found Date                    : 10/19/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : 
+./test/functional/admin/dced/ts/util_api/common.c ./test/functional/admin/dced/ts/util_api/dce_util_test_server.h
+Sensitivity                   : public
+
+[10/19/94 public]
+
+c89 -c    -D_SHARED_LIBRARIES    -DDEBUG -D__hppa -Dhp9000s800 -Dhp9000s700 -D__hp9000s800 -D__hp9000s700 -DHPUX -D__hpux -Dunix +DA1.0 -D_HPUX_SOURCE    -I. -I/u2/devobj/sb/nb_unintegrated_ux/src/test/functional/admin/dced/ts/util_api -I/project/dce/build/unintegrated-snap/src/test/functional/admin/dced/ts/util_api   -I/u2/devobj/sb/nb_unintegrated_ux/export/hp800/usr/include -I/project/dce/build/unintegrated-snap/export/hp800/usr/include    /project/dce/build/unintegrated-snap/src/test/functional/admin/dced/ts/util_api/inq_uuids_t.c
+c89 -c    -D_SHARED_LIBRARIES    -DDEBUG -D__hppa -Dhp9000s800 -Dhp9000s700 -D__hp9000s800 -D__hp9000s700 -DHPUX -D__hpux -Dunix +DA1.0 -D_HPUX_SOURCE    -I. -I/u2/devobj/sb/nb_unintegrated_ux/src/test/functional/admin/dced/ts/util_api -I/project/dce/build/unintegrated-snap/src/test/functional/admin/dced/ts/util_api   -I/u2/devobj/sb/nb_unintegrated_ux/export/hp800/usr/include -I/project/dce/build/unintegrated-snap/export/hp800/usr/include    /project/dce/build/unintegrated-snap/src/test/functional/admin/dced/ts/util_api/common.c
+common.c: 16: Unable to find include file 'sys/mode.h'.
+*** Error code 1
+
+c89 -c    -D_SHARED_LIBRARIES    -DDEBUG -D__hppa -Dhp9000s800 -Dhp9000s700 -D__hp9000s800 -D__hp9000s700 -DHPUX -D__hpux -Dunix +DA1.0 -D_HPUX_SOURCE    -I. -I/u2/devobj/sb/nb_unintegrated_ux/src/test/functional/admin/dced/ts/util_api -I/project/dce/build/unintegrated-snap/src/test/functional/admin/dced/ts/util_api   -I/u2/devobj/sb/nb_unintegrated_ux/export/hp800/usr/include -I/project/dce/build/unintegrated-snap/export/hp800/usr/include    /project/dce/build/unintegrated-snap/src/test/functional/admin/dced/ts/util_api/dce_util_test_server.c
+dce_util_test_server.h: 15: Unable to find include file 'dce/pthread.h'.
+*** Error code 1
+
+c89 -c    -D_SHARED_LIBRARIES    -DDEBUG -D__hppa -Dhp9000s800 -Dhp9000s700 -D__hp9000s800 -D__hp9000s700 -DHPUX -D__hpux -Dunix +DA1.0 -D_HPUX_SOURCE    -I. -I/u2/devobj/sb/nb_unintegrated_ux/src/test/functional/admin/dced/ts/util_api -I/project/dce/build/unintegrated-snap/src/test/functional/admin/dced/ts/util_api   -I/u2/devobj/sb/nb_unintegrated_ux/export/hp800/usr/include -I/project/dce/build/unintegrated-snap/export/hp800/usr/include    /project/dce/build/unintegrated-snap/src/test/functional/admin/dced/ts/util_api/inq_uuids_s.c
+dce_util_test_server.h: 15: Unable to find include file 'dce/pthread.h'.
+*** Error code 1
+
+c89 -c    -D_SHARED_LIBRARIES    -DDEBUG -D__hppa -Dhp9000s800 -Dhp9000s700 -D__hp9000s800 -D__hp9000s700 -DHPUX -D__hpux -Dunix +DA1.0 -D_HPUX_SOURCE    -I. -I/u2/devobj/sb/nb_unintegrated_ux/src/test/functional/admin/dced/ts/util_api -I/project/dce/build/unintegrated-snap/src/test/functional/admin/dced/ts/util_api   -I/u2/devobj/sb/nb_unintegrated_ux/export/hp800/usr/include -I/project/dce/build/unintegrated-snap/export/hp800/usr/include    /project/dce/build/unintegrated-snap/src/test/functional/admin/dced/ts/util_api/inq_uuids_s.c
+dce_util_test_server.h: 15: Unable to find include file 'dce/pthread.h'.
+*** Error code 1
+
+[10/19/94 public]
+Please note that that on the HP platform, there is no such include
+file /usr/include/sys/mode.h.  However, this does exist on a RIOS
+and an OSF/1.  You can try /usr/include/sys/inode.h or 
+/usr/include/sys/types.h .
+
+thanks
+annie
+
+[10/20/94 public]
+pthread.h, not dce/pthread.h
+Like annie says, sys/mode.h is a nono.  What's it supposed to do, provide
+file modes like in sys/stat?
+
+
+
+CR Number                     : 12568
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 12496
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : utility functions
+Short Description             : UHYP: dced utility function problems
+Reported Date                 : 10/7/94
+Found in Baseline             : 1.1
+Found Date                    : 10/7/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : api/register.c server/sxops.c
+Sensitivity                   : public
+
+[10/7/94 public]
+
+Follows the description of 3 separate problems.
+The last problem makes dce_server_use_protseq unusable.
+
+
+1
+
+Inside dce_server_disable_service the call to
+	*srvrexec_v1_0_c_epv.srvrexec_disable_service
+fails with the error "No bindings".
+Previous call to dce_server_register completed successfully.
+One peculiar point is that I am disabling my only interface.
+I will soon try with two interfaces.
+
+2
+
+Calling dce_server_inq_server after having unregistered will
+return error.
+Fix by setting the 'got_server' flag.  It's there for this
+purpose right ?
+
+
+3
+
+After successfull call to dce_server_use_protseq("nca...", &st),
+calling dce_server_register coredumps.
+Specifically inside dce_server_register I get a segfault when
+*srvrexec_v1_0_c_epv.srvrexec_started
+is called.
+
+[10/19/94 public]
+
+Add other 2
+
+4
+
+In register.c line 230
+    else if (*st = dced_s_not_started_by_dced)
+should have == .
+
+
+5
+
+In srvrexc.idl no parameters have the ptr attribute.  This is wrong
+at least in the case of srvrexec_started as we call it from
+dce_server_register with some NULL pointers.
+I can check and change it at least for srvrexec_started.  Yet I
+would recommend that someone who really breaths the spirit of this interface,
+check the other functions.
+
+[10/20/94 public]
+There should be "pointer_default(ptr)" in the start of the IDL file.
+But, isn't that the default?  If so, cancel this.
+
+[10/20/94 public]
+At least for pointers which are function parameters, I'm not as sure about
+pointers inside IDL defined structures, I think the default is actually
+'ref'.
+
+[10/20/94 public]
+This is how I know it.  If things have not changed very much in the IDL
+syntax (and semantics), unless specified, top level pointers default to
+ref semantics.  Also pointer_default(ptr) does not apply to them.
+So one has to specify them one at a time.
+Just to be sure I looked.  See Dev Guide v1 pag 17-40  for DCE 1.0.2
+(I do not have DCE 1.0.3 docs handy).
+Of course I can just set the ptr attribute on all input pointers just
+to be sure.
+
+[10/20/94 public]
+A partial fix to the idl got rid of a core dump.
+
+6
+In register.c function get_our_bindings need to move
+"h->where_bound = i"; inside the loop to execute together
+with "bound=TRUE".  As it is, the index will point, beyond
+the right binding, most often beyond the last binding.
+
+[10/25/94 public]
+
+2, 3, 5, 6 are fixed.
+
+1 is still in the same state.  Only it cannot work right
+now because we do not pass endpoint info srvrexec_started,
+from dce_server_register.
+
+4 was not submitted because of an oversight.
+I'll send a drb for it tonight.
+
+[10/26/94 public]
+I will submit the fix for 4 as part of my work.
+I also fixed 1 in dced.  Marking as fix for unintegrated tree.
+
+
+
+CR Number                     : 12496
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : test
+Inter-dependent CRs           : 12568
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : api
+Short Description             : UHYP:need functional tests for dced
+utility api
+Reported Date                 : 10/4/94
+Found in Baseline             : 1.1
+Found Date                    : 10/4/94
+Severity                      : C
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : directory ./src/test/functional/admin/dced/ts/util_api
+Sensitivity                   : public
+
+[10/4/94 public]
+The following functions need functional tests
+
+	dce_server_inq_uuids
+	dce_server_inq_attr
+	dce_server_inq_server
+	dce_server_sec_begin
+	dce_server_sec_done
+	dce_server_use_protseq
+	dce_server_register
+	dce_server_unregister
+	dce_server_enable_service
+	dce_server_disable_service
+
+[10/11/94 public]
+
+Any of these tests which haven't made it into the mainline tree are
+slated for unintegrated.
+
+[10/26/94 public]
+
+The tests seem ready and working.  Two of them return failure due to
+lack of support from the API at this moment.  They should pass as
+soon as the APIs are fully functional.  So I'll mark this fix.
+
+
+
+CR Number                     : 12061
+Defect or Enhancement?        : def
+CR in Code, Doc, or Test?     : code
+Inter-dependent CRs           : 
+Project Name                  : dce
+H/W Ref Platform              : all
+S/W Ref Platform              : all
+Component Name                : dced
+Subcomponent Name             : srvrexec
+Short Description             : UHYP: srvrexec endpoints aren't registered
+Reported Date                 : 9/6/94
+Found in Baseline             : 1.1
+Found Date                    : 9/6/94
+Severity                      : A
+Priority                      : 0
+Status                        : fix
+Duplicate Of                  : 
+Fix By Baseline               : 1.1
+Fixed In Baseline             : 1.1unintegrated
+Affected File(s)              : admin/dced/{server,api}
+Sensitivity                   : public
+
+[9/6/94 public]
+
+A dced-started server cannot use dce_server_register to register its
+endpoints but must still call rpc_ep_register.  The code was buggy and I
+commented it out but the latest submit removed it.  This must be fixed.
+It means various other functions (stop via RPC; dced shutdown) don't work
+either.
+
+[10/03/94 public]
+As a result of a DCE review meeting, raising this to A0 so it can
+be addressed this week.
+
+[10/27/94 public]
+Here is the status:
+	client-side is done but compiled-out by default; see
+	admin/dced/api/register.c
+	DG server-side (admin/dce/server/epops.c) is done;
+	CN server-side (also in epops.c) is not done
+	Auto-start is not done
+
+
+
