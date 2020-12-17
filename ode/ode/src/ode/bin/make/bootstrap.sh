@@ -2,19 +2,19 @@
 #
 # @OSF_FREE_COPYRIGHT@
 # COPYRIGHT NOTICE
-# Copyright (c) 1992, 1991, 1990  
-# Open Software Foundation, Inc. 
-#  
-# Permission is hereby granted to use, copy, modify and freely distribute 
-# the software in this file and its documentation for any purpose without 
-# fee, provided that the above copyright notice appears in all copies and 
-# that both the copyright notice and this permission notice appear in 
-# supporting documentation.  Further, provided that the name of Open 
-# Software Foundation, Inc. ("OSF") not be used in advertising or 
-# publicity pertaining to distribution of the software without prior 
-# written permission from OSF.  OSF makes no representations about the 
-# suitability of this software for any purpose.  It is provided "as is" 
-# without express or implied warranty. 
+# Copyright (c) 1992, 1991, 1990
+# Open Software Foundation, Inc.
+#
+# Permission is hereby granted to use, copy, modify and freely distribute
+# the software in this file and its documentation for any purpose without
+# fee, provided that the above copyright notice appears in all copies and
+# that both the copyright notice and this permission notice appear in
+# supporting documentation.  Further, provided that the name of Open
+# Software Foundation, Inc. ("OSF") not be used in advertising or
+# publicity pertaining to distribution of the software without prior
+# written permission from OSF.  OSF makes no representations about the
+# suitability of this software for any purpose.  It is provided "as is"
+# without express or implied warranty.
 #
 # HISTORY
 # $Log: bootstrap.sh,v $
@@ -25,82 +25,82 @@
 # Revision 1.3.10.1  1993/11/20  21:44:25  damon
 # 	CR 800. Made changes to match Makeconf
 # 	[1993/11/20  21:44:19  damon]
-# 
+#
 # Revision 1.3.8.2  1993/08/20  17:22:35  damon
 # 	CR 622. Changed at386_svr4 to at386_sinix
 # 	[1993/08/20  17:22:23  damon]
-# 
+#
 # Revision 1.3.8.1  1993/08/10  19:24:03  damon
 # 	CR 610. Added CC=c89 and _ALL_SOURCE for rios_aix
 # 	[1993/08/10  19:23:55  damon]
-# 
+#
 # Revision 1.3.6.2  1993/04/26  20:16:58  damon
 # 	CR 464. port for 386bsd
 # 	[1993/04/26  20:16:48  damon]
-# 
+#
 # Revision 1.3.2.9  1993/01/06  22:58:16  marty
 # 	Add path to export directory for header files.
 # 	[1993/01/06  22:57:51  marty]
-# 
+#
 # Revision 1.3.2.8  1992/12/03  19:04:54  damon
 # 	ODE 2.2 CR 346. Expanded copyright
 # 	[1992/12/03  18:34:51  damon]
-# 
+#
 # Revision 1.3.2.7  1992/09/24  19:23:15  gm
 # 	CR286: Major improvements to make internals.
 # 	[1992/09/24  17:53:23  gm]
-# 
+#
 # Revision 1.3.2.6  1992/06/12  00:49:00  damon
 # 	Synched with 2.1.1
 # 	[1992/06/11  20:00:03  damon]
-# 
+#
 # Revision 1.3.2.5  1992/02/18  22:08:11  damon
 # 	Some hp700_hpux porting changes
 # 	[1992/02/18  22:06:51  damon]
-# 
+#
 # Revision 1.3.2.4  1992/01/17  17:12:30  damon
 # 	Added vax_ultrix
 # 	[1992/01/17  17:12:16  damon]
 # 	Revision 1.3.5.2  1992/06/12  00:32:46  damon
 # 	Synched with 2.1.1
-# 
+#
 # Revision 1.3.4.6  1992/04/02  16:33:03  damon
 # 	Yanked BUILD_DATE define
 # 	[1992/04/02  16:32:27  damon]
-# 
+#
 # Revision 1.3.4.5  1992/04/02  16:21:48  damon
 # 	Another fix for BUILD_DATE quoting
 # 	[1992/04/02  15:27:21  damon]
-# 
+#
 # Revision 1.3.2.3  1991/12/31  23:18:56  damon
 # 	Changed make to use new libode porting directory
 # 	[1991/12/31  23:17:53  damon]
-# 
+#
 # Revision 1.3.2.2  1991/12/30  21:25:03  damon
 # 	port to sparc_sunos and libsb to libode transition
 # 	[1991/12/20  20:12:45  damon]
-# 
+#
 # Revision 1.2.1.2  1991/12/17  15:26:06  damon
 # 	Ported to hp300_hpux
 # 	[1991/12/17  14:31:05  damon]
-# 
+#
 # Revision 1.2  1991/12/05  20:42:02  devrcs
 # 	Implement context naming
 # 	[91/08/28  20:43:29  mckeen]
-# 
+#
 # 	CFLAGS now includes ${CENV}
 # 	[91/05/15  17:18:16  ezf]
-# 
+#
 # 	Changes for parallel make.
 # 	[91/04/21  16:36:30  gm]
-# 
+#
 # 	Changes for Reno make
 # 	[91/03/22  15:42:09  mckeen]
-# 
+#
 # $EndLog$
 
 
-# Defines that Make cares about 
+# Defines that Make cares about
 #
 # MACHINE NO_SETENV NO_STRDUP NO_STRERROR NO_GETCWD NO_UTIMES NO_WAITPID
 # ARCHIVE_FORMAT TARGET_LIBS
@@ -111,8 +111,9 @@ case $context in
 			ARCHIVE_FORMAT=OSFARCH;;
 	"mmax_osf1")	MACHINE="mmax" ;
 			ARCHIVE_FORMAT=OSFARCH;;
-	"386bsd")	MACHINE="i386";
-			ARCHIVE_FORMAT=BSDARCH;;
+	"386bsd")	MACHINE="x86_64";
+			ARCHIVE_FORMAT=BSDARCH;
+			TARGET_FLAGS="${TARGET_FLAGS} -std=c89 -DUSE_BSIZE";;
 	"at386_osf1")	MACHINE="i386";
 			ARCHIVE_FORMAT=OSFARCH;;
 	"alpha_osf1")	MACHINE="alpha";
