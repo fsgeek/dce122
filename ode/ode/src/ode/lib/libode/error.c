@@ -27,7 +27,7 @@
  * 	[1994/01/24  20:05:04  marty]
  *
  * Revision 1.1.8.1  1993/12/16  21:10:28  damon
- * 	CR 921. Added BADUNDOREV ode local_errno
+ * 	CR 921. Added BADUNDOREV ode errno
  * 	[1993/12/16  21:10:11  damon]
  *
  * Revision 1.1.4.6  1993/04/28  18:22:23  damon
@@ -151,7 +151,7 @@ typedef struct err_type *ERR_LOG;
 struct err_type
 {
   int ode_errno;
-  int local_errno;
+  int err_errno;
   char *e_str;
   ERR_LOG next;
 };
@@ -218,13 +218,13 @@ err_set_report ( (void) report_func ( ERR_LOG *) )
 
 int err_errno(ERR_LOG log)
 {
-  return (log->local_errno);
+  return (log->err_errno);
 } /* end err_errno */
 
-int err_PLACEHOLDER(ERR_LOG log)
+int err_ode_errno(ERR_LOG log)
 {
   return (log->ode_errno);
-} /* end err_PLACEHOLDER */
+} /* end err_ode_errno */
 
 int err_total(ERR_LOG log)
 {

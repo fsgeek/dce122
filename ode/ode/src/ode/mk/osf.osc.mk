@@ -1,19 +1,19 @@
 #
 # @OSF_FREE_COPYRIGHT@
 # COPYRIGHT NOTICE
-# Copyright (c) 1992, 1991, 1990  
-# Open Software Foundation, Inc. 
-#  
-# Permission is hereby granted to use, copy, modify and freely distribute 
-# the software in this file and its documentation for any purpose without 
-# fee, provided that the above copyright notice appears in all copies and 
-# that both the copyright notice and this permission notice appear in 
-# supporting documentation.  Further, provided that the name of Open 
-# Software Foundation, Inc. ("OSF") not be used in advertising or 
-# publicity pertaining to distribution of the software without prior 
-# written permission from OSF.  OSF makes no representations about the 
-# suitability of this software for any purpose.  It is provided "as is" 
-# without express or implied warranty. 
+# Copyright (c) 1992, 1991, 1990
+# Open Software Foundation, Inc.
+#
+# Permission is hereby granted to use, copy, modify and freely distribute
+# the software in this file and its documentation for any purpose without
+# fee, provided that the above copyright notice appears in all copies and
+# that both the copyright notice and this permission notice appear in
+# supporting documentation.  Further, provided that the name of Open
+# Software Foundation, Inc. ("OSF") not be used in advertising or
+# publicity pertaining to distribution of the software without prior
+# written permission from OSF.  OSF makes no representations about the
+# suitability of this software for any purpose.  It is provided "as is"
+# without express or implied warranty.
 #
 #
 # HISTORY
@@ -25,10 +25,10 @@
 # Revision 1.2  1991/12/05  21:18:05  devrcs
 # 	Incorporated changes from osc
 # 	[91/04/25  13:27:47  mckeen]
-# 
+#
 # 	Initial version for osc
 # 	[91/04/21  20:15:24  damon]
-# 
+#
 # $EndLog$
 
 .if !defined(_OSF_OSC_MK_)
@@ -130,9 +130,9 @@ _writable_strings_NOSTDINC_=-nostdinc
 _CC_NOSTDINC_=${_${_CCTYPE_}_NOSTDINC_}
 
 _host_GENINC_=
-_ansi_GENINC_=`${GENPATH} -I.` -I-
-_traditional_GENINC_=`${GENPATH} -I.` -I-
-_writable_strings_GENINC_=`${GENPATH} -I.` -I-
+_ansi_GENINC_=`${GENPATH} -iquote .`
+_traditional_GENINC_=`${GENPATH} -iquote .`
+_writable_strings_GENINC_=`${GENPATH} -iquote .`
 _CC_GENINC_=${_${_CCTYPE_}_GENINC_}
 
 .if ${USE_SHARED_LIBRARIES}
@@ -147,6 +147,7 @@ _writable_strings_PICLIB_=${_PICLIB_}
 _CC_PICLIB_=${_${_CCTYPE_}_PICLIB_}
 
 .if ${USE_SHARED_LIBRARIES}
+#_GLUE_=-%ld," -warn_nopic -glue"
 _GLUE_=-%ld," -warn_nopic -glue"
 .else
 _GLUE_=

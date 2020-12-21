@@ -2,19 +2,19 @@
 #
 # @OSF_FREE_COPYRIGHT@
 # COPYRIGHT NOTICE
-# Copyright (c) 1992, 1991, 1990  
-# Open Software Foundation, Inc. 
-#  
-# Permission is hereby granted to use, copy, modify and freely distribute 
-# the software in this file and its documentation for any purpose without 
-# fee, provided that the above copyright notice appears in all copies and 
-# that both the copyright notice and this permission notice appear in 
-# supporting documentation.  Further, provided that the name of Open 
-# Software Foundation, Inc. ("OSF") not be used in advertising or 
-# publicity pertaining to distribution of the software without prior 
-# written permission from OSF.  OSF makes no representations about the 
-# suitability of this software for any purpose.  It is provided "as is" 
-# without express or implied warranty. 
+# Copyright (c) 1992, 1991, 1990
+# Open Software Foundation, Inc.
+#
+# Permission is hereby granted to use, copy, modify and freely distribute
+# the software in this file and its documentation for any purpose without
+# fee, provided that the above copyright notice appears in all copies and
+# that both the copyright notice and this permission notice appear in
+# supporting documentation.  Further, provided that the name of Open
+# Software Foundation, Inc. ("OSF") not be used in advertising or
+# publicity pertaining to distribution of the software without prior
+# written permission from OSF.  OSF makes no representations about the
+# suitability of this software for any purpose.  It is provided "as is"
+# without express or implied warranty.
 #
 #
 # HISTORY
@@ -26,32 +26,32 @@
 # Revision 1.3  1991/12/17  21:01:49  devrcs
 # 	Added -k to makeoptions so everything gets installed
 # 	[1991/12/17  18:43:42  mckeen]
-# 
+#
 # Revision 1.2  1991/12/05  21:18:50  devrcs
 # 	Fixed changes for context naming scheme
 # 	[91/09/19  15:21:33  mckeen]
-# 
+#
 # 	Implement context naming
 # 	[91/08/28  20:43:49  mckeen]
-# 
+#
 # 	Changes for Reno make
 # 	[91/03/22  16:37:34  mckeen]
-# 
+#
 # 	Added support for context variable
 # 	[91/03/11  08:39:38  mckeen]
-# 
+#
 # 	merged from dce/devkit version
 # 	[91/02/21  16:40:04  ezf]
-# 
+#
 # 	Fixed stupid misspelling of MAKETYPE
 # 	[91/01/22  14:01:23  mckeen]
-# 
+#
 # 	Added changes to support RIOS and aix
 # 	[91/01/22  13:01:11  mckeen]
-# 
+#
 # 	Creations/Fixes for project ode lbe
 # 	[91/01/17  16:44:53  mckeen]
-# 
+#
 # $EndLog$
 
 #
@@ -68,8 +68,8 @@ fi
 #
 # Read the configuration information for this host
 #
-if [ $# -lt 1 ] 
-then 
+if [ $# -lt 1 ]
+then
   USAGE="usage: install.sh <context> [install_top]"
   echo "ERROR: improper number of arguments"
   echo $USAGE
@@ -119,9 +119,8 @@ fi
 #
 # Constrain search paths
 #
-PATH="${bindir}:/usr/ucb:/bin:/usr/bin"
-
-export PATH
+#PATH="${bindir}:/usr/ucb:/bin:/usr/bin"
+#export PATH
 
 #
 # Site/Environment stuff

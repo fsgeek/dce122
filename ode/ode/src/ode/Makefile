@@ -57,7 +57,8 @@
 # 
 # $EndLog$
 
-SUBDIRS			= lib include bin server man doc
+#SUBDIRS			= lib include bin server man doc
+SUBDIRS			= lib include bin server man
 
 EXPLIB_SUBDIRS		= lib
 EXPINC_SUBDIRS		= include
