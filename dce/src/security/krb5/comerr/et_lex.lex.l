@@ -16,19 +16,19 @@
  * Revision 1.1.6.1  1995/12/08  17:39:54  root
  * 	Submit OSF/DCE 1.2.1
  * 	[1995/12/08  16:56:39  root]
- * 
+ *
  * Revision 1.1.3.3  1992/12/29  13:56:04  zeliff
  * 	Embedding copyright notice
  * 	[1992/12/28  20:50:53  zeliff]
- * 
+ *
  * Revision 1.1.3.2  1992/09/29  21:18:35  devsrc
  * 	[OT 5373]  SNI/SVR4 Merge UPDATE: Moved the SNI header within a % followed by
  * 	           } to fix lex/yacc problems.
  * 	[1992/09/24  15:54:08  sekhar]
- * 
+ *
  * 	[OT 5373]   SNI/SVR4 merge.
  * 	[1992/09/11  21:32:51  sekhar]
- * 
+ *
  * $EndLog$
  */
 /*
@@ -61,7 +61,7 @@ end		return END;
 #ifdef SNI_SVR4_POSIX
 		  if (p=strrchr(yylval.dynstr, '"')) *p='\0';
 #else
-		  if (p=rindex(yylval.dynstr, '"')) *p='\0';
+		  if ((p=rindex(yylval.dynstr, '"'))) *p='\0';
 #endif /* SNI_SVR4_POSIX */
 		  return QUOTED_STRING;
 		}

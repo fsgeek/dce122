@@ -15,30 +15,30 @@
  *
  * Revision 1.1.13.1  1995/12/07  22:12:41  root
  * 	Submit OSF/DCE 1.2.1
- * 
+ *
  * 	HP revision /main/dat_xidl2/1  1995/11/17  17:01 UTC  dat
  * 	Merge second XIDL drop for DCE 1.2.1
  * 	[1995/12/07  21:09:37  root]
- * 
+ *
  * Revision 1.1.2.1  1995/10/23  01:47:12  bfc
  * 	oct 95 idl drop
  * 	[1995/10/23  01:46:27  bfc]
- * 
+ *
  * 	may 95 idl drop
  * 	[1995/10/21  21:36:41  bfc]
- * 
+ *
  * 	DCE for DEC OSF/1: populate from OSF DCE 1.1
  * 	[1995/10/21  17:24:24  bfc]
- * 
+ *
  * Revision 1.1.8.1  1993/10/01  13:28:32  hinxman
  * 	OT 8874 - change design for spelling of #include generated from ACF include
  * 	statement
  * 	[1993/10/01  13:28:07  hinxman]
- * 
+ *
  * Revision 1.1.6.2  1993/07/07  19:54:30  ganni
  * 	reduced stub idl sources
  * 	[1993/07/07  19:29:11  ganni]
- * 
+ *
  * $EndLog$
  */
 /*
@@ -65,34 +65,32 @@
 #include <ast.h>
 
 /* NDR Data Sizes for the Transmissable Types */
-#define NDR_C_BOOLEAN_SIZE      1
-#define NDR_C_BYTE_SIZE         1
-#define NDR_C_CHARACTER_SIZE    1
-#define NDR_C_SMALL_INT_SIZE    1
-#define NDR_C_SHORT_INT_SIZE    2
-#define NDR_C_LONG_INT_SIZE     4
-#define NDR_C_HYPER_INT_SIZE    8
-#define NDR_C_SHORT_FLOAT_SIZE  4
-#define NDR_C_LONG_FLOAT_SIZE   8
-#define NDR_C_POINTER_SIZE      4
+#define NDR_C_BOOLEAN_SIZE 1
+#define NDR_C_BYTE_SIZE 1
+#define NDR_C_CHARACTER_SIZE 1
+#define NDR_C_SMALL_INT_SIZE 1
+#define NDR_C_SHORT_INT_SIZE 2
+#define NDR_C_LONG_INT_SIZE 4
+#define NDR_C_HYPER_INT_SIZE 8
+#define NDR_C_SHORT_FLOAT_SIZE 4
+#define NDR_C_LONG_FLOAT_SIZE 8
+#define NDR_C_POINTER_SIZE 4
 
 /* MIN/MAX values for various integer sizes */
-#define ASTP_C_SMALL_MAX        127
-#define ASTP_C_SMALL_MIN        -128
-#define ASTP_C_USMALL_MAX       255
-#define ASTP_C_USMALL_MIN       0
+#define ASTP_C_SMALL_MAX 127
+#define ASTP_C_SMALL_MIN -128
+#define ASTP_C_USMALL_MAX 255
+#define ASTP_C_USMALL_MIN 0
 
+#define ASTP_C_SHORT_MAX 32767
+#define ASTP_C_SHORT_MIN -32768
+#define ASTP_C_USHORT_MAX 65535
+#define ASTP_C_USHORT_MIN 0
 
-#define ASTP_C_SHORT_MAX        32767
-#define ASTP_C_SHORT_MIN        -32768
-#define ASTP_C_USHORT_MAX       65535
-#define ASTP_C_USHORT_MIN       0
-
-#define ASTP_C_LONG_MAX         2147483647
-#define ASTP_C_LONG_MIN         (-2147483647 - 1)
-#define ASTP_C_ULONG_MAX        4294967295.0
-#define ASTP_C_ULONG_MIN        0
-
+#define ASTP_C_LONG_MAX 2147483647
+#define ASTP_C_LONG_MIN (-2147483647 - 1)
+#define ASTP_C_ULONG_MAX 4294967295.0
+#define ASTP_C_ULONG_MIN 0
 
 /*
  *  Boolean Attributes Flags for Operations, Parameters, Types and Fields
@@ -128,48 +126,47 @@
  */
 
 /* Operation Attributes */
-#define ASTP_BROADCAST      0x00000001
-#define ASTP_MAYBE          0x00000002
-#define ASTP_IDEMPOTENT     0x00000004
+#define ASTP_BROADCAST 0x00000001
+#define ASTP_MAYBE 0x00000002
+#define ASTP_IDEMPOTENT 0x00000004
 #define ASTP_REFLECT_DELETIONS 0x04000000
 
-
 /* Parameter-only Attributes */
-#define ASTP_IN             0x00000008
-#define ASTP_OUT            0x00000010
-#define ASTP_IN_SHAPE       0x00000020
-#define ASTP_OUT_SHAPE      0x00000040
-#define ASTP_PTR            0x00000080
+#define ASTP_IN 0x00000008
+#define ASTP_OUT 0x00000010
+#define ASTP_IN_SHAPE 0x00000020
+#define ASTP_OUT_SHAPE 0x00000040
+#define ASTP_PTR 0x00000080
 
 /* Type, Field, Parameter Attributes */
-#define ASTP_STRING0        0x00000100
-#define ASTP_STRING         0x00000200
-#define ASTP_IGNORE         0x00000400
-#define ASTP_SMALL          0x00000800
-#define ASTP_CONTEXT        0x00001000
+#define ASTP_STRING0 0x00000100
+#define ASTP_STRING 0x00000200
+#define ASTP_IGNORE 0x00000400
+#define ASTP_SMALL 0x00000800
+#define ASTP_CONTEXT 0x00001000
 
 /* Type-only Attribute(s) */
-#define ASTP_REF            0x00002000
-#define ASTP_UNIQUE         0x00004000
-#define ASTP_HANDLE         0x00008000
-#define ASTP_UNALIGN        0x00010000
-#define ASTP_TRANSMIT_AS    0x00020000
-#define ASTP_ALIGN_SMALL    0x00040000
-#define ASTP_ALIGN_SHORT    0x00080000
-#define ASTP_ALIGN_LONG     0x00100000
-#define ASTP_ALIGN_HYPER    0x00200000
-#define ASTP_V1_ENUM        0x00400000
-#define ASTP_SWITCH_TYPE    0x00800000
+#define ASTP_REF 0x00002000
+#define ASTP_UNIQUE 0x00004000
+#define ASTP_HANDLE 0x00008000
+#define ASTP_UNALIGN 0x00010000
+#define ASTP_TRANSMIT_AS 0x00020000
+#define ASTP_ALIGN_SMALL 0x00040000
+#define ASTP_ALIGN_SHORT 0x00080000
+#define ASTP_ALIGN_LONG 0x00100000
+#define ASTP_ALIGN_HYPER 0x00200000
+#define ASTP_V1_ENUM 0x00400000
+#define ASTP_SWITCH_TYPE 0x00800000
 
 /* Arm-only Attribute(s) */
-#define ASTP_CASE           0x01000000
-#define ASTP_DEFAULT        0x02000000
+#define ASTP_CASE 0x01000000
+#define ASTP_DEFAULT 0x02000000
 
 /*
  * NOTE: This bit must correspond to the Highest Attribute bit used
  * above.  It is used to check which attributes are applicable.
  */
-#define ASTP_MAX_ATTRIBUTE  0x04000000
+#define ASTP_MAX_ATTRIBUTE 0x04000000
 
 /*
  * Sets of valid flags for each node type.  Note, these are the flags that can
@@ -180,30 +177,29 @@
  * are not specified below, but handled explicity in the builder routines.
  */
 #define ASTP_OPERATION_FLAGS ASTP_BROADCAST | ASTP_MAYBE | ASTP_IDEMPOTENT | \
-            ASTP_REFLECT_DELETIONS
+                                 ASTP_REFLECT_DELETIONS
 
-#define ASTP_PARAMETER_FLAGS ASTP_STRING | ASTP_STRING0 |   \
-            ASTP_SMALL | ASTP_CONTEXT |       \
-            ASTP_IN | ASTP_OUT | ASTP_IN_SHAPE | \
-            ASTP_OUT_SHAPE |  ASTP_UNIQUE | \
-            ASTP_REF | ASTP_PTR
+#define ASTP_PARAMETER_FLAGS ASTP_STRING | ASTP_STRING0 |             \
+                                 ASTP_SMALL | ASTP_CONTEXT |          \
+                                 ASTP_IN | ASTP_OUT | ASTP_IN_SHAPE | \
+                                 ASTP_OUT_SHAPE | ASTP_UNIQUE |       \
+                                 ASTP_REF | ASTP_PTR
 
-#define ASTP_FIELD_FLAGS ASTP_STRING | ASTP_STRING0 | \
-            ASTP_IGNORE | ASTP_SMALL | ASTP_CONTEXT |  ASTP_UNIQUE | \
-            ASTP_REF | ASTP_PTR
+#define ASTP_FIELD_FLAGS ASTP_STRING | ASTP_STRING0 |                                \
+                             ASTP_IGNORE | ASTP_SMALL | ASTP_CONTEXT | ASTP_UNIQUE | \
+                             ASTP_REF | ASTP_PTR
 
-#define ASTP_TYPE_FLAGS ASTP_STRING | ASTP_STRING0 |  ASTP_UNIQUE | \
-            ASTP_SWITCH_TYPE | \
-            ASTP_REF | ASTP_SMALL | ASTP_CONTEXT |     \
-            ASTP_HANDLE | ASTP_TRANSMIT_AS | ASTP_UNALIGN | \
-            ASTP_ALIGN_SMALL | ASTP_ALIGN_SHORT | ASTP_ALIGN_LONG | \
-            ASTP_ALIGN_HYPER | ASTP_UNIQUE | ASTP_PTR | ASTP_V1_ENUM
+#define ASTP_TYPE_FLAGS ASTP_STRING | ASTP_STRING0 | ASTP_UNIQUE |                  \
+                            ASTP_SWITCH_TYPE |                                      \
+                            ASTP_REF | ASTP_SMALL | ASTP_CONTEXT |                  \
+                            ASTP_HANDLE | ASTP_TRANSMIT_AS | ASTP_UNALIGN |         \
+                            ASTP_ALIGN_SMALL | ASTP_ALIGN_SHORT | ASTP_ALIGN_LONG | \
+                            ASTP_ALIGN_HYPER | ASTP_UNIQUE | ASTP_PTR | ASTP_V1_ENUM
 
-#define ASTP_ARM_FLAGS ASTP_STRING | ASTP_STRING0 |  \
-            ASTP_CASE | ASTP_DEFAULT | \
-            ASTP_SMALL | ASTP_CONTEXT |  ASTP_UNIQUE | \
-            ASTP_REF | ASTP_PTR
-
+#define ASTP_ARM_FLAGS ASTP_STRING | ASTP_STRING0 |                  \
+                           ASTP_CASE | ASTP_DEFAULT |                \
+                           ASTP_SMALL | ASTP_CONTEXT | ASTP_UNIQUE | \
+                           ASTP_REF | ASTP_PTR
 
 /*
  * ASTP (Private) definitions for the boolean attributes for an interface.
@@ -214,46 +210,40 @@
  * (non-parametric binding) in the interface.
  */
 
-#define ASTP_IF_PORT            0x00000004
-#define ASTP_IF_UUID            0x00000008
-#define ASTP_IF_VERSION         0x00000010
-#define ASTP_IF_EXCEPTIONS      0x00000020
+#define ASTP_IF_PORT 0x00000004
+#define ASTP_IF_UUID 0x00000008
+#define ASTP_IF_VERSION 0x00000010
+#define ASTP_IF_EXCEPTIONS 0x00000020
 
-
-
-
-#define ASTP_MAX_ATTRIBUTE2     0x00000080
+#define ASTP_MAX_ATTRIBUTE2 0x00000080
 
 /*
  * Macro for manipulating interface boolean attributes.
  */
-#define ASTP_CLR_IF_AF(if)        \
+#define ASTP_CLR_IF_AF(if) \
     (if)->fe_info->type_specific.if_flags = 0
 
-#define ASTP_SET_IF_AF(if,attribute)       \
+#define ASTP_SET_IF_AF(if, attribute) \
     (if)->fe_info->type_specific.if_flags |= (attribute)
 
-#define ASTP_IF_AF_SET(if,attribute)       \
+#define ASTP_IF_AF_SET(if, attribute) \
     (((if)->fe_info->type_specific.if_flags & (attribute)) != 0)
-
 
 /*
  * Macros for checking and clearing attributes in an ASTP_attr_flag_t structure.
  */
-#define ASTP_TEST_ATTR(__attr_ptr,__flags)   \
+#define ASTP_TEST_ATTR(__attr_ptr, __flags) \
     ((((__attr_ptr)->attr_flags) & (__flags)) != 0)
 
-#define ASTP_CLR_ATTR(__attr_ptr,__flags)   \
+#define ASTP_CLR_ATTR(__attr_ptr, __flags) \
     (__attr_ptr)->attr_flags &= (~(__flags))
-
-
 
 /* AST Private structure types */
 
 /*
  * Structure for attribute flags
  */
-typedef unsigned long   ASTP_attr_flag_t;
+typedef unsigned long ASTP_attr_flag_t;
 
 /*
  * Structure for handling both array_bounds and attribute flags in the
@@ -261,11 +251,10 @@ typedef unsigned long   ASTP_attr_flag_t;
  */
 typedef struct ASTP_attributes_t
 {
-    struct ASTP_type_attr_n_t       *bounds;
-    ASTP_attr_flag_t                attr_flags; /* values are the ASTP_xxx  */
-                                                /* flags above              */
+    struct ASTP_type_attr_n_t *bounds;
+    ASTP_attr_flag_t attr_flags; /* values are the ASTP_xxx  */
+                                 /* flags above              */
 } ASTP_attributes_t;
-
 
 /*
  * Structure for the singly-linked list used to build the AST.
@@ -278,12 +267,11 @@ typedef struct ASTP_attributes_t
 
 typedef struct ASTP_node_t
 {
-    fe_info_t           *fe_info;
-    be_info_t           *be_info;
-    struct ASTP_node_t  *next;
-    struct ASTP_node_t  *last;
+    fe_info_t *fe_info;
+    be_info_t *be_info;
+    struct ASTP_node_t *next;
+    struct ASTP_node_t *last;
 } ASTP_node_t, *ASTP_node_t_p;
-
 
 typedef enum
 {
@@ -301,12 +289,12 @@ typedef enum
  */
 typedef struct ASTP_array_index_n_t
 {
-    fe_info_t           *fe_info;       /* Must be here, but unused */
-    be_info_t           *be_info;       /* Must be here, but unused */
+    fe_info_t *fe_info; /* Must be here, but unused */
+    be_info_t *be_info; /* Must be here, but unused */
     struct ASTP_array_index_n_t *next;
     struct ASTP_array_index_n_t *last;
-    ASTP_bound_t     lower_bound_type;
-    ASTP_bound_t     upper_bound_type;
+    ASTP_bound_t lower_bound_type;
+    ASTP_bound_t upper_bound_type;
     AST_constant_n_t *lower_bound;
     AST_constant_n_t *upper_bound;
 } ASTP_array_index_n_t;
@@ -325,21 +313,21 @@ typedef enum
     max_is_k,
     min_is_k,
     length_is_k,
-    size_is_k
-    ,switch_is_k
-    ,iid_is_k
+    size_is_k,
+    switch_is_k,
+    iid_is_k
 } ASTP_attr_k_t;
 
 typedef struct ASTP_type_attr_n_t
 {
-    fe_info_t           *fe_info;       /* Must be here, but unused */
-    be_info_t           *be_info;       /* Must be here, but unused */
+    fe_info_t *fe_info; /* Must be here, but unused */
+    be_info_t *be_info; /* Must be here, but unused */
     struct ASTP_type_attr_n_t *next;
     struct ASTP_type_attr_n_t *last;
-    int             source_line;
-    ASTP_attr_k_t   kind;
-    NAMETABLE_id_t  name;
-    boolean         pointer;
+    int source_line;
+    ASTP_attr_k_t kind;
+    NAMETABLE_id_t name;
+    boolean pointer;
 } ASTP_type_attr_n_t;
 
 /*
@@ -352,12 +340,12 @@ typedef struct ASTP_type_attr_n_t
 
 typedef struct ASTP_field_ref_ctx_t
 {
-    fe_info_t           *fe_info;       /* Must be here, but unused */
-    be_info_t           *be_info;       /* Must be here, but unused */
+    fe_info_t *fe_info; /* Must be here, but unused */
+    be_info_t *be_info; /* Must be here, but unused */
     struct ASTP_field_ref_ctx_t *next;
     struct ASTP_field_ref_ctx_t *last;
-    NAMETABLE_id_t    name;             /* Saved parameter reference */
-    AST_field_ref_n_t *field_ref_ptr;   /* Address to field ref needing patch */
+    NAMETABLE_id_t name;              /* Saved parameter reference */
+    AST_field_ref_n_t *field_ref_ptr; /* Address to field ref needing patch */
 } ASTP_field_ref_ctx_t;
 
 /*
@@ -371,17 +359,16 @@ typedef struct ASTP_field_ref_ctx_t
 
 typedef struct ASTP_declarator_n_t
 {
-    fe_info_t           *fe_info;       /* Points to fe_info of parent node */
-                                        /* which determines the type of     */
-                                        /* the expected referent            */
-    be_info_t           *be_info;       /* Must be here, but unused */
+    fe_info_t *fe_info; /* Points to fe_info of parent node */
+                        /* which determines the type of     */
+                        /* the expected referent            */
+    be_info_t *be_info; /* Must be here, but unused */
     struct ASTP_declarator_n_t *next;
     struct ASTP_declarator_n_t *last;
-    NAMETABLE_id_t      name;
-    struct ASTP_declarator_op_n_t   *next_op;
-    struct ASTP_declarator_op_n_t   *last_op;
+    NAMETABLE_id_t name;
+    struct ASTP_declarator_op_n_t *next_op;
+    struct ASTP_declarator_op_n_t *last_op;
 } ASTP_declarator_n_t;
-
 
 /*
  * Representation of operations that can be performed on declarators to produce
@@ -390,18 +377,17 @@ typedef struct ASTP_declarator_n_t
 typedef struct ASTP_declarator_op_n_t
 {
     struct ASTP_declarator_op_n_t *next_op;
-    AST_type_k_t        op_kind;    /* Valid operators are: AST_array_k,    */
-                                    /* AST_pointer_k, or AST_function_k */
+    AST_type_k_t op_kind; /* Valid operators are: AST_array_k,    */
+                          /* AST_pointer_k, or AST_function_k */
     union
     {
-        ASTP_node_t             *node;
-        ASTP_array_index_n_t    *indices;       /* Set if op_kind == AST_array_k */
-        AST_type_n_t            *type_node_ptr;
-        AST_parameter_n_t       *routine_params;/* Set if op_kind == AST_function_k */
-        int                     pointer_count;  /* Set if op_kind == AST_pointer_k */
+        ASTP_node_t *node;
+        ASTP_array_index_n_t *indices; /* Set if op_kind == AST_array_k */
+        AST_type_n_t *type_node_ptr;
+        AST_parameter_n_t *routine_params; /* Set if op_kind == AST_function_k */
+        int pointer_count;                 /* Set if op_kind == AST_pointer_k */
     } op_info;
 } ASTP_declarator_op_n_t;
-
 
 /*
  * A Tag ref node is created for each forward reference to a
@@ -411,15 +397,14 @@ typedef struct ASTP_declarator_op_n_t
  */
 typedef struct ASTP_tag_ref_n_t
 {
-    fe_info_t           *fe_info;       /* Must be here, but unused */
-    be_info_t           *be_info;       /* Must be here, but unused */
+    fe_info_t *fe_info; /* Must be here, but unused */
+    be_info_t *be_info; /* Must be here, but unused */
     struct ASTP_tag_ref_n_t *next;
     struct ASTP_tag_ref_n_t *last;
-    NAMETABLE_id_t      name;           /* Tag name referenced */
-    AST_type_k_t        ref_kind;       /* AST_struct_k or AST_disc_union_k */
-    AST_type_n_t        *type_node_ptr; /* Type node that referenced tag */
+    NAMETABLE_id_t name;         /* Tag name referenced */
+    AST_type_k_t ref_kind;       /* AST_struct_k or AST_disc_union_k */
+    AST_type_n_t *type_node_ptr; /* Type node that referenced tag */
 } ASTP_tag_ref_n_t;
-
 
 /*
  * Structure to hold count of input/output parameters needing marshalling
@@ -427,37 +412,34 @@ typedef struct ASTP_tag_ref_n_t
  */
 typedef struct ASTP_parameter_count_t
 {
-    int  in_params;
-    int  out_params;
+    int in_params;
+    int out_params;
 } ASTP_parameter_count_t;
-
 
 /*
  * Type used to evaluate integer constant expressions
  */
-typedef struct ASTP_exp_n_t {
-    AST_constant_k_t    type;     /* datatype of the expression */
-    union {
-        int              integer;         /* Integer value         */
-        AST_constant_n_t *other;          /* Constant node         */
+typedef struct ASTP_exp_n_t
+{
+    AST_constant_k_t type; /* datatype of the expression */
+    union
+    {
+        int integer;             /* Integer value         */
+        AST_constant_n_t *other; /* Constant node         */
     } val;
-} ASTP_exp_n_t;   /* const expression block */
-
-
+} ASTP_exp_n_t; /* const expression block */
 
 /*
  *  Interface Attributes
  */
-extern int              interface_pointer_class;
-
+extern int interface_pointer_class;
 
 /*
  *  Operation, Parameter, Type Attributes
  */
-extern AST_type_n_t         *ASTP_transmit_as_type;
-extern AST_type_n_t         *ASTP_switch_type;
-extern AST_case_label_n_t   *ASTP_case;
-
+extern AST_type_n_t *ASTP_transmit_as_type;
+extern AST_type_n_t *ASTP_switch_type;
+extern AST_case_label_n_t *ASTP_case;
 
 /*
  *  Interface just parsed
@@ -478,8 +460,9 @@ extern ASTP_tag_ref_n_t *ASTP_tag_ref_list;
 /*
  *  Control for parser
  */
-extern boolean ASTP_parsing_main_idl;   /* True when parsing the main idl */
-extern int  yylineno;                   /* Current line number */
+extern boolean ASTP_parsing_main_idl; /* True when parsing the main idl */
+extern int acf_yylineno;              /* Current line number */
+#define yylineno acf_yylineno
 
 /*
  *  Builtin in constants
@@ -490,24 +473,24 @@ extern AST_constant_n_t *zero_constant_p;
 /*
  * Builtin base types
  */
-extern AST_type_n_t     *ASTP_char_ptr,
-                        *ASTP_boolean_ptr,
-                        *ASTP_byte_ptr,
-                        *ASTP_void_ptr,
-                        *ASTP_handle_ptr,
-                        *ASTP_short_float_ptr,
-                        *ASTP_long_float_ptr,
-                        *ASTP_small_int_ptr,
-                        *ASTP_short_int_ptr,
-                        *ASTP_long_int_ptr,
-                        *ASTP_hyper_int_ptr,
-                        *ASTP_small_unsigned_ptr,
-                        *ASTP_short_unsigned_ptr,
-                        *ASTP_long_unsigned_ptr,
-                        *ASTP_hyper_unsigned_ptr;
+extern AST_type_n_t *ASTP_char_ptr,
+    *ASTP_boolean_ptr,
+    *ASTP_byte_ptr,
+    *ASTP_void_ptr,
+    *ASTP_handle_ptr,
+    *ASTP_short_float_ptr,
+    *ASTP_long_float_ptr,
+    *ASTP_small_int_ptr,
+    *ASTP_short_int_ptr,
+    *ASTP_long_int_ptr,
+    *ASTP_hyper_int_ptr,
+    *ASTP_small_unsigned_ptr,
+    *ASTP_short_unsigned_ptr,
+    *ASTP_long_unsigned_ptr,
+    *ASTP_hyper_unsigned_ptr;
 
 /* Default tag for union */
-extern NAMETABLE_id_t   ASTP_tagged_union_id;
+extern NAMETABLE_id_t ASTP_tagged_union_id;
 
 /*
  * Function prototypes exported by ASTP_{COM/GBL/DMP/CPX/SIM}.C
@@ -553,17 +536,17 @@ ASTP_declarator_n_t *AST_declarator_node(
 
 void AST_declarator_operation(
 #ifdef PROTO
-    ASTP_declarator_n_t     *declarator,
-    AST_type_k_t            op_kind,
-    ASTP_node_t             *op_info,
-    int                     pointer_count,
-    int                     const_pointer
+    ASTP_declarator_n_t *declarator,
+    AST_type_k_t op_kind,
+    ASTP_node_t *op_info,
+    int pointer_count,
+    int const_pointer
 #endif
 );
 
 AST_parameter_n_t *AST_declarator_to_param(
 #ifdef PROTO
-    ASTP_attributes_t   *attributes,
+    ASTP_attributes_t *attributes,
     AST_type_n_t *type,
     ASTP_declarator_n_t *declarator
 #endif
@@ -571,9 +554,9 @@ AST_parameter_n_t *AST_declarator_to_param(
 
 AST_type_p_n_t *AST_declarators_to_types(
 #ifdef PROTO
-    AST_type_n_t        *type_ptr,
+    AST_type_n_t *type_ptr,
     ASTP_declarator_n_t *declarators_ptr,
-    ASTP_attributes_t   *attributes
+    ASTP_attributes_t *attributes
 #endif
 );
 
@@ -583,7 +566,6 @@ AST_export_n_t *AST_export_node(
     AST_export_k_t kind
 #endif
 );
-
 
 AST_include_n_t *AST_include_node(
 #ifdef PROTO
@@ -600,19 +582,19 @@ AST_import_n_t *AST_import_node(
 
 AST_exception_n_t *AST_exception_node(
 #ifdef PROTO
-    NAMETABLE_id_t  excep_name
+    NAMETABLE_id_t excep_name
 #endif
 );
 
 AST_name_n_t *AST_name_node(
 #ifdef PROTO
-    NAMETABLE_id_t  name
+    NAMETABLE_id_t name
 #endif
 );
 
 void AST_init(
 #ifdef PROTO
-        void
+    void
 #endif
 );
 
@@ -624,7 +606,7 @@ AST_constant_n_t *AST_integer_constant(
 
 AST_interface_n_t *AST_interface_node(
 #ifdef PROTO
-      void
+    void
 #endif
 );
 
@@ -638,11 +620,11 @@ AST_operation_n_t *AST_operation_node(
 #ifdef PROTO
     AST_type_n_t *result_type,
     ASTP_declarator_n_t *declarator,
-    ASTP_attributes_t   *attributes
+    ASTP_attributes_t *attributes
 #endif
 );
 
-AST_parameter_n_t * AST_parameter_node(
+AST_parameter_n_t *AST_parameter_node(
 #ifdef PROTO
     NAMETABLE_id_t identifier
 #endif
@@ -662,8 +644,8 @@ AST_cs_char_n_t *AST_cs_char_node(
 
 AST_type_n_t *AST_set_type_attrs(
 #ifdef PROTO
-    AST_type_n_t        *type_node_ptr,
-    ASTP_attributes_t   *attributes
+    AST_type_n_t *type_node_ptr,
+    ASTP_attributes_t *attributes
 #endif
 );
 
@@ -691,7 +673,6 @@ AST_export_n_t *AST_types_to_exports(
 #endif
 );
 
-
 AST_array_n_t *AST_array_node(
 #ifdef PROTO
     AST_type_n_t *element_type_ptr
@@ -703,7 +684,6 @@ AST_array_index_n_t *AST_array_index_node(
     unsigned short array_size
 #endif
 );
-
 
 ASTP_array_index_n_t *ASTP_array_index_node(
 #ifdef PROTO
@@ -732,20 +712,19 @@ AST_constant_n_t *AST_char_constant(
 #endif
 );
 
-
 AST_arm_n_t *AST_declarator_to_arm(
 #ifdef PROTO
     AST_type_n_t *type_ptr,
     ASTP_declarator_n_t *declarator,
-    ASTP_attributes_t   *attributes
+    ASTP_attributes_t *attributes
 #endif
 );
 
 AST_field_n_t *AST_declarators_to_fields(
 #ifdef PROTO
     ASTP_declarator_n_t *declarators_ptr,
-    AST_type_n_t        *type_ptr,
-    ASTP_attributes_t   *attributes
+    AST_type_n_t *type_ptr,
+    ASTP_attributes_t *attributes
 #endif
 );
 
@@ -778,7 +757,6 @@ AST_constant_n_t *AST_enum_constant(
 #endif
 );
 
-
 AST_constant_n_t *AST_finish_constant_node(
 #ifdef PROTO
     AST_constant_n_t *constant_ptr,
@@ -801,8 +779,8 @@ AST_field_ref_n_t *AST_field_ref_node(
 
 AST_operation_n_t *AST_function_node(
 #ifdef PROTO
-    AST_type_n_t          *result_type,
-    NAMETABLE_id_t        op_name,
+    AST_type_n_t *result_type,
+    NAMETABLE_id_t op_name,
     AST_parameter_n_t *parameters
 #endif
 );
@@ -816,8 +794,8 @@ AST_arm_n_t *AST_label_arm(
 
 AST_type_n_t *AST_lookup_integer_type_node(
 #ifdef PROTO
-      AST_type_k_t    int_size,
-      int             int_signed
+    AST_type_k_t int_size,
+    int int_signed
 #endif
 );
 
@@ -851,11 +829,9 @@ AST_type_n_t *AST_pipe_node(
 #endif
 );
 
-
-
 AST_pointer_n_t *AST_pointer_node(
 #ifdef PROTO
-    AST_type_n_t * pointee
+    AST_type_n_t *pointee
 #endif
 );
 
@@ -872,7 +848,6 @@ AST_constant_n_t *AST_string_constant(
 #endif
 );
 
-
 AST_type_n_t *AST_structure_node(
 #ifdef PROTO
     AST_field_n_t *field_list,
@@ -883,9 +858,9 @@ AST_type_n_t *AST_structure_node(
 AST_field_n_t *AST_tag_declarators_to_fields(
 #ifdef PROTO
     ASTP_declarator_n_t *declarators,
-    NAMETABLE_id_t      identifier,
-    ASTP_attributes_t   *attributes,
-    AST_type_k_t        kind
+    NAMETABLE_id_t identifier,
+    ASTP_attributes_t *attributes,
+    AST_type_k_t kind
 #endif
 );
 
@@ -910,15 +885,15 @@ void AST_clear_type_attrs(
 
 boolean AST_lookup_field_attr(
 #ifdef PROTO
-    ASTP_attributes_t   *attributes,    /* [in] Attributes - bounds field is */
-                                        /*      linked list of field attrs   */
-    ASTP_attr_k_t       field_attr      /* [in] Field attribute to look up */
+    ASTP_attributes_t *attributes, /* [in] Attributes - bounds field is */
+                                   /*      linked list of field attrs   */
+    ASTP_attr_k_t field_attr       /* [in] Field attribute to look up */
 #endif
 );
 
 AST_field_attr_n_t *AST_set_field_attrs(
 #ifdef PROTO
-    ASTP_attributes_t  *attributes,
+    ASTP_attributes_t *attributes,
     ASTP_node_t *parent_node,
     AST_type_n_t *type_node
 #endif
@@ -973,9 +948,9 @@ AST_type_n_t *ASTP_chase_ptr_to_type(
 
 ASTP_node_t *ASTP_lookup_binding(
 #ifdef PROTO
-    NAMETABLE_id_t      name,
-    fe_node_k_t         node_kind,
-    boolean             noforward_ref
+    NAMETABLE_id_t name,
+    fe_node_k_t node_kind,
+    boolean noforward_ref
 #endif
 );
 
@@ -1000,9 +975,9 @@ void ASTP_set_fe_info(
 
 void ASTP_save_tag_ref(
 #ifdef PROTO
-    NAMETABLE_id_t      identifier,
-    AST_type_k_t        kind,
-    AST_type_n_t        *type_node_ptr
+    NAMETABLE_id_t identifier,
+    AST_type_k_t kind,
+    AST_type_n_t *type_node_ptr
 #endif
 );
 
@@ -1014,16 +989,15 @@ void ASTP_process_pa_type(
 
 void AST_set_flags(
 #ifdef PROTO
-    AST_flags_t         *flags,
-    ASTP_node_t         *node_ptr,
-    ASTP_attributes_t   *attributes
+    AST_flags_t *flags,
+    ASTP_node_t *node_ptr,
+    ASTP_attributes_t *attributes
 #endif
 );
 
-
 long AST_attribute_to_token(
 #ifdef PROTO
-    ASTP_attr_flag_t    *attribute
+    ASTP_attr_flag_t *attribute
 #endif
 );
 
@@ -1037,8 +1011,8 @@ AST_arm_n_t *AST_arm_node(
 
 void ASTP_parse_port(
 #ifdef PROTO
-      AST_interface_n_t   *interface_p,
-      STRTAB_str_t        port_string
+    AST_interface_n_t *interface_p,
+    STRTAB_str_t port_string
 #endif
 );
 
@@ -1051,13 +1025,13 @@ void ASTP_validate_forward_ref(
 NAMETABLE_id_t AST_generate_name(
 #ifdef PROTO
     AST_interface_n_t *int_p,
-    char              *suffix
+    char *suffix
 #endif
 );
 
 void ASTP_validate_integer(
 #ifdef PROTO
-      ASTP_exp_n_t *expression
+    ASTP_exp_n_t *expression
 #endif
 );
 
@@ -1075,17 +1049,16 @@ char *KEYWORDS_lookup_text(
 
 int KEYWORDS_screen(
 #ifdef PROTO
-    char * identifier,
-    NAMETABLE_id_t * id
+    char *identifier,
+    NAMETABLE_id_t *id
 #endif
 );
 
-void ASTP_set_array_rep_type
-(
+void ASTP_set_array_rep_type(
 #ifdef PROTO
-    AST_type_n_t        *type_node_ptr,
-    AST_type_n_t        *array_base_type,
-    boolean             is_varying
+    AST_type_n_t *type_node_ptr,
+    AST_type_n_t *array_base_type,
+    boolean is_varying
 #endif
 );
 

@@ -15,29 +15,29 @@
  *
  * Revision 1.1.13.1  1995/12/07  22:17:37  root
  * 	Submit OSF/DCE 1.2.1
- * 
+ *
  * 	HP revision /main/dat_xidl2/1  1995/11/17  17:03 UTC  dat
  * 	Merge second XIDL drop for DCE 1.2.1
  * 	[1995/12/07  21:11:29  root]
- * 
+ *
  * Revision 1.1.2.1  1995/10/23  01:48:03  bfc
  * 	oct 95 idl drop
  * 	[1995/10/23  00:43:41  bfc]
- * 
+ *
  * 	may 95 idl drop
  * 	[1995/10/21  22:57:07  bfc]
- * 
+ *
  * 	DCE for DEC OSF/1: populate from OSF DCE 1.1
  * 	[1995/10/21  17:24:24  bfc]
- * 
+ *
  * Revision 1.1.8.1  1993/10/14  12:34:30  hinxman
  * 	CR 8897 IDL compiler can fail silently with an internal error
  * 	[1993/10/14  12:34:03  hinxman]
- * 
+ *
  * Revision 1.1.6.2  1993/07/07  19:58:58  ganni
  * 	reduced stub idl sources
  * 	[1993/07/07  19:32:07  ganni]
- * 
+ *
  * $EndLog$
  */
 /*
@@ -82,14 +82,14 @@
 #include <signal.h>
 
 #ifdef vms
-#  include <types.h>
-#  include <stat.h>
-#  include <stsdef.h>
-#  include <descrip.h>
+#include <types.h>
+#include <stat.h>
+#include <stsdef.h>
+#include <descrip.h>
 #else
-#  include <sys/types.h>
-#  include <sys/stat.h>
-#  include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #endif
 
 #include <time.h>
@@ -118,10 +118,11 @@
  *
  */
 
-#define PCLOSE(stream) { \
-   fflush(stream); \
-   pclose(stream); \
-   }
+#define PCLOSE(stream)  \
+    {                   \
+        fflush(stream); \
+        pclose(stream); \
+    }
 
 /*
  * To minimize the limitation on the number of open files,
@@ -159,25 +160,25 @@ extern void acf_cleanup(
 
 extern void acf_init(
 #ifdef PROTO
-    boolean     *cmd_opt_arr,   /* [in] Array of command option flags */
-    void        **cmd_val_arr,  /* [in] Array of command option values */
-    char        *acf_file       /* [in] ACF file name */
+    boolean *cmd_opt_arr, /* [in] Array of command option flags */
+    void **cmd_val_arr,   /* [in] Array of command option values */
+    char *acf_file        /* [in] ACF file name */
 #endif
 );
 
-
 /* Local data definitions. */
 
-static boolean      *saved_cmd_opt;     /* Array of command option flags */
-static void         **saved_cmd_val;    /* Array of command option values */
+static boolean *saved_cmd_opt; /* Array of command option flags */
+static void **saved_cmd_val;   /* Array of command option values */
 
-typedef struct FE_import_file_n_t {
-        struct FE_import_file_n_t * next;
-    STRTAB_str_t   imported_fn_id;
-    STRTAB_str_t   imported_full_fn_id;
+typedef struct FE_import_file_n_t
+{
+    struct FE_import_file_n_t *next;
+    STRTAB_str_t imported_fn_id;
+    STRTAB_str_t imported_full_fn_id;
 } FE_import_file_n_t;
 
-static FE_import_file_n_t * imported_file_list = NULL;
+static FE_import_file_n_t *imported_file_list = NULL;
 
 extern boolean ASTP_parsing_main_idl;
 
@@ -185,7 +186,6 @@ extern boolean ASTP_parsing_main_idl;
  * Declare any lex/yacc global data that must be saved for a recursive parse.
  */
 LEX_YACC_EXTERNS;
-
 
 /*
 **  i n i t
@@ -206,7 +206,6 @@ static void FE_init()
     NAMETABLE_init();
     AST_init();
 }
-
 
 /*
 **  c p p
@@ -220,39 +219,38 @@ static void FE_init()
 #if defined(CPP)
 static void cpp
 #ifdef PROTO
-(
-    char        *cpp_cmd,       /* [in] Base command to invoke cpp */
-    char        *cpp_opt,       /* [in] Addtl command options for cpp */
-    char        *file_name,     /* [in] Source full filespec; "" => stdin */
-    char        *dst_file_name, /* [in] Target filespec (VMS) */
-    char        **def_strings,  /* [in] List of #define's for preprocessor */
-    char        **undef_strings,/* [in] List of #undefine's for preprocessor */
-    char        **idir_list,    /* [in] List of -I directories */
-    FILE        **cpp_output    /*[out] File ID of cpp output */
-)
+    (
+        char *cpp_cmd,        /* [in] Base command to invoke cpp */
+        char *cpp_opt,        /* [in] Addtl command options for cpp */
+        char *file_name,      /* [in] Source full filespec; "" => stdin */
+        char *dst_file_name,  /* [in] Target filespec (VMS) */
+        char **def_strings,   /* [in] List of #define's for preprocessor */
+        char **undef_strings, /* [in] List of #undefine's for preprocessor */
+        char **idir_list,     /* [in] List of -I directories */
+        FILE **cpp_output     /*[out] File ID of cpp output */
+    )
 #else
-(cpp_cmd, cpp_opt, file_name, dst_file_name, def_strings, undef_strings,
-idir_list, cpp_output)
-    char        *cpp_cmd;       /* [in] Command to invoke cpp */
-    char        *cpp_opt;       /* [in] Addtl command options for cpp */
-    char        *file_name;     /* [in] Source full filespec; "" => stdin */
-    char        *dst_file_name; /* [in] Target filespec (VMS) */
-    char        **def_strings;  /* [in] List of #define's for preprocessor */
-    char        **undef_strings;/* [in] List of #undefine's for preprocessor */
-    char        **idir_list;    /* [in] List of -I directories */
-    FILE        **cpp_output;   /*[out] File ID of cpp output */
+    (cpp_cmd, cpp_opt, file_name, dst_file_name, def_strings, undef_strings,
+     idir_list, cpp_output) char *cpp_cmd; /* [in] Command to invoke cpp */
+char *cpp_opt;                             /* [in] Addtl command options for cpp */
+char *file_name;                           /* [in] Source full filespec; "" => stdin */
+char *dst_file_name;                       /* [in] Target filespec (VMS) */
+char **def_strings;                        /* [in] List of #define's for preprocessor */
+char **undef_strings;                      /* [in] List of #undefine's for preprocessor */
+char **idir_list;                          /* [in] List of -I directories */
+FILE **cpp_output;                         /*[out] File ID of cpp output */
 #endif
 
 {
     extern FILE *yyin;
     extern FILE *popen();
 #ifdef VMS
-    boolean     paren_flag;
-    char        dir[max_string_len], name[max_string_len], type[max_string_len];
-    char        expanded_file_name[max_string_len];
-    int         system_status;
+    boolean paren_flag;
+    char dir[max_string_len], name[max_string_len], type[max_string_len];
+    char expanded_file_name[max_string_len];
+    int system_status;
 #endif
-    char        cmd[max_string_len];    /* Command to spawn cpp */
+    char cmd[max_string_len]; /* Command to spawn cpp */
 
     cmd[0] = '\0';
 
@@ -302,10 +300,10 @@ idir_list, cpp_output)
 #ifdef VMS
     if (paren_flag)
         /* Overwrite trailing comma with paren. */
-        cmd[strlen(cmd)-1] = ')';
+        cmd[strlen(cmd) - 1] = ')';
 #endif
 
-    /* Append the -U strings. */
+        /* Append the -U strings. */
 
 #ifdef VMS
     if (*undef_strings)
@@ -331,7 +329,7 @@ idir_list, cpp_output)
 #ifdef VMS
     if (paren_flag)
         /* Overwrite trailing comma with paren. */
-        cmd[strlen(cmd)-1] = ')';
+        cmd[strlen(cmd) - 1] = ')';
 #endif
 
     /* If cpp_cmd is the default, append the -I directories. */
@@ -362,14 +360,14 @@ idir_list, cpp_output)
 #ifdef VMS
         if (paren_flag)
             /* Overwrite trailing comma with paren. */
-            cmd[strlen(cmd)-1] = ')';
+            cmd[strlen(cmd) - 1] = ')';
 #endif
     }
 
     /* Now execute the cpp command and open output file or pipe. */
 
     if (saved_cmd_opt[opt_verbose])
-        message_print(NIDL_RUNCPP,cmd);
+        message_print(NIDL_RUNCPP, cmd);
 
 #ifdef VMS
     {
@@ -383,9 +381,9 @@ idir_list, cpp_output)
             errvec[0].msg_id = NIDL_INVOKECPP;
             errvec[1].msg_id = NIDL_SYSERRMSG;
 #ifdef VAXC
-            errvec[1].arg1   = strerror(EVMSERR,system_status);
+            errvec[1].arg1 = strerror(EVMSERR, system_status);
 #else
-            errvec[1].arg1   = strerror(EVMSERR);
+            errvec[1].arg1 = strerror(EVMSERR);
 #endif
             error_list(2, errvec, TRUE);
         }
@@ -403,7 +401,7 @@ idir_list, cpp_output)
     fflush(stdin);
     if ((*cpp_output = fopen(dst_file_name, "r")) == NULL)
         error(NIDL_INVOKECPP);
-    
+
 #else
     if ((*cpp_output = popen(cmd, "r")) == 0)
         error(NIDL_INVOKECPP);
@@ -411,7 +409,6 @@ idir_list, cpp_output)
 #endif
 }
 #endif
-
 
 /*
 **  p a r s e _ a c f
@@ -425,18 +422,18 @@ idir_list, cpp_output)
 **              != 0    => failure
 */
 
-static boolean parse_acf        /* Returns true on success */
+static boolean parse_acf /* Returns true on success */
 #ifdef PROTO
-(
-    boolean     *cmd_opt,       /* [in] Array of command option flags */
-    void        **cmd_val,      /* [in] Array of command option values */
-    char        *acf_file       /* [in] ACF full file name */
-)
+    (
+        boolean *cmd_opt, /* [in] Array of command option flags */
+        void **cmd_val,   /* [in] Array of command option values */
+        char *acf_file    /* [in] ACF full file name */
+    )
 #else
-(cmd_opt, cmd_val, acf_file)
-    boolean     *cmd_opt;       /* [in] Array of command option flags */
-    void        **cmd_val;      /* [in] Array of command option values */
-    char        *acf_file;      /* [in] ACF full file name */
+    (cmd_opt, cmd_val, acf_file)
+        boolean *cmd_opt; /* [in] Array of command option flags */
+void **cmd_val;           /* [in] Array of command option values */
+char *acf_file;           /* [in] ACF full file name */
 #endif
 
 {
@@ -447,16 +444,16 @@ static boolean parse_acf        /* Returns true on success */
     );
 
     extern FILE *acf_yyin;
-    extern int  acf_yylineno;
-    extern int  acf_yynerrs;
-    extern int  acf_yyprevious;
+    extern int acf_yylineno;
+    extern int acf_yynerrs;
+    // extern int acf_yyprevious;
     extern char acf_yytext[];
 
-    FILE        **yyin_sp;              /* Used to save yy pointer variables */
-    int         *yylineno_sp;
-    int         *yynerrs_sp;
-    char        *yytext_sp;
-    char        temp_path_name[max_string_len]; /* Full temp file pathname */
+    FILE **yyin_sp; /* Used to save yy pointer variables */
+    int *yylineno_sp;
+    int *yynerrs_sp;
+    char *yytext_sp;
+    char temp_path_name[max_string_len]; /* Full temp file pathname */
 
     if (cmd_opt[opt_verbose])
         message_print(NIDL_PROCESSACF, acf_file);
@@ -466,12 +463,15 @@ static boolean parse_acf        /* Returns true on success */
     /*
      * lex & yacc intializations
      */
-    yylineno = 1;                       /* Not sure why/if these 3 are needed */
+    yylineno = 1; /* Not sure why/if these 3 are needed */
+#if 0
+    /* Again - not part of the current template */
     yyprevious = (int)'\n';
-    yysptr= yysbuf;
+    yysptr = yysbuf;
+#endif // 0
 
     acf_yylineno = 1;
-    acf_yyprevious = (int)'\n';
+    // acf_yyprevious = (int)'\n';
 
     /*
      * Hack the yy pointer variables to point at the ACF-specific yy variables.
@@ -479,15 +479,15 @@ static boolean parse_acf        /* Returns true on success */
      * original state.  This hack allows us to share error reporting routines
      * with the main parser.  See errors.h for details.
      */
-    yyin_sp     = yyin_p;
+    yyin_sp = yyin_p;
     yylineno_sp = yylineno_p;
-    yynerrs_sp  = yynerrs_p;
-    yytext_sp   = yytext_p;
+    yynerrs_sp = yynerrs_p;
+    yytext_sp = yytext_p;
 
-    yyin_p      = &acf_yyin;
-    yylineno_p  = &acf_yylineno;
-    yynerrs_p   = &acf_yynerrs;
-    yytext_p    = acf_yytext;
+    yyin_p = &acf_yyin;
+    yylineno_p = &acf_yylineno;
+    yynerrs_p = &acf_yynerrs;
+    yytext_p = acf_yytext;
 
     acf_init(cmd_opt, cmd_val, acf_file);
 
@@ -499,13 +499,13 @@ static boolean parse_acf        /* Returns true on success */
         ASSERTION(max_string_len > L_tmpnam);
         FILE_parse(acf_file, (char *)NULL, temp_file_name, (char *)NULL);
 
-        if(CMD_opts[opt_out] == FALSE)
+        if (CMD_opts[opt_out] == FALSE)
             FILE_form_filespec(temp_file_name, (char *)NULL, ".acf",
                                (char *)NULL, temp_path_name);
         else
             FILE_form_filespec(temp_file_name, CMD_vals[opt_out], ".acf",
                                (char *)NULL, temp_path_name);
-        sprintf(temp_path_name, "%s_%d",temp_path_name,clock());
+        sprintf(temp_path_name, "%s_%d", temp_path_name, clock());
 #else
         temp_path_name[0] = '\0';
 #endif
@@ -540,17 +540,16 @@ static boolean parse_acf        /* Returns true on success */
         fclose(acf_yyin);
 #endif
 
-    yyin_p      = yyin_sp;
-    yylineno_p  = yylineno_sp;
-    yynerrs_p   = yynerrs_sp;
-    yytext_p    = yytext_sp;
+    yyin_p = yyin_sp;
+    yylineno_p = yylineno_sp;
+    yynerrs_p = yynerrs_sp;
+    yytext_p = yytext_sp;
 
     if (acf_yynerrs != 0)
         return false;
 
     return true;
 }
-
 
 /*
 ** a l r e a d y _ i m p o r t e d
@@ -564,30 +563,30 @@ static boolean parse_acf        /* Returns true on success */
 
 static boolean already_imported
 #ifdef PROTO
-(
-    STRTAB_str_t import_path_id      /* The name to check */
-)
+    (
+        STRTAB_str_t import_path_id /* The name to check */
+    )
 #else
-(import_path_id)
-    STRTAB_str_t import_path_id;
+    (import_path_id)
+        STRTAB_str_t import_path_id;
 #endif
 
 {
-    char                 new_import_full_fn[max_string_len];
-    STRTAB_str_t         new_import_full_fn_id;
-    STRTAB_str_t         new_import_fn_id;
-    char                 base_file_name[max_string_len];
-    char                 base_file_ext[max_string_len];
-    struct               stat stat_buf;
-    FE_import_file_n_t * imported_file;
-    char              ** idir_list;
-    boolean              alr_imp;
-    char              * file_name;
+    char new_import_full_fn[max_string_len];
+    STRTAB_str_t new_import_full_fn_id;
+    STRTAB_str_t new_import_fn_id;
+    char base_file_name[max_string_len];
+    char base_file_ext[max_string_len];
+    struct stat stat_buf;
+    FE_import_file_n_t *imported_file;
+    char **idir_list;
+    boolean alr_imp;
+    char *file_name;
 
     /*
      * Get a string to lookup.
      */
-    STRTAB_str_to_string (import_path_id, &file_name);
+    STRTAB_str_to_string(import_path_id, &file_name);
     idir_list = (char **)saved_cmd_val[opt_idir];
 
     /*
@@ -623,7 +622,7 @@ static boolean already_imported
              */
             alr_imp = true;
         }
-        imported_file = imported_file -> next;
+        imported_file = imported_file->next;
     }
 
     /*
@@ -631,16 +630,15 @@ static boolean already_imported
      */
     if (!alr_imp)
     {
-        imported_file = (FE_import_file_n_t *) MALLOC (sizeof(FE_import_file_n_t));
-        imported_file -> imported_fn_id = new_import_fn_id;
-        imported_file -> imported_full_fn_id = new_import_full_fn_id;
-        imported_file -> next = imported_file_list;
+        imported_file = (FE_import_file_n_t *)MALLOC(sizeof(FE_import_file_n_t));
+        imported_file->imported_fn_id = new_import_fn_id;
+        imported_file->imported_full_fn_id = new_import_full_fn_id;
+        imported_file->next = imported_file_list;
         imported_file_list = imported_file;
     }
 
     return alr_imp;
 }
-
 
 /*
 **  p a r s e
@@ -654,45 +652,32 @@ static boolean already_imported
 **              NULL otherwise.
 */
 
-static boolean parse
-#ifdef PROTO
-(
-    boolean     *cmd_opt,       /* [in] Array of command option flags */
-    void        **cmd_val,      /* [in] Array of command option values */
-    STRTAB_str_t idl_sid,       /* [in] IDL filespec stringtable ID */
-                                /*      STRTAB_NULL_STR => stdin */
-    boolean     idir_valid,     /* [in] true => use import directory list */
-    AST_interface_n_t **int_p   /*[out] Ptr to interface node */
+static boolean parse(
+    boolean *cmd_opt,         /* [in] Array of command option flags */
+    void **cmd_val,           /* [in] Array of command option values */
+    STRTAB_str_t idl_sid,     /* [in] IDL filespec stringtable ID */
+                              /*      STRTAB_NULL_STR => stdin */
+    boolean idir_valid,       /* [in] true => use import directory list */
+    AST_interface_n_t **int_p /*[out] Ptr to interface node */
 )
-#else
-(cmd_opt, cmd_val, idl_sid, idir_valid, int_p)
-    boolean     *cmd_opt;       /* [in] Array of command option flags */
-    void        **cmd_val;      /* [in] Array of command option values */
-    STRTAB_str_t idl_sid;       /* [in] IDL filespec stringtable ID */
-                                /*      STRTAB_NULL_STR => stdin */
-    boolean     idir_valid;     /* [in] true => use import directory list */
-    AST_interface_n_t **int_p;  /*[out] Ptr to interface node */
-#endif
-
 {
     extern FILE *yyin;
-    extern int  yylineno;
+    extern int yylineno;
     extern char yytext[];
 
-    char        *sf;                            /* Source filespec */
-    char        full_path_name[max_string_len]; /* Full source pathname */
-    char        temp_path_name[max_string_len]; /* Full temp file pathname */
-    STRTAB_str_t full_pn_id;                    /* Full src path string id */
-    char        **idir_list;                    /* List of search directories */
-    char        file_dir[max_string_len];       /* Directory part of src file */
-    boolean     file_dir_is_cwd;                /* T => file_dir current dir */
-    char        file_name[max_string_len];      /* File name part of src file */
-    char        acf_file[max_string_len];       /* ACF file name w/o dir */
-    char        full_acf_name[max_string_len];  /* Full ACF pathname */
-    boolean     acf_exists;                     /* T => ACF file exists */
-    struct stat stat_buf;                       /* File lookup stats */
-    int         i;
-
+    char *sf;                            /* Source filespec */
+    char full_path_name[max_string_len]; /* Full source pathname */
+    char temp_path_name[max_string_len]; /* Full temp file pathname */
+    STRTAB_str_t full_pn_id;             /* Full src path string id */
+    char **idir_list;                    /* List of search directories */
+    char file_dir[max_string_len];       /* Directory part of src file */
+    boolean file_dir_is_cwd;             /* T => file_dir current dir */
+    char file_name[max_string_len];      /* File name part of src file */
+    char acf_file[max_string_len];       /* ACF file name w/o dir */
+    char full_acf_name[max_string_len];  /* Full ACF pathname */
+    boolean acf_exists;                  /* T => ACF file exists */
+    struct stat stat_buf;                /* File lookup stats */
+    int i;
 
     /* One-time saving of command array addresses to static storage. */
     if (saved_cmd_opt == NULL)
@@ -709,12 +694,12 @@ static boolean parse
     else
         idir_list = (char **)NULL;
 
-    if (idl_sid == STRTAB_NULL_STR)     /* stdin */
+    if (idl_sid == STRTAB_NULL_STR) /* stdin */
         full_path_name[0] = '\0';
     else
     {
         STRTAB_str_to_string(idl_sid, &sf);
-        if  (!FILE_lookup(sf, idir_list, &stat_buf, full_path_name))
+        if (!FILE_lookup(sf, idir_list, &stat_buf, full_path_name))
         {
             error(NIDL_FILENOTFND, sf);
             return false;
@@ -732,13 +717,13 @@ static boolean parse
         ASSERTION(max_string_len > L_tmpnam);
         FILE_parse(full_path_name, (char *)NULL, temp_file_name, (char *)NULL);
 
-        if(CMD_opts[opt_out] == FALSE)
+        if (CMD_opts[opt_out] == FALSE)
             FILE_form_filespec(temp_file_name, (char *)NULL, ".idl",
                                (char *)NULL, temp_path_name);
         else
             FILE_form_filespec(temp_file_name, CMD_vals[opt_out], ".idl",
                                (char *)NULL, temp_path_name);
-        sprintf(temp_path_name, "%s_%d",temp_path_name,clock());
+        sprintf(temp_path_name, "%s_%d", temp_path_name, clock());
 #else
         temp_path_name[0] = '\0';
 #endif
@@ -754,11 +739,16 @@ static boolean parse
     }
     else
 #endif
-        if (full_path_name[0] == '\0')  /* stdin */
+    {
+        if (full_path_name[0] == '\0') /* stdin */
+        {
             yyin = stdin;
+        }
         else
+        {
             FILE_open(full_path_name, &yyin);
-
+        }
+    }
     /*
      * Setup file name for errors to the full file name
      */
@@ -768,24 +758,27 @@ static boolean parse
      * lex & yacc intializations
      */
     yylineno = 1;
+#if 0
+    // this does not seem to be used by the current template - may need to replace it with something?
     yyprevious = (int)'\n';
-    yysptr= yysbuf;
+    yysptr = yysbuf;
+#endif // 0
 
     /*
      * Hack the yy pointer variables to point at the IDL-specific yy variables
      * before starting the parse.  This hack allows us to share error reporting
      * routines with the ACF parser.  See errors.h for details.
      */
-    yyin_p      = &yyin;
-    yylineno_p  = &yylineno;
-    yynerrs_p   = &yynerrs;
-    yytext_p    = yytext;
+    yyin_p = &yyin;
+    yylineno_p = &yylineno;
+    yynerrs_p = &yynerrs;
+    yytext_p = yytext;
 
     if (yyparse() != 0 && error_count == 0)
         log_error(yylineno, NIDL_COMPABORT);
     *int_p = the_interface;
 
-#if defined(VMS) || defined(WIN95)        
+#if defined(VMS) || defined(WIN95)
     fclose(yyin);
     if (cmd_opt[opt_cpp])
         FILE_delete(temp_path_name);
@@ -797,7 +790,7 @@ static boolean parse
 #endif
 
     if (error_count != 0)
-        return false;        /* Error parsing IDL */
+        return false; /* Error parsing IDL */
 
     /* Successful parse: save IDL filespec in interface node. */
     if (the_interface != NULL)
@@ -807,7 +800,8 @@ static boolean parse
     }
     else
     {
-        if (ASTP_parsing_main_idl) return false;    /* Shouldn't happen */
+        if (ASTP_parsing_main_idl)
+            return false; /* Shouldn't happen */
     }
 
     /*
@@ -841,10 +835,10 @@ static boolean parse
 
     if (!file_dir_is_cwd)
     {
-        for (i = 0 ; idir_list[i] != NULL ; i++)
+        for (i = 0; idir_list[i] != NULL; i++)
             ;
         idir_list[i] = file_dir;
-        idir_list[i+1] = NULL;
+        idir_list[i + 1] = NULL;
     }
 
     acf_exists = FILE_lookup(acf_file, idir_list, &stat_buf, full_acf_name);
@@ -868,15 +862,14 @@ static boolean parse
         idir_list[i] = NULL;
 
     if (!acf_exists)
-        return true;   /* No ACF; return success */
+        return true; /* No ACF; return success */
 
     /* Parse the ACF. */
     if (!parse_acf(cmd_opt, cmd_val, full_acf_name))
-        return false;            /* Error parsing ACF */
+        return false; /* Error parsing ACF */
 
-    return true;       /* Both IDL and ACF parsed without errors */
+    return true; /* Both IDL and ACF parsed without errors */
 }
-
 
 /*
  *  F E _ p a r s e _ i m p o r t
@@ -896,33 +889,33 @@ static boolean parse
 
 AST_interface_n_t *FE_parse_import
 #ifdef PROTO
-(
-    STRTAB_str_t    new_input   /* [in] string table id of file to parse */
-)
+    (
+        STRTAB_str_t new_input /* [in] string table id of file to parse */
+    )
 #else
-(new_input)
-    STRTAB_str_t    new_input;  /* [in] string table id of file to parse */
+    (new_input)
+        STRTAB_str_t new_input; /* [in] string table id of file to parse */
 #endif
 
 {
-LEX_YACC_STATE_BUFFER(saved_state);
-boolean saved_ASTP_parsing_main_idl;
-char saved_current_file[ PATH_MAX ];
-STRTAB_str_t saved_error_file_name_id;
-AST_interface_n_t *int_p;
-int saved_op_count;
+    LEX_YACC_STATE_BUFFER(saved_state);
+    boolean saved_ASTP_parsing_main_idl;
+    char saved_current_file[PATH_MAX];
+    STRTAB_str_t saved_error_file_name_id;
+    AST_interface_n_t *int_p;
+    int saved_op_count;
 
-/* Saved interface attributes */
-int             saved_interface_pointer_class;
-AST_interface_n_t *saved_interface;
+    /* Saved interface attributes */
+    int saved_interface_pointer_class;
+    AST_interface_n_t *saved_interface;
 
-/*
+    /*
  * Return now, if the file is already imported.
  */
-    if (already_imported (new_input))
+    if (already_imported(new_input))
         return (AST_interface_n_t *)NULL;
 
-/*
+    /*
  * Save information used by error reporting routines.
  */
     SAVE_LEX_YACC_STATE(saved_state);
@@ -930,38 +923,37 @@ AST_interface_n_t *saved_interface;
     inq_name_for_errors(saved_current_file);
     saved_error_file_name_id = error_file_name_id;
 
-/*
+    /*
  * Save interface information
  */
-    saved_interface                             = the_interface;
-    saved_interface_pointer_class               = interface_pointer_class;
+    saved_interface = the_interface;
+    saved_interface_pointer_class = interface_pointer_class;
 
     /*
      * If cxx, save the operation count so can properly
      * count inherited operations.
      */
-    if ((int)CMD_vals[opt_lang] == opt_lang_cxx )
+    if ((int)CMD_vals[opt_lang] == opt_lang_cxx)
         saved_op_count = the_interface->op_count;
 
-
-/*
+    /*
  * Initialize interface attributes
  */
     the_interface = NULL;
     interface_pointer_class = 0;
 
-
-/*
+    /*
  * We have now saved away all the state of the current parse.
  * Initialize a few cells, open the imported file and recursively invoke the
  * parse.
  */
 
-    if (saved_interface->inherited_interface_name == NAMETABLE_NIL_ID) {
-	ASTP_parsing_main_idl = false;
+    if (saved_interface->inherited_interface_name == NAMETABLE_NIL_ID)
+    {
+        ASTP_parsing_main_idl = false;
     }
 
-/*
+    /*
  * Parse the file.  Routine parse normally returns a AST_interface_n_t,
  * but since we are not parsing the main IDL, we don't care about it.
  * The "true" argument says to search -I directories for the file.
@@ -969,67 +961,69 @@ AST_interface_n_t *saved_interface;
 
     parse(saved_cmd_opt, saved_cmd_val, new_input, true, &int_p);
 
+    if (saved_interface->inherited_interface_name == the_interface->name)
+    {
+        AST_export_n_t *ep = the_interface->exports;
+        AST_export_n_t *op;
 
-    if (saved_interface->inherited_interface_name == the_interface->name) {
-	AST_export_n_t *ep = the_interface->exports;
-	AST_export_n_t *op;
-
-        if ((int)CMD_vals[opt_lang] == opt_lang_cxx ) {
-            /*    
-            **  do com style inheritance by pulling in the base 
+        if ((int)CMD_vals[opt_lang] == opt_lang_cxx)
+        {
+            /*
+            **  do com style inheritance by pulling in the base
 	    **  class interface's operations.
             */
-	    /*saved_interface->inherited_interface_name = NAMETABLE_NIL_ID;*/
-	    saved_interface->op_count = the_interface->op_count;
+            /*saved_interface->inherited_interface_name = NAMETABLE_NIL_ID;*/
+            saved_interface->op_count = the_interface->op_count;
 
-	    for (; ep != NULL; ep = ep->next) {
-	        if (ep->kind != AST_operation_k) continue;
+            for (; ep != NULL; ep = ep->next)
+            {
+                if (ep->kind != AST_operation_k)
+                    continue;
 
-		/*
+                /*
 		 * static and constructor operations are not inherited
 		 */
-	        if (AST_STATIC_SET(ep->thing_p.exported_operation)) continue;
-	        if (IS_CONSTRUCTOR(ep->thing_p.exported_operation)) continue;
+                if (AST_STATIC_SET(ep->thing_p.exported_operation))
+                    continue;
+                if (IS_CONSTRUCTOR(ep->thing_p.exported_operation))
+                    continue;
 
-	        op = AST_export_node(
-			 (ASTP_node_t *) ep->thing_p.exported_operation,
-			 AST_operation_k
-		);
+                op = AST_export_node(
+                    (ASTP_node_t *)ep->thing_p.exported_operation,
+                    AST_operation_k);
 
-		/*
+                /*
 		 * assign the operation number to this operation
-		 * relative to any inherited operations. 
+		 * relative to any inherited operations.
 		 */
-		op->thing_p.exported_operation->op_number=saved_op_count++;
+                op->thing_p.exported_operation->op_number = saved_op_count++;
 
-	        saved_interface->exports = 
-		    (AST_export_n_t * ) AST_concat_element(
-			   (ASTP_node_t *) saved_interface->exports,
-			   (ASTP_node_t*)op
-		);
-	    }
+                saved_interface->exports =
+                    (AST_export_n_t *)AST_concat_element(
+                        (ASTP_node_t *)saved_interface->exports,
+                        (ASTP_node_t *)op);
+            }
 
-	    /*
+            /*
 	     * update to operation count to include base class operations
 	     */
-	    saved_interface->op_count = saved_op_count;
+            saved_interface->op_count = saved_op_count;
         }
     }
 
-/*
+    /*
  * Restore interface information
  */
-    the_interface                         = saved_interface;
-    interface_pointer_class               = saved_interface_pointer_class;
+    the_interface = saved_interface;
+    interface_pointer_class = saved_interface_pointer_class;
 
-
-/*
+    /*
  * The recursive parse is done.  Restore the state of the previous parse.
  * First, the things that are simple to restore. Essentially scalars.
  */
     RESTORE_LEX_YACC_STATE(saved_state);
 
-/*
+    /*
  * Restore information used by error reporting routines.
  */
     ASTP_parsing_main_idl = saved_ASTP_parsing_main_idl;
@@ -1038,7 +1032,6 @@ AST_interface_n_t *saved_interface;
 
     return int_p;
 }
-
 
 /*
 **  p a r s e _ i d l
@@ -1049,33 +1042,33 @@ AST_interface_n_t *saved_interface;
 **      a boolean status if any errors were encountered.
 */
 
-static boolean parse_idl        /* Returns true on success */
+static boolean parse_idl /* Returns true on success */
 #ifdef PROTO
-(
-    boolean     *cmd_opt,       /* [in] Array of command option flags */
-    void        **cmd_val,      /* [in] Array of command option values */
-    STRTAB_str_t idl_sid,       /* [in] IDL filespec stringtable ID */
-                                /*      STRTAB_NULL_STR => stdin */
-    AST_interface_n_t **int_p   /*[out] Ptr to interface node */
-)
+    (
+        boolean *cmd_opt,         /* [in] Array of command option flags */
+        void **cmd_val,           /* [in] Array of command option values */
+        STRTAB_str_t idl_sid,     /* [in] IDL filespec stringtable ID */
+                                  /*      STRTAB_NULL_STR => stdin */
+        AST_interface_n_t **int_p /*[out] Ptr to interface node */
+    )
 #else
-(cmd_opt, cmd_val, idl_sid, int_p)
-    boolean     *cmd_opt;       /* [in] Array of command option flags */
-    void        **cmd_val;      /* [in] Array of command option values */
-    STRTAB_str_t idl_sid;       /* [in] IDL filespec stringtable ID */
-                                /*      STRTAB_NULL_STR => stdin */
-    AST_interface_n_t **int_p;  /*[out] Ptr to interface node */
+    (cmd_opt, cmd_val, idl_sid, int_p)
+        boolean *cmd_opt;  /* [in] Array of command option flags */
+void **cmd_val;            /* [in] Array of command option values */
+STRTAB_str_t idl_sid;      /* [in] IDL filespec stringtable ID */
+                           /*      STRTAB_NULL_STR => stdin */
+AST_interface_n_t **int_p; /*[out] Ptr to interface node */
 #endif
 
 {
-    boolean status;                     /* Status to return */
-    FE_import_file_n_t *imported_file;  /* Main IDL file info */
-    char    *file_name;                 /* Main IDL file name */
-    char    imported_fn[max_string_len];/* Main IDL full file name */
-    struct stat stat_buf;               /* File lookup info */
-    char    file_name_part[max_string_len];/* Main IDL file name part */
-    char    file_type_part[max_string_len];/* Main IDL file type part */
-    boolean name_warning = false;       /* Warn on name used */
+    boolean status;                      /* Status to return */
+    FE_import_file_n_t *imported_file;   /* Main IDL file info */
+    char *file_name;                     /* Main IDL file name */
+    char imported_fn[max_string_len];    /* Main IDL full file name */
+    struct stat stat_buf;                /* File lookup info */
+    char file_name_part[max_string_len]; /* Main IDL file name part */
+    char file_type_part[max_string_len]; /* Main IDL file type part */
+    boolean name_warning = false;        /* Warn on name used */
 
     if (idl_sid != STRTAB_NULL_STR)
     {
@@ -1091,19 +1084,29 @@ static boolean parse_idl        /* Returns true on success */
          * Issue a warning on any system IDL files a user might
          * accidentally chose one of those name and get strange behavior.
          */
-        if (!strcmp(file_name_part,"iovector.idl")) name_warning = true;
-        else if (!strcmp(file_name_part,"lbase.idl")) name_warning = true;
-        else if (!strcmp(file_name_part,"nbase.idl")) name_warning = true;
-        else if (!strcmp(file_name_part,"ncastat.idl")) name_warning = true;
-        else if (!strcmp(file_name_part,"ndrold.idl")) name_warning = true;
-        else if (!strcmp(file_name_part,"rpc.idl")) name_warning = true;
-        else if (!strcmp(file_name_part,"rpcsts.idl")) name_warning = true;
-        else if (!strcmp(file_name_part,"rpctypes.idl")) name_warning = true;
-        else if (!strcmp(file_name_part,"twr.idl")) name_warning = true;
-        else if (!strcmp(file_name_part,"uuid.idl")) name_warning = true;
+        if (!strcmp(file_name_part, "iovector.idl"))
+            name_warning = true;
+        else if (!strcmp(file_name_part, "lbase.idl"))
+            name_warning = true;
+        else if (!strcmp(file_name_part, "nbase.idl"))
+            name_warning = true;
+        else if (!strcmp(file_name_part, "ncastat.idl"))
+            name_warning = true;
+        else if (!strcmp(file_name_part, "ndrold.idl"))
+            name_warning = true;
+        else if (!strcmp(file_name_part, "rpc.idl"))
+            name_warning = true;
+        else if (!strcmp(file_name_part, "rpcsts.idl"))
+            name_warning = true;
+        else if (!strcmp(file_name_part, "rpctypes.idl"))
+            name_warning = true;
+        else if (!strcmp(file_name_part, "twr.idl"))
+            name_warning = true;
+        else if (!strcmp(file_name_part, "uuid.idl"))
+            name_warning = true;
 
         if (name_warning)
-            message_print(NIDL_SYSIDLNAME,file_name);
+            message_print(NIDL_SYSIDLNAME, file_name);
 
         /*
          * Note that a lookup failure will not report a failure here;
@@ -1112,7 +1115,7 @@ static boolean parse_idl        /* Returns true on success */
         if (FILE_lookup(file_name, (char **)NULL, &stat_buf, imported_fn))
         {
             imported_file = (FE_import_file_n_t *)
-                            MALLOC(sizeof(FE_import_file_n_t));
+                MALLOC(sizeof(FE_import_file_n_t));
             imported_file->imported_fn_id = STRTAB_add_string(file_name_part);
             imported_file->imported_full_fn_id = STRTAB_add_string(imported_fn);
             imported_file->next = imported_file_list;
@@ -1133,7 +1136,6 @@ static boolean parse_idl        /* Returns true on success */
 
     return status;
 }
-
 
 /*
 **  F E _ m a i n
@@ -1144,22 +1146,22 @@ static boolean parse_idl        /* Returns true on success */
 **          the components that can issue messages for the verbose option.
 */
 
-boolean FE_main                 /* Returns true on success */
+boolean FE_main /* Returns true on success */
 #ifdef PROTO
-(
-    boolean     *cmd_opt,       /* [in] Array of command option flags */
-    void        **cmd_val,      /* [in] Array of command option values */
-    STRTAB_str_t idl_sid,       /* [in] IDL filespec stringtable ID */
-                                /*      STRTAB_NULL_STR => stdin */
-    AST_interface_n_t **int_p   /*[out] Ptr to interface node */
-)
+    (
+        boolean *cmd_opt,         /* [in] Array of command option flags */
+        void **cmd_val,           /* [in] Array of command option values */
+        STRTAB_str_t idl_sid,     /* [in] IDL filespec stringtable ID */
+                                  /*      STRTAB_NULL_STR => stdin */
+        AST_interface_n_t **int_p /*[out] Ptr to interface node */
+    )
 #else
-(cmd_opt, cmd_val, idl_sid, int_p)
-    boolean     *cmd_opt;       /* [in] Array of command option flags */
-    void        **cmd_val;      /* [in] Array of command option values */
-    STRTAB_str_t idl_sid;       /* [in] IDL filespec stringtable ID */
-                                /*      STRTAB_NULL_STR => stdin */
-    AST_interface_n_t **int_p;  /*[out] Ptr to interface node */
+    (cmd_opt, cmd_val, idl_sid, int_p)
+        boolean *cmd_opt;  /* [in] Array of command option flags */
+void **cmd_val;            /* [in] Array of command option values */
+STRTAB_str_t idl_sid;      /* [in] IDL filespec stringtable ID */
+                           /*      STRTAB_NULL_STR => stdin */
+AST_interface_n_t **int_p; /*[out] Ptr to interface node */
 #endif
 
 {
@@ -1197,7 +1199,6 @@ boolean FE_main                 /* Returns true on success */
     }
     else
         message_print(NIDL_NOSEMCHECK);
-
 
 #ifdef DUMPERS
     /* Dump the AST (after other frontend components) if requested. */

@@ -17,56 +17,56 @@
  *
  * Revision 1.1.22.1  1995/12/07  22:12:10  root
  * 	Submit OSF/DCE 1.2.1
- * 
+ *
  * 	HP revision /main/dat_xidl2/1  1995/11/17  17:01 UTC  dat
  * 	Merge second XIDL drop for DCE 1.2.1
  * 	[1995/12/07  21:09:26  root]
- * 
+ *
  * Revision 1.1.2.1  1995/10/23  01:47:06  bfc
  * 	oct 95 idl drop
  * 	[1995/10/23  01:46:20  bfc]
- * 
+ *
  * 	may 95 idl drop
  * 	[1995/10/21  21:23:49  bfc]
- * 
+ *
  * 	DCE for DEC OSF/1: populate from OSF DCE 1.1
  * 	[1995/10/21  17:23:09  bfc]
- * 
+ *
  * Revision 1.1.11.2  1993/07/07  19:53:45  ganni
  * 	reduced stub idl sources
  * 	[1993/07/07  19:28:53  ganni]
- * 
+ *
  * Revision 1.1.5.5  1993/01/03  21:37:26  bbelch
  * 	Embedding copyright notice
  * 	[1993/01/03  14:31:40  bbelch]
  * 	Embedding copyright notice
- * 
+ *
  * Revision 1.1.12.2  1993/01/03  14:31:44  bbelch
  * 	Embedding copyright notice
- * 
+ *
  * Revision 1.1.5.4  1992/12/23  18:42:09  zeliff
  * 	Embedding copyright notice
  * 	[1992/12/23  00:58:39  zeliff]
  * 	Embedding copyright notice
- * 
+ *
  * Revision 1.1.12.2  1992/12/23  00:58:42  zeliff
  * 	Embedding copyright notice
- * 
+ *
  * Revision 1.1.5.3  1992/12/04  17:09:49  marty
  * 	OSC1.1.1 upgrade.
  * 	[1992/12/04  17:01:14  marty]
- * 
+ *
  * Revision 1.1.7.2  1992/11/17  19:59:29  marty
  * 	OSC1.1.1 upgrade.
  * 	[1992/11/17  13:20:31  marty]
- * 
+ *
  * Revision 1.1.5.2  1992/09/29  20:40:20  devsrc
  * 	Fix merge hiccup.
  * 	[1992/09/21  18:32:47  weisman]
- * 
+ *
  * 	SNI/SVR4 merge.  OT 5373
  * 	[1992/09/11  15:33:29  weisman]
- * 
+ *
  * $EndLog$
  */
 
@@ -76,7 +76,7 @@
  **      Hewlett-Packard Company, Palo Alto, Ca. &
  **      Digital Equipment Corporation, Maynard, Mass.
  **
- ** (c) Copyright 1991, 1992 
+ ** (c) Copyright 1991, 1992
  ** Siemens-Nixdorf Information Systems, Burlington, MA, USA
  ** All Rights Reserved
  **
@@ -173,6 +173,7 @@ static keyword_entry acf_keywords[] =   /* Table of keywords and values */
 
 %}
 
+%option prefix="acf_yy"
 
 delim           [ \t\n\f]
 ws              {delim}+
@@ -297,7 +298,7 @@ other           .
         )
         log_error(yylineno, NIDL_INTOVERFLOW, KEYWORDS_lookup_text(LONG_KW));
     else {
-        sscanf((char *)yytext, "%i", &yylval.y_ival);
+        sscanf((char *)yytext, "%ld", &yylval.y_ival);
     }
 
 

@@ -1,6 +1,6 @@
 /*
 */
-/* 
+/*
  * @OSF_COPYRIGHT@
  * COPYRIGHT NOTICE
  * Copyright (c) 1990, 1991, 1992, 1993, 1996 Open Software Foundation, Inc.
@@ -17,34 +17,34 @@
  * Revision 1.1.9.1  1995/12/08  17:39:50  root
  * 	Submit OSF/DCE 1.2.1
  * 	[1995/12/08  16:56:38  root]
- * 
+ *
  * Revision 1.1.7.3  1992/12/29  13:56:01  zeliff
  * 	Embedding copyright notice
  * 	[1992/12/28  20:50:49  zeliff]
- * 
+ *
  * Revision 1.1.7.2  1992/12/11  21:01:15  sommerfeld
  * 	[OT6336] use isdigit rather than hardcoded compares against chars..
  * 	[1992/12/09  21:59:38  sommerfeld]
- * 
+ *
  * Revision 1.1.5.3  1992/11/23  00:07:07  sommerfeld
  * 	Remove unnecessary function gensym().
  * 	[1992/11/20  22:30:48  sommerfeld]
- * 
+ *
  * 	Clean up logic in set_table_fun to use normal C idiom for string
  * 	walking and avoid double increment of string pointer.
  * 	[1992/11/20  22:17:23  sommerfeld]
- * 
+ *
  * Revision 1.1.5.2  1992/09/29  21:18:28  devsrc
  * 	[OT 5373]    SNI/SVR4 merge.
  * 	[1992/09/11  21:22:10  sekhar]
- * 
+ *
  * Revision 1.1.2.2  1992/04/09  20:08:47  jim
  * 	Changes for AIX 3.2.  Do not define malloc or string functions.
  * 	[1992/04/09  19:53:31  jim]
- * 
+ *
  * $EndLog$
  */
- 
+
 
 /*  error_table.y V=3 11/20/91 //littl/prgy/krb5/comerr
 **
@@ -59,11 +59,12 @@
 %{
 #include <stdlib.h>
 #include <stdio.h>
-    
+
 char *str_concat(), *ds(), *quote();
 char *current_token = (char *)NULL;
 extern char *table_name;
 %}
+
 %union {
         char *dynstr;
 }
@@ -154,6 +155,8 @@ static char const rcsid_error_table_y[] =
 
 extern FILE *hfile, *msfile;
 
+void yyerror(const char *message);
+
 char *
 ds(string)
         char const *string;
@@ -180,7 +183,7 @@ long table_number = 0;
 int current = 0;
 char **error_codes = (char **)NULL;
 
-add_ec(name, description)
+void add_ec(name, description)
         char const *name, *description;
 {
         if (msfile) {
@@ -197,8 +200,7 @@ add_ec(name, description)
         error_codes[current] = (char *)NULL;
 }
 
-add_ec_val(name, val, description)
-        char const *name, *val, *description;
+void add_ec_val(const char *name, const char *val, const char *description)
 {
         const int ncurrent = atoi(val);
         if (ncurrent < current) {
@@ -206,11 +208,11 @@ add_ec_val(name, val, description)
                        current);
                 return;
         }
-      
 
-        while (ncurrent > current) 
+
+        while (ncurrent > current)
             current++;
-        
+
         if (msfile) {
             if (current > 0)
                 fprintf(msfile, "%d\t%s\n", current, description);
@@ -223,9 +225,9 @@ add_ec_val(name, val, description)
                                        (current + 2)*sizeof(char *));
         error_codes[current++] = ds(name);
         error_codes[current] = (char *)NULL;
-} 
+}
 
-put_ecs()
+void put_ecs(void)
 {
         int i;
         for (i = 0; i < current; i++) {
@@ -246,8 +248,7 @@ put_ecs()
 static const char char_set[] =
         "abcdefghijklmnopqrstuvwxyz_0123456789";
 
-int char_to_num(c)
-        char c;
+int char_to_num(char c)
 {
         const char *where;
         int diff;
@@ -272,9 +273,9 @@ int char_to_num(c)
         exit (1);
 }
 
-set_table_fun(astring)
-char *astring; {
-    register char *tp;
+void set_table_fun(const char *astring)
+{
+    register const char *tp;
     unsigned int tc;
 
     for(tp=astring; (tc = *tp) != 0; tp++) {
@@ -291,8 +292,7 @@ char *astring; {
  * characters, but only store first 3 in the error code.  Note that this
  * function, as a side effect, truncates the table name down to 4 chars.
  */
-set_table_num(string)
-  char *string;
+void set_table_num( char *string)
 {
         long temp;
         int ctr;

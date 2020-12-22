@@ -6,8 +6,8 @@
  * ALL RIGHTS RESERVED (DCE).  See the file named COPYRIGHT.DCE in the
  * src directory for the full copyright text.
  */
-/* 
- * (c) Copyright 1991, 1992 
+/*
+ * (c) Copyright 1991, 1992
  *     Siemens-Nixdorf Information Systems, Burlington, MA, USA
  *     All Rights Reserved
  */
@@ -21,14 +21,14 @@
  * Revision 1.1.22.2  1996/03/09  23:25:49  marty
  * 	Update OSF copyright year
  * 	[1996/03/09  22:41:29  marty]
- * 
+ *
  * Revision 1.1.22.1  1995/12/07  22:21:11  root
  * 	Submit OSF/DCE 1.2.1
- * 
+ *
  * 	HP revision /main/HPDCE02/jrr_1.2_mothra/1  1995/11/20  20:53 UTC  jrr
  * 	Merge second XIDL drop for DCE 1.2.1
  * 	[1995/11/17  17:04 UTC  dat  /main/dat_xidl2/1]
- * 
+ *
  * 	oct 95 idl drop
  * 	[1995/10/23  00:44:19  bfc]
  * 	 *
@@ -41,89 +41,89 @@
  * 	Truncate identifiers at MAX_ID length
  * 	[1992/05/04  19:50:21  harrow]
  * 	 *
- * 
+ *
  * 	CR 8898 Warn user if IDL compiler encounters CPP directive
  * 	[1993/10/14  12:36:52  hinxman]
- * 
+ *
  * 	reduced stub idl sources
  * 	[1993/07/07  19:34:04  ganni]
- * 
+ *
  * 	Embedding copyright notice
  * 	[1993/01/03  14:37:09  bbelch]
- * 
+ *
  * 	Embedding copyright notice
  * 	[1992/12/23  01:04:26  zeliff]
- * 
+ *
  * 	OSC1.1.1 upgrade.
  * 	[1992/12/04  17:01:55  marty]
- * 
+ *
  * 	OSC1.1.1 upgrades.
  * 	[1992/11/17  13:19:58  marty]
- * 
+ *
  * 	SNI/SVR4 merge.  OT 5373
  * 	[1992/09/11  15:35:11  weisman]
- * 
+ *
  * 	Do not use the declarations for yyunput or yyoutput on AIX 3.2 with all
  * 	updates.
  * 	[1992/07/24  21:08:05  jim]
- * 
+ *
  * 	*** empty log message ***
  * 	[1992/05/05  15:17:05  harrow  1.1.2.2]
- * 
+ *
  * 	HP revision /main/HPDCE02/1  1994/08/03  16:32 UTC  tatsu_s
  * 	Merged mothra up to dce 1.1.
- * 
+ *
  * 	HP revision /main/HPDCE01/1  1994/05/04  20:50 UTC  lmm
  * 	Merge LEX fixes
- * 
+ *
  * 	HP revision /main/lmm_idl_rodan/1  1994/05/04  20:44 UTC  lmm
  * 	Fixes to account for new LEX output:
  * 	ydeclare yyoutput, yyunput as void;
  * 	don't declare yywrap as static.
  * 	[1995/12/07  21:12:49  root]
- * 
+ *
  * Revision 1.1.13.1  1993/10/14  12:37:14  hinxman
  * 	CR 8898 Warn user if IDL compiler encounters CPP directive
  * 	[1993/10/14  12:36:52  hinxman]
- * 
+ *
  * Revision 1.1.11.2  1993/07/07  20:02:44  ganni
  * 	reduced stub idl sources
  * 	[1993/07/07  19:34:04  ganni]
- * 
+ *
  * Revision 1.1.5.5  1993/01/03  21:40:46  bbelch
  * 	Embedding copyright notice
  * 	[1993/01/03  14:37:09  bbelch]
- * 
+ *
  * Revision 1.1.5.4  1992/12/23  18:49:52  zeliff
  * 	Embedding copyright notice
  * 	[1992/12/23  01:04:26  zeliff]
- * 
+ *
  * Revision 1.1.5.3  1992/12/04  17:09:42  marty
  * 	OSC1.1.1 upgrade.
  * 	[1992/12/04  17:01:55  marty]
- * 
+ *
  * Revision 1.1.7.2  1992/11/17  19:59:52  marty
  * 	OSC1.1.1 upgrades.
  * 	[1992/11/17  13:19:58  marty]
- * 
+ *
  * Revision 1.1.5.2  1992/09/29  20:41:14  devsrc
  * 	SNI/SVR4 merge.  OT 5373
  * 	[1992/09/11  15:35:11  weisman]
- * 
+ *
  * Revision 1.1.2.3  1992/07/24  21:08:41  jim
  * 	Do not use the declarations for yyunput or yyoutput on AIX 3.2 with all
  * 	updates.
  * 	[1992/07/24  21:08:05  jim]
- * 
+ *
  * Revision 1.1.2.2  1992/05/05  15:17:05  harrow
  * 	*** empty log message ***
- * 
+ *
  * Revision 1.1.1.2  1992/05/04  19:50:21  harrow
  * 	Truncate identifiers at MAX_ID length
- * 
+ *
  * Revision 1.1  1992/01/19  03:02:00  devrcs
  * 	Initial revision
- * 
+ *
  * $EndLog$
  */
 
@@ -195,11 +195,13 @@ void commenteof (
 #endif
 );
 
+#if 0
 int yylex (
 #ifdef PROTO
     void
 #endif
 );
+#endif // 0
 
 int yylook (
 #ifdef PROTO
@@ -273,16 +275,19 @@ int yyoutput (
 #endif
 );
 
+#if 0
 #if defined(SNI_SVR4) || defined(__hpux)
-void yyunput (
+static void yyunput (
 #else
-int yyunput (
+static int yyunput (
 #endif
 #ifdef PROTO
     int c
 #endif
 );
 #endif
+#endif // 0
+
 
 int yyback (
 #ifdef PROTO
@@ -295,6 +300,7 @@ int yyback (
 
 %}
 
+/* %option prefix="nidl_yy" */
 
 /* regular definitions  */
 
@@ -527,7 +533,7 @@ other           .
         )
         log_error(yylineno, NIDL_INTOVERFLOW, KEYWORDS_lookup_text(LONG_KW));
     else {
-        sscanf((char *)yytext, "%i", &yylval.y_ival);
+        sscanf((char *)yytext, "%ld", &yylval.y_ival);
     }
 
 
@@ -594,7 +600,8 @@ static int yywrap ()
     int    c ;
     if ((c = input()) != 0)
     {
-        unput(c) ;
+        /* unput(c) ; */
+        yyless(0);
         return (0) ;
     }
     yylineno = 1 ;
@@ -649,7 +656,8 @@ static void read_c_comment()
             if ((c = input()) == '/')
                 break ;
             else
-                unput(c) ;
+                /* unput(c) ; */
+                yyless(0);
         }
     }
 

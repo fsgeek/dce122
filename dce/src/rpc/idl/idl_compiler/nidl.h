@@ -14,41 +14,41 @@
  *
  * Revision 1.1.10.1  1995/12/07  22:21:04  root
  * 	Submit OSF/DCE 1.2.1
- * 
+ *
  * 	HP revision /main/dat_xidl2/1  1995/11/17  17:04 UTC  dat
  * 	Merge second XIDL drop for DCE 1.2.1
  * 	[1995/12/07  21:12:47  root]
- * 
+ *
  * Revision 1.1.2.1  1995/10/23  01:48:31  bfc
  * 	oct 95 idl drop
  * 	[1995/10/23  00:44:17  bfc]
- * 
+ *
  * 	may 95 idl drop
  * 	[1995/10/21  22:58:25  bfc]
- * 
+ *
  * 	DCE for DEC OSF/1: populate from OSF DCE 1.1
  * 	[1995/10/21  17:25:01  bfc]
- * 
+ *
  * Revision 1.1.6.2  1993/07/07  20:02:35  ganni
  * 	reduced stub idl sources
  * 	[1993/07/07  19:33:59  ganni]
- * 
+ *
  * Revision 1.1.4.3  1993/01/03  21:40:44  bbelch
  * 	Embedding copyright notice
  * 	[1993/01/03  14:37:05  bbelch]
- * 
+ *
  * Revision 1.1.4.2  1992/12/23  18:49:49  zeliff
  * 	Embedding copyright notice
  * 	[1992/12/23  01:04:22  zeliff]
- * 
+ *
  * Revision 1.1.2.2  1992/07/06  21:06:29  harrow
  * 	Change MALLOC macro to return zeroed memory becaue the
  * 	backend depends sometimes depends upon it.
  * 	[1992/07/06  14:47:31  harrow]
- * 
+ *
  * Revision 1.1  1992/01/19  03:03:00  devrcs
  * 	Initial revision
- * 
+ *
  * $EndLog$
  */
 /*
@@ -101,30 +101,32 @@
 #include <string.h>
 
 #ifdef DUMPERS
-# define DEBUG_VERBOSE 1
+#define DEBUG_VERBOSE 1
 #endif
 
-#if defined(__STDC__) || defined(_WIN32) 
-#   include <stdlib.h>
-#   ifndef CHAR_BIT
-#       include <limits.h>  /* Bring in limits.h if not cacaded in yet */
-#   endif
+#if defined(__STDC__) || defined(_WIN32)
+#include <stdlib.h>
+#ifndef CHAR_BIT
+#include <limits.h> /* Bring in limits.h if not cacaded in yet */
+#endif
 #else /* prototypes that normally come from stdlib.h */
-    extern void *malloc();
-    extern void *calloc();
-    extern void *realloc();
-    extern void free();
-    extern char *getenv(char*);
-    extern int atoi();
-    extern double atof();
-    extern long atol();
+extern void *malloc();
+extern void *calloc();
+extern void *realloc();
+extern void free();
+extern char *getenv(char *);
+extern int atoi();
+extern double atof();
+extern long atol();
 #endif
 #if defined DEBUG_VERBOSE || defined DUMPERS
-#   ifdef __STDC__
-#       include <assert.h>
-#   else
-#       define assert(ex) if (ex) ;
-#   endif
+#ifdef __STDC__
+#include <assert.h>
+#else
+#define assert(ex) \
+    if (ex)        \
+        ;
+#endif
 #endif
 #include <sysdep.h>
 
@@ -132,9 +134,9 @@
  * some generally useful types and macros
  */
 
-typedef unsigned char       unsigned8;
-typedef unsigned short int  unsigned16;
-typedef unsigned long int   unsigned32;
+typedef unsigned char unsigned8;
+typedef unsigned short int unsigned16;
+typedef unsigned long int unsigned32;
 
 typedef unsigned8 boolean;
 #define true 1
@@ -150,12 +152,12 @@ typedef unsigned8 boolean;
 
 typedef struct
 {
-    unsigned32      time_low;
-    unsigned16      time_mid;
-    unsigned16      time_hi_and_version;
-    unsigned8       clock_seq_hi_and_reserved;
-    unsigned8       clock_seq_low;
-    unsigned8       node[6];
+    unsigned32 time_low;
+    unsigned16 time_mid;
+    unsigned16 time_hi_and_version;
+    unsigned8 clock_seq_hi_and_reserved;
+    unsigned8 clock_seq_low;
+    unsigned8 node[6];
 } nidl_uuid_t;
 
 /*
@@ -167,7 +169,8 @@ typedef struct
 #include <nidlmsg.h>
 
 /* Language enum.  Here for lack of any place else. */
-typedef enum {
+typedef enum
+{
     lang_ada_k,
     lang_basic_k,
     lang_c_k,
@@ -184,32 +187,32 @@ typedef enum {
 /*
  *  A temp pointer to be used by the MALLOC macros.
  */
-static heap_mem * MALLOC_temp_ptr;
+static heap_mem *MALLOC_temp_ptr;
 
-#define MALLOC(n)                                \
-    (((MALLOC_temp_ptr = (heap_mem*)calloc (1,(n))) == (heap_mem*)NULL) ?  \
-        (error (NIDL_OUTOFMEM), (heap_mem*)NULL) : MALLOC_temp_ptr)
+#define MALLOC(n) \
+    (((MALLOC_temp_ptr = (heap_mem *)calloc(1, (n))) == (heap_mem *)NULL) ? (error(NIDL_OUTOFMEM), (heap_mem *)NULL) : MALLOC_temp_ptr)
 
-#define CALLOC(n,m)                                   \
-    (((MALLOC_temp_ptr = (heap_mem*)calloc ((n), (m))) == (heap_mem*)NULL) ?  \
-        (error (NIDL_OUTOFMEM), (heap_mem*)NULL) : MALLOC_temp_ptr)
+#define CALLOC(n, m) \
+    (((MALLOC_temp_ptr = (heap_mem *)calloc((n), (m))) == (heap_mem *)NULL) ? (error(NIDL_OUTOFMEM), (heap_mem *)NULL) : MALLOC_temp_ptr)
 
-#define REALLOC(p,n)                                           \
-    (((MALLOC_temp_ptr = (heap_mem*)realloc ((char*)(p), (n))) == (heap_mem*)NULL) ? \
-        (error (NIDL_OUTOFMEM), (heap_mem*)NULL) : MALLOC_temp_ptr )
+#define REALLOC(p, n) \
+    (((MALLOC_temp_ptr = (heap_mem *)realloc((char *)(p), (n))) == (heap_mem *)NULL) ? (error(NIDL_OUTOFMEM), (heap_mem *)NULL) : MALLOC_temp_ptr)
 
-#define FREE(p) free ((heap_mem*) (p));
-
+#define FREE(p) free((heap_mem *)(p));
 
 /*
  * Enable YYDEBUG, and ASSERTION checking, if DUMPERS is defined
  */
 #ifdef DUMPERS
-#  define YYDEBUG 1
-   /* If ASSERTION expression is FALSE, then issue warning */
-#  define ASSERTION(x) if (!(x)) warning(NIDL_INTERNAL_ERROR, __FILE__, __LINE__)
+#define YYDEBUG 1
+/* If ASSERTION expression is FALSE, then issue warning */
+#define ASSERTION(x) \
+    if (!(x))        \
+    warning(NIDL_INTERNAL_ERROR, __FILE__, __LINE__)
 #else
-#  define ASSERTION(x) if (0) (x)
+#define ASSERTION(x) \
+    if (0)           \
+    (x)
 #endif
 
 /*
@@ -223,11 +226,13 @@ extern void yywhere(
 #endif
 );
 
+#if 0
 extern int yylex(
 #ifdef PROTO
     void
 #endif
 );
+#endif // 0
 
 extern void yyerror(
 #ifdef PROTO
@@ -252,6 +257,5 @@ static void yymark(
     void
 #endif
 );
-
 
 #endif

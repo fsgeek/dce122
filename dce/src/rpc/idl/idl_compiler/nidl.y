@@ -15,33 +15,33 @@
  *
  * Revision 1.1.13.1  1995/12/07  22:21:18  root
  * 	Submit OSF/DCE 1.2.1
- * 
+ *
  * 	HP revision /main/dat_xidl2/1  1995/11/17  17:04 UTC  dat
  * 	Merge second XIDL drop for DCE 1.2.1
  * 	[1995/12/07  21:12:53  root]
- * 
+ *
  * Revision 1.1.2.1  1995/10/23  01:48:35  bfc
  * 	oct 95 idl drop
  * 	[1995/10/23  00:44:21  bfc]
- * 
+ *
  * 	may 95 idl drop
  * 	[1995/10/21  22:58:34  bfc]
- * 
+ *
  * 	DCE for DEC OSF/1: populate from OSF DCE 1.1
  * 	[1995/10/21  17:25:06  bfc]
- * 
+ *
  * Revision 1.1.9.1  1994/02/23  00:08:56  rico
  * 	Issue syntax error for empty enum - CR 9955.
  * 	[1994/02/22  13:51:02  rico]
- * 
+ *
  * Revision 1.1.6.1  1993/10/14  12:38:39  hinxman
  * 	CR 8674 idl compiler generates wrong code for int type
  * 	[1993/10/14  12:38:08  hinxman]
- * 
+ *
  * Revision 1.1.4.2  1993/07/07  20:02:57  ganni
  * 	reduced stub idl sources
  * 	[1993/07/07  19:34:08  ganni]
- * 
+ *
  * $EndLog$
  */
 %{
@@ -70,7 +70,7 @@
 **
 **  NAME:
 **
-**      IDL.Y 
+**      IDL.Y
 **
 **  FACILITY:
 **
@@ -293,13 +293,13 @@ static ASTP_attr_k_t       ASTP_bound_type;    /* Array bound attribute */
 /*                                                                  */
 /********************************************************************/
 
-grammer_start: 
+grammer_start:
         interface
         {
             /* Support for multiple interfaces...  */
         }
     ;
-    
+
 
 interface:
         interface_init interface_start interface_derivation interface_tail
@@ -313,7 +313,7 @@ interface_start:
         {
 	    AST_type_n_t *interface_type = AST_type_node(AST_interface_k);
 	    interface_type->type_structure.interface = the_interface;
-	    interface_type->name = $<y_id>3; 
+	    interface_type->name = $<y_id>3;
             the_interface->name = $<y_id>3;
             ASTP_add_name_binding(the_interface->name, (char *)interface_type);
 
@@ -351,7 +351,7 @@ interface_init:
             }
         }
     ;
-                                                 
+
 interface_tail:
         LBRACE interface_body RBRACE
         { $<y_interface>$ = $<y_interface>2; }
@@ -474,7 +474,7 @@ export:
 
 const_dcl:
         CONST_KW type_spec declarator EQUAL const_exp
- 
+
         {
            $<y_constant>$ = AST_finish_constant_node ($<y_constant>5,
                                         $<y_declarator>3, $<y_type>2);
@@ -484,7 +484,7 @@ const_dcl:
 
 
 
-    
+
 
 
 const_exp:  expression
@@ -964,8 +964,8 @@ declarator:
     ;
 declarator1:
         direct_declarator
-            { 
-	        $<y_declarator>$ = $<y_declarator>1; 
+            {
+	        $<y_declarator>$ = $<y_declarator>1;
 	    }
        |    pointer direct_declarator
             {
@@ -985,7 +985,7 @@ declarator1:
 
 pointer :
             STAR optional_const_qual
-            { 
+            {
 	      $<y_ival>$ = 1;
 	    }
        |    STAR optional_const_qual pointer
@@ -1630,7 +1630,7 @@ attribute:
                                   ASTP_case = $<y_label>3;
                                 }
     |   DEFAULT_KW              { $<y_attributes>$.attr_flags = ASTP_DEFAULT;
-                                  $<y_attributes>$.bounds = NULL;       
+                                  $<y_attributes>$.bounds = NULL;
                                 }
     |   IDENTIFIER      /* Not an attribute, so give an error */
         {
